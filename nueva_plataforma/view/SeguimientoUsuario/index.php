@@ -153,8 +153,6 @@
                                 <th>Retorno Almuerzo</th>
                                 <th>Retorno Oficina</th>
                                 <th>Hora Salida</th>
-                                <th>TEM Entrada</th>
-                                <th>TEM Salida</th>
                                 <th>Tipo Contrato</th>
                                 <th>PLACA</th>
                                 <th>Fecha Seguro</th>
@@ -458,8 +456,6 @@
                 { data: 'retorno_almuerzo_link' },
                 { data: 'retorno_oficina_link' },
                 { data: 'seg_fechafinalizo' },
-                { data: 'tem_entrada_link' },
-                { data: 'tem_salida_link' },
                 { data: 'usu_tipocontrato' },
                 { data: 'veh_placa' },
                 { data: 'fecha_seguro_html' },
