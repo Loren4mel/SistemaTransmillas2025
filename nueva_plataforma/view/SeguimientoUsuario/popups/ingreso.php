@@ -19,6 +19,10 @@ $pruebaSeleccionada = $pruebaSeleccionada ?? 'No aplica';
             <label class="form-label">Operario</label>
             <p class="form-control-plaintext"><?= htmlspecialchars($usuario['usu_nombre'] ?? '') ?></p>
         </div>
+        <div class="mb-3">
+            <label class="form-label">Sede</label>
+            <p class="form-control-plaintext"><?= htmlspecialchars($sedeNombre) ?></p>
+        </div>
     <?php else: ?>
         <!-- Modo manual: seleccionar sede y operario -->
         <div class="row mb-3">
@@ -61,7 +65,7 @@ $pruebaSeleccionada = $pruebaSeleccionada ?? 'No aplica';
     <div class="row mb-3">
         <div class="col-md-6">
             <label for="zona" class="form-label">Zona de trabajo</label>
-            <select name="zona" id="zona" class="form-select" required>
+            <select name="zona" id="ing_zona" class="form-select" required>
                 <option value="">Seleccione</option>
                 <?php foreach ($zonas as $z): ?>
                     <option value="<?= $z['idzonatrabajo'] ?>" <?= $z['idzonatrabajo'] == $zonaSeleccionada ? 'selected' : '' ?>>
@@ -82,7 +86,8 @@ $pruebaSeleccionada = $pruebaSeleccionada ?? 'No aplica';
 
     <div class="mb-3">
         <label for="descripcion" class="form-label">Descripción</label>
-        <textarea name="descripcion" id="descripcion" class="form-control" rows="2"><?= htmlspecialchars($descripcion) ?></textarea>
+        <textarea name="descripcion" id="descripcion" class="form-control"
+            rows="2"><?= htmlspecialchars($descripcion) ?></textarea>
     </div>
 
     <div class="mb-3">

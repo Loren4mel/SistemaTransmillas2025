@@ -312,13 +312,27 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
     $data = [];
     switch ($tipo) {
         case 'ingreso_manual':
-            // Obtener motivos filtrados (solo ingreso)
+            // Modo manual: sin operario preseleccionado
             $motivos = $modelo->getMotivosIngreso('ingreso');
+            $sedes = $modelo->getSedes(); // para el selector de sede    
+            $zonas = $modelo->getZonasPorSede($sedePredeterminada);
 
-            // Obtener zonas de la sede predeterminada (usuario actual o la del operario)
+            // Variables vacías para el formulario
+            $idUsuario = 0;
+            $sedePredeterminada = 0; // No preseleccionamos ninguna sede
+            $idSeguimiento = 0;
+            $fecha = date('Y-m-d');
+            $motivoSeleccionado = '';
+            $descripcion = '';
+            $zonaSeleccionada = 0;
+            $pruebaSeleccionada = 'No aplica';
+            $usuario = null;
+
+            include "../view/SeguimientoUsuario/popups/ingreso.php";
+            break;
+        case 'ingreso':
+            $motivos = $modelo->getMotivosIngreso('ingreso');
             $sedePredeterminada = $_SESSION['usu_idsede'] ?? 0;
-
-            // Si hay idUsuario, obtener su sede
             $idUsuario = 0;
             $idSeguimiento = 0;
             $fecha = date('Y-m-d');
@@ -327,6 +341,8 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
             $zonaSeleccionada = 0;
             $pruebaSeleccionada = 'No aplica';
             $usuario = null;
+            $sedeUsuario = 0;
+            $sedeNombre = '';
 
             if ($id > 0) {
                 $seguimiento = $modelo->getSeguimientoById($id);
@@ -338,30 +354,35 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
                     $descripcion = $seguimiento['seg_descr'];
                     $zonaSeleccionada = $seguimiento['seg_idzona'];
                     $pruebaSeleccionada = $seguimiento['seg_alcohol'];
-                    // Obtener datos del usuario para mostrar nombre
                     $usuario = $modelo->getOperarioById($idUsuario);
+                    $sedeUsuario = $usuario['usu_idsede'] ?? 0;
                 } else {
-                    // Es un usuario nuevo
                     $usuario = $modelo->getOperarioById($id);
                     if ($usuario) {
                         $idUsuario = $usuario['idusuarios'];
-                        $sedePredeterminada = $usuario['usu_idsede'];
+                        $sedeUsuario = $usuario['usu_idsede'];
+                    } else {
+                        echo "Usuario no encontrado";
+                        exit;
                     }
                 }
+            } else {
+                echo "<div class='alert alert-danger'>No se proporcionó un ID válido.</div>";
+                exit;
             }
 
-            // Obtener zonas de la sede predeterminada
-            $zonas = $modelo->getZonasPorSede($sedePredeterminada);
+            // Obtener nombre de la sede 
+            $sedeInfo = $modelo->getSedeById($sedeUsuario);
+            $sedeNombre = $sedeInfo['sed_nombre'] ?? '';
 
-            // Obtener todas las sedes (para el modal manual)
-            $sedes = $modelo->getSedes(); // Este método ya debe existir
+            // Cargar zonas según la sede del operario
+            $zonas = $modelo->getZonasPorSede($sedeUsuario);
 
-            // Incluir la vista parcial
+            // Incluir la vista
             ob_start();
-            ob_start();
-            $vista= __DIR__ . "/../view/SeguimientoUsuario/popups/ingreso.php";
+            $vista = __DIR__ . "/../view/SeguimientoUsuario/popups/ingreso.php";
             if (!file_exists($vista)) {
-                echo "<div class='alert alert-danger'>La vista '$tipo' no existe.</div>";
+                echo "<div class='alert alert-danger'>La vista no existe.</div>";
                 exit;
             }
             include $vista;
@@ -388,7 +409,6 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
             $data['param'] = $param;
             $data['operarios'] = $modelo->getTodosOperarios();
             break;
-        // Añade más casos según necesites
     }
 
     // Pasar variables a la vista parcial

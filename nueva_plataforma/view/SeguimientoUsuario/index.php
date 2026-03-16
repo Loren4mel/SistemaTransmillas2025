@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         .noti_bubble {
             float: right;
@@ -326,12 +327,93 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <!-- CSS de Select2 -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <script>
+        // Variables globales
         const dirPage = <?= json_encode($ajaxEndpoint ?? '') ?> || window.location.pathname;
         $.fn.dataTable.ext.errMode = 'none';
 
-        // Inicializar DataTable
+        // --- Funciones auxiliares reutilizables ---
+        function mostrarError(mensaje) {
+            alert('Error: ' + mensaje);
+            console.error(mensaje);
+        }
+
+        function cargarOperarios(selectId, sedeId, textoPorDefecto = 'Seleccione') {
+            if (!sedeId) {
+                // Si no hay sede, limpiar select
+                $(selectId).html('<option value="">' + textoPorDefecto + '</option>');
+                return;
+            }
+            $.get(dirPage, { accion: 'get_operarios', idsede: sedeId }, function (data) {
+                let options = '<option value="">' + textoPorDefecto + '</option>';
+                data.forEach(op => {
+                    options += `<option value="${op.idusuarios}">${op.usu_nombre}</option>`;
+                });
+                $(selectId).html(options);
+            }).fail(function () {
+                mostrarError('No se pudieron cargar los operarios');
+            });
+        }
+
+        function cargarZonas(selectId, sedeId) {
+            if (!sedeId) {
+                $(selectId).html('<option value="">Seleccione</option>');
+                return;
+            }
+            $.get(dirPage, { accion: 'get_zonas', idsede: sedeId }, function (data) {
+                let options = '<option value="">Seleccione</option>';
+                data.forEach(z => {
+                    options += `<option value="${z.idzonatrabajo}">${z.zon_nombre}</option>`;
+                });
+                $(selectId).html(options);
+            }).fail(function () {
+                mostrarError('No se pudieron cargar las zonas');
+            });
+        }
+
+        function guardarForm(formId, modalId, url = dirPage) {
+            let $form = $(formId);
+            let data = $form.serialize();
+            $.post(url, data, function (res) {
+                if (res.success) {
+                    $(modalId).modal('hide');
+                    tabla.ajax.reload();
+                } else {
+                    mostrarError(res.message || 'Error al guardar');
+                }
+            }, 'json').fail(function () {
+                mostrarError('Error de comunicación con el servidor');
+            });
+        }
+        // Función para cargar operarios en un select y aplicar Select2
+        function cargarOperariosConSelect2(selector, sede = '', placeholder = 'Seleccione') {
+            let url = sede ? (dirPage + '?accion=get_operarios&idsede=' + sede) : (dirPage + '?accion=get_all_operarios');
+            $.get(url, function (data) {
+                let $select = $(selector);
+                $select.empty().append('<option value="">' + placeholder + '</option>');
+                data.forEach(function (op) {
+                    $select.append('<option value="' + op.idusuarios + '">' + op.usu_nombre + '</option>');
+                });
+                // Si ya tiene Select2, destrúyelo antes de reinicializar
+                if ($select.hasClass('select2-hidden-accessible')) {
+                    $select.select2('destroy');
+                }
+                // Inicializar Select2
+                $select.select2({
+                    placeholder: placeholder,
+                    allowClear: true,
+                    width: '100%',
+                    dropdownParent: $(selector).closest('.modal')
+                })
+            }).fail(function (xhr, status, error) {
+                console.error('Error cargando operarios:', status, error);
+            });
+        }
+
+        // --- Inicialización DataTable ---
         let tabla = $('#tablaSeguimiento').DataTable({
             processing: true,
             serverSide: true,
@@ -385,8 +467,8 @@
                 { data: 'fecha_licencia_html' },
                 { data: 'cambio_aceite_html' },
                 <?php if ($_SESSION['usuario_rol'] == 1 || $_SESSION['usuario_rol'] == 12): ?>
-                                                                            { data: 'eliminar_html' }
-            <?php endif; ?>
+                                                                        { data: 'eliminar_html' }
+                <?php endif; ?>
             ],
             columnDefs: [
                 { targets: '_all', className: 'text-center' }
@@ -399,6 +481,7 @@
             scrollX: true
         });
 
+        // Eventos de DataTable para depuración
         $('#tablaSeguimiento').on('xhr.dt', function (e, settings, json, xhr) {
             console.log('Respuesta DataTable:', json);
             if (json && json.error) {
@@ -415,7 +498,34 @@
             tabla.ajax.reload();
         }
 
-        // Abrir modal de ingreso manual
+        // --- Eventos globales (una sola vez) ---
+
+        // Cuando cambia la sede en filtros, actualizar selects de operarios (filtro y modales)
+        $('#sede').on('change', function () {
+            let sede = $(this).val();
+            // Actualizar filtro de operarios
+            cargarOperarios('#operario', sede, 'Todos');
+            // Actualizar selects de modales (si existen en el DOM)
+            cargarOperarios('#ing_operario', sede, 'Seleccione');
+            cargarOperarios('#vac_operario', sede, 'Seleccione');
+            cargarOperarios('#lic_operario', sede, 'Seleccione');
+        });
+
+        // Mostrar deuda al seleccionar operario en el filtro
+        $('#operario').on('change', function () {
+            let id = $(this).val();
+            if (id) {
+                $.get(dirPage, { accion: 'get_deuda', idoperario: id }, function (res) {
+                    $('#miCelda').html('Debe: $ ' + res.deuda).show();
+                }).fail(function () {
+                    $('#miCelda').hide();
+                });
+            } else {
+                $('#miCelda').hide();
+            }
+        });
+
+        // Carga de contenido en modal de ingreso
         $('#modalIngreso').on('show.bs.modal', function () {
             $('#ingresoModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
             $.get(window.location.pathname, { accion: 'form_popup', tipo: 'ingreso_manual' }, function (html) {
@@ -425,105 +535,68 @@
             });
         });
 
-        // Para modal de ingreso: cuando cambia la sede, cargar operarios de esa sede
-        $('#ing_sede').on('change', function () {
+        // Cuando se carga el formulario de ingreso (vía AJAX), delegar eventos
+        $(document).on('change', '#ing_sede', function () {
             let sede = $(this).val();
-            if (sede) {
-                $.get(dirPage, { accion: 'get_operarios', idsede: sede }, function (data) {
-                    let options = '<option value="">Seleccione</option>';
-                    data.forEach(op => {
-                        options += `<option value="${op.idusuarios}">${op.usu_nombre}</option>`;
-                    });
-                    $('#ing_operario').html(options);
-                });
-            } else {
-                $('#ing_operario').html('<option value="">Seleccione</option>');
-            }
+            cargarOperarios('#ing_operario', sede, 'Seleccione');
+            cargarZonas('#ing_zona', sede);
         });
 
-        // Para modal de vacaciones: cargar todos los operarios al abrir (solo una vez)
+        // Carga de operarios en modales de vacaciones y licencias al abrirlos
+
+        // Al abrir modal de vacaciones
         $('#modalVacaciones').on('show.bs.modal', function () {
-            if ($('#vac_operario option').length <= 1) {
-                $.get(dirPage, { accion: 'get_all_operarios' }, function (data) {
-                    let options = '<option value="">Seleccione</option>';
-                    data.forEach(op => {
-                        options += `<option value="${op.idusuarios}">${op.usu_nombre}</option>`;
-                    });
-                    $('#vac_operario').html(options);
-                });
-            }
+            cargarOperariosConSelect2('#vac_operario', $('#sede').val(), 'Seleccione operario');
         });
 
-        // Para modal de licencias: cargar todos los operarios al abrir
+        // Al abrir modal de licencias
+        // Al abrir modal de licencias
         $('#modalLicencias').on('show.bs.modal', function () {
-            if ($('#lic_operario option').length <= 1) {
-                $.get(dirPage, { accion: 'get_all_operarios' }, function (data) {
-                    let options = '<option value="">Seleccione</option>';
-                    data.forEach(op => {
-                        options += `<option value="${op.idusuarios}">${op.usu_nombre}</option>`;
-                    });
-                    $('#lic_operario').html(options);
-                });
+            cargarOperariosConSelect2('#lic_operario', $('#sede').val(), 'Seleccione operario');
+        });
+
+        // Al cerrar modales, destruir Select2 solo si existe la instancia
+        $('#modalVacaciones, #modalLicencias').on('hidden.bs.modal', function () {
+            // Selecciona específicamente los selects de cada modal
+            var $select = $(this).find('#vac_operario, #lic_operario');
+            // Verifica que el elemento exista y tenga la instancia de Select2 activa
+            if ($select.length && $select.data('select2')) {
+                $select.select2('destroy');
             }
         });
 
+        // Manejo del formulario genérico en popup
         $(document).on('submit', '#popupForm', function (e) {
             e.preventDefault();
-            $.post(window.location.pathname, $(this).serialize(), function (res) {
-                if (res.success) {
-                    $('#popupModal').modal('hide');
-                    tabla.ajax.reload(); // Recarga la DataTable
-                } else {
-                    alert(res.message || 'Error al guardar');
+            var formData = new FormData(this);
+            $.ajax({
+                url: window.location.pathname,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function (res) {
+                    if (res.success) {
+                        $('#popupModal').modal('hide');
+                        tabla.ajax.reload();
+                    } else {
+                        mostrarError(res.message || 'Error al guardar');
+                    }
+                },
+                error: function () {
+                    mostrarError('Error de comunicación con el servidor');
                 }
-            }, 'json');
+            });
         });
 
-        // Cuando cambia la sede, cargar operarios en los selects
-        $('#sede').on('change', function () {
-            let sede = $(this).val();
-            if (sede) {
-                $.get(dirPage, { accion: 'get_operarios', idsede: sede }, function (data) {
-                    let options = '<option value="">Todos</option>';
-                    data.forEach(op => {
-                        options += `<option value="${op.idusuarios}">${op.usu_nombre}</option>`;
-                    });
-                    $('#operario').html(options);
-                    // También actualizar selects de modales
-                    $('#ing_operario, #vac_operario, #lic_operario').html(options);
-                });
-            } else {
-                $('#operario').html('<option value="">Todos</option>');
-            }
+        // Manejo de burbujas de notificación
+        $(document).on('click', '.noti_bubble', function () {
+            var id = $(this).data('id');
+            $('.noti_options[data-id="' + id + '"]').toggle();
         });
 
-        // Cuando cambia la sede en el modal de ingreso, cargar zonas
-        $('#ing_sede').on('change', function () {
-            let sede = $(this).val();
-            if (sede) {
-                $.get(dirPage, { accion: 'get_zonas', idsede: sede }, function (data) {
-                    let options = '<option value="">Seleccione</option>';
-                    data.forEach(z => {
-                        options += `<option value="${z.idzonatrabajo}">${z.zon_nombre}</option>`;
-                    });
-                    $('#ing_zona').html(options);
-                });
-            }
-        });
-
-        // Mostrar deuda al seleccionar operario en el filtro
-        $('#operario').on('change', function () {
-            let id = $(this).val();
-            if (id) {
-                $.get(dirPage, { accion: 'get_deuda', idoperario: id }, function (res) {
-                    $('#miCelda').html('Debe: $ ' + res.deuda).show();
-                });
-            } else {
-                $('#miCelda').hide();
-            }
-        });
-
-        // Funciones para abrir modales
+        // --- Funciones de apertura de modales (mantenidas para compatibilidad) ---
         function abrirModalIngreso() {
             $('#modalIngreso').modal('show');
         }
@@ -537,7 +610,37 @@
             $('#modalLicencias').modal('show');
         }
 
-        // Guardar ingreso
+        // Funciones de guardado ahora usan la función genérica
+        function guardarFestivos() {
+            guardarForm('#formFestivos', '#modalFestivos');
+        }
+        function guardarVacaciones() {
+            guardarForm('#formVacaciones', '#modalVacaciones');
+        }
+        function guardarLicencias() {
+            guardarForm('#formLicencias', '#modalLicencias');
+        }
+
+        // Función para abrir popup genérico (sin cambios)
+        function abrirPopup(tipo, id, param) {
+            $('#popupModal .modal-title').text('Editando: ' + tipo);
+            $('#popupModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
+            $('#popupModal').modal('show');
+
+            $.get(window.location.pathname, {
+                accion: 'form_popup',
+                tipo: tipo,
+                id: id,
+                param: param
+            }, function (html) {
+                $('#popupModalBody').html(html);
+            }).fail(function (jqXHR, textStatus, errorThrown) {
+                console.error('Error al cargar popup:', textStatus, errorThrown);
+                $('#popupModalBody').html('<div class="alert alert-danger">Error al cargar el formulario. Ver consola.</div>');
+            });
+        }
+
+        // Función guardarIngreso (específica porque usa FormData)
         function guardarIngreso() {
             let formData = new FormData(document.getElementById('formIngreso'));
             $.ajax({
@@ -559,104 +662,6 @@
                 }
             });
         }
-
-        function guardarFestivos() {
-            let data = $('#formFestivos').serialize();
-            $.post(dirPage, data, function (res) {
-                alert(res.message);
-                if (res.success) {
-                    $('#modalFestivos').modal('hide');
-                    tabla.ajax.reload();
-                }
-            }, 'json');
-        }
-
-        function guardarVacaciones() {
-            let data = $('#formVacaciones').serialize();
-            $.post(dirPage, data, function (res) {
-                alert(res.message);
-                if (res.success) {
-                    $('#modalVacaciones').modal('hide');
-                    tabla.ajax.reload();
-                }
-            }, 'json');
-        }
-
-        function guardarLicencias() {
-            let data = $('#formLicencias').serialize();
-            $.post(dirPage, data, function (res) {
-                alert(res.message);
-                if (res.success) {
-                    $('#modalLicencias').modal('hide');
-                    tabla.ajax.reload();
-                }
-            }, 'json');
-        }
-
-        function abrirPopup(tipo, id, param) {
-            $('#popupModal .modal-title').text('Editando: ' + tipo);
-            $('#popupModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
-            $('#popupModal').modal('show'); // Mostrar modal inmediatamente con el spinner
-
-            $.get(window.location.pathname, {
-                accion: 'form_popup',
-                tipo: tipo,
-                id: id,
-                param: param
-            }, function (html) {
-                $('#popupModalBody').html(html);
-            }).fail(function (jqXHR, textStatus, errorThrown) {
-                console.error('Error al cargar popup:', textStatus, errorThrown);
-                $('#popupModalBody').html('<div class="alert alert-danger">Error al cargar el formulario. Ver consola.</div>');
-            });
-        }
-
-        // Manejar envío del formulario dentro del modal
-        $(document).on('submit', '#popupForm', function (e) {
-            e.preventDefault();
-            var formData = new FormData(this);
-            $.ajax({
-                url: window.location.pathname,
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                dataType: 'json',
-                success: function (res) {
-                    if (res.success) {
-                        $('#popupModal').modal('hide');
-                        tabla.ajax.reload(); // Recargar DataTable
-                    } else {
-                        alert(res.message || 'Error al guardar');
-                    }
-                },
-                error: function () {
-                    alert('Error de comunicación con el servidor');
-                }
-            });
-        });
-
-        // Cargar operarios al cambiar sede en el modal de ingreso (cuando se usa manualmente)
-        $(document).on('change', '#ing_sede', function () {
-            var sede = $(this).val();
-            if (sede) {
-                $.get(window.location.pathname, { accion: 'get_operarios', idsede: sede }, function (data) {
-                    var options = '<option value="">Seleccione</option>';
-                    data.forEach(function (op) {
-                        options += '<option value="' + op.idusuarios + '">' + op.usu_nombre + '</option>';
-                    });
-                    $('#ing_operario').html(options);
-                });
-            } else {
-                $('#ing_operario').html('<option value="">Seleccione</option>');
-            }
-        });
-
-        // Para manejar burbujas de alerta (hover)
-        $(document).on('click', '.noti_bubble', function () {
-            var id = $(this).data('id');
-            $('.noti_options[data-id="' + id + '"]').toggle();
-        });
     </script>
 </body>
 

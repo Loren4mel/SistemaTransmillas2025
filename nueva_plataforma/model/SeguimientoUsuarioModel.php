@@ -365,6 +365,16 @@ class SeguimientoUsuarioModel
         return $row['usu_idsede'] ?? 0;
     }
 
+    public function getSedeById($id)
+    {
+        $sql = "SELECT idsedes, sed_nombre FROM sedes WHERE idsedes = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result->fetch_assoc();
+    }
+
     private function linkPreoperacional($row)
     {
         if (empty($row['idpreoperacinal']))
