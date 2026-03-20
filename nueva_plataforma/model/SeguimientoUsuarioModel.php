@@ -8,6 +8,13 @@ class SeguimientoUsuarioModel
     private $zonasCache = [];
     private $companerosCache = [];
 
+    private $uploadPath = __DIR__ . '/../../uploads/'; // Ajusta según tu estructura
+
+    public function getDB()
+    {
+        return $this->db;
+    }
+
     public function __construct()
     {
         $this->db = (new Database())->connect();
@@ -270,17 +277,16 @@ class SeguimientoUsuarioModel
             return '#82E0AA';
         if ($row['seg_motivo'] === 'Vacaciones')
             return '#FFC300';
-        if ($row['preestado'] !== 'Validado' && $row['preestado'] !== 'Validado Covid19')
-            return '#ff5f42';
-        // Si hay pre-operacional, alternar colores según el ID
-        if ($row['idpreoperacinal']) {
+        if (!empty($row['idpreoperacinal'])) {
+            if ($row['preestado'] !== 'Validado' && $row['preestado'] !== 'Validado Covid19')
+                return '#ff5f42';
+            // Alternar colores según ID de pre-operacional
             return ($row['idpreoperacinal'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
         }
-        // Si no hay pre-operacional pero hay seguimiento, usar el ID de seguimiento
-        if ($row['idseguimiento_user']) {
-            return ($row['idseguimiento_user'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
+        if (!empty($row['idseguimiento_user'])) {
+            return ($row['idseguimiento_user'] % 2 == 0) ? '#FFFFFF' : '#000000';
         }
-        return '#FFFFFF'; // fallback
+        return '#FFFFFF';
     }
 
     private function getVehiculo($id)
@@ -552,11 +558,24 @@ class SeguimientoUsuarioModel
     }
 
 
-    // Funciones que originalmente estaban en $LT (debes adaptarlas a tu sistema)
-    private function llenadocs3($tabla, $id, $version, $ancho, $texto)
+    // Funciones que originalmente estaban en $LT y que ahora se han movido aquí para mantener la lógica de negocio en el modelo
+    private function llenadocs3($tabla, $idviene, $version, $ancho, $texto)
     {
-        // Implementa según tu lógica de documentos
-        return "<a href='#' onclick='verDocumento($id, \"$tabla\", $version)'>$texto</a>";
+        if (!$idviene)
+            return '';
+        $sql = "SELECT iddocumentos, doc_ruta, doc_fecha FROM documentos 
+            WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ? 
+            ORDER BY doc_fecha DESC LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("isi", $idviene, $tabla, $version);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($row = $result->fetch_assoc()) {
+            // Usar el endpoint para servir el archivo (por seguridad)
+            $url = "?accion=ver_documento&id=" . $row['iddocumentos'];
+            return "<a href='#' onclick='window.open(\"$url\", \"_blank\")'><img src='img/icono_documento.png' width='$ancho'> $texto</a>";
+        }
+        return '';
     }
 
     private function edites($id, $accion, $tipo, $param)
@@ -581,6 +600,9 @@ class SeguimientoUsuarioModel
                 (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_idzona, seg_alcohol, seg_fechaalcohol, seg_iduserregistro)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            throw new Exception("Error en prepare: " . $this->db->error);
+        }
         $stmt->bind_param(
             "isssisss",
             $data['operario'],
@@ -601,13 +623,16 @@ class SeguimientoUsuarioModel
         }
 
         // Verificar si existe pre-operacional para esa fecha, si no, insertar uno
-        $sql2 = "SELECT idpreoperacinal FROM pre-operacional WHERE preidusuario = ? AND DATE(prefechaingreso) = ?";
+        $sql2 = "SELECT idpreoperacinal FROM `pre-operacional` WHERE preidusuario = ? AND DATE(prefechaingreso) = ?";
         $stmt2 = $this->db->prepare($sql2);
+        if (!$stmt2) {
+            throw new Exception("Error en prepare: " . $this->db->error);
+        }
         $stmt2->bind_param("is", $data['operario'], $data['fecha']);
         $stmt2->execute();
         $existe = $stmt2->get_result()->fetch_assoc();
         if (!$existe) {
-            $sql3 = "INSERT INTO pre-operacional (prefechaingreso, preidusuario, preestado) VALUES (?, ?, 'No aplica')";
+            $sql3 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, 'No aplica')";
             $stmt3 = $this->db->prepare($sql3);
             $fecha_con_hora = $data['fecha'] . ' 00:00:00';
             $stmt3->bind_param("si", $fecha_con_hora, $data['operario']);
@@ -672,7 +697,7 @@ class SeguimientoUsuarioModel
                     $stmt1->execute();
 
                     // Insertar en pre-operacional
-                    $sql2 = "INSERT INTO pre-operacional (prefechaingreso, preidusuario, preestado) VALUES (?, ?, 'descanso')";
+                    $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, 'descanso')";
                     $stmt2 = $this->db->prepare($sql2);
                     $stmt2->bind_param("si", $fecha_hora, $iduser);
                     $stmt2->execute();
@@ -710,7 +735,7 @@ class SeguimientoUsuarioModel
                     $stmt1->bind_param("issi", $iduser, $fecha_hora, $fecha_str, $id_usuario);
                     $stmt1->execute();
 
-                    $sql2 = "INSERT INTO pre-operacional (prefechaingreso, preidusuario, preestado) VALUES (?, ?, 'vacaciones')";
+                    $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, 'vacaciones')";
                     $stmt2 = $this->db->prepare($sql2);
                     $stmt2->bind_param("si", $fecha_hora, $iduser);
                     $stmt2->execute();
@@ -749,7 +774,7 @@ class SeguimientoUsuarioModel
                     $stmt1->bind_param("issssi", $iduser, $fecha_hora, $data['motivo'], $data['descripcion'], $fecha_str, $id_usuario);
                     $stmt1->execute();
 
-                    $sql2 = "INSERT INTO pre-operacional (prefechaingreso, preidusuario, preestado) VALUES (?, ?, ?)";
+                    $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, ?)";
                     $stmt2 = $this->db->prepare($sql2);
                     $stmt2->bind_param("sis", $fecha_hora, $iduser, $data['motivo']);
                     $stmt2->execute();
@@ -774,7 +799,7 @@ class SeguimientoUsuarioModel
      */
     private function getRegistrosSinMotivo($start, $length, $filtros, $search, $orderColumn, $orderDir)
     {
-        // 1. Obtener usuarios paginados (igual que antes)
+        // 1. Obtener TODOS los usuarios que cumplen filtros (sin paginar)
         $sqlUsuarios = "SELECT u.idusuarios, u.usu_nombre, u.usu_identificacion, u.usu_tipocontrato,
                            u.usu_fechalicencia, u.usu_idsede
                     FROM usuarios u
@@ -806,17 +831,10 @@ class SeguimientoUsuarioModel
             $types .= "ss";
         }
 
-        // Ordenamiento
-        $orderMap = ['usu_nombre' => 'u.usu_nombre', 'tipo_contrato' => 'u.usu_tipocontrato'];
-        $orderField = $orderMap[$orderColumn] ?? 'u.usu_nombre';
-        $sqlUsuarios .= " ORDER BY $orderField $orderDir";
-        $sqlUsuarios .= " LIMIT ?, ?";
-        $params[] = $start;
-        $params[] = $length;
-        $types .= "ii";
-
         $stmt = $this->db->prepare($sqlUsuarios);
-        $stmt->bind_param($types, ...$params);
+        if (!empty($params)) {
+            $stmt->bind_param($types, ...$params);
+        }
         $stmt->execute();
         $usuarios = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
@@ -836,7 +854,7 @@ class SeguimientoUsuarioModel
             $dias[] = $fecha->format('Y-m-d');
         }
 
-        // 3. Obtener IDs de usuarios de esta página
+        // 3. Obtener IDs de usuarios
         $userIds = array_column($usuarios, 'idusuarios');
         $userIdsPlaceholder = implode(',', array_fill(0, count($userIds), '?'));
 
@@ -891,8 +909,8 @@ class SeguimientoUsuarioModel
             $hvIndex[$row['hoj_cedula']] = $row;
         }
 
-        // 7. Construir filas (todos los días, sin filtrar por motivo)
-        $data = [];
+        // 7. Construir array completo (todos los usuarios × todos los días)
+        $allData = [];
         foreach ($usuarios as $u) {
             $id = $u['idusuarios'];
             $cedula = $u['usu_identificacion'];
@@ -928,10 +946,42 @@ class SeguimientoUsuarioModel
                     'seg_idzona' => $seg['seg_idzona'] ?? null,
                 ];
 
-                $data[] = $this->enriquecerFila($row);
+                $row = $this->enriquecerFila($row);
+                $allData[] = $row;
             }
         }
-        return $data;
+
+        // 8. Ordenar globalmente según prioridad y nombre
+        usort($allData, function ($a, $b) {
+            $prioridadA = $this->getPrioridadOrden($a);
+            $prioridadB = $this->getPrioridadOrden($b);
+            if ($prioridadA != $prioridadB) {
+                return $prioridadA <=> $prioridadB;
+            }
+            // Si misma prioridad, ordenar por nombre
+            return strcmp($a['usu_nombre'], $b['usu_nombre']);
+        });
+
+        // 9. Aplicar paginación
+        $paginated = array_slice($allData, $start, $length);
+        return $paginated;
+    }
+
+    private function getPrioridadOrden($row)
+    {
+        // 1 = preoperacional sin validar (más prioridad)
+        // 2 = no ha ingresado
+        // 3 = preoperacional validado
+        if (!empty($row['idpreoperacinal'])) {
+            $estado = $row['preestado'];
+            if ($estado !== 'Validado' && $estado !== 'Validado Covid19') {
+                return 1;
+            }
+        }
+        if (empty($row['idseguimiento_user'])) {
+            return 2;
+        }
+        return 3;
     }
 
     public function getTotalFiltrados($filtros, $search = '')
@@ -1011,7 +1061,7 @@ class SeguimientoUsuarioModel
         $fecha_fin = $filtros['fecha_fin'] ?? date('Y-m-d');
         $motivo = $filtros['motivo'];
 
-        // Consulta principal: desde seguimiento_user con el motivo
+        // Consulta sin LIMIT, obtener todos los registros
         $sql = "SELECT
                 u.idusuarios,
                 u.usu_nombre,
@@ -1047,7 +1097,7 @@ class SeguimientoUsuarioModel
                 comp.usu_nombre as companero_nombre
             FROM seguimiento_user s
             INNER JOIN usuarios u ON u.idusuarios = s.seg_idusuario
-            LEFT JOIN `pre-operacional` p ON p.preedusuario = u.idusuarios AND DATE(p.prefechaingreso) = DATE(s.seg_fechaalcohol)
+            LEFT JOIN `pre-operacional` p ON p.preidusuario = u.idusuarios AND DATE(p.prefechaingreso) = DATE(s.seg_fechaalcohol)
             LEFT JOIN hojadevida h ON h.hoj_cedula = u.usu_identificacion AND h.hoj_estado = 'Activo'
             LEFT JOIN vehiculos v ON v.idvehiculos = p.prevehiculo
             LEFT JOIN zonatrabajo z ON z.idzonatrabajo = s.seg_idzona
@@ -1059,7 +1109,6 @@ class SeguimientoUsuarioModel
         $params = [$motivo, $fecha_inicio, $fecha_fin];
         $types = "sss";
 
-        // Filtros adicionales
         if (!empty($filtros['sede']) && $filtros['sede'] > 0) {
             $sql .= " AND u.usu_idsede = ?";
             $params[] = $filtros['sede'];
@@ -1083,34 +1132,60 @@ class SeguimientoUsuarioModel
             $types .= "ss";
         }
 
-        // Ordenamiento (por ahora simple, podrías mapear más columnas)
-        $orderMap = ['usu_nombre' => 'u.usu_nombre', 'tipo_contrato' => 'u.usu_tipocontrato'];
-        $orderField = $orderMap[$orderColumn] ?? 'u.usu_nombre';
-        $sql .= " ORDER BY $orderField $orderDir";
-        $sql .= " LIMIT ?, ?";
-        $params[] = $start;
-        $params[] = $length;
-        $types .= "ii";
-
+        // Sin ORDER BY aún, lo haremos en PHP
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param($types, ...$params);
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-        // Enriquecer cada fila (ya vienen la mayoría de datos, solo faltan los enlaces HTML)
+        // Enriquecer cada fila
         foreach ($rows as &$row) {
             $row = $this->enriquecerFila($row);
         }
-        return $rows;
+
+        // Ordenar globalmente
+        usort($rows, function ($a, $b) {
+            $prioridadA = $this->getPrioridadOrden($a);
+            $prioridadB = $this->getPrioridadOrden($b);
+            if ($prioridadA != $prioridadB) {
+                return $prioridadA <=> $prioridadB;
+            }
+            return strcmp($a['usu_nombre'], $b['usu_nombre']);
+        });
+
+        // Paginar
+        $paginated = array_slice($rows, $start, $length);
+        return $paginated;
     }
 
     // Función para guardar imagen (debes adaptarla a tu sistema)
-    private function guardarImagen($archivo, $tabla, $idviene)
+    private function guardarImagen($archivo, $tabla, $idviene, $version = 1)
     {
-        // Ejemplo usando la clase Documentos (si existe)
-        // require_once "clases/Documentos.php";
-        // $doc = new Documentos();
-        // $doc->addDocumento($archivo, 1, $tabla, $idviene);
-        return true; // Placeholder
+        return $this->subirArchivo($archivo, $tabla, $idviene, $version);
+    }
+
+    private function subirArchivo($archivo, $tabla, $idviene, $version = 1)
+    {
+        if (!$archivo || $archivo['error'] != UPLOAD_ERR_OK) {
+            return false;
+        }
+        // Crear nombre único
+        $extension = pathinfo($archivo['name'], PATHINFO_EXTENSION);
+        $nombre = uniqid() . '_' . time() . '.' . $extension;
+        // Carpeta específica para la tabla
+        $carpeta = $this->uploadPath . $tabla . '/';
+        if (!is_dir($carpeta)) {
+            mkdir($carpeta, 0777, true);
+        }
+        $ruta = $carpeta . $nombre;
+        if (move_uploaded_file($archivo['tmp_name'], $ruta)) {
+            // Guardar en la tabla documentos
+            $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version) VALUES (?, ?, ?, ?, ?, ?)";
+            $stmt = $this->db->prepare($sql);
+            $fecha = date('Y-m-d');
+            $stmt->bind_param("ssssii", $fecha, $archivo['name'], $ruta, $tabla, $idviene, $version);
+            return $stmt->execute();
+        }
+        return false;
     }
 }
