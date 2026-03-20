@@ -153,8 +153,6 @@
                                 <th>Retorno Almuerzo</th>
                                 <th>Retorno Oficina</th>
                                 <th>Hora Salida</th>
-                                <th>TEM Entrada</th>
-                                <th>TEM Salida</th>
                                 <th>Tipo Contrato</th>
                                 <th>PLACA</th>
                                 <th>Fecha Seguro</th>
@@ -415,6 +413,8 @@
 
         // --- Inicialización DataTable ---
         let tabla = $('#tablaSeguimiento').DataTable({
+            order: [], // sin orden inicial
+            stripeClasses: [],
             processing: true,
             serverSide: true,
             ajax: {
@@ -458,8 +458,6 @@
                 { data: 'retorno_almuerzo_link' },
                 { data: 'retorno_oficina_link' },
                 { data: 'seg_fechafinalizo' },
-                { data: 'tem_entrada_link' },
-                { data: 'tem_salida_link' },
                 { data: 'usu_tipocontrato' },
                 { data: 'veh_placa' },
                 { data: 'fecha_seguro_html' },
@@ -467,7 +465,7 @@
                 { data: 'fecha_licencia_html' },
                 { data: 'cambio_aceite_html' },
                 <?php if ($_SESSION['usuario_rol'] == 1 || $_SESSION['usuario_rol'] == 12): ?>
-                                                                        { data: 'eliminar_html' }
+                                                                                        { data: 'eliminar_html' }
                 <?php endif; ?>
             ],
             columnDefs: [
@@ -475,20 +473,14 @@
             ],
             createdRow: function (row, data, dataIndex) {
                 if (data.row_color) {
+                    // Aplica el color a la fila y a todas las celdas
                     $(row).css('background-color', data.row_color);
+                    $(row).find('td').css('background-color', data.row_color);
                 }
             },
             scrollX: true
         });
 
-        // Eventos de DataTable para depuración
-        $('#tablaSeguimiento').on('xhr.dt', function (e, settings, json, xhr) {
-            console.log('Respuesta DataTable:', json);
-            if (json && json.error) {
-                console.error('DataTable error:', json.error, json.debug || {});
-                alert('DataTable: ' + json.error);
-            }
-        });
 
         $('#tablaSeguimiento').on('error.dt', function (e, settings, techNote, message) {
             console.error('DataTable error.dt:', { techNote, message });
@@ -585,6 +577,7 @@
                     }
                 },
                 error: function () {
+                    console.error('Error en la respuesta, respuesta:', arguments);
                     mostrarError('Error de comunicación con el servidor');
                 }
             });
@@ -651,6 +644,9 @@
                 contentType: false,
                 dataType: 'json',
                 success: function (res) {
+                    if (res.debug_errors) {
+                        console.warn('Errores de PHP capturados:', res.debug_errors);
+                    }
                     alert(res.message);
                     if (res.success) {
                         $('#modalIngreso').modal('hide');
@@ -661,6 +657,11 @@
                     alert('Error en la petición');
                 }
             });
+
+            // Función para ver documentos (preoperacional, validación, etc.)
+            function verDocumento(url) {
+                window.open(url, '_blank');
+            }
         }
     </script>
 </body>
