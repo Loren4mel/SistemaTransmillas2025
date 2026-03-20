@@ -37,7 +37,7 @@ class WhatsappModel {
             } else if ($filtroTipoMensaje=="ChatBot") {
                 $sql .="AND CHAR_LENGTH(mensaje_enviado) > 2 ";
             } else if ($filtroTipoMensaje=="Cotizaciones") {
-                $sql .="AND mensaje_enviado like '%Cotización registrada%'";
+                $sql .="AND mensaje_enviado like '%Cotizaciï¿½n registrada%'";
             } else if ($filtroTipoMensaje=="cotizaMinima") {
                 $sql .="AND mensaje_enviado like '%El valor estimado%'";
             }
@@ -63,10 +63,10 @@ class WhatsappModel {
                     s.ser_fecharegistro AS fecha_hora,
                     '' AS mensaje_recibido,
                     '' AS mensaje_enviado,
-                    '' AS id_wa,
+                    s.idservicios AS id_wa,
                     '' AS timestamp_wa,
-                    s.cli_telefono AS telefono_wa,
-                    s.idservicios AS id_servicio
+                    s.cli_telefono AS telefono_wa
+                    
                 FROM serviciosdia s
                 INNER JOIN guias g ON g.gui_idservicio = s.idservicios
                 WHERE g.gui_usucreado = 'whatsapp'

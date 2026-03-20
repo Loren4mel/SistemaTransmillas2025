@@ -2,22 +2,6 @@
 // ../view/Verguia/index.php
 // Variables esperadas desde el controlador VerguiaController.php:
 // $guia, $totales, $tipoServicio, $pagoEn, $tipoPagoTexto, $textoTP, $colorTP, $firmas, $error
-
-if (!function_exists('formatearFechaHoraGuia')) {
-    function formatearFechaHoraGuia($fecha)
-    {
-        if (empty($fecha) || $fecha === '0000-00-00 00:00:00') {
-            return null;
-        }
-
-        $timestamp = strtotime($fecha);
-        if ($timestamp === false) {
-            return null;
-        }
-
-        return date('Y-m-d h:i A', $timestamp);
-    }
-}
 ?>
 <!doctype html>
 <html lang="es">
@@ -530,12 +514,6 @@ if (!function_exists('formatearFechaHoraGuia')) {
                                 </a>
                             <?php endif; ?>
                         </div>
-                        <?php $horaRecogida = formatearFechaHoraGuia($guia['gui_fecharecogio'] ?? null); ?>
-                        <?php if ($horaRecogida): ?>
-                        <div class="small text-muted mt-1">
-                            Hora de recogida: <?= htmlspecialchars($horaRecogida) ?>
-                        </div>
-                        <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
@@ -574,14 +552,7 @@ if (!function_exists('formatearFechaHoraGuia')) {
                                     <i class="bi bi-geo-alt-fill"></i>
                                 </a>
                             <?php endif; ?>
-                            
                         </div>
-                        <?php $horaEntrega = formatearFechaHoraGuia($guia['gui_fechaentrega'] ?? null); ?>
-                        <?php if ($horaEntrega): ?>
-                        <div class="small text-muted mt-1">
-                            Hora de entrega: <?= htmlspecialchars($horaEntrega) ?>
-                        </div>
-                        <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?> 

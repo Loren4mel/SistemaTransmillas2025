@@ -126,8 +126,6 @@ if($param37=="Prestacion de Servicios"){
 	$FB->titulo_azul1("Id",1,0,0);
 	echo "<td colspan='0' width='0' align='center'>Trabajador <br>Todo<input type='checkbox' id='check_todos' onclick='seleccionarTodos()' ></td>";
 
-	$FB->titulo_azul1("Trabajador",1,0,0);
-
 	$FB->titulo_azul1("Tipo Contrato",1,0,0);
 	$FB->titulo_azul1("Cedula",1,0,0);
 	$FB->titulo_azul1("Cargo",1,0,0);

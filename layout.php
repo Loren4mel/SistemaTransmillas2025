@@ -620,7 +620,7 @@ $activo=true;
                         ?>
 
                         <li >
-                            <a href="mispagos.php" ><i class="glyphicon glyphicon-usd"></i><span>Mis pagos
+                            <a href="nueva_plataforma/controller/PendientesController.php" ><i class="glyphicon glyphicon-usd"></i><span>Mis pagos
                                 <i id='mispagos' >
                                 
                                         <div class="noti_bubble"><i ><?=$totalnomina?></i></div>
@@ -1114,7 +1114,7 @@ while($rw_m=mysqli_fetch_row($DB_m->Consulta_ID))
             </a>";
 
         }else if($link=="cotizaciones.php" ){
-            $sqlc = "SELECT COUNT(*) FROM `cotozaciones` where cot_id_ingresa='1919' and cot_estado='';";
+            $sqlc = "SELECT COUNT(*) FROM `cotozaciones` where cot_id_ingresa='1919' and cot_validada='';";
             $DB1->Execute($sqlc); 
             $cotizacionesW=$DB1->recogedato(0);
                     echo "<li $controlDeUso class='$class'><a href='$link' title='$rw_m[3]'>";

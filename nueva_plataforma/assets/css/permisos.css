@@ -1,0 +1,168 @@
+
+
+  :root {
+    --azul-principal: rgb(12, 69, 130);
+    --azul-claro: rgba(12, 69, 130, 0.08);
+    --gris-fondo: #f4f6fb;
+    --gris-borde: #e6e9f0;
+  }
+
+  /* Fondo general */
+  body {
+    background-color: var(--gris-fondo);
+    font-size: 14px;
+  }
+
+  /* Card principal */
+  .card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.06);
+  }
+
+  /* Header */
+  .mi-header {
+    background: linear-gradient(
+      135deg,
+      var(--azul-principal),
+      #0a3b6e
+    );
+    color: #fff;
+    border-radius: 16px 16px 0 0;
+    padding: 20px;
+  }
+
+  /* Filtros */
+  label {
+    font-weight: 600;
+    color: #555;
+  }
+
+  select.form-control,
+  select.form-select {
+    border-radius: 10px;
+    border: 1px solid var(--gris-borde);
+  }
+
+  /* Tabla */
+  .table {
+    border-collapse: separate;
+    border-spacing: 0 8px;
+  }
+
+  .table thead th {
+    background-color: var(--azul-principal) !important;
+    color: #fff;
+    border: none;
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  .table tbody tr {
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,.04);
+    border-radius: 12px;
+  }
+
+  .table tbody td {
+    border: none;
+    vertical-align: middle;
+  }
+
+  /* Badges */
+  .badge {
+    border-radius: 20px;
+    padding: 6px 12px;
+  }
+
+  /* Botones */
+  .btn {
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  .btn-info {
+    background-color: var(--azul-principal);
+    border: none;
+    color: #fff;
+  }
+
+  .btn-info:hover {
+    background-color: #0a3b6e;
+  }
+
+  .btn-outline-primary {
+    border-color: var(--azul-principal);
+    color: var(--azul-principal);
+  }
+
+  .btn-outline-primary:hover {
+    background-color: var(--azul-principal);
+    color: #fff;
+  }
+
+  /* Selects activos/inactivos */
+  select.bg-success,
+  select.bg-danger {
+    border: none;
+    font-weight: 600;
+  }
+
+  /* Modal */
+  .modal-content {
+    border-radius: 18px;
+    border: none;
+    box-shadow: 0 20px 40px rgba(0,0,0,.15);
+  }
+
+  .modal-header {
+    background-color: var(--azul-principal);
+    color: #fff;
+    border-radius: 18px 18px 0 0;
+  }
+
+  /* DataTables */
+  .dataTables_wrapper .dataTables_filter input {
+    border-radius: 10px;
+    border: 1px solid var(--gris-borde);
+  }
+
+  .dataTables_wrapper .dataTables_paginate .page-item.active .page-link {
+    background-color: var(--azul-principal);
+    border-color: var(--azul-principal);
+  }
+
+  /* Hover */
+  .table-hover tbody tr:hover {
+    transform: scale(1.01);
+    transition: all .2s ease;
+  }
+
+  /* ===== ESTADOS MODERNOS SUAVES ===== */
+
+  .estado-activo {
+    background-color: #e8f2ec !important;
+    color: #1e7f4f !important;
+    border: 1px solid #b7dfc7;
+  }
+
+  .estado-inactivo {
+    background-color: #fdecec !important;
+    color: #b42318 !important;
+    border: 1px solid #f5b5b5;
+  }
+
+  .estado-pendiente {
+    background-color: #fff4e5 !important;
+    color: #b54708 !important;
+    border: 1px solid #f6d7a7;
+  }
+
+  /* Selects más elegantes */
+  select.cambiar-campo {
+    border-radius: 20px;
+    font-weight: 600;
+    padding: 6px 14px;
+  }
+
+

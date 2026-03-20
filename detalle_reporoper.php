@@ -2,6 +2,7 @@
 require("login_autentica.php");
 include("cabezote3.php"); 
 
+
 $asc="ASC";
 $conde=" ";
 $conde0=" ";
@@ -247,20 +248,22 @@ $efectivase1=0;
 			if($p==0){$color="#FFFFFF";} else{$color="#EFEFEF";}
 	
 			if($fecha!='') {
-				$fechados=date('Y-m-d');
-				$fecha1=date_format($fecha,"Y-m-d");
-				$fecha2=date_format($fechados,"Y-m-d");
-			   if($fecha1==$fecha2){
-			   
-				   $restafecha = (strtotime($fecha)-strtotime($fechatiempo));
-				   $minutos =$restafecha /60;
-				   $minutos = abs($minutos); 
-				   $minutos = floor($minutos);
-			   }else{
-				   $minutos =0;
-			   }
-			   
-		   }else{
+				$fechados = date('Y-m-d');
+
+				$fecha1 = date("Y-m-d", strtotime($fecha));
+				$fecha2 = $fechados;
+
+				if($fecha1 == $fecha2){
+
+					$restafecha = (strtotime($fecha) - strtotime($fechatiempo));
+					$minutos = $restafecha / 60;
+					$minutos = abs($minutos); 
+					$minutos = floor($minutos);
+
+				}else{
+					$minutos = 0;
+				}
+			}else{
 			   $minutos =0;
 		   }
 		   if($minutos>=$rw3[7] and $estado=='Ocupado'){

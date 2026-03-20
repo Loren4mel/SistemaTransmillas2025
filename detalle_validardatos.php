@@ -153,7 +153,7 @@ $DB->Execute($sql); $va=0;
 
 
 		if ($imgWhatsapp!="") {
-			echo "<td><a href='https://www.transmillas.com/ChatbotTransmillas/$imgWhatsapp' target='_blank' >Ver</a></td>";
+			echo "<td><a href='https://sistema.transmillas.com/nueva_plataforma/uploads/whatsapp/$imgWhatsapp' target='_blank' >Ver</a></td>";
 		}else {
 			echo "<td>-</td>";
 		}

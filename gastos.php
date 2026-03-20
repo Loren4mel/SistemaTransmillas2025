@@ -19,6 +19,8 @@ $conde3='';
 if(isset($_REQUEST["param2"])){  if($param2!=""){ $conde1.=" and asi_idpromotor='$param2'"; } } else {$param2="";  }
 if($param4!=''){ $conde1.="and date(gas_fecharegistro)>='$param5' and date(gas_fecharegistro)<='$param4'";  $fechaactual=$param4;    $fechainicio=$param5;    } 
 else { $conde1.=" and date(gas_fecharegistro)>='$fechainicio' and date(gas_fecharegistro)<='$fechaactual'";  }
+$param8=isset($_REQUEST["param8"])?trim($_REQUEST["param8"]):"";
+$bus_buscado=preg_replace("/[^A-Za-z0-9\\- ]/", "", $param8);
 
 if(isset($_REQUEST["param3"]) and $_REQUEST["param3"]>0){ 
 
@@ -67,6 +69,54 @@ $FB->llena_texto("Estado:", 3, 82, $DB, $estado_remesa, "", "$param3", 4, 1);
 
 $FB->llena_texto("", 3, 142, $DB, "BUSCAR", "","", 1, 0);
 $FB->cierra_form(); 
+
+echo "<form method='post' action='' style='margin:12px 0 6px 0;'>";
+echo "<input type='hidden' name='param1' value='$param1'>";
+echo "<input type='hidden' name='param2' value='$param2'>";
+echo "<input type='hidden' name='param3' value='$param3'>";
+echo "<input type='hidden' name='param4' value='$param4'>";
+echo "<input type='hidden' name='param5' value='$param5'>";
+echo "<table width='100%' class='text'><tr bgcolor='#F3F6FB'>";
+echo "<td style='padding:8px; width:180px; font-weight:bold;'>Buscar telefonos por placa</td>";
+echo "<td style='padding:8px; width:260px;'><input type='text' name='param8' id='param8' value='$param8' class='form-control' placeholder='Escriba la placa'></td>";
+echo "<td style='padding:8px; width:160px;'><input type='submit' value='Traer telefonos' class='btn btn-primary'></td>";
+echo "</tr></table>";
+echo "</form>";
+
+if($bus_buscado!=""){
+	$telefonos_bus=array();
+	$telefonos_vistos=array();
+	$sqltelefonos="SELECT `gas_telconductor`
+		FROM `gastos`
+		WHERE `idgastos`>0
+		and `gas_bus` like '%$bus_buscado%'
+		and `gas_telconductor`!=''
+		ORDER BY `gas_fecharegistro` asc, `idgastos` asc";
+	$DB->Execute($sqltelefonos);
+	while($rwtelefono=mysqli_fetch_row($DB->Consulta_ID)){
+		$telefono_limpio=trim($rwtelefono[0]);
+		$telefono_key=preg_replace("/[^0-9]/", "", $telefono_limpio);
+		if($telefono_key==""){
+			$telefono_key=$telefono_limpio;
+		}
+		if(!isset($telefonos_vistos[$telefono_key])){
+			$telefonos_vistos[$telefono_key]=1;
+			$telefonos_bus[]=$telefono_limpio;
+		}
+	}
+	$FB->titulo_azul1("Telefonos del bus $bus_buscado", 9, 0, 7);
+	if(count($telefonos_bus)>0){
+		echo "<table width='100%' class='text'><tr><td>";
+		echo "<div style='display:flex; flex-wrap:wrap; gap:8px; padding:6px 0;'>";
+		foreach($telefonos_bus as $telefono_bus){
+			echo "<span style='display:inline-block; background:#F3F6FB; border:1px solid #D7E0EC; border-radius:16px; padding:6px 12px; font-weight:bold;'>".$telefono_bus."</span>";
+		}
+		echo "</div>";
+		echo "</td></tr></table>";
+	}else{
+		echo "<table width='100%' class='text'><tr><td>No se encontraron telefonos registrados para ese bus.</td></tr></table>";
+	}
+}
 
 if($rcrear==1) { $FB->nuevo("Remesas", $condecion, ""); } 
 

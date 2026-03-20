@@ -693,7 +693,7 @@ class SolicitudWhatsAppModel
             return '';
         }
 
-        $destDir = __DIR__ . '/../../imgServicios/';
+        $destDir = __DIR__ . '/../uploads/whatsapp/';
         if (!is_dir($destDir)) {
             @mkdir($destDir, 0775, true);
         }

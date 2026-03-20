@@ -488,7 +488,7 @@ break;
 case "Editar cotizacion":
 
 		$fecha=date("Y-m-d");
-	    $sql="UPDATE `cotozaciones` SET `cot_clirente`='$param1',`cot_nit`='$param2',`cot_origen`='$param3',`cot_destino`='$param44',`cot_direc_origen`='$param5',`cot_direc_destino`='$param6',`cot_desc_merc`='$param7',`cot_tipo_servi`='$param88',`cot_peso`='$param9',`cot_val_minima`='$param10',`cot_kilo_adi`='$param111',`cot_vol`='$param12',`cot_val_asegurado`='$param13',`cot_val_seguro`='$param14',`cot_val_kilos_adi`='$param15',`cot_val_servicio`='$param166',`cot__val_total`='$param30',`cot_correo`='$param188',cot_Whatsapp='$param19',cot_piezas='$param20',cot_observaciones='$param21' WHERE cot_id='$id_param'";
+	    $sql="UPDATE `cotozaciones` SET `cot_clirente`='$param1',`cot_nit`='$param2',`cot_origen`='$param3',`cot_destino`='$param44',`cot_direc_origen`='$param5',`cot_direc_destino`='$param6',`cot_desc_merc`='$param7',`cot_tipo_servi`='$param88',`cot_peso`='$param9',`cot_val_minima`='$param10',`cot_kilo_adi`='$param111',`cot_vol`='$param12',`cot_val_asegurado`='$param13',`cot_val_seguro`='$param14',`cot_val_kilos_adi`='$param15',`cot_val_servicio`='$param166',`cot__val_total`='$param30',`cot_correo`='$param188',cot_Whatsapp='$param19',cot_piezas='$param20',cot_observaciones='$param21',cot_validada='$param22' WHERE cot_id='$id_param'";
 		        
 
 		$valores[7]=$sql; $valores[4]="cotizaciones.php"; $valores[8]=1; 
@@ -636,7 +636,7 @@ case "Entregar valor":
 
 	case "Llamar Remesas":
 
-		$sql="UPDATE `gastos` SET  `gas_estadollamada`='$param7',`gas_llamodesc`='$param8',gas_fechallamo='$fechatiempo' WHERE `idgastos`='$id_param' ";			
+		$sql="UPDATE `gastos` SET  `gas_estadollamada`='$param7',`gas_llamodesc`='$param8',gas_fechallamo='$fechatiempo',gas_telconductor='$param1' WHERE `idgastos`='$id_param' ";			
 		$valores[7]=$sql; $valores[4]="adm_validardatos.php"; $valores[8]=1; 
 
 	break;

@@ -37,6 +37,7 @@
 <?php 
 require("login_autentica.php"); 
 include("layout.php");
+
 //include("cabezote4.php"); 
 $fechaactual=date("Y-m-d");
 if($nivel_acceso==1 or $nivel_acceso==12){

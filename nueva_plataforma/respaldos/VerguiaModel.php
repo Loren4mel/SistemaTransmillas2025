@@ -50,11 +50,8 @@ class VerguiaModel
                     s.ser_fecharegistro,
                     s.ser_descripcion,
                     s.cli_iddocumento,
-                    ciu_ori.ciu_nombre    AS ciudad_origen,
-                    g.gui_fecharecogio,
-                    g.gui_fechaentrega
+                    ciu_ori.ciu_nombre    AS ciudad_origen
                 FROM serviciosdia s
-                LEFT JOIN guias g         ON g.gui_idservicio   = s.idservicios
                 LEFT JOIN ciudades ciu_dest ON ciu_dest.idciudades = s.ser_ciudadentrega
                 LEFT JOIN ciudades ciu_ori  ON ciu_ori.idciudades  = s.cli_idciudad
                 WHERE s.ser_consecutivo = ?

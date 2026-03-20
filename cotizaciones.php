@@ -183,7 +183,7 @@ $FB->titulo_azul1("Fotos",1,0,0);
 $FB->titulo_azul1("Editar",1,0,0); 
 $FB->titulo_azul1("Eliminar",1,0,0); 
 
-$sql="SELECT `cot_id`, `cot_clirente`, `cot_nit`, `cot_origen`, `cot_destino`, `cot_direc_origen`, `cot_direc_destino`, `cot_desc_merc`, `cot_tipo_servi`, `cot_peso`, `cot_val_minima`, `cot_kilo_adi`, `cot_vol`, `cot_val_asegurado`, `cot_val_seguro`, `cot_val_kilos_adi`, `cot_val_servicio`, `cot__val_total`,cot_fecha,cot_correo,cot_Whatsapp,cot_enviado,sed_nombre,usu_nombre,cot_estado,cot_fotos,cot_observaciones FROM cotozaciones JOIN usuarios ON cot_id_ingresa = idusuarios JOIN sedes ON usu_idsede = idsedes WHERE cot_id>0 $cond2 $cond $conde1 $conde3 order by cot_id desc";
+$sql="SELECT `cot_id`, `cot_clirente`, `cot_nit`, `cot_origen`, `cot_destino`, `cot_direc_origen`, `cot_direc_destino`, `cot_desc_merc`, `cot_tipo_servi`, `cot_peso`, `cot_val_minima`, `cot_kilo_adi`, `cot_vol`, `cot_val_asegurado`, `cot_val_seguro`, `cot_val_kilos_adi`, `cot_val_servicio`, `cot__val_total`,cot_fecha,cot_correo,cot_Whatsapp,cot_enviado,sed_nombre,usu_nombre,cot_estado,cot_fotos,cot_observaciones,cot_validada FROM cotozaciones JOIN usuarios ON cot_id_ingresa = idusuarios JOIN sedes ON usu_idsede = idsedes WHERE cot_id>0 $cond2 $cond $conde1 $conde3 order by cot_id desc";
 
 $DB->Execute($sql); $va=(($compag-1)*$CantidadMostrar); 
 	while($rw1=mysqli_fetch_row($DB->Consulta_ID))
@@ -191,7 +191,9 @@ $DB->Execute($sql); $va=(($compag-1)*$CantidadMostrar);
 		$id_p=$rw1[0];
 		$va++; $p=$va%2;
 		if($p==0){$color="#FFFFFF";} else{$color="#EFEFEF";}
-		echo "<tr class='text' bgcolor='$color' onmouseover='this.style.backgroundColor=\"#C8C6F9\"' onmouseout='this.style.backgroundColor=\"$color\"'>";
+		$colorTexto="#000000";
+        if($rw1[27]==''){$color="#28B463"; $colorTexto="#FFFFFF";}
+		echo "<tr class='text' bgcolor='$color' style='color:$colorTexto;' onmouseover='this.style.backgroundColor=\"#C8C6F9\"' onmouseout='this.style.backgroundColor=\"$color\"'>";
 
 		echo "<td>".$rw1[0]."</td>";
 
@@ -269,17 +271,46 @@ $DB->Execute($sql); $va=(($compag-1)*$CantidadMostrar);
 	   
 
 		echo"</select></td>";
-		if ($rw1[25]!='') {
-			
-            // Supón que ya tienes esto
-            $fotos = $rw1[25];
-            
-            $url = 'https://www.transmillas.com/ChatbotTransmillas/view/ver_fotos.php?fotos=' . urlencode($fotos);
-            echo "<td><a href='$url' target='_blank'>Ver</a></td>";
+
+
         
-        }else {
-			echo "<td></td>";
-		}
+        if ($rw1[25] != '') {
+
+            $fotos = $rw1[25];
+
+            // 🔹 Si viene como JSON (muy común)
+            if (is_string($fotos)) {
+                $decoded = json_decode($fotos, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $fotos = $decoded;
+                } else {
+                    // Si no es JSON, lo convertimos en array manual
+                    $fotos = explode(',', $fotos);
+                }
+            }
+
+            // 🔹 Asegurarnos que sea array
+            if (!is_array($fotos)) {
+                $fotos = [$fotos];
+            }
+
+            // 🔹 Limpiar valores vacíos
+            $fotos = array_filter($fotos);
+
+            if (count($fotos) == 1) {
+                // 🔹 Solo uno
+                $url = 'https://bot.transmillas.com/whatsapp/ver_imagenes_whatsapp.php?id=' . $fotos[0];
+            } else {
+                // 🔹 Varios
+                $ids = implode(',', $fotos);
+                $url = 'https://bot.transmillas.com/whatsapp/ver_imagenes_whatsapp.php?ids=' . $ids;
+            }
+
+            echo "<td><a href='$url' target='_blank'>Ver</a></td>";
+
+        } else {
+            echo "<td></td>";
+        }
 		
 	echo "<td>	<a onclick='pop_dis16($id_p, \"Editar cotizacion\",\"$rw1[1]\")';  style='cursor: pointer;' title='editar' >Editar</td>";
 	if($nivel_acceso==1){

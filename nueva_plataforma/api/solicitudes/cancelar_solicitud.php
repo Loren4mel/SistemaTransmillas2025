@@ -171,7 +171,55 @@ try {
 
     $fechatiempo = date('Y-m-d H:i:s');
 
-    $descripcion= ": Cancelada por Whatsapp";
+    $sqlValidacion = "SELECT
+                        s.ser_estado,
+                        cp.cue_idoperador,
+                        u.usu_nombre
+                      FROM servicios s
+                      LEFT JOIN cuentaspromotor cp ON cp.cue_idservicio = s.idservicios
+                      LEFT JOIN usuarios u ON u.idusuarios = cp.cue_idoperador
+                      WHERE s.idservicios = ?
+                      LIMIT 1";
+    $stmtValidacion = $db->prepare($sqlValidacion);
+    if (!$stmtValidacion) {
+        throw new RuntimeException('Error al preparar validacion de servicio: ' . $db->error);
+    }
+
+    $okBindValidacion = $stmtValidacion->bind_param('i', $idServicio);
+    if (!$okBindValidacion) {
+        throw new RuntimeException('Error bind validacion de servicio: ' . $stmtValidacion->error);
+    }
+
+    if (!$stmtValidacion->execute()) {
+        throw new RuntimeException('Error ejecutando validacion de servicio: ' . $stmtValidacion->error);
+    }
+
+    $resultadoValidacion = $stmtValidacion->get_result();
+    $servicioActual = $resultadoValidacion ? $resultadoValidacion->fetch_assoc() : null;
+    $stmtValidacion->close();
+
+    if (!$servicioActual) {
+        $emitJson(404, [
+            'ok' => false,
+            'mensaje' => 'No se encontro el servicio solicitado',
+            'request_id' => $requestId
+        ]);
+        exit;
+    }
+
+    $estadoActual = (int)($servicioActual['ser_estado'] ?? 0);
+    $nombreOperador = $toStr($servicioActual['usu_nombre'] ?? '');
+    $idOperador = (int)($servicioActual['cue_idoperador'] ?? 0);
+
+    $partesDescripcion = [];
+    if ($descripcion !== '') {
+        $partesDescripcion[] = $descripcion;
+    }
+    $partesDescripcion[] = 'Cancelada por Whatsapp';
+    if ($estadoActual === 3 && $idOperador > 0 && $nombreOperador !== '') {
+        $partesDescripcion[] = 'asignada a ' . $nombreOperador;
+    }
+    $descripcion = '' . implode(' - ', $partesDescripcion);
 
                 
 

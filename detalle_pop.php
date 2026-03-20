@@ -677,7 +677,7 @@ terrorismo, secuestro, lavado de activos, financiación del terrorismo, administ
 
 } elseif ($tabla == "Editar cotizacion"){
 
-    $conductor = "SELECT `cot_id`, `cot_clirente`, `cot_nit`, `cot_origen`, `cot_destino`, `cot_direc_origen`, `cot_direc_destino`, `cot_desc_merc`, `cot_tipo_servi`, `cot_peso`, `cot_val_minima`, `cot_kilo_adi`, `cot_vol`, `cot_val_asegurado`, `cot_val_seguro`, `cot_val_kilos_adi`, `cot_val_servicio`, `cot__val_total`,cot_fecha,`cot_correo`,cot_Whatsapp,cot_piezas,cot_observaciones FROM `cotozaciones` where cot_id='$id_param'";
+    $conductor = "SELECT `cot_id`, `cot_clirente`, `cot_nit`, `cot_origen`, `cot_destino`, `cot_direc_origen`, `cot_direc_destino`, `cot_desc_merc`, `cot_tipo_servi`, `cot_peso`, `cot_val_minima`, `cot_kilo_adi`, `cot_vol`, `cot_val_asegurado`, `cot_val_seguro`, `cot_val_kilos_adi`, `cot_val_servicio`, `cot__val_total`,cot_fecha,`cot_correo`,cot_Whatsapp,cot_piezas,cot_observaciones,cot_validada FROM `cotozaciones` where cot_id='$id_param'";
     $DB1->Execute($conductor);
     $rw2 = mysqli_fetch_array($DB1->Consulta_ID);
 
@@ -708,7 +708,7 @@ terrorismo, secuestro, lavado de activos, financiación del terrorismo, administ
     $FB->llena_texto("Correo :", 188, 1, $DB, "", "", "$rw2[19]", 4, 0);
     $FB->llena_texto("Numero Whatsapp:", 19, 1, $DB, "", "", "$rw2[20]", 1, 0);
     $FB->llena_texto("Observaciones:", 21, 1, $DB, "", "", "$rw2[22]", 1, 0);
-    
+    $FB->llena_texto("Validado:", 22, 5, $DB, "", "", $rw2[23], 1, 0);
     $FB->titulo_azul1("Cotizar",9,0,7);  
     echo "</tr>";
 
