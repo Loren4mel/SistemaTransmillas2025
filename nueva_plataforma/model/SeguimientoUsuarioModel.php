@@ -236,8 +236,6 @@ class SeguimientoUsuarioModel
         $row['hora_almuerzo_link'] = $this->linkHoraAlmuerzo($row);
         $row['retorno_almuerzo_link'] = $this->linkRetornoAlmuerzo($row);
         $row['retorno_oficina_link'] = $this->linkRetornoOficina($row);
-        $row['tem_entrada_link'] = $this->linkTemEntrada($row);
-        $row['tem_salida_link'] = $this->linkTemSalida($row);
 
         // Fechas con alerta
         $row['fecha_seguro_html'] = $this->formatoFechaConAlerta($vehiculo['veh_fechaseguro'] ?? null, $fechaActual);
@@ -286,9 +284,10 @@ class SeguimientoUsuarioModel
             return ($row['idpreoperacinal'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
         }
         if (!empty($row['idseguimiento_user'])) {
-            return ($row['idseguimiento_user'] % 2 == 0) ? '#FFFFFF' : '#000000';
+            return ($row['idseguimiento_user'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
         }
-        return '#FFFFFF';
+        // Sin ingreso ni preoperacional
+        return '#922B21';
     }
 
     private function getVehiculo($id)
@@ -325,8 +324,8 @@ class SeguimientoUsuarioModel
 
     private function getNombreCompanero($id)
     {
-        if (!$id)
-            return null;
+        if (!$id || $id <= 0)
+            return 'Desconocido';
         if (!isset($this->companerosCache[$id])) {
             $sql = "SELECT usu_nombre FROM usuarios WHERE idusuarios = ?";
             $stmt = $this->db->prepare($sql);
@@ -387,7 +386,7 @@ class SeguimientoUsuarioModel
     {
         if (empty($row['idpreoperacinal']))
             return '';
-        if ($row['preestado'] === 'No aplica')
+        if ($row['preestado'] === 'No aplica'|| $row['preestado'] === 'descanso' || $row['preestado'] === 'Vacaciones')
             return $row['preestado'];
         $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=preencuesta";
         return "<a href='#' onclick='window.open(\"$url\",\"_blank\",\"width=800,height=600,scrollbars=yes\")'>{$row['preestado']}</a>";
@@ -423,21 +422,42 @@ class SeguimientoUsuarioModel
 
     private function linkZona($row, $zonaNombre = null)
     {
-        if (empty($row['seg_idzona']))
-            return 'Faltante';
-        $zona = htmlspecialchars($zonaNombre ?: $this->getZonaNombre($row['seg_idzona']) ?: '');
-        $idSeg = $row['idseguimiento_user'] ?: 0;
+        $idSeg = $row['idseguimiento_user'] ?? null;
+
+        // Si no hay seguimiento, no se puede asignar zona
+        if (empty($idSeg)) {
+            return 'Faltante'; // plain text
+        }
+
+        if (empty($row['seg_idzona'])) {
+            $texto = 'Faltante';
+        } else {
+            $texto = htmlspecialchars($zonaNombre ?: $this->getZonaNombre($row['seg_idzona']) ?: '');
+        }
+
         $fecha = $row['prefechaingreso'] ?? $row['fecha'];
-        return "<a href='#' onclick='abrirPopup(\"zona\", $idSeg, \"{$fecha}\")'>$zona</a>";
+        return "<a href='#' onclick='abrirPopup(\"zona\", $idSeg, \"{$fecha}\")'>$texto</a>";
     }
 
     private function linkCompanero($row)
     {
-        if (empty($row['seg_compañero']))
-            return 'Sin compañero';
-        $nombre = $this->getNombreCompanero($row['seg_compañero']);
+        $companeroId = $row['seg_compañero'] ?? null;
+        $idSeg = $row['idseguimiento_user'] ?? null;
+
+        // Si no hay seguimiento, no se puede asignar compañero
+        if (empty($idSeg)) {
+            return 'Sin compañero'; // plain text
+        }
+
+        // Determinar texto del enlace
+        if (empty($companeroId) || $companeroId <= 0) {
+            $texto = 'Sin compañero';
+        } else {
+            $texto = $this->getNombreCompanero($companeroId) ?: 'Compañero desconocido';
+        }
+
         $fecha = date('Y-m-d', strtotime($row['fecha']));
-        return "<a href='#' onclick='abrirPopup(\"companero\", {$row['idseguimiento_user']}, \"{$fecha} _ {$row['idusuarios']}\")'>$nombre</a>";
+        return "<a href='#' onclick='abrirPopup(\"trabaja_con\", $idSeg, \"{$fecha} _ {$row['idusuarios']}\")'>$texto</a>";
     }
 
     private function linkHoraAlmuerzo($row)
@@ -464,19 +484,6 @@ class SeguimientoUsuarioModel
         return "<a href='#' onclick='abrirPopup(\"retorno_oficina\", {$row['idseguimiento_user']}, \"{$row['prefechaingreso']}\")'>$hora</a>";
     }
 
-    private function linkTemEntrada($row)
-    {
-        if (empty($row['idpreoperacinal']))
-            return '';
-        return $this->llenadocs3('pre-operacional', $row['idpreoperacinal'], 1, 35, 'Ver');
-    }
-
-    private function linkTemSalida($row)
-    {
-        if (empty($row['idpreoperacinal']))
-            return '';
-        return $this->llenadocs3('pre-operacional', $row['idpreoperacinal'], 2, 35, 'Ver');
-    }
 
     private function formatoFechaConAlerta($fecha, $hoy)
     {
@@ -543,9 +550,16 @@ class SeguimientoUsuarioModel
 
     public function actualizarCompanero($id_seguimiento, $companero)
     {
-        $sql = "UPDATE seguimiento_user SET seg_compañero = ? WHERE idseguimiento_user = ?";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("ii", $companero, $id_seguimiento);
+        // Si el compañero es 0 o negativo, establecer a NULL
+        if ($companero <= 0) {
+            $sql = "UPDATE seguimiento_user SET seg_compañero = NULL WHERE idseguimiento_user = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bind_param("i", $id_seguimiento);
+        } else {
+            $sql = "UPDATE seguimiento_user SET seg_compañero = ? WHERE idseguimiento_user = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bind_param("ii", $companero, $id_seguimiento);
+        }
         return $stmt->execute();
     }
     public function getNombreOperario($id)
@@ -980,13 +994,23 @@ class SeguimientoUsuarioModel
         if (!empty($row['idpreoperacinal'])) {
             $estado = $row['preestado'];
             if ($estado !== 'Validado' && $estado !== 'Validado Covid19') {
-                return 1;
+                if ($estado === 'No aplica') {
+                    return 3;
+                } else if($estado === 'vacaciones') {
+                    return 5;
+                } else if($estado === 'descanso') {
+                    return 6;
+                 }
+                else {
+                    return 1;
+                }
             }
+
         }
         if (empty($row['idseguimiento_user'])) {
             return 2;
         }
-        return 3;
+        return 6;
     }
 
     public function getTotalFiltrados($filtros, $search = '')

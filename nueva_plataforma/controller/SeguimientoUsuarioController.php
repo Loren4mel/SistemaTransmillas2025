@@ -444,8 +444,23 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
             case 'zona':
                 $data['id'] = $id;
                 $data['fecha'] = $param;
-                $id_sede_usuario = $_SESSION['usu_idsede'] ?? 0;
+                // Obtener sede del usuario del seguimiento, no del usuario logueado
+                $id_sede_usuario = 0;
+                $zona_seleccionada = 0;
+                if ($id > 0) {
+                    $seguimiento = $modelo->getSeguimientoById($id);
+                    if ($seguimiento) {
+                        $id_usuario = $seguimiento['seg_idusuario'];
+                        $id_sede_usuario = $modelo->getSedeByUsuario($id_usuario);
+                        $zona_seleccionada = $seguimiento['seg_idzona'] ?? 0;
+                    }
+                }
+                // Si no se pudo obtener la sede, usar la del usuario logueado como fallback
+                if ($id_sede_usuario <= 0) {
+                    $id_sede_usuario = $_SESSION['usu_idsede'] ?? 0;
+                }
                 $data['zonas'] = $modelo->getZonasPorSede($id_sede_usuario);
+                $data['zona_seleccionada'] = $zona_seleccionada;
                 break;
 
             case 'hora_almuerzo':
@@ -453,12 +468,41 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
             case 'retorno_oficina':
                 $data['id'] = $id;
                 $data['fecha'] = $param;
+                // Obtener hora actual del seguimiento
+                $hora_actual = '';
+                if ($id > 0) {
+                    $seguimiento = $modelo->getSeguimientoById($id);
+                    if ($seguimiento) {
+                        switch ($tipo) {
+                            case 'hora_almuerzo':
+                                $hora_actual = $seguimiento['seg_horaalmuerzo'] ?? '';
+                                break;
+                            case 'retorno_almuerzo':
+                                $hora_actual = $seguimiento['seg_horaregreso'] ?? '';
+                                break;
+                            case 'retorno_oficina':
+                                $hora_actual = $seguimiento['seg_horaoficina'] ?? '';
+                                break;
+                        }
+                    }
+                }
+                $data['hora_actual'] = $hora_actual;
                 break;
 
             case 'companero':
+            case 'trabaja_con':
                 $data['id'] = $id;
                 $data['param'] = $param;
                 $data['operarios'] = $modelo->getTodosOperarios();
+                // Obtener compañero actual si existe
+                $companeroActual = 0;
+                if ($id > 0) {
+                    $seguimiento = $modelo->getSeguimientoById($id);
+                    if ($seguimiento && !empty($seguimiento['seg_compañero'])) {
+                        $companeroActual = intval($seguimiento['seg_compañero']);
+                    }
+                }
+                $data['companero_seleccionado'] = $companeroActual;
                 break;
 
             case 'festivos':

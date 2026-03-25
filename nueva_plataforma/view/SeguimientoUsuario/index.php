@@ -416,11 +416,25 @@
                     // Aplica el color a la fila y a todas las celdas
                     $(row).css('background-color', data.row_color);
                     $(row).find('td').css('background-color', data.row_color);
+                    // Si el color es rojo oscuro (#922B21), establecer texto blanco para mejor contraste
+                    if (data.row_color === '#922B21') {
+                        $(row).css('color', 'white');
+                        $(row).find('td').css('color', 'white');
+                    }
                 }
             },
             scrollX: true
         });
 
+        // Auto-refresh cada 10 minutos (como en la versión legacy)
+        let refreshTimer = setInterval(function() {
+            tabla.ajax.reload(null, false); // false para mantener la página actual
+        }, 600000);
+
+        // Limpiar timer al salir de la página
+        $(window).on('beforeunload', function() {
+            clearInterval(refreshTimer);
+        });
 
         $('#tablaSeguimiento').on('error.dt', function (e, settings, techNote, message) {
             console.error('DataTable error.dt:', { techNote, message });
@@ -579,7 +593,21 @@
 
         // Función para abrir popup genérico (sin cambios)
         function abrirPopup(tipo, id, param) {
-            $('#popupModal .modal-title').text('Editando: ' + tipo);
+            var titulos = {
+                'zona': 'Zona de trabajo',
+                'companero': 'Compañero',
+                'trabaja_con': 'Trabaja con',
+                'hora_almuerzo': 'Hora almuerzo',
+                'retorno_almuerzo': 'Retorno almuerzo',
+                'retorno_oficina': 'Retorno oficina',
+                'festivos': 'Festivos',
+                'vacaciones': 'Vacaciones',
+                'licencias': 'Licencias',
+                'ingreso_manual': 'Ingreso manual',
+                'ingreso': 'Ingreso'
+            };
+            var titulo = titulos[tipo] || ('Editando: ' + tipo);
+            $('#popupModal .modal-title').text(titulo);
             $('#popupModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
             $('#popupModal').modal('show');
 
