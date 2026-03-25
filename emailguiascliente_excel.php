@@ -40,6 +40,8 @@ $id_usuario = $_SESSION['usuario_id'];
 $param1 = $_POST['param1'];
 $param2 = $_POST['param2'];
 $param3 = $_POST['param3'];
+// $param3 = "CROYDON";
+
 $param4 = $_POST['param4'];
 $param5 = $_POST['param5'];
 
@@ -69,12 +71,12 @@ if ($param3!="") {
 if ($param4!="" and $param5!="") {
     $conde11 ="AND a.ser_fecharegistro BETWEEN '$fechaactual' AND '$fechaactualfinal'";
 }else {
-    $fechaactual=date('2025-03-21'.' 01:00:00');
+    $fechaactual = date('Y') . '-01-01 01:00:00';
     $conde11 ="AND a.ser_fecharegistro >'$fechaactual'";
 }
 
 
-$creditos = "SELECT idcreditos FROM `creditos` WHERE $conde0";
+$creditos = "SELECT idcreditos, cre_nombre FROM `creditos` WHERE $conde0";
 
 $DB->Execute($creditos);
 // $idcliente = mysqli_fetch_row($DB->Consulta_ID);
@@ -105,8 +107,16 @@ while ($idcliente = mysqli_fetch_row($DB->Consulta_ID)) {
             AND a.ser_estado != 100 $conde11 
         $conde1  ORDER BY a.ser_fecharegistro desc ";
     echo '<table width="99%" border="1" align="center" cellpadding="1" cellspacing="1">';
+    $esCroydon = ($idcliente[1] == "CROYDON");
+
     echo '<tr bgcolor="#F75700">
-        <td>#Idservicio</td><td>#Guia</td><td>' . $Identificador . '</td>
+        <td>#Idservicio</td><td>#Guia</td>';
+
+    if ($esCroydon) {
+        echo '<td>Tipo de orden</td>';
+    }
+
+    echo '<td>' . $Identificador . '</td>
         <td>Destinatario</td><td>Ciudad D</td><td>Fecha Ingreso</td>
         <td>Telefono</td><td>Direccion</td><td>Piezas</td>
         <td>Volumen</td><td>Peso</td><td>Valor</td><td>Estado</td><td>Motivo Retraso/Novedad</td>
@@ -117,6 +127,21 @@ while ($idcliente = mysqli_fetch_row($DB->Consulta_ID)) {
     $totalpiezas = 0;
 
     while ($rw1 = mysqli_fetch_row($DB->Consulta_ID)) {
+        $tipoOrden = "";
+        $identificadorValor = $rw1[21];
+
+        if ($esCroydon) {
+            $valorOrden = trim($rw1[21]);
+            $partesOrden = preg_split('/\s+/', $valorOrden, 2);
+            if (count($partesOrden) > 1) {
+                $tipoOrden = $partesOrden[0];
+                $identificadorValor = $partesOrden[1];
+            } else if (preg_match('/^[A-Za-z]/', $valorOrden)) {
+                $tipoOrden = substr($valorOrden, 0, 2);
+                $identificadorValor = substr($valorOrden, 2);
+            }
+        }
+
         if ($rw1[14]==10 and $rw1[22]=="no") {
             $direct2=str_replace("&"," ", $rw1[7]);			
             $pordeclarado=(intval($rw1[19])*1)/100;
@@ -125,7 +150,13 @@ while ($idcliente = mysqli_fetch_row($DB->Consulta_ID)) {
             $totalpiezas=$rw1[20]+$totalpiezas;
 
             echo "<tr>
-                <td>{$rw1[0]}</td><td>{$rw1[12]}</td><td>{$rw1[21]}</td>
+                <td>{$rw1[0]}</td><td>{$rw1[12]}</td>";
+
+                if ($esCroydon) {
+                    echo "<td>{$tipoOrden}</td>";
+                }
+
+                echo "<td>{$identificadorValor}</td>
                 <td>{$rw1[5]}</td><td>{$rw1[8]}</td><td>{$rw1[10]}</td>
                 <td>{$rw1[6]}</td><td>{$direct2}</td><td>{$rw1[20]}</td>
                 <td>{$rw1[17]}</td><td>{$rw1[16]}</td><td>{$rw1[18]}</td>";
@@ -155,7 +186,13 @@ while ($idcliente = mysqli_fetch_row($DB->Consulta_ID)) {
             $totalpiezas=$rw1[20]+$totalpiezas;
 
             echo "<tr>
-                <td>{$rw1[0]}</td><td>{$rw1[12]}</td><td>{$rw1[21]}</td>
+                <td>{$rw1[0]}</td><td>{$rw1[12]}</td>";
+
+                if ($esCroydon) {
+                    echo "<td>{$tipoOrden}</td>";
+                }
+
+                echo "<td>{$identificadorValor}</td>
                 <td>{$rw1[5]}</td><td>{$rw1[8]}</td><td>{$rw1[10]}</td>
                 <td>{$rw1[6]}</td><td>{$direct2}</td><td>{$rw1[20]}</td>
                 <td>{$rw1[17]}</td><td>{$rw1[16]}</td><td>{$rw1[18]}</td>";
@@ -177,8 +214,10 @@ while ($idcliente = mysqli_fetch_row($DB->Consulta_ID)) {
 
     }
 
+    $colspanTotales = $esCroydon ? 9 : 8;
+
     echo "<tr bgcolor='#F75700'>
-        <td colspan='8'><strong>Total Piezas</strong></td><td>$totalpiezas</td>
+        <td colspan='$colspanTotales'><strong>Total Piezas</strong></td><td>$totalpiezas</td>
         <td colspan='2'><strong>Total Factura</strong></td><td>$totalcontado</td>
     </tr>";
 
@@ -226,6 +265,9 @@ echo"<script>console.log('Se envio al correo');</script>";
         // Configurar remitente y destinatario
         $mail->setFrom('facturaciontransmillas@gmail.com', 'TRANSMILLAS LOGISTICA Y TRANSPORTADORA S.A.S.');
         $mail->addAddress($destinatario);
+        
+
+        
 
         // Adjuntar archivo
         if (file_exists($archivo)) {

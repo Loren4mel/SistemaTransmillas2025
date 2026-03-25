@@ -828,8 +828,8 @@ Full screen Modal
 
       <!-- Cuerpo del modal -->
       <div class="modal-body text-center">
-        <p class="mb-3 fs-5"><h1>🔔 Tienes <strong>pagos de nómina pendientes por validar</strong>.</h1></p>
-        <p class="text-muted">Por favor, revisa y valida estos pagos lo antes posible. <br> Recuerde que para validarlos se debe dirigir a la parte superior "MIS PAGOS".</p>
+        <p class="mb-3 fs-5"><h1>🔔 Tienes <strong>Pendientes por revisar</strong>.</h1></p>
+        <p class="text-muted">Por favor, revisa y valida tus pendientes lo antes posible. <br>Recuerda que puedes gestionarlos desde la parte superior en "Pendientes".</p>
       </div>
 
       <!-- Pie del modal -->
