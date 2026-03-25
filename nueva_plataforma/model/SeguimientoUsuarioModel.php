@@ -211,14 +211,22 @@ class SeguimientoUsuarioModel
         $row['alerta_count'] = count($alertas);
         $row['alerta_html'] = $this->generarBurbujaAlertas($row['idusuarios'], $alertas);
 
-        // Color de la fila
-        $row['row_color'] = $this->determinarColorFila($row);
 
         // Obtener datos de vehículo si existe
         $vehiculo = null;
         if (!empty($row['prevehiculo'])) {
             $vehiculo = $this->getVehiculo($row['prevehiculo']);
         }
+
+        // Alerta de expiración (licencia y tecnicomecánica)
+        $fechaLicencia = $row['usu_fechalicencia'] ?? null;
+        $fechaTecno = $vehiculo['veh_fechategnomecanica'] ?? null;
+        $alertaExpiracion = $this->generarAlertaExpiracion($fechaLicencia, $fechaTecno, $fechaActual);
+        $row['alerta_expiracion'] = $alertaExpiracion;
+        $row['alerta_izquierda_html'] = $alertaExpiracion['html'];
+
+        // Color de la fila (considera expiración)
+        $row['row_color'] = $this->determinarColorFila($row); // también define row_bg_color y row_text_color
 
         // Obtener nombre de zona
         $zonaNombre = null;
@@ -271,23 +279,58 @@ class SeguimientoUsuarioModel
                 <div class='noti_options' data-id='$idUsuario' style='display:none;'><ul>$items</ul></div>";
     }
 
-    private function determinarColorFila($row)
+    private function determinarColorFila(&$row)
     {
-        if ($row['seg_motivo'] === 'descanso')
-            return '#82E0AA';
-        if ($row['seg_motivo'] === 'Vacaciones')
-            return '#FFC300';
-        if (!empty($row['idpreoperacinal'])) {
-            if ($row['preestado'] !== 'Validado' && $row['preestado'] !== 'Validado Covid19')
-                return '#ff5f42';
-            // Alternar colores según ID de pre-operacional
-            return ($row['idpreoperacinal'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
+        // Inicializar colores por defecto (fondo blanco, texto negro)
+        $bg = '#FFFFFF';
+        $text = '#000000';
+
+        // Si tiene expiración vencida, color rojo fuerte (prioridad máxima)
+        if (!empty($row['alerta_expiracion']['expired']) && $row['alerta_expiracion']['expired']) {
+            $bg = '#922B21';
+            $text = '#FFFFFF';
+            $row['row_bg_color'] = $bg;
+            $row['row_text_color'] = $text;
+            return $bg;
         }
-        if (!empty($row['idseguimiento_user'])) {
-            return ($row['idseguimiento_user'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
+
+        if ($row['seg_motivo'] === 'descanso') {
+            // Amarillo suave con texto marrón oscuro
+            $bg = '#fff3cd';
+            $text = '#664d03';
+        } elseif ($row['seg_motivo'] === 'Vacaciones') {
+            // Verde agua con texto verde oscuro
+            $bg = '#d1e7dd';
+            $text = '#0f5132';
+        } elseif (!empty($row['idpreoperacinal'])) {
+            if ($row['preestado'] !== 'Validado' && $row['preestado'] !== 'Validado Covid19') {
+                if ($row['preestado'] === 'No aplica') {
+                    $bg = ($row['idpreoperacinal'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
+                    $text = '#000000';
+                } else {
+                    // Rojo pálido con texto rojo oscuro (preoperacional no validado)
+                    $bg = '#fde2e1';
+                    $text = '#7b1913';
+                }
+            } else {
+                // Preoperacional validado: alternar blanco/gris claro, texto negro
+                $bg = ($row['idpreoperacinal'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
+                $text = '#000000';
+            }
+        } elseif (!empty($row['idseguimiento_user'])) {
+            // Seguimiento existente (sin preoperacional no validado): alternar blanco/gris claro
+            $bg = ($row['idseguimiento_user'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
+            $text = '#000000';
+        } else {
+            // Sin ingreso ni preoperacional: rosa claro con texto rojo oscuro
+            $bg = '#f8d7da';
+            $text = '#721c24';
         }
-        // Sin ingreso ni preoperacional
-        return '#922B21';
+
+        // Guardar colores en el array $row (se pasará por referencia)
+        $row['row_bg_color'] = $bg;
+        $row['row_text_color'] = $text;
+        return $bg; // mantener compatibilidad con row_color
     }
 
     private function getVehiculo($id)
@@ -386,7 +429,7 @@ class SeguimientoUsuarioModel
     {
         if (empty($row['idpreoperacinal']))
             return '';
-        if ($row['preestado'] === 'No aplica'|| $row['preestado'] === 'descanso' || $row['preestado'] === 'Vacaciones')
+        if ($row['preestado'] === 'No aplica' || $row['preestado'] === 'descanso' || $row['preestado'] === 'Vacaciones')
             return $row['preestado'];
         $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=preencuesta";
         return "<a href='#' onclick='window.open(\"$url\",\"_blank\",\"width=800,height=600,scrollbars=yes\")'>{$row['preestado']}</a>";
@@ -609,6 +652,78 @@ class SeguimientoUsuarioModel
         return round(($fechaTs - $hoyTs) / 86400);
     }
 
+    /**
+     * Genera HTML de advertencia para fechas de expiración (licencia conducción y tecnicomecánica)
+     * Retorna array con 'html', 'expired', 'urgency' (0=none,1=month,2=5days,3=expired)
+     */
+    private function generarAlertaExpiracion($fechaLicencia, $fechaTecno, $hoy = null)
+    {
+        if (!$hoy) $hoy = date('Y-m-d');
+        $diasLic = $this->diasHasta($hoy, $fechaLicencia);
+        $diasTecno = $this->diasHasta($hoy, $fechaTecno);
+
+        // Determinar el más urgente (menor días restantes, considerando negativos como expirados)
+        $dias = null;
+        $tipo = '';
+        if ($diasLic !== null && $diasTecno !== null) {
+            // Preferir el más cercano a expirar (menor valor)
+            if ($diasLic <= $diasTecno) {
+                $dias = $diasLic;
+                $tipo = 'licencia';
+            } else {
+                $dias = $diasTecno;
+                $tipo = 'tecno';
+            }
+        } elseif ($diasLic !== null) {
+            $dias = $diasLic;
+            $tipo = 'licencia';
+        } elseif ($diasTecno !== null) {
+            $dias = $diasTecno;
+            $tipo = 'tecno';
+        } else {
+            // Sin fechas válidas
+            return [
+                'html' => '',
+                'expired' => false,
+                'urgency' => 0
+            ];
+        }
+
+        $expired = $dias < 0;
+        $urgency = 0;
+        $colorClass = '';
+        $title = '';
+
+        if ($expired) {
+            $urgency = 3;
+            $colorClass = 'warning-red expired';
+            $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expirada hace ' . abs($dias) . ' días';
+        } elseif ($dias <= 7) {
+            $urgency = 2;
+            $colorClass = 'warning-red';
+            $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expira en ' . $dias . ' días';
+        } elseif ($dias <= 30) {
+            $urgency = 1;
+            $colorClass = 'warning-yellow';
+            $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expira en ' . $dias . ' días';
+        } else {
+            return [
+                'html' => '',
+                'expired' => false,
+                'urgency' => 0
+            ];
+        }
+
+        $html = '<span class="warning-dot ' . $colorClass . '" title="' . htmlspecialchars($title) . '"></span>';
+        return [
+            'html' => $html,
+            'expired' => $expired,
+            'urgency' => $urgency,
+            'dias' => $dias,
+            'tipo' => $tipo
+        ];
+    }
+
     public function insertarIngreso($data, $imagen, $id_usuario)
     {
         $fecha_completa = $data['fecha'] . ' ' . date('H:i:s');
@@ -681,11 +796,11 @@ class SeguimientoUsuarioModel
     public function insertarFestivos($fecha, $sede, $id_usuario)
     {
         // Obtener todos los operarios activos con contrato Empresa y sin fecha de terminación en hoja de vida
-        $sql = "SELECT u.idusuarios 
+        $sql = "SELECT u.idusuarios
                 FROM usuarios u
-                INNER JOIN hojadevida h ON h.hoj_cedula = u.usu_identificacion
-                WHERE u.usu_estado = 1 
-                  AND u.usu_filtro = 1 
+                LEFT JOIN hojadevida h ON h.hoj_cedula = u.usu_identificacion
+                WHERE u.usu_estado = 1
+                  AND u.usu_filtro = 1
                   AND u.usu_tipocontrato = 'Empresa'
                   AND (h.hoj_fechatermino IS NULL OR h.hoj_fechatermino = '0000-00-00')
                   AND u.roles_idroles != 6";
@@ -996,12 +1111,11 @@ class SeguimientoUsuarioModel
             if ($estado !== 'Validado' && $estado !== 'Validado Covid19') {
                 if ($estado === 'No aplica') {
                     return 3;
-                } else if($estado === 'vacaciones') {
+                } else if ($estado === 'vacaciones') {
                     return 5;
-                } else if($estado === 'descanso') {
+                } else if ($estado === 'descanso') {
                     return 6;
-                 }
-                else {
+                } else {
                     return 1;
                 }
             }
@@ -1216,5 +1330,96 @@ class SeguimientoUsuarioModel
             return $stmt->execute();
         }
         return false;
+    }
+
+    /**
+     * Obtiene detalles del seguimiento y preoperacional para mostrar antes de eliminar
+     */
+    public function getDetallesParaEliminar($idCombinado)
+    {
+        $partes = explode('_', $idCombinado);
+        $idPre = $partes[0] ?? 0;
+        $idSeg = $partes[1] ?? 0;
+
+        $detalles = [
+            'preoperacional' => null,
+            'seguimiento' => null,
+            'usuario' => null,
+            'fecha' => null,
+            'motivo' => null
+        ];
+
+        if ($idPre > 0) {
+            $sql = "SELECT p.idpreoperacinal, p.preidusuario, p.prefechaingreso, p.preestado,
+                           u.usu_nombre
+                    FROM `pre-operacional` p
+                    LEFT JOIN usuarios u ON u.idusuarios = p.preidusuario
+                    WHERE p.idpreoperacinal = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bind_param('i', $idPre);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $detalles['preoperacional'] = $row;
+                $detalles['usuario'] = $row['usu_nombre'];
+                $detalles['fecha'] = $row['prefechaingreso'];
+            }
+        }
+
+        if ($idSeg > 0) {
+            $sql = "SELECT s.idseguimiento_user, s.seg_idusuario, s.seg_fechaingreso, s.seg_motivo, s.seg_descr,
+                           u.usu_nombre
+                    FROM seguimiento_user s
+                    LEFT JOIN usuarios u ON u.idusuarios = s.seg_idusuario
+                    WHERE s.idseguimiento_user = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bind_param('i', $idSeg);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $detalles['seguimiento'] = $row;
+                if (empty($detalles['usuario'])) {
+                    $detalles['usuario'] = $row['usu_nombre'];
+                }
+                if (empty($detalles['fecha'])) {
+                    $detalles['fecha'] = $row['seg_fechaingreso'];
+                }
+                $detalles['motivo'] = $row['seg_motivo'];
+            }
+        }
+
+        return $detalles;
+    }
+
+    /**
+     * Elimina un registro de seguimiento y su preoperacional asociado
+     */
+    public function eliminarSeguimiento($idCombinado)
+    {
+        $partes = explode('_', $idCombinado);
+        $idPre = $partes[0] ?? 0;
+        $idSeg = $partes[1] ?? 0;
+
+        $this->db->begin_transaction();
+        try {
+            if ($idPre > 0) {
+                $sql = "DELETE FROM `pre-operacional` WHERE idpreoperacinal = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->bind_param('i', $idPre);
+                $stmt->execute();
+            }
+            if ($idSeg > 0) {
+                $sql = "DELETE FROM seguimiento_user WHERE idseguimiento_user = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->bind_param('i', $idSeg);
+                $stmt->execute();
+            }
+            $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollback();
+            error_log("Error al eliminar seguimiento: " . $e->getMessage());
+            return false;
+        }
     }
 }
