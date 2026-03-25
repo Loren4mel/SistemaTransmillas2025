@@ -71,7 +71,9 @@ class SeguimientoUsuarioModel
 
     public function getMotivosLicencia()
     {
+        // Primero intentamos obtener de la base de datos
         $sql = "SELECT idmotivo_ingreso, mot_nombre FROM motivo_ingreso ORDER BY mot_nombre";
+        error_log('SQL: ' . $sql);
         $result = $this->db->query($sql);
         return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     }
@@ -387,8 +389,8 @@ class SeguimientoUsuarioModel
             return '';
         if ($row['preestado'] === 'No aplica')
             return $row['preestado'];
-        $url = "validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=preencuesta";
-        return "<a href='#' onclick='window.open(\"$url\",\"_self\")'>{$row['preestado']}</a>";
+        $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=preencuesta";
+        return "<a href='#' onclick='window.open(\"$url\",\"_blank\",\"width=800,height=600,scrollbars=yes\")'>{$row['preestado']}</a>";
     }
 
     private function linkValidacion($row)
@@ -396,8 +398,8 @@ class SeguimientoUsuarioModel
         if (empty($row['idpreoperacinal']))
             return '';
         if ($row['preestado'] === 'Validado' || $row['preestado'] === 'Validado Covid19') {
-            $url = "validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=predatosvalidados";
-            return "<a href='#' onclick='window.open(\"$url\",\"_self\")'>Validado</a>";
+            $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=predatosvalidados";
+            return "<a href='#' onclick='window.open(\"$url\",\"_blank\",\"width=800,height=600,scrollbars=yes\")'>Validado</a>";
         }
         return 'Sin Validar';
     }
@@ -971,7 +973,10 @@ class SeguimientoUsuarioModel
     {
         // 1 = preoperacional sin validar (más prioridad)
         // 2 = no ha ingresado
-        // 3 = preoperacional validado
+        // 3 = preoperacional no necesario
+        // 4 = preoperacional validado
+        // 5 = vacaciones
+        // 6 = descanso
         if (!empty($row['idpreoperacinal'])) {
             $estado = $row['preestado'];
             if ($estado !== 'Validado' && $estado !== 'Validado Covid19') {

@@ -16,10 +16,15 @@
         <div class="col-md-6">
             <label>Motivo</label>
             <select name="motivo" class="form-select" required>
-                <?php foreach ($motivosLicencia as $m): ?>
-                    <option value="<?= $m['mot_nombre'] ?>"><?= htmlspecialchars($m['mot_nombre']) ?></option>
-                <?php endforeach; ?>
+                <?php if (empty($motivosLicencia)): ?>
+                    <option value="">No hay motivos disponibles</option>
+                <?php else: ?>
+                    <?php foreach ($motivosLicencia as $m): ?>
+                        <option value="<?= $m['mot_nombre'] ?>"><?= htmlspecialchars($m['mot_nombre']) ?></option>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </select>
+            <?php if (isset($motivosLicencia)) echo '<!-- motivosLicencia count: ' . count($motivosLicencia) . ' -->'; ?>
         </div>
         <div class="col-md-6">
             <label>Descripción</label>

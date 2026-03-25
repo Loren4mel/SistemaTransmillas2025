@@ -207,6 +207,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 $response = ['success' => $ok, 'message' => $ok ? 'Compañero actualizado' : 'Error'];
                 break;
 
+            case 'guardar_festivos':
+                $fecha = $_POST['fecha'];
+                $sede = intval($_POST['sede'] ?? 0);
+                $ok = $modelo->insertarFestivos($fecha, $sede, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Días festivos agregados' : 'Error al agregar festivos'
+                ];
+                break;
+
+            case 'guardar_vacaciones':
+                $data = [
+                    'operario' => intval($_POST['operario']),
+                    'fecha_ini' => $_POST['fecha_ini'],
+                    'fecha_fin' => $_POST['fecha_fin']
+                ];
+                $ok = $modelo->insertarVacaciones($data, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Vacaciones registradas' : 'Error al registrar vacaciones'
+                ];
+                break;
+
+            case 'guardar_licencia':
+                $data = [
+                    'operario' => intval($_POST['operario']),
+                    'fecha_ini' => $_POST['fecha_ini'],
+                    'fecha_fin' => $_POST['fecha_fin'],
+                    'motivo' => $_POST['motivo'],
+                    'descripcion' => $_POST['descripcion']
+                ];
+                $ok = $modelo->insertarLicencia($data, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Licencia registrada' : 'Error al registrar licencia'
+                ];
+                break;
+
+            case 'guardar_ingreso':
+                $data = [
+                    'operario' => intval($_POST['operario']),
+                    'sede' => intval($_POST['sede']),
+                    'fecha' => $_POST['fecha'],
+                    'motivo' => $_POST['motivo'],
+                    'descripcion' => $_POST['descripcion'],
+                    'zona' => intval($_POST['zona']),
+                    'prueba' => $_POST['prueba']
+                ];
+                $imagen = $_FILES['imagen'] ?? null;
+                $ok = $modelo->insertarIngreso($data, $imagen, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Ingreso registrado correctamente' : 'Error al registrar ingreso'
+                ];
+                break;
+
+            case 'guardar_cambio':
+                $id_seguimiento = intval($_POST['id_seguimiento']);
+                $data = [
+                    'motivo' => $_POST['motivo'],
+                    'descripcion' => $_POST['descripcion'],
+                    'zona' => intval($_POST['zona']),
+                    'prueba' => $_POST['prueba'],
+                    'horas' => $_POST['horas']
+                ];
+                $imagen = $_FILES['imagen'] ?? null;
+                $ok = $modelo->actualizarIngreso($id_seguimiento, $data, $imagen, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Cambios guardados' : 'Error al guardar cambios'
+                ];
+                break;
+
             default:
                 break;
         }
@@ -267,135 +340,6 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'get_deuda') {
     }
 }
 
-// --------------------------------------------------------------------
-// GUARDAR NUEVO INGRESO (SeguimientoUser)
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_ingreso') {
-    try {
-        $data = [
-            'operario' => intval($_POST['operario']),
-            'sede' => intval($_POST['sede']),
-            'fecha' => $_POST['fecha'],
-            'motivo' => $_POST['motivo'],
-            'descripcion' => $_POST['descripcion'],
-            'zona' => intval($_POST['zona']),
-            'prueba' => $_POST['prueba']
-        ];
-        $imagen = $_FILES['imagen'] ?? null;
-
-        $ok = $modelo->insertarIngreso($data, $imagen, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Ingreso registrado correctamente' : 'Error al registrar ingreso'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => 'Error interno: ' . $e->getMessage()], 500);
-    }
-}
-
-// --------------------------------------------------------------------
-// GUARDAR CAMBIO EN SEGUIMIENTO (Cambio_seguimientoUser)
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_cambio') {
-    try {
-        $id_seguimiento = intval($_POST['id_seguimiento']);
-        $data = [
-            'motivo' => $_POST['motivo'],
-            'descripcion' => $_POST['descripcion'],
-            'zona' => intval($_POST['zona']),
-            'prueba' => $_POST['prueba'],
-            'horas' => $_POST['horas']
-        ];
-        $imagen = $_FILES['imagen'] ?? null;
-
-        $ok = $modelo->actualizarIngreso($id_seguimiento, $data, $imagen, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Cambios guardados' : 'Error al guardar cambios'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
-    }
-}
-
-// --------------------------------------------------------------------
-// AGREGAR DÍA FESTIVO (para todos los operarios de empresa)
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_festivos') {
-    try {
-        $fecha = $_POST['fecha'];
-        $sede = intval($_POST['sede'] ?? 0);
-        $ok = $modelo->insertarFestivos($fecha, $sede, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Días festivos agregados' : 'Error al agregar festivos'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
-    }
-}
-
-// --------------------------------------------------------------------
-// AGREGAR VACACIONES (para un operario en un rango)
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_vacaciones') {
-    try {
-        $data = [
-            'operario' => intval($_POST['operario']),
-            'fecha_ini' => $_POST['fecha_ini'],
-            'fecha_fin' => $_POST['fecha_fin']
-        ];
-        $ok = $modelo->insertarVacaciones($data, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Vacaciones registradas' : 'Error al registrar vacaciones'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
-    }
-}
-
-// --------------------------------------------------------------------
-// AGREGAR LICENCIA / PERMISO
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_licencia') {
-    try {
-        $data = [
-            'operario' => intval($_POST['operario']),
-            'fecha_ini' => $_POST['fecha_ini'],
-            'fecha_fin' => $_POST['fecha_fin'],
-            'motivo' => $_POST['motivo'],
-            'descripcion' => $_POST['descripcion']
-        ];
-        $ok = $modelo->insertarLicencia($data, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Licencia registrada' : 'Error al registrar licencia'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
-    }
-}
 
 // --------------------------------------------------------------------
 // OBTENER TODOS LOS OPERARIOS
@@ -413,6 +357,7 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'get_all_operarios') {
 // OBTENER FORMULARIO POPUP (HTML)
 // --------------------------------------------------------------------
 if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
+    error_log('form_popup triggered, tipo: ' . ($_GET['tipo'] ?? 'none'));
     try {
         $tipo = $_GET['tipo'] ?? '';
         $id = intval($_GET['id'] ?? 0);
@@ -531,6 +476,7 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
 
         // Para los casos que no son 'ingreso*', extraer variables y cargar vista
         if (!in_array($tipo, ['ingreso_manual', 'ingreso'])) {
+            if (isset($_GET['debug'])) { echo '<!-- ' . print_r($data, true) . ' -->'; }
             extract($data);
             ob_clean();
             include "../view/SeguimientoUsuario/popups/$tipo.php";
