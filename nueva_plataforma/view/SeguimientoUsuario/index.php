@@ -279,6 +279,40 @@
             console.error(mensaje);
         }
 
+        function eliminarRegistro(id, accion) {
+            // Verificar que la acción sea borraseguser (por compatibilidad)
+            if (accion !== 'borraseguser') {
+                mostrarError('Acción de eliminación no reconocida');
+                return;
+            }
+            // Obtener detalles para mostrar
+            $.get(dirPage, { accion: 'get_detalles_eliminar', id_combinado: id }, function(detalles) {
+                // Construir mensaje de confirmación
+                let mensaje = '¿Está seguro de eliminar el siguiente registro?\n\n';
+                if (detalles.usuario) mensaje += 'Operario: ' + detalles.usuario + '\n';
+                if (detalles.fecha) mensaje += 'Fecha: ' + detalles.fecha + '\n';
+                if (detalles.motivo) mensaje += 'Motivo: ' + detalles.motivo + '\n';
+                mensaje += '\nEsta acción eliminará tanto el registro de seguimiento como el preoperacional asociado.';
+
+                if (confirm(mensaje)) {
+                    // Enviar solicitud de eliminación
+                    $.post(dirPage, { accion: 'eliminar_seguimiento', id_combinado: id }, function(res) {
+                        if (res.success) {
+                            alert(res.message);
+                            // Recargar la tabla
+                            tabla.ajax.reload();
+                        } else {
+                            mostrarError(res.message || 'Error al eliminar');
+                        }
+                    }, 'json').fail(function() {
+                        mostrarError('Error de comunicación con el servidor');
+                    });
+                }
+            }).fail(function() {
+                mostrarError('No se pudieron cargar los detalles del registro');
+            });
+        }
+
         function cargarOperarios(selectId, sedeId, textoPorDefecto = 'Seleccione') {
             if (!sedeId) {
                 // Si no hay sede, limpiar select
@@ -412,15 +446,22 @@
                 { targets: '_all', className: 'text-center' }
             ],
             createdRow: function (row, data, dataIndex) {
-                if (data.row_color) {
-                    // Aplica el color a la fila y a todas las celdas
-                    $(row).css('background-color', data.row_color);
-                    $(row).find('td').css('background-color', data.row_color);
-                    // Si el color es rojo oscuro (#922B21), establecer texto blanco para mejor contraste
-                    if (data.row_color === '#922B21') {
-                        $(row).css('color', 'white');
-                        $(row).find('td').css('color', 'white');
-                    }
+                // Usar nuevos colores si existen, sino el antiguo row_color
+                var bgColor = data.row_bg_color || data.row_color;
+                var textColor = data.row_text_color;
+                if (bgColor) {
+                    // Aplica el color de fondo a la fila y a todas las celdas
+                    $(row).css('background-color', bgColor);
+                    $(row).find('td').css('background-color', bgColor);
+                }
+                // Aplicar color de texto si está definido
+                if (textColor) {
+                    $(row).css('color', textColor);
+                    $(row).find('td').css('color', textColor);
+                } else if (bgColor === '#922B21') {
+                    // Compatibilidad: si el fondo es rojo oscuro antiguo, texto blanco
+                    $(row).css('color', 'white');
+                    $(row).find('td').css('color', 'white');
                 }
             },
             scrollX: true

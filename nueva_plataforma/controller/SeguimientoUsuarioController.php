@@ -280,6 +280,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 ];
                 break;
 
+            case 'eliminar_seguimiento':
+                // Solo administradores (rol 1 o 12) pueden eliminar
+                if (!in_array($_SESSION['usuario_rol'] ?? 0, [1, 12])) {
+                    $response = ['success' => false, 'message' => 'No tiene permiso para eliminar registros'];
+                    break;
+                }
+                $idCombinado = $_POST['id_combinado'] ?? '';
+                if (empty($idCombinado)) {
+                    $response = ['success' => false, 'message' => 'ID no proporcionado'];
+                    break;
+                }
+                $ok = $modelo->eliminarSeguimiento($idCombinado);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Registro eliminado correctamente' : 'Error al eliminar el registro'
+                ];
+                break;
+
             default:
                 break;
         }
@@ -348,6 +366,28 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'get_all_operarios') {
     try {
         $operarios = $modelo->getTodosOperarios();
         sendJsonResponse($operarios);
+    } catch (Exception $e) {
+        sendJsonResponse(['error' => $e->getMessage()], 500);
+    }
+}
+
+// --------------------------------------------------------------------
+// OBTENER DETALLES PARA ELIMINAR (verificación)
+// --------------------------------------------------------------------
+if (isset($_GET['accion']) && $_GET['accion'] === 'get_detalles_eliminar') {
+    try {
+        // Solo administradores (rol 1 o 12) pueden ver detalles para eliminar
+        if (!in_array($_SESSION['usuario_rol'] ?? 0, [1, 12])) {
+            sendJsonResponse(['error' => 'No tiene permiso para eliminar registros'], 403);
+            exit;
+        }
+        $idCombinado = $_GET['id_combinado'] ?? '';
+        if (empty($idCombinado)) {
+            sendJsonResponse(['error' => 'ID no proporcionado'], 400);
+            exit;
+        }
+        $detalles = $modelo->getDetallesParaEliminar($idCombinado);
+        sendJsonResponse($detalles);
     } catch (Exception $e) {
         sendJsonResponse(['error' => $e->getMessage()], 500);
     }
