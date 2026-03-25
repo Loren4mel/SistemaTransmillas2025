@@ -796,11 +796,11 @@ class SeguimientoUsuarioModel
     public function insertarFestivos($fecha, $sede, $id_usuario)
     {
         // Obtener todos los operarios activos con contrato Empresa y sin fecha de terminación en hoja de vida
-        $sql = "SELECT u.idusuarios 
+        $sql = "SELECT u.idusuarios
                 FROM usuarios u
-                INNER JOIN hojadevida h ON h.hoj_cedula = u.usu_identificacion
-                WHERE u.usu_estado = 1 
-                  AND u.usu_filtro = 1 
+                LEFT JOIN hojadevida h ON h.hoj_cedula = u.usu_identificacion
+                WHERE u.usu_estado = 1
+                  AND u.usu_filtro = 1
                   AND u.usu_tipocontrato = 'Empresa'
                   AND (h.hoj_fechatermino IS NULL OR h.hoj_fechatermino = '0000-00-00')
                   AND u.roles_idroles != 6";
