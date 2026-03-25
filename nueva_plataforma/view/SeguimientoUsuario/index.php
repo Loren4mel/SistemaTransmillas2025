@@ -35,6 +35,26 @@
             z-index: 1000;
         }
 
+        .warning-dot {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+            animation: moderateFlash 1s infinite;
+        }
+        .warning-yellow {
+            background-color: #FFC107;
+        }
+        .warning-red {
+            background-color: #F44336;
+        }
+        @keyframes moderateFlash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         .table td,
         .table th {
             white-space: nowrap;
@@ -417,7 +437,7 @@
                 {
                     data: 'alerta_html',
                     render: function (data, type, row) {
-                        return (row.alerta_html || '') + ' ' + row.usu_nombre;
+                        return (row.alerta_html || '') + (row.alerta_izquierda_html || '') + ' ' + row.usu_nombre;
                     }
                 },
                 { data: 'preoperacional_link' },

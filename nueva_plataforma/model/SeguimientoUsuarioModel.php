@@ -211,14 +211,22 @@ class SeguimientoUsuarioModel
         $row['alerta_count'] = count($alertas);
         $row['alerta_html'] = $this->generarBurbujaAlertas($row['idusuarios'], $alertas);
 
-        // Color de la fila
-        $row['row_color'] = $this->determinarColorFila($row); // también define row_bg_color y row_text_color
 
         // Obtener datos de vehículo si existe
         $vehiculo = null;
         if (!empty($row['prevehiculo'])) {
             $vehiculo = $this->getVehiculo($row['prevehiculo']);
         }
+
+        // Alerta de expiración (licencia y tecnicomecánica)
+        $fechaLicencia = $row['usu_fechalicencia'] ?? null;
+        $fechaTecno = $vehiculo['veh_fechategnomecanica'] ?? null;
+        $alertaExpiracion = $this->generarAlertaExpiracion($fechaLicencia, $fechaTecno, $fechaActual);
+        $row['alerta_expiracion'] = $alertaExpiracion;
+        $row['alerta_izquierda_html'] = $alertaExpiracion['html'];
+
+        // Color de la fila (considera expiración)
+        $row['row_color'] = $this->determinarColorFila($row); // también define row_bg_color y row_text_color
 
         // Obtener nombre de zona
         $zonaNombre = null;
@@ -277,12 +285,21 @@ class SeguimientoUsuarioModel
         $bg = '#FFFFFF';
         $text = '#000000';
 
+        // Si tiene expiración vencida, color rojo fuerte (prioridad máxima)
+        if (!empty($row['alerta_expiracion']['expired']) && $row['alerta_expiracion']['expired']) {
+            $bg = '#922B21';
+            $text = '#FFFFFF';
+            $row['row_bg_color'] = $bg;
+            $row['row_text_color'] = $text;
+            return $bg;
+        }
+
         if ($row['seg_motivo'] === 'descanso') {
-            // Amarillo suave con texto marrón oscuro 
+            // Amarillo suave con texto marrón oscuro
             $bg = '#fff3cd';
             $text = '#664d03';
         } elseif ($row['seg_motivo'] === 'Vacaciones') {
-            // Verde agua con texto verde oscuro 
+            // Verde agua con texto verde oscuro
             $bg = '#d1e7dd';
             $text = '#0f5132';
         } elseif (!empty($row['idpreoperacinal'])) {
@@ -633,6 +650,78 @@ class SeguimientoUsuarioModel
         $hoyTs = strtotime($hoy);
         $fechaTs = strtotime($fecha);
         return round(($fechaTs - $hoyTs) / 86400);
+    }
+
+    /**
+     * Genera HTML de advertencia para fechas de expiración (licencia conducción y tecnicomecánica)
+     * Retorna array con 'html', 'expired', 'urgency' (0=none,1=month,2=5days,3=expired)
+     */
+    private function generarAlertaExpiracion($fechaLicencia, $fechaTecno, $hoy = null)
+    {
+        if (!$hoy) $hoy = date('Y-m-d');
+        $diasLic = $this->diasHasta($hoy, $fechaLicencia);
+        $diasTecno = $this->diasHasta($hoy, $fechaTecno);
+
+        // Determinar el más urgente (menor días restantes, considerando negativos como expirados)
+        $dias = null;
+        $tipo = '';
+        if ($diasLic !== null && $diasTecno !== null) {
+            // Preferir el más cercano a expirar (menor valor)
+            if ($diasLic <= $diasTecno) {
+                $dias = $diasLic;
+                $tipo = 'licencia';
+            } else {
+                $dias = $diasTecno;
+                $tipo = 'tecno';
+            }
+        } elseif ($diasLic !== null) {
+            $dias = $diasLic;
+            $tipo = 'licencia';
+        } elseif ($diasTecno !== null) {
+            $dias = $diasTecno;
+            $tipo = 'tecno';
+        } else {
+            // Sin fechas válidas
+            return [
+                'html' => '',
+                'expired' => false,
+                'urgency' => 0
+            ];
+        }
+
+        $expired = $dias < 0;
+        $urgency = 0;
+        $colorClass = '';
+        $title = '';
+
+        if ($expired) {
+            $urgency = 3;
+            $colorClass = 'warning-red expired';
+            $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expirada hace ' . abs($dias) . ' días';
+        } elseif ($dias <= 7) {
+            $urgency = 2;
+            $colorClass = 'warning-red';
+            $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expira en ' . $dias . ' días';
+        } elseif ($dias <= 30) {
+            $urgency = 1;
+            $colorClass = 'warning-yellow';
+            $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expira en ' . $dias . ' días';
+        } else {
+            return [
+                'html' => '',
+                'expired' => false,
+                'urgency' => 0
+            ];
+        }
+
+        $html = '<span class="warning-dot ' . $colorClass . '" title="' . htmlspecialchars($title) . '"></span>';
+        return [
+            'html' => $html,
+            'expired' => $expired,
+            'urgency' => $urgency,
+            'dias' => $dias,
+            'tipo' => $tipo
+        ];
     }
 
     public function insertarIngreso($data, $imagen, $id_usuario)
