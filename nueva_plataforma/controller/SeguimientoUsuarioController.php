@@ -207,6 +207,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 $response = ['success' => $ok, 'message' => $ok ? 'Compañero actualizado' : 'Error'];
                 break;
 
+            case 'guardar_festivos':
+                $fecha = $_POST['fecha'];
+                $sede = intval($_POST['sede'] ?? 0);
+                $ok = $modelo->insertarFestivos($fecha, $sede, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Días festivos agregados' : 'Error al agregar festivos'
+                ];
+                break;
+
+            case 'guardar_vacaciones':
+                $data = [
+                    'operario' => intval($_POST['operario']),
+                    'fecha_ini' => $_POST['fecha_ini'],
+                    'fecha_fin' => $_POST['fecha_fin']
+                ];
+                $ok = $modelo->insertarVacaciones($data, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Vacaciones registradas' : 'Error al registrar vacaciones'
+                ];
+                break;
+
+            case 'guardar_licencia':
+                $data = [
+                    'operario' => intval($_POST['operario']),
+                    'fecha_ini' => $_POST['fecha_ini'],
+                    'fecha_fin' => $_POST['fecha_fin'],
+                    'motivo' => $_POST['motivo'],
+                    'descripcion' => $_POST['descripcion']
+                ];
+                $ok = $modelo->insertarLicencia($data, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Licencia registrada' : 'Error al registrar licencia'
+                ];
+                break;
+
+            case 'guardar_ingreso':
+                $data = [
+                    'operario' => intval($_POST['operario']),
+                    'sede' => intval($_POST['sede']),
+                    'fecha' => $_POST['fecha'],
+                    'motivo' => $_POST['motivo'],
+                    'descripcion' => $_POST['descripcion'],
+                    'zona' => intval($_POST['zona']),
+                    'prueba' => $_POST['prueba']
+                ];
+                $imagen = $_FILES['imagen'] ?? null;
+                $ok = $modelo->insertarIngreso($data, $imagen, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Ingreso registrado correctamente' : 'Error al registrar ingreso'
+                ];
+                break;
+
+            case 'guardar_cambio':
+                $id_seguimiento = intval($_POST['id_seguimiento']);
+                $data = [
+                    'motivo' => $_POST['motivo'],
+                    'descripcion' => $_POST['descripcion'],
+                    'zona' => intval($_POST['zona']),
+                    'prueba' => $_POST['prueba'],
+                    'horas' => $_POST['horas']
+                ];
+                $imagen = $_FILES['imagen'] ?? null;
+                $ok = $modelo->actualizarIngreso($id_seguimiento, $data, $imagen, $_SESSION['usuario_id']);
+                $response = [
+                    'success' => $ok,
+                    'message' => $ok ? 'Cambios guardados' : 'Error al guardar cambios'
+                ];
+                break;
+
             default:
                 break;
         }
@@ -267,135 +340,6 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'get_deuda') {
     }
 }
 
-// --------------------------------------------------------------------
-// GUARDAR NUEVO INGRESO (SeguimientoUser)
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_ingreso') {
-    try {
-        $data = [
-            'operario' => intval($_POST['operario']),
-            'sede' => intval($_POST['sede']),
-            'fecha' => $_POST['fecha'],
-            'motivo' => $_POST['motivo'],
-            'descripcion' => $_POST['descripcion'],
-            'zona' => intval($_POST['zona']),
-            'prueba' => $_POST['prueba']
-        ];
-        $imagen = $_FILES['imagen'] ?? null;
-
-        $ok = $modelo->insertarIngreso($data, $imagen, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Ingreso registrado correctamente' : 'Error al registrar ingreso'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => 'Error interno: ' . $e->getMessage()], 500);
-    }
-}
-
-// --------------------------------------------------------------------
-// GUARDAR CAMBIO EN SEGUIMIENTO (Cambio_seguimientoUser)
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_cambio') {
-    try {
-        $id_seguimiento = intval($_POST['id_seguimiento']);
-        $data = [
-            'motivo' => $_POST['motivo'],
-            'descripcion' => $_POST['descripcion'],
-            'zona' => intval($_POST['zona']),
-            'prueba' => $_POST['prueba'],
-            'horas' => $_POST['horas']
-        ];
-        $imagen = $_FILES['imagen'] ?? null;
-
-        $ok = $modelo->actualizarIngreso($id_seguimiento, $data, $imagen, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Cambios guardados' : 'Error al guardar cambios'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
-    }
-}
-
-// --------------------------------------------------------------------
-// AGREGAR DÍA FESTIVO (para todos los operarios de empresa)
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_festivos') {
-    try {
-        $fecha = $_POST['fecha'];
-        $sede = intval($_POST['sede'] ?? 0);
-        $ok = $modelo->insertarFestivos($fecha, $sede, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Días festivos agregados' : 'Error al agregar festivos'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
-    }
-}
-
-// --------------------------------------------------------------------
-// AGREGAR VACACIONES (para un operario en un rango)
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_vacaciones') {
-    try {
-        $data = [
-            'operario' => intval($_POST['operario']),
-            'fecha_ini' => $_POST['fecha_ini'],
-            'fecha_fin' => $_POST['fecha_fin']
-        ];
-        $ok = $modelo->insertarVacaciones($data, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Vacaciones registradas' : 'Error al registrar vacaciones'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
-    }
-}
-
-// --------------------------------------------------------------------
-// AGREGAR LICENCIA / PERMISO
-// --------------------------------------------------------------------
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardar_licencia') {
-    try {
-        $data = [
-            'operario' => intval($_POST['operario']),
-            'fecha_ini' => $_POST['fecha_ini'],
-            'fecha_fin' => $_POST['fecha_fin'],
-            'motivo' => $_POST['motivo'],
-            'descripcion' => $_POST['descripcion']
-        ];
-        $ok = $modelo->insertarLicencia($data, $_SESSION['usuario_id']);
-        $response = [
-            'success' => $ok,
-            'message' => $ok ? 'Licencia registrada' : 'Error al registrar licencia'
-        ];
-        global $captured_errors;
-        if (!empty($captured_errors))
-            $response['debug_errors'] = $captured_errors;
-        sendJsonResponse($response);
-    } catch (Exception $e) {
-        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
-    }
-}
 
 // --------------------------------------------------------------------
 // OBTENER TODOS LOS OPERARIOS
@@ -413,6 +357,7 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'get_all_operarios') {
 // OBTENER FORMULARIO POPUP (HTML)
 // --------------------------------------------------------------------
 if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
+    error_log('form_popup triggered, tipo: ' . ($_GET['tipo'] ?? 'none'));
     try {
         $tipo = $_GET['tipo'] ?? '';
         $id = intval($_GET['id'] ?? 0);
@@ -499,8 +444,23 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
             case 'zona':
                 $data['id'] = $id;
                 $data['fecha'] = $param;
-                $id_sede_usuario = $_SESSION['usu_idsede'] ?? 0;
+                // Obtener sede del usuario del seguimiento, no del usuario logueado
+                $id_sede_usuario = 0;
+                $zona_seleccionada = 0;
+                if ($id > 0) {
+                    $seguimiento = $modelo->getSeguimientoById($id);
+                    if ($seguimiento) {
+                        $id_usuario = $seguimiento['seg_idusuario'];
+                        $id_sede_usuario = $modelo->getSedeByUsuario($id_usuario);
+                        $zona_seleccionada = $seguimiento['seg_idzona'] ?? 0;
+                    }
+                }
+                // Si no se pudo obtener la sede, usar la del usuario logueado como fallback
+                if ($id_sede_usuario <= 0) {
+                    $id_sede_usuario = $_SESSION['usu_idsede'] ?? 0;
+                }
                 $data['zonas'] = $modelo->getZonasPorSede($id_sede_usuario);
+                $data['zona_seleccionada'] = $zona_seleccionada;
                 break;
 
             case 'hora_almuerzo':
@@ -508,17 +468,59 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
             case 'retorno_oficina':
                 $data['id'] = $id;
                 $data['fecha'] = $param;
+                // Obtener hora actual del seguimiento
+                $hora_actual = '';
+                if ($id > 0) {
+                    $seguimiento = $modelo->getSeguimientoById($id);
+                    if ($seguimiento) {
+                        switch ($tipo) {
+                            case 'hora_almuerzo':
+                                $hora_actual = $seguimiento['seg_horaalmuerzo'] ?? '';
+                                break;
+                            case 'retorno_almuerzo':
+                                $hora_actual = $seguimiento['seg_horaregreso'] ?? '';
+                                break;
+                            case 'retorno_oficina':
+                                $hora_actual = $seguimiento['seg_horaoficina'] ?? '';
+                                break;
+                        }
+                    }
+                }
+                $data['hora_actual'] = $hora_actual;
                 break;
 
             case 'companero':
+            case 'trabaja_con':
                 $data['id'] = $id;
                 $data['param'] = $param;
                 $data['operarios'] = $modelo->getTodosOperarios();
+                // Obtener compañero actual si existe
+                $companeroActual = 0;
+                if ($id > 0) {
+                    $seguimiento = $modelo->getSeguimientoById($id);
+                    if ($seguimiento && !empty($seguimiento['seg_compañero'])) {
+                        $companeroActual = intval($seguimiento['seg_compañero']);
+                    }
+                }
+                $data['companero_seleccionado'] = $companeroActual;
+                break;
+
+            case 'festivos':
+                $data['sedes'] = $modelo->getSedes();
+                break;
+
+            case 'vacaciones':
+                // No se necesitan datos adicionales, el select se carga via JavaScript
+                break;
+
+            case 'licencias':
+                $data['motivosLicencia'] = $modelo->getMotivosLicencia();
                 break;
         }
 
         // Para los casos que no son 'ingreso*', extraer variables y cargar vista
         if (!in_array($tipo, ['ingreso_manual', 'ingreso'])) {
+            if (isset($_GET['debug'])) { echo '<!-- ' . print_r($data, true) . ' -->'; }
             extract($data);
             ob_clean();
             include "../view/SeguimientoUsuario/popups/$tipo.php";
