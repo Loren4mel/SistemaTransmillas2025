@@ -515,6 +515,18 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
                 $data['param'] = $param;
                 $data['operarios'] = $modelo->getTodosOperarios();
                 break;
+
+            case 'festivos':
+                $data['sedes'] = $modelo->getSedes();
+                break;
+
+            case 'vacaciones':
+                // No se necesitan datos adicionales, el select se carga via JavaScript
+                break;
+
+            case 'licencias':
+                $data['motivosLicencia'] = $modelo->getMotivosLicencia();
+                break;
         }
 
         // Para los casos que no son 'ingreso*', extraer variables y cargar vista

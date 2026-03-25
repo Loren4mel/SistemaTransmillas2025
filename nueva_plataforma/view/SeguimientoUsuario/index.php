@@ -196,23 +196,8 @@
                     <h5 class="modal-title">Agregar día de descanso</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <form id="formFestivos">
-                        <input type="hidden" name="accion" value="guardar_festivos">
-                        <div class="mb-3">
-                            <label>Fecha</label>
-                            <input type="date" name="fecha" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label>Sede (opcional, si se quiere restringir)</label>
-                            <select name="sede" class="form-select">
-                                <option value="">Todas las sedes</option>
-                                <?php foreach ($sedes as $s): ?>
-                                    <option value="<?= $s['idsedes'] ?>"><?= htmlspecialchars($s['sed_nombre']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    </form>
+                <div class="modal-body" id="festivosModalBody">
+                    <!-- Cargado via AJAX -->
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -230,24 +215,8 @@
                     <h5 class="modal-title">Agregar vacaciones</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <form id="formVacaciones">
-                        <input type="hidden" name="accion" value="guardar_vacaciones">
-                        <div class="mb-3">
-                            <label>Operario</label>
-                            <select name="operario" id="vac_operario" class="form-select" required></select>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label>Fecha inicio</label>
-                                <input type="date" name="fecha_ini" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label>Fecha fin</label>
-                                <input type="date" name="fecha_fin" class="form-control" required>
-                            </div>
-                        </div>
-                    </form>
+                <div class="modal-body" id="vacacionesModalBody">
+                    <!-- Cargado via AJAX -->
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -265,37 +234,8 @@
                     <h5 class="modal-title">Agregar licencia / permiso</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <form id="formLicencias">
-                        <input type="hidden" name="accion" value="guardar_licencia">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label>Operario</label>
-                                <select name="operario" id="lic_operario" class="form-select" required></select>
-                            </div>
-                            <div class="col-md-3">
-                                <label>Fecha inicio</label>
-                                <input type="date" name="fecha_ini" class="form-control" required>
-                            </div>
-                            <div class="col-md-3">
-                                <label>Fecha fin</label>
-                                <input type="date" name="fecha_fin" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label>Motivo</label>
-                                <select name="motivo" class="form-select" required>
-                                    <?php foreach ($motivosLicencia as $m): ?>
-                                        <option value="<?= $m['mot_nombre'] ?>"><?= htmlspecialchars($m['mot_nombre']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label>Descripción</label>
-                                <textarea name="descripcion" class="form-control" rows="2"></textarea>
-                            </div>
-                        </div>
-                    </form>
+                <div class="modal-body" id="licenciasModalBody">
+                    <!-- Cargado via AJAX -->
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -536,15 +476,38 @@
 
         // Carga de operarios en modales de vacaciones y licencias al abrirlos
 
+        // Al abrir modal de festivos
+        $('#modalFestivos').on('show.bs.modal', function () {
+            $('#festivosModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
+            $.get(window.location.pathname, { accion: 'form_popup', tipo: 'festivos' }, function (html) {
+                $('#festivosModalBody').html(html);
+            }).fail(function () {
+                $('#festivosModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
+            });
+        });
+
         // Al abrir modal de vacaciones
         $('#modalVacaciones').on('show.bs.modal', function () {
-            cargarOperariosConSelect2('#vac_operario', $('#sede').val(), 'Seleccione operario');
+            $('#vacacionesModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
+            $.get(window.location.pathname, { accion: 'form_popup', tipo: 'vacaciones' }, function (html) {
+                $('#vacacionesModalBody').html(html);
+                // Después de cargar el formulario, cargar operarios con Select2
+                cargarOperariosConSelect2('#vac_operario', $('#sede').val(), 'Seleccione operario');
+            }).fail(function () {
+                $('#vacacionesModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
+            });
         });
 
         // Al abrir modal de licencias
-        // Al abrir modal de licencias
         $('#modalLicencias').on('show.bs.modal', function () {
-            cargarOperariosConSelect2('#lic_operario', $('#sede').val(), 'Seleccione operario');
+            $('#licenciasModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
+            $.get(window.location.pathname, { accion: 'form_popup', tipo: 'licencias' }, function (html) {
+                $('#licenciasModalBody').html(html);
+                // Después de cargar el formulario, cargar operarios con Select2
+                cargarOperariosConSelect2('#lic_operario', $('#sede').val(), 'Seleccione operario');
+            }).fail(function () {
+                $('#licenciasModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
+            });
         });
 
         // Al cerrar modales, destruir Select2 solo si existe la instancia
