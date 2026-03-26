@@ -149,24 +149,41 @@ class PendientesModel
         return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     }
 
+    public function obtenerUsuariosAsignables(): array
+    {
+        $sql = "SELECT
+                    u.idusuarios,
+                    u.usu_nombre,
+                    u.usu_tipocontrato,
+                    u.roles_idroles,
+                    r.rol_nombre
+                FROM usuarios u
+                LEFT JOIN roles r ON r.idroles = u.roles_idroles
+                WHERE u.usu_estado = 1
+                ORDER BY u.usu_nombre ASC";
+
+        $result = $this->db->query($sql);
+        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    }
+
     public function obtenerPendientesCreadosPorGerente(int $creadorId): array
     {
         $pendientes = [];
 
         $sqlPendientes = "SELECT
-                    id,
-                    pen_titulo,
-                    pen_descripcion,
-                    pen_documento,
-                    pen_fecha_creacion,
-                    pen_estado
-                FROM pendientes_creados
-                WHERE pen_creado_por = ?
-                  AND pen_estado = 1
-                ORDER BY pen_fecha_creacion DESC";
+                    pc.id,
+                    pc.pen_titulo,
+                    pc.pen_descripcion,
+                    pc.pen_documento,
+                    pc.pen_fecha_creacion,
+                    pc.pen_estado,
+                    u.usu_nombre AS creador_nombre
+                FROM pendientes_creados pc
+                LEFT JOIN usuarios u ON u.idusuarios = pc.pen_creado_por
+                WHERE pc.pen_estado = 1
+                ORDER BY pc.pen_fecha_creacion DESC";
 
         $stmtPendientes = $this->db->prepare($sqlPendientes);
-        $stmtPendientes->bind_param("i", $creadorId);
         $stmtPendientes->execute();
         $resultPendientes = $stmtPendientes->get_result();
 
@@ -178,6 +195,7 @@ class PendientesModel
                 'descripcion' => $row['pen_descripcion'] ?? '',
                 'documento' => $row['pen_documento'],
                 'fecha_creacion' => $row['pen_fecha_creacion'],
+                'creador_nombre' => $row['creador_nombre'] ?? 'Sin nombre',
                 'estado' => (int) $row['pen_estado'],
                 'total_asignados' => 0,
                 'total_aceptados' => 0,
@@ -301,6 +319,14 @@ class PendientesModel
 
         $stmtUsuarios->close();
 
+        foreach ($pendientes as &$pendiente) {
+            $esUsuarioEspecifico = empty($pendiente['roles_ids']) && count($pendiente['usuarios']) === 1;
+            $pendiente['modo_asignacion'] = $esUsuarioEspecifico ? 'usuario' : 'filtros';
+            $pendiente['usuario_objetivo_id'] = $esUsuarioEspecifico ? (int) $pendiente['usuarios'][0]['usuario_id'] : 0;
+            $pendiente['usuario_objetivo_nombre'] = $esUsuarioEspecifico ? $pendiente['usuarios'][0]['usuario_nombre'] : '';
+        }
+        unset($pendiente);
+
         return array_values($pendientes);
     }
 
@@ -317,6 +343,8 @@ class PendientesModel
         $descripcion = trim($data['descripcion'] ?? '');
         $linkDocumento = trim($data['documento_link'] ?? '');
         $tipoDocumento = trim($data['tipo_documento'] ?? '');
+        $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
+        $usuarioEspecificoId = (int) ($data['usuario_especifico_id'] ?? 0);
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
 
@@ -324,21 +352,24 @@ class PendientesModel
             return ['success' => false, 'message' => 'Debes seleccionar o escribir el concepto del pendiente.'];
         }
 
-        if (!is_array($roles) || empty($roles)) {
-            return ['success' => false, 'message' => 'Debes seleccionar al menos un rol.'];
-        }
-
-        $roles = array_values(array_unique(array_map('intval', $roles)));
-        $roles = array_filter($roles, static function ($rol) {
+        $roles = array_values(array_unique(array_map('intval', is_array($roles) ? $roles : [])));
+        $roles = array_values(array_filter($roles, static function ($rol) {
             return $rol > 0;
-        });
+        }));
 
-        if (empty($roles)) {
-            return ['success' => false, 'message' => 'Los roles seleccionados no son validos.'];
-        }
+        if ($modoAsignacion === 'usuario') {
+            $usuarioEspecifico = $this->obtenerUsuarioPorId($usuarioEspecificoId);
+            if ($usuarioEspecifico === null) {
+                return ['success' => false, 'message' => 'Debes seleccionar un usuario valido.'];
+            }
+        } else {
+            if (empty($roles)) {
+                return ['success' => false, 'message' => 'Los roles seleccionados no son validos.'];
+            }
 
-        if (empty($tiposContrato)) {
-            return ['success' => false, 'message' => 'Debes seleccionar al menos un tipo de contrato.'];
+            if (empty($tiposContrato)) {
+                return ['success' => false, 'message' => 'Debes seleccionar al menos un tipo de contrato.'];
+            }
         }
 
         $rutaDocumento = $this->resolverDocumentoPendiente($tipoDocumento, $linkDocumento, $file, $pendienteActual['pen_documento']);
@@ -366,36 +397,33 @@ class PendientesModel
             $stmtDeleteRoles->execute();
             $stmtDeleteRoles->close();
 
-            $stmtRol = $this->db->prepare("INSERT INTO pendientes_creados_roles (pendiente_id, rol_id) VALUES (?, ?)");
-            foreach ($roles as $rolId) {
-                $stmtRol->bind_param("ii", $pendienteId, $rolId);
-                $stmtRol->execute();
+            if ($modoAsignacion === 'filtros') {
+                $stmtRol = $this->db->prepare("INSERT INTO pendientes_creados_roles (pendiente_id, rol_id) VALUES (?, ?)");
+                foreach ($roles as $rolId) {
+                    $stmtRol->bind_param("ii", $pendienteId, $rolId);
+                    $stmtRol->execute();
+                }
+                $stmtRol->close();
             }
-            $stmtRol->close();
 
             $stmtDeleteTipos = $this->db->prepare("DELETE FROM pendientes_creados_tipos_contrato WHERE pendiente_id = ?");
             $stmtDeleteTipos->bind_param("i", $pendienteId);
             $stmtDeleteTipos->execute();
             $stmtDeleteTipos->close();
 
-            $this->guardarTiposContratoPendiente($pendienteId, $tiposContrato);
+            $stmtDeleteUsuarios = $this->db->prepare("DELETE FROM pendientes_creados_usuarios WHERE pendiente_id = ?");
+            $stmtDeleteUsuarios->bind_param("i", $pendienteId);
+            $stmtDeleteUsuarios->execute();
+            $stmtDeleteUsuarios->close();
 
-            $this->eliminarUsuariosFueraDeRoles($pendienteId, $roles);
-            $this->eliminarUsuariosFueraDeTiposContrato($pendienteId, $tiposContrato);
-
-            $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato);
-            $stmtUsuario = $this->db->prepare("INSERT INTO pendientes_creados_usuarios
-                (pendiente_id, usuario_id, rol_id, pu_documento_abierto, pu_fecha_asignacion)
-                VALUES (?, ?, ?, 0, NOW())
-                ON DUPLICATE KEY UPDATE rol_id = VALUES(rol_id)");
-
-            foreach ($usuariosAsignados as $usuario) {
-                $usuarioId = (int) $usuario['idusuarios'];
-                $rolId = (int) $usuario['roles_idroles'];
-                $stmtUsuario->bind_param("iii", $pendienteId, $usuarioId, $rolId);
-                $stmtUsuario->execute();
+            if ($modoAsignacion === 'usuario') {
+                $this->insertarUsuariosPendiente($pendienteId, [$usuarioEspecifico]);
+                $usuariosAsignados = [$usuarioEspecifico];
+            } else {
+                $this->guardarTiposContratoPendiente($pendienteId, $tiposContrato);
+                $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato);
+                $this->insertarUsuariosPendiente($pendienteId, $usuariosAsignados);
             }
-            $stmtUsuario->close();
 
             $this->db->commit();
 
@@ -435,6 +463,8 @@ class PendientesModel
         $titulo = $concepto === 'Otro' ? $tituloPersonalizado : $concepto;
         $descripcion = trim($data['descripcion'] ?? '');
         $linkDocumento = trim($data['documento_link'] ?? '');
+        $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
+        $usuarioEspecificoId = (int) ($data['usuario_especifico_id'] ?? 0);
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
         $tieneArchivo = (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK);
@@ -446,6 +476,8 @@ class PendientesModel
             'titulo' => $titulo,
             'roles' => $roles,
             'tipos_contrato' => $tiposContrato,
+            'modo_asignacion' => $modoAsignacion,
+            'usuario_especifico_id' => $usuarioEspecificoId,
             'file_error' => $file['error'] ?? null,
             'file_name' => $file['name'] ?? null,
             'link_documento' => $linkDocumento,
@@ -456,24 +488,27 @@ class PendientesModel
             return ['success' => false, 'message' => 'Debes seleccionar o escribir el concepto del pendiente.'];
         }
 
-        if (!is_array($roles) || empty($roles)) {
-            $this->log("crearPendiente abortado: sin roles");
-            return ['success' => false, 'message' => 'Debes seleccionar al menos un rol.'];
-        }
-
-        $roles = array_values(array_unique(array_map('intval', $roles)));
+        $roles = array_values(array_unique(array_map('intval', is_array($roles) ? $roles : [])));
         $roles = array_filter($roles, static function ($rol) {
             return $rol > 0;
         });
 
-        if (empty($roles)) {
-            $this->log("crearPendiente abortado: roles invalidos");
-            return ['success' => false, 'message' => 'Los roles seleccionados no son validos.'];
-        }
+        if ($modoAsignacion === 'usuario') {
+            $usuarioEspecifico = $this->obtenerUsuarioPorId($usuarioEspecificoId);
+            if ($usuarioEspecifico === null) {
+                $this->log("crearPendiente abortado: usuario especifico invalido", ['usuario_especifico_id' => $usuarioEspecificoId]);
+                return ['success' => false, 'message' => 'Debes seleccionar un usuario valido.'];
+            }
+        } else {
+            if (empty($roles)) {
+                $this->log("crearPendiente abortado: roles invalidos");
+                return ['success' => false, 'message' => 'Los roles seleccionados no son validos.'];
+            }
 
-        if (empty($tiposContrato)) {
-            $this->log("crearPendiente abortado: tipos de contrato invalidos");
-            return ['success' => false, 'message' => 'Debes seleccionar al menos un tipo de contrato.'];
+            if (empty($tiposContrato)) {
+                $this->log("crearPendiente abortado: tipos de contrato invalidos");
+                return ['success' => false, 'message' => 'Debes seleccionar al menos un tipo de contrato.'];
+            }
         }
 
         if (!$tieneArchivo && !$tieneLink) {
@@ -517,34 +552,25 @@ class PendientesModel
             $pendienteId = (int) $stmtPendiente->insert_id;
             $stmtPendiente->close();
 
-            $stmtRol = $this->db->prepare("INSERT INTO pendientes_creados_roles (pendiente_id, rol_id) VALUES (?, ?)");
-            if (!$stmtRol) {
-                throw new Exception('Error preparando INSERT pendientes_creados_roles: ' . $this->db->error);
-            }
-            foreach ($roles as $rolId) {
-                $stmtRol->bind_param("ii", $pendienteId, $rolId);
-                $stmtRol->execute();
-            }
-            $stmtRol->close();
-
-            $this->guardarTiposContratoPendiente($pendienteId, $tiposContrato);
-
-            $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato);
-            $stmtUsuario = $this->db->prepare("INSERT INTO pendientes_creados_usuarios
-                (pendiente_id, usuario_id, rol_id, pu_documento_abierto, pu_fecha_asignacion)
-                VALUES (?, ?, ?, 0, NOW())
-                ON DUPLICATE KEY UPDATE rol_id = VALUES(rol_id)");
-            if (!$stmtUsuario) {
-                throw new Exception('Error preparando INSERT pendientes_creados_usuarios: ' . $this->db->error);
+            if ($modoAsignacion === 'filtros') {
+                $stmtRol = $this->db->prepare("INSERT INTO pendientes_creados_roles (pendiente_id, rol_id) VALUES (?, ?)");
+                if (!$stmtRol) {
+                    throw new Exception('Error preparando INSERT pendientes_creados_roles: ' . $this->db->error);
+                }
+                foreach ($roles as $rolId) {
+                    $stmtRol->bind_param("ii", $pendienteId, $rolId);
+                    $stmtRol->execute();
+                }
+                $stmtRol->close();
             }
 
-            foreach ($usuariosAsignados as $usuario) {
-                $usuarioId = (int) $usuario['idusuarios'];
-                $rolId = (int) $usuario['roles_idroles'];
-                $stmtUsuario->bind_param("iii", $pendienteId, $usuarioId, $rolId);
-                $stmtUsuario->execute();
+            if ($modoAsignacion === 'usuario') {
+                $usuariosAsignados = [$usuarioEspecifico];
+            } else {
+                $this->guardarTiposContratoPendiente($pendienteId, $tiposContrato);
+                $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato);
             }
-            $stmtUsuario->close();
+            $this->insertarUsuariosPendiente($pendienteId, $usuariosAsignados);
 
             $this->db->commit();
             $this->log("crearPendiente OK", [
@@ -757,6 +783,44 @@ class PendientesModel
         $stmt->close();
 
         return $usuarios;
+    }
+
+    private function obtenerUsuarioPorId(int $usuarioId): ?array
+    {
+        $sql = "SELECT idusuarios, roles_idroles, usu_nombre, usu_tipocontrato
+                FROM usuarios
+                WHERE idusuarios = ?
+                  AND usu_estado = 1
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $usuarioId);
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return $resultado ?: null;
+    }
+
+    private function insertarUsuariosPendiente(int $pendienteId, array $usuarios): void
+    {
+        $stmtUsuario = $this->db->prepare("INSERT INTO pendientes_creados_usuarios
+            (pendiente_id, usuario_id, rol_id, pu_documento_abierto, pu_fecha_asignacion)
+            VALUES (?, ?, ?, 0, NOW())
+            ON DUPLICATE KEY UPDATE rol_id = VALUES(rol_id)");
+
+        if (!$stmtUsuario) {
+            throw new Exception('Error preparando INSERT pendientes_creados_usuarios: ' . $this->db->error);
+        }
+
+        foreach ($usuarios as $usuario) {
+            $usuarioId = (int) $usuario['idusuarios'];
+            $rolId = (int) $usuario['roles_idroles'];
+            $stmtUsuario->bind_param("iii", $pendienteId, $usuarioId, $rolId);
+            $stmtUsuario->execute();
+        }
+
+        $stmtUsuario->close();
     }
 
     private function sincronizarPendientesPorRol(int $idUsuario, int $rolUsuario, string $tipoContratoUsuario): void

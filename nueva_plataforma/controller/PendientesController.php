@@ -175,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $roles = $rolUsuario === 1 ? $modelo->obtenerRoles() : [];
+$usuariosAsignables = $rolUsuario === 1 ? $modelo->obtenerUsuariosAsignables() : [];
 $pendientes = $modelo->obtenerPendientesUsuario($idUsuario, $rolUsuario);
 $pendientesCreados = $rolUsuario === 1 ? $modelo->obtenerPendientesCreadosPorGerente($idUsuario) : [];
 

@@ -154,7 +154,7 @@ if (!isset($_GET['sede']) || !isset($_GET['acceso'])) {
             <div class="collapse navbar-collapse" id="menuSuperior">
               <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 <li class="nav-item"><a class="nav-link text-white" href="#" onclick="cargarContenido('paginas/inicio.html')">🏠 Inicio</a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="#" onclick="cargarContenido('paginas/mis_pagos.html')">💳 Mis pagos</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="/nueva_plataforma/controller/PendientesController.php">Pendientes</a></li>
                 <li class="nav-item"><a class="nav-link text-white" href="#" onclick="cargarContenido('paginas/sin_ingreso.html')">👥 Sin ingreso</a></li>
               </ul>
             </div>
