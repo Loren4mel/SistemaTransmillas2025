@@ -596,13 +596,32 @@ $activo=true;
                     <ul class="nav navbar-nav">
                     <?php 
 
-                        $sqlnomina = "SELECT  count(*) from nomina where nom_id_usu='$id_usuario' and (nom_confirmaUsu='' or nom_confirmaUsu='no' ) and nom_cuentaCobro IS NOT NULL ";
-                        $DB1->Execute($sqlnomina); 
-                        $nominaspendientes=$DB1->recogedato(0);
-                        $prima = "SELECT   count(*) from primas where  pri_idusu='$id_usuario'  and (pri_confirmaUsus='' or pri_confirmaUsus='no' ) ";
-                        $DB1->Execute($prima); 
-                        $primareco=$DB1->recogedato(0);
-                        $totalnomina=$nominaspendientes+$primareco;
+                    //Pendientes y pagos
+                    $sqlnomina = "SELECT count(*) 
+                                FROM nomina 
+                                WHERE nom_id_usu='$id_usuario' 
+                                AND (nom_confirmaUsu='' OR nom_confirmaUsu='no') 
+                                AND nom_cuentaCobro IS NOT NULL";
+                    $DB1->Execute($sqlnomina); 
+                    $nominaspendientes = $DB1->recogedato(0);
+
+                    $prima = "SELECT count(*) 
+                            FROM primas 
+                            WHERE pri_idusu='$id_usuario' 
+                            AND (pri_confirmaUsus='' OR pri_confirmaUsus='no')";
+                    $DB1->Execute($prima); 
+                    $primareco = $DB1->recogedato(0);
+
+                    $sqlPendientesPersonalizados = "SELECT COUNT(*) 
+                                                    FROM pendientes_creados_usuarios pu
+                                                    INNER JOIN pendientes_creados pc ON pc.id = pu.pendiente_id
+                                                    WHERE pu.usuario_id = '$id_usuario'
+                                                    AND pc.pen_estado = 1
+                                                    AND (pu.pu_confirmacion IS NULL OR pu.pu_confirmacion = '' OR pu.pu_confirmacion = 'no')";
+                    $DB1->Execute($sqlPendientesPersonalizados);
+                    $pendientesPersonalizados = $DB1->recogedato(0);
+
+                    $totalnomina = $nominaspendientes + $primareco + $pendientesPersonalizados;
                         if ($totalnomina>0) {
                             echo"<script>pagosPendientes();</script>";
                         }
@@ -620,8 +639,8 @@ $activo=true;
                         ?>
 
                         <li >
-                            <a href="nueva_plataforma/controller/PendientesController.php" ><i class="glyphicon glyphicon-usd"></i><span>Mis pagos
-                                <i id='mispagos' >
+                            <a href="nueva_plataforma/controller/PendientesController.php" ><i class="glyphicon glyphicon-usd"></i><span>Pendientes
+                                <i id='pendientes' >
                                 
                                         <div class="noti_bubble"><i ><?=$totalnomina?></i></div>
                                 </i>

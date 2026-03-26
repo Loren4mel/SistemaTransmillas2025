@@ -1,5 +1,6 @@
 <?php
 date_default_timezone_set('America/Bogota');
+require_once __DIR__ . '/../../helpers/view.php';
 $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
 ?>
 <!DOCTYPE html>
@@ -99,77 +100,73 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       gap: 8px;
       flex-wrap: wrap;
     }
+    .bloque-asignacion {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="container-fluid mt-4">
     <?php if ($rolUsuario === 1): ?>
-      <div class="card shadow p-3 mb-4 bg-body rounded">
-        <div class="card-header mi-header d-flex align-items-center justify-content-between">
-          <h3 class="mb-0">
-            <i class="fas fa-plus-circle me-2"></i> Gestion de Pendientes
-          </h3>
-          <span class="text-white small">Solo disponible para gerente</span>
+      <?php ob_start(); ?>
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="hint-card mb-0">
+          El gerente puede crear pendientes con archivo o link y asignarlos a uno o varios roles.
+          Los usuarios no podran confirmarlos hasta abrir el documento.
         </div>
-
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div class="hint-card mb-0">
-              El gerente puede crear pendientes con archivo o link y asignarlos a uno o varios roles.
-              Los usuarios no podran confirmarlos hasta abrir el documento.
-            </div>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCrearPendiente">
-              <i class="fas fa-plus me-1"></i> Nuevo pendiente
-            </button>
-          </div>
-        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCrearPendiente">
+          <i class="fas fa-plus me-1"></i> Nuevo pendiente
+        </button>
       </div>
+      <?php
+      $bodyGestionPendientes = ob_get_clean();
+
+      echo component('section-card', [
+        'title' => 'Gestion de Pendientes',
+        'icon' => 'fas fa-plus-circle',
+        'headerAside' => '<span class="text-white small">Solo disponible para gerente</span>',
+        'body' => $bodyGestionPendientes,
+      ]);
+      ?>
     <?php endif; ?>
 
     <?php if ($rolUsuario === 1): ?>
-      <div class="card shadow p-3 mb-4 bg-body rounded">
-        <div class="card-header mi-header d-flex align-items-center justify-content-between">
-          <h3 class="mb-0">
-            <i class="fas fa-clipboard-check me-2"></i> Seguimiento de Pendientes Creados
-          </h3>
-          <span class="text-white small">Vista de gerente</span>
-        </div>
-
-        <div class="card-body">
-          <?php if (empty($pendientesCreados)): ?>
-            <div class="empty-state p-4 text-center">
-              <h5 class="mb-2">Aun no has creado pendientes</h5>
-              <p class="text-muted mb-0">Cuando crees uno, aqui podras ver quien lo acepto, rechazo o sigue pendiente.</p>
-            </div>
-          <?php else: ?>
-            <div class="accordion" id="accordionPendientesCreados">
-              <?php foreach ($pendientesCreados as $indice => $pendienteCreado): ?>
-                <?php $collapseId = 'pendienteCreado_' . (int) $pendienteCreado['id']; ?>
-                <div class="accordion-item mb-3 border rounded-3 overflow-hidden">
+      <?php ob_start(); ?>
+      <?php if (empty($pendientesCreados)): ?>
+        <?= component('empty-state', [
+          'title' => 'Aun no has creado pendientes',
+          'message' => 'Cuando crees uno, aqui podras ver quien lo acepto, rechazo o sigue pendiente.',
+        ]) ?>
+      <?php else: ?>
+        <div class="accordion" id="accordionPendientesCreados">
+          <?php foreach ($pendientesCreados as $indice => $pendienteCreado): ?>
+            <?php $collapseId = 'pendienteCreado_' . (int) $pendienteCreado['id']; ?>
+            <div class="accordion-item mb-3 border rounded-3 overflow-hidden">
                   <h2 class="accordion-header" id="heading_<?= $collapseId ?>">
-                    <button class="accordion-button <?= $indice === 0 ? '' : 'collapsed' ?>" type="button" data-bs-toggle="collapse" data-bs-target="#<?= $collapseId ?>" aria-expanded="<?= $indice === 0 ? 'true' : 'false' ?>" aria-controls="<?= $collapseId ?>">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#<?= $collapseId ?>" aria-expanded="false" aria-controls="<?= $collapseId ?>">
                       <div class="w-100 pe-3">
                         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                           <div>
                             <div class="fw-semibold"><?= htmlspecialchars($pendienteCreado['titulo']) ?></div>
                             <div class="meta-pendiente">
                               Creado el <?= htmlspecialchars($pendienteCreado['fecha_creacion']) ?>
+                              | Por <?= htmlspecialchars($pendienteCreado['creador_nombre'] ?? 'Sin nombre') ?>
                               <?php if (!empty($pendienteCreado['descripcion'])): ?>
                                 | <?= htmlspecialchars($pendienteCreado['descripcion']) ?>
                               <?php endif; ?>
                             </div>
                           </div>
                           <div class="d-flex flex-wrap gap-2">
-                            <span class="badge-resumen badge-pendiente">Asignados: <?= (int) $pendienteCreado['total_asignados'] ?></span>
-                            <span class="badge-resumen badge-aceptado">Aceptados: <?= (int) $pendienteCreado['total_aceptados'] ?></span>
-                            <span class="badge-resumen badge-rechazado">Rechazados: <?= (int) $pendienteCreado['total_rechazados'] ?></span>
-                            <span class="badge-resumen badge-pendiente">Pendientes: <?= (int) $pendienteCreado['total_pendientes'] ?></span>
+                            <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Asignados', 'value' => (int) $pendienteCreado['total_asignados']]) ?>
+                            <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Aceptados', 'value' => (int) $pendienteCreado['total_aceptados']]) ?>
+                            <?= component('summary-badge', ['tone' => 'rechazado', 'label' => 'Rechazados', 'value' => (int) $pendienteCreado['total_rechazados']]) ?>
+                            <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Pendientes', 'value' => (int) $pendienteCreado['total_pendientes']]) ?>
                           </div>
                         </div>
                       </div>
                     </button>
                   </h2>
-                  <div id="<?= $collapseId ?>" class="accordion-collapse collapse <?= $indice === 0 ? 'show' : '' ?>" aria-labelledby="heading_<?= $collapseId ?>" data-bs-parent="#accordionPendientesCreados">
+                  <div id="<?= $collapseId ?>" class="accordion-collapse collapse" aria-labelledby="heading_<?= $collapseId ?>" data-bs-parent="#accordionPendientesCreados">
                     <div class="accordion-body">
                       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                         <a class="document-link" href="<?= htmlspecialchars($pendienteCreado['documento']) ?>" target="_blank" rel="noopener noreferrer">
@@ -202,6 +199,8 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                           data-tipo-documento="<?= htmlspecialchars(strpos($pendienteCreado['documento'], '../uploads/pendientes/') === 0 ? 'archivo' : 'link') ?>"
                           data-roles='<?= htmlspecialchars(json_encode($pendienteCreado['roles_ids']), ENT_QUOTES, 'UTF-8') ?>'
                           data-tipos-contrato='<?= htmlspecialchars(json_encode($pendienteCreado['tipos_contrato']), ENT_QUOTES, 'UTF-8') ?>'
+                          data-modo-asignacion="<?= htmlspecialchars($pendienteCreado['modo_asignacion']) ?>"
+                          data-usuario-objetivo-id="<?= (int) $pendienteCreado['usuario_objetivo_id'] ?>"
                         >
                           <i class="bi bi-pencil-square"></i> Editar
                         </button>
@@ -233,21 +232,21 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                                 <td><?= htmlspecialchars($usuarioPendiente['rol_nombre']) ?></td>
                                 <td>
                                   <?php if ((int) $usuarioPendiente['documento_abierto'] === 1): ?>
-                                    <span class="badge-resumen badge-aceptado">Si</span>
+                                    <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Estado', 'value' => 'Si']) ?>
                                     <?php if ($usuarioPendiente['fecha_documento_abierto'] !== ''): ?>
                                       <div class="meta-pendiente mt-1"><?= htmlspecialchars($usuarioPendiente['fecha_documento_abierto']) ?></div>
                                     <?php endif; ?>
                                   <?php else: ?>
-                                    <span class="badge-resumen badge-pendiente">No</span>
+                                    <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Estado', 'value' => 'No']) ?>
                                   <?php endif; ?>
                                 </td>
                                 <td>
                                   <?php if ($usuarioPendiente['estado'] === 'Aceptado'): ?>
-                                    <span class="badge-resumen badge-aceptado">Aceptado</span>
+                                    <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Resultado', 'value' => 'Aceptado']) ?>
                                   <?php elseif ($usuarioPendiente['estado'] === 'Rechazado'): ?>
-                                    <span class="badge-resumen badge-rechazado">Rechazado</span>
+                                    <?= component('summary-badge', ['tone' => 'rechazado', 'label' => 'Resultado', 'value' => 'Rechazado']) ?>
                                   <?php else: ?>
-                                    <span class="badge-resumen badge-pendiente">Pendiente</span>
+                                    <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Resultado', 'value' => 'Pendiente']) ?>
                                   <?php endif; ?>
                                 </td>
                                 <td>
@@ -263,36 +262,32 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                       </div>
                     </div>
                   </div>
-                </div>
-              <?php endforeach; ?>
             </div>
-          <?php endif; ?>
+          <?php endforeach; ?>
         </div>
-      </div>
+      <?php endif; ?>
+      <?php
+      $bodySeguimientoPendientes = ob_get_clean();
+
+      echo component('section-card', [
+        'title' => 'Seguimiento de Pendientes Creados',
+        'icon' => 'fas fa-clipboard-check',
+        'headerAside' => '<span class="text-white small">Vista de gerente</span>',
+        'body' => $bodySeguimientoPendientes,
+      ]);
+      ?>
     <?php endif; ?>
 
-    <div class="card shadow p-3 mb-4 bg-body rounded">
-      <div class="card-header mi-header d-flex align-items-center justify-content-between">
-        <h3 class="mb-0">
-          <i class="fas fa-list-check me-2"></i> Mis Pendientes
-        </h3>
-        <div class="d-flex align-items-center gap-2">
-          <span class="text-white small"><?= htmlspecialchars($nombreUsuario) ?></span>
-          <button class="btn btn-light btn-sm" type="button" onclick="history.back()">
-            <i class="bi bi-arrow-left"></i> Volver
-          </button>
-        </div>
-      </div>
-
-      <div class="card-body">
-        <?php if (empty($pendientes)): ?>
-          <div class="empty-state p-5 text-center">
-            <h5 class="mb-2">No tienes pendientes por validar</h5>
-            <p class="text-muted mb-0">Aqui apareceran los pendientes de pagos y los pendientes personalizados que te asignen.</p>
-          </div>
-        <?php else: ?>
-          <div class="table-responsive">
-            <table id="tablaPendientes" class="table table-hover table-bordered align-middle text-center">
+    <?php ob_start(); ?>
+    <?php if (empty($pendientes)): ?>
+      <?= component('empty-state', [
+        'title' => 'No tienes pendientes por validar',
+        'message' => 'Aqui apareceran los pendientes de pagos y los pendientes personalizados que te asignen.',
+        'className' => 'empty-state p-5 text-center',
+      ]) ?>
+    <?php else: ?>
+      <div class="table-responsive">
+        <table id="tablaPendientes" class="table table-hover table-bordered align-middle text-center">
               <thead class="thead-modern">
                 <tr>
                   <th>Del</th>
@@ -330,7 +325,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                           <i class="bi bi-box-arrow-up-right"></i> Abrir
                         </a>
                       <?php else: ?>
-                        <a class="document-link" href="<?= htmlspecialchars($pendiente['documento']) ?>" target="_blank" rel="noopener noreferrer">
+                        <a class="document-link" href="../../<?= htmlspecialchars($pendiente['documento']) ?>" target="_blank" rel="noopener noreferrer">
                           <i class="bi bi-box-arrow-up-right"></i> Abrir
                         </a>
                       <?php endif; ?>
@@ -346,7 +341,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                       <?php
                         $puedeConfirmar = (int) ($pendiente['puede_confirmar'] ?? 1) === 1;
                         $claseEstado = $puedeConfirmar ? 'estado-pendiente' : 'estado-bloqueado';
-                        $textoBloqueo = $puedeConfirmar ? '' : 'title="Debes abrir el documento antes de confirmar" disabled';
+                        $textoBloqueo = $puedeConfirmar ? '' : 'title="Debes revisar primero el documento o link antes de confirmar"';
                       ?>
                       <select class="form-select form-select-sm cambiar-campo validar-pendiente <?= $claseEstado ?>" <?= $textoBloqueo ?>>
                         <option value="">Seleccione...</option>
@@ -358,10 +353,25 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                 <?php endforeach; ?>
               </tbody>
             </table>
-          </div>
-        <?php endif; ?>
       </div>
-    </div>
+    <?php endif; ?>
+    <?php
+    $bodyMisPendientes = ob_get_clean();
+
+    echo component('section-card', [
+      'title' => 'Mis Pendientes',
+      'icon' => 'fas fa-list-check',
+      'headerAside' => '
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-white small">' . htmlspecialchars($nombreUsuario) . '</span>
+          <button class="btn btn-light btn-sm" type="button" onclick="history.back()">
+            <i class="bi bi-arrow-left"></i> Volver
+          </button>
+        </div>
+      ',
+      'body' => $bodyMisPendientes,
+    ]);
+    ?>
   </div>
 
   <?php if ($rolUsuario === 1): ?>
@@ -416,7 +426,27 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                   <textarea class="form-control" id="descripcion" name="descripcion" rows="3" placeholder="Explica brevemente que se debe revisar o confirmar"></textarea>
                 </div>
 
-                <div class="col-md-8">
+                <div class="col-md-4">
+                  <label for="modo_asignacion" class="form-label">Asignar por</label>
+                  <select class="form-select" id="modo_asignacion" name="modo_asignacion" required>
+                    <option value="filtros" selected>Roles y contrato</option>
+                    <option value="usuario">Usuario especifico</option>
+                  </select>
+                </div>
+
+                <div class="col-md-8 bloque-asignacion" id="bloqueUsuarioEspecifico">
+                  <label for="usuario_especifico_id" class="form-label">Usuario especifico</label>
+                  <select class="form-select" id="usuario_especifico_id" name="usuario_especifico_id">
+                    <option value="">Seleccione...</option>
+                    <?php foreach ($usuariosAsignables as $usuarioAsignable): ?>
+                      <option value="<?= (int) $usuarioAsignable['idusuarios'] ?>">
+                        <?= htmlspecialchars($usuarioAsignable['usu_nombre'] . ' / ' . ($usuarioAsignable['rol_nombre'] ?? 'Sin rol') . ' / ' . ($usuarioAsignable['usu_tipocontrato'] ?? 'Sin contrato')) ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+
+                <div class="col-md-8 bloque-asignacion" id="bloqueRolesContratoCrear" style="display: block;">
                   <label class="form-label">Roles que veran este pendiente</label>
                   <div class="roles-box">
                     <div class="row">
@@ -434,7 +464,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                   </div>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-4 bloque-asignacion" id="bloqueTiposContratoCrear" style="display: block;">
                   <label class="form-label">Tipo de contrato</label>
                   <div class="roles-box">
                     <div class="form-check mb-2">
@@ -520,7 +550,27 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                   <textarea class="form-control" id="editar_descripcion" name="descripcion" rows="3" placeholder="Explica brevemente que se debe revisar o confirmar"></textarea>
                 </div>
 
-                <div class="col-12">
+                <div class="col-md-4">
+                  <label for="editar_modo_asignacion" class="form-label">Asignar por</label>
+                  <select class="form-select" id="editar_modo_asignacion" name="modo_asignacion" required>
+                    <option value="filtros">Roles y contrato</option>
+                    <option value="usuario">Usuario especifico</option>
+                  </select>
+                </div>
+
+                <div class="col-md-8 bloque-asignacion" id="bloqueEditarUsuarioEspecifico">
+                  <label for="editar_usuario_especifico_id" class="form-label">Usuario especifico</label>
+                  <select class="form-select" id="editar_usuario_especifico_id" name="usuario_especifico_id">
+                    <option value="">Seleccione...</option>
+                    <?php foreach ($usuariosAsignables as $usuarioAsignable): ?>
+                      <option value="<?= (int) $usuarioAsignable['idusuarios'] ?>">
+                        <?= htmlspecialchars($usuarioAsignable['usu_nombre'] . ' / ' . ($usuarioAsignable['rol_nombre'] ?? 'Sin rol') . ' / ' . ($usuarioAsignable['usu_tipocontrato'] ?? 'Sin contrato')) ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+
+                <div class="col-12 bloque-asignacion" id="bloqueEditarRolesContrato" style="display: block;">
                   <label class="form-label">Roles que veran este pendiente</label>
                   <div class="roles-box">
                     <div class="row">
@@ -538,7 +588,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                   </div>
                 </div>
 
-                <div class="col-12">
+                <div class="col-12 bloque-asignacion" id="bloqueEditarTiposContrato" style="display: block;">
                   <label class="form-label">Tipo de contrato</label>
                   <div class="roles-box">
                     <div class="row">
@@ -585,8 +635,10 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
 
       alternarTipoDocumento();
       alternarConceptoPersonalizado();
+      alternarModoAsignacion();
       alternarTipoDocumentoEditar();
       alternarConceptoPersonalizadoEditar();
+      alternarModoAsignacionEditar();
     });
 
     function alternarTipoDocumento() {
@@ -637,6 +689,23 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
 
     $('#concepto').on('change', alternarConceptoPersonalizado);
 
+    function alternarModoAsignacion() {
+      const esUsuario = $('#modo_asignacion').val() === 'usuario';
+      $('#bloqueUsuarioEspecifico').toggle(esUsuario);
+      $('#bloqueRolesContratoCrear').toggle(!esUsuario);
+      $('#bloqueTiposContratoCrear').toggle(!esUsuario);
+      $('#usuario_especifico_id').prop('required', esUsuario);
+
+      if (esUsuario) {
+        $('#formCrearPendiente input[name="roles[]"]').prop('checked', false);
+        $('#formCrearPendiente input[name="tipos_contrato[]"]').prop('checked', false);
+      } else {
+        $('#usuario_especifico_id').val('');
+      }
+    }
+
+    $('#modo_asignacion').on('change', alternarModoAsignacion);
+
     function alternarConceptoPersonalizadoEditar() {
       const esOtro = $('#editar_concepto').val() === 'Otro';
       $('#grupoEditarConceptoPersonalizado').toggle(esOtro);
@@ -648,6 +717,23 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
     }
 
     $('#editar_concepto').on('change', alternarConceptoPersonalizadoEditar);
+
+    function alternarModoAsignacionEditar() {
+      const esUsuario = $('#editar_modo_asignacion').val() === 'usuario';
+      $('#bloqueEditarUsuarioEspecifico').toggle(esUsuario);
+      $('#bloqueEditarRolesContrato').toggle(!esUsuario);
+      $('#bloqueEditarTiposContrato').toggle(!esUsuario);
+      $('#editar_usuario_especifico_id').prop('required', esUsuario);
+
+      if (esUsuario) {
+        $('#formEditarPendiente input[name="roles[]"]').prop('checked', false);
+        $('#formEditarPendiente input[name="tipos_contrato[]"]').prop('checked', false);
+      } else {
+        $('#editar_usuario_especifico_id').val('');
+      }
+    }
+
+    $('#editar_modo_asignacion').on('change', alternarModoAsignacionEditar);
 
     function aplicarClaseEstado($select, valor, bloqueado) {
       $select.removeClass('estado-pendiente estado-activo estado-inactivo estado-bloqueado');
@@ -666,15 +752,26 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       }
     }
 
+    function mostrarAlertaDocumentoPendiente() {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Debes revisar el documento',
+        text: 'Primero debes revisar el documento o el link para poder validar este pendiente.'
+      });
+    }
+
     $('#formCrearPendiente').on('submit', function (e) {
       e.preventDefault();
 
       const concepto = $('#concepto').val();
       const conceptoPersonalizado = $.trim($('#titulo').val());
       const tipoDocumento = $('#tipo_documento').val();
+      const modoAsignacion = $('#modo_asignacion').val();
+      const usuarioEspecificoId = $('#usuario_especifico_id').val();
       const archivoSeleccionado = $('#documento').val();
       const linkDocumento = $.trim($('#documento_link').val());
       const cantidadTiposContrato = $('#formCrearPendiente input[name="tipos_contrato[]"]:checked').length;
+      const cantidadRoles = $('#formCrearPendiente input[name="roles[]"]:checked').length;
 
       if (!concepto) {
         Swal.fire({
@@ -712,7 +809,25 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
         return;
       }
 
-      if (cantidadTiposContrato === 0) {
+      if (modoAsignacion === 'usuario' && !usuarioEspecificoId) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Usuario requerido',
+          text: 'Debes seleccionar el usuario especifico.'
+        });
+        return;
+      }
+
+      if (modoAsignacion !== 'usuario' && cantidadRoles === 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Roles requeridos',
+          text: 'Debes seleccionar al menos un rol.'
+        });
+        return;
+      }
+
+      if (modoAsignacion !== 'usuario' && cantidadTiposContrato === 0) {
         Swal.fire({
           icon: 'warning',
           title: 'Contrato requerido',
@@ -759,6 +874,21 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       });
     });
 
+    $(document).on('click', '.validar-pendiente', function (e) {
+      const $select = $(this);
+      const $fila = $select.closest('tr');
+      const bloqueado = String($fila.data('puede-confirmar')) !== '1';
+
+      if (!bloqueado) {
+        return;
+      }
+
+      e.preventDefault();
+      $select.val('');
+      aplicarClaseEstado($select, '', true);
+      mostrarAlertaDocumentoPendiente();
+    });
+
     $(document).on('click', '.btn-editar-pendiente', function () {
       const $boton = $(this);
       let rolesSeleccionados = [];
@@ -781,6 +911,8 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       $('#editar_titulo').val($boton.data('titulo'));
       $('#editar_descripcion').val($boton.data('descripcion'));
       $('#editar_tipo_documento').val($boton.data('tipo-documento'));
+      $('#editar_modo_asignacion').val($boton.data('modo-asignacion'));
+      $('#editar_usuario_especifico_id').val($boton.data('usuario-objetivo-id'));
       $('#editar_documento_link').val($boton.data('tipo-documento') === 'link' ? $boton.data('documento') : '');
       $('#editar_documento').val('');
 
@@ -796,6 +928,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
 
       alternarConceptoPersonalizadoEditar();
       alternarTipoDocumentoEditar();
+      alternarModoAsignacionEditar();
     });
 
     $('#formEditarPendiente').on('submit', function (e) {
@@ -804,6 +937,8 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       const concepto = $('#editar_concepto').val();
       const conceptoPersonalizado = $.trim($('#editar_titulo').val());
       const tipoDocumento = $('#editar_tipo_documento').val();
+      const modoAsignacion = $('#editar_modo_asignacion').val();
+      const usuarioEspecificoId = $('#editar_usuario_especifico_id').val();
       const archivoSeleccionado = $('#editar_documento').val();
       const linkDocumento = $.trim($('#editar_documento_link').val());
       const cantidadRoles = $('#formEditarPendiente input[name="roles[]"]:checked').length;
@@ -824,12 +959,17 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
         return;
       }
 
-      if (cantidadRoles === 0) {
+      if (modoAsignacion === 'usuario' && !usuarioEspecificoId) {
+        Swal.fire({ icon: 'warning', title: 'Usuario requerido', text: 'Debes seleccionar el usuario especifico.' });
+        return;
+      }
+
+      if (modoAsignacion !== 'usuario' && cantidadRoles === 0) {
         Swal.fire({ icon: 'warning', title: 'Roles requeridos', text: 'Debes seleccionar al menos un rol.' });
         return;
       }
 
-      if (cantidadTiposContrato === 0) {
+      if (modoAsignacion !== 'usuario' && cantidadTiposContrato === 0) {
         Swal.fire({ icon: 'warning', title: 'Contrato requerido', text: 'Debes seleccionar al menos un tipo de contrato.' });
         return;
       }
@@ -954,11 +1094,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       aplicarClaseEstado($select, confirmacion, bloqueado);
 
       if (bloqueado) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Debes abrir el documento',
-          text: 'Primero abre el documento para poder confirmar este pendiente.'
-        });
+        mostrarAlertaDocumentoPendiente();
         $select.val('');
         aplicarClaseEstado($select, '', true);
         return;

@@ -501,6 +501,30 @@ $FB->llena_texto("", 1, 142, $DB, "Guardar", "", 0, 12, 0);
 
 function validar_repuesta()
 {
+	var campoIdentificador = document.getElementById("param45");
+	var nombreCredito = document.getElementById("param44");
+	var esCroydon = nombreCredito && nombreCredito.value.trim().toUpperCase() === "CROYDON";
+
+	if (esCroydon) {
+		var valorIdentificador = campoIdentificador ? campoIdentificador.value.trim() : "";
+
+		if (valorIdentificador === "") {
+			alert("El campo identificador es obligatorio para CROYDON.");
+			if (campoIdentificador) {
+				campoIdentificador.focus();
+			}
+			return false;
+		}
+
+		if (!/^[A-Za-z]/.test(valorIdentificador)) {
+			alert("El identificador para CROYDON debe comenzar con una letra.");
+			if (campoIdentificador) {
+				campoIdentificador.focus();
+			}
+			return false;
+		}
+	}
+
 	var carga=0;
 	var credito=document.getElementsByName("param28");
 	var memory=credito[0].checked;
@@ -534,6 +558,46 @@ function validar_repuesta()
 	}
 	return false;
 
-}
+ }
 
+ function actualizarValidacionIdentificadorCroydon() {
+	var campoIdentificador = document.getElementById("param45");
+	var nombreCredito = document.getElementById("param44");
+
+	if (!campoIdentificador || !nombreCredito) {
+		return;
+	}
+
+	var esCroydon = nombreCredito.value.trim().toUpperCase() === "CROYDON";
+	campoIdentificador.required = esCroydon;
+ }
+ 
+ function autocompletarIdentificador() {
+	var campoIdentificador = document.getElementById("param45");
+	if (!campoIdentificador) {
+		return;
+	}
+
+	var equivalencias = {
+		"OL": "15",
+		"SK": "60",
+		"S8": "40",
+		"S1": "10"
+	};
+
+	campoIdentificador.addEventListener("input", function () {
+		var valorActual = this.value.toUpperCase().trim();
+		var numeroAsignado = equivalencias[valorActual];
+
+		if (numeroAsignado) {
+			this.value = valorActual + " " + numeroAsignado;
+		}
+	});
+ }
+
+ document.addEventListener("DOMContentLoaded", function () {
+	autocompletarIdentificador();
+	actualizarValidacionIdentificadorCroydon();
+ });
+ 
 </script>

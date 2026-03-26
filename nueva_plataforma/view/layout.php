@@ -563,8 +563,8 @@ if ($nivel_acceso == 1 || $nivel_acceso == 6) {
                         ?>
 
                         <li >
-                            <a href="mispagos.php" ><i class="glyphicon glyphicon-usd"></i><span>Mis pagos
-                                <i id='mispagos' >
+                            <a href="/nueva_plataforma/controller/PendientesController.php" ><i class="glyphicon glyphicon-time"></i><span>Pendientes
+                                <i id='pendientes_modulo' >
 
                                         <div class="noti_bubble"><i ><?=$totalnomina?></i></div>
                                 </i>

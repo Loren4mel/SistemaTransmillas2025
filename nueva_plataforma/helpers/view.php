@@ -1,9 +1,30 @@
 <?php
 
-function component(string $name, array $data = [])
+function component(string $name, array $data = []): string
 {
-    extract($data);
+    $basePaths = [
+        __DIR__ . '/../view/Componentes',
+        __DIR__ . '/../view/components',
+    ];
+
+    $componentPath = null;
+
+    foreach ($basePaths as $basePath) {
+        $candidate = $basePath . '/' . $name . '.php';
+        if (is_file($candidate)) {
+            $componentPath = $candidate;
+            break;
+        }
+    }
+
+    if ($componentPath === null) {
+        throw new RuntimeException("No se encontro el componente '{$name}'.");
+    }
+
+    extract($data, EXTR_SKIP);
+
     ob_start();
-    require __DIR__ . "/../view/components/{$name}.php";
+    require $componentPath;
+
     return ob_get_clean();
 }
