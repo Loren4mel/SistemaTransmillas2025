@@ -164,7 +164,7 @@
                 <div class="table-responsive">
                     <table id="tablaSeguimiento" class="table table-hover table-bordered align-middle"
                         style="width:100%">
-                        <thead>
+                        <thead class="thead-modern">
                             <tr>
                                 <th>Operador</th>
                                 <th>Preoperacional</th>
@@ -470,7 +470,7 @@
                 <?php endif; ?>
             ],
             columnDefs: [
-                { targets: '_all', className: 'text-center' }
+                { targets: '_all', className: 'text-center', orderable = false }
             ],
             createdRow: function (row, data, dataIndex) {
                 // Usar nuevos colores si existen, sino el antiguo row_color
@@ -497,7 +497,7 @@
             fixedHeader: true
         });
 
-        // Auto-refresh cada 10 minutos (como en la versión legacy)
+        // Auto-refresh cada 10 minutos 
         let refreshTimer = setInterval(function() {
             tabla.ajax.reload(null, false); // false para mantener la página actual
         }, 600000);
