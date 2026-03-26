@@ -470,7 +470,7 @@
                 <?php endif; ?>
             ],
             columnDefs: [
-                { targets: '_all', className: 'text-center', orderable = false }
+                { targets: '_all', className: 'text-center', orderable: false }
             ],
             createdRow: function (row, data, dataIndex) {
                 // Usar nuevos colores si existen, sino el antiguo row_color
