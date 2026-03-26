@@ -9,8 +9,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- DataTables Bootstrap 5 -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/fixedheader/3.3.2/css/fixedHeader.bootstrap5.min.css">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/usuarios.css">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         .noti_bubble {
@@ -57,11 +59,15 @@
 
         .table td,
         .table th {
-            white-space: nowrap;
+            white-space: normal;
+            word-wrap: break-word;
         }
 
         .dataTables_wrapper {
-            overflow-x: auto;
+            overflow-x: scroll;
+        }
+        .dataTables_scrollBody {
+            overflow-x: scroll !important;
         }
     </style>
 </head>
@@ -82,19 +88,19 @@
                 <!-- Botones de acción principales -->
                 <div class="row mb-3">
                     <div class="col-md-12">
-                        <button type="button" class="btn btn-danger btn-lg" onclick="abrirModalFestivos()">
+                        <button type="button" class="btn btn-info btn-lg" onclick="abrirModalFestivos()">
                             <i class="fas fa-calendar-plus"></i> + Día de descanso
                         </button>
-                        <button type="button" class="btn btn-danger btn-lg" onclick="abrirModalVacaciones()">
+                        <button type="button" class="btn btn-info btn-lg" onclick="abrirModalVacaciones()">
                             <i class="fas fa-umbrella-beach"></i> + Vacaciones
                         </button>
-                        <button type="button" class="btn btn-danger btn-lg" onclick="abrirModalLicencias()">
+                        <button type="button" class="btn btn-info btn-lg" onclick="abrirModalLicencias()">
                             <i class="fas fa-file-medical"></i> + Licencias y permisos
                         </button>
                         <?php if ($_SESSION['usuario_rol'] == 1 || $_SESSION['usuario_rol'] == 12): ?>
-                            <button type="button" class="btn btn-primary btn-lg" onclick="abrirModalIngreso()">
+                            <!-- <button type="button" class="btn btn-primary btn-lg" onclick="abrirModalIngreso()">
                                 <i class="fas fa-user-plus"></i> Ingreso manual
-                            </button>
+                            </button> -->
                         <?php endif; ?>
                     </div>
                 </div>
@@ -197,7 +203,7 @@
     <div class="modal fade" id="modalIngreso" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header">
                     <h5 class="modal-title">Registrar ingreso de operario</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -212,7 +218,7 @@
     <div class="modal fade" id="modalFestivos" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
+                <div class="modal-header">
                     <h5 class="modal-title">Agregar día de descanso</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -221,7 +227,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button class="btn btn-danger" onclick="guardarFestivos()">Guardar</button>
+                    <button class="btn btn-info" onclick="guardarFestivos()">Guardar</button>
                 </div>
             </div>
         </div>
@@ -231,7 +237,7 @@
     <div class="modal fade" id="modalVacaciones" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
+                <div class="modal-header">
                     <h5 class="modal-title">Agregar vacaciones</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -240,7 +246,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button class="btn btn-danger" onclick="guardarVacaciones()">Guardar</button>
+                    <button class="btn btn-info" onclick="guardarVacaciones()">Guardar</button>
                 </div>
             </div>
         </div>
@@ -250,7 +256,7 @@
     <div class="modal fade" id="modalLicencias" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
+                <div class="modal-header">
                     <h5 class="modal-title">Agregar licencia / permiso</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -259,7 +265,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button class="btn btn-danger" onclick="guardarLicencias()">Guardar</button>
+                    <button class="btn btn-info" onclick="guardarLicencias()">Guardar</button>
                 </div>
             </div>
         </div>
@@ -285,6 +291,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/fixedheader/3.3.2/js/dataTables.fixedHeader.min.js"></script>
     <!-- CSS de Select2 -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
@@ -463,7 +470,7 @@
                 <?php endif; ?>
             ],
             columnDefs: [
-                { targets: '_all', className: 'text-center' }
+                { targets: '_all', className: 'text-center', orderable = false }
             ],
             createdRow: function (row, data, dataIndex) {
                 // Usar nuevos colores si existen, sino el antiguo row_color
@@ -484,10 +491,13 @@
                     $(row).find('td').css('color', 'white');
                 }
             },
-            scrollX: true
+            scrollX: true,
+            scrollY: '60vh',
+            pageLength: 100,
+            fixedHeader: true
         });
 
-        // Auto-refresh cada 10 minutos (como en la versión legacy)
+        // Auto-refresh cada 10 minutos 
         let refreshTimer = setInterval(function() {
             tabla.ajax.reload(null, false); // false para mantener la página actual
         }, 600000);
