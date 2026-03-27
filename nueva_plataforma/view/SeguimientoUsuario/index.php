@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/fixedheader/3.3.2/css/fixedHeader.bootstrap5.min.css">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="../assets/css/usuarios.css">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
@@ -46,15 +48,25 @@
             vertical-align: middle;
             animation: moderateFlash 1s infinite;
         }
+
         .warning-yellow {
             background-color: #FFC107;
         }
+
         .warning-red {
             background-color: #F44336;
         }
+
         @keyframes moderateFlash {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
 
         .table td,
@@ -66,6 +78,7 @@
         .dataTables_wrapper {
             overflow-x: scroll;
         }
+
         .dataTables_scrollBody {
             overflow-x: scroll !important;
         }
@@ -302,7 +315,12 @@
 
         // --- Funciones auxiliares reutilizables ---
         function mostrarError(mensaje) {
-            alert('Error: ' + mensaje);
+            Swal.fire({
+                title: 'Error',
+                text: mensaje,
+                icon: 'error',
+                confirmButtonText: 'Aceptar'
+            });
             console.error(mensaje);
         }
 
@@ -313,29 +331,45 @@
                 return;
             }
             // Obtener detalles para mostrar
-            $.get(dirPage, { accion: 'get_detalles_eliminar', id_combinado: id }, function(detalles) {
+            $.get(dirPage, { accion: 'get_detalles_eliminar', id_combinado: id }, function (detalles) {
                 // Construir mensaje de confirmación
-                let mensaje = '¿Está seguro de eliminar el siguiente registro?\n\n';
-                if (detalles.usuario) mensaje += 'Operario: ' + detalles.usuario + '\n';
-                if (detalles.fecha) mensaje += 'Fecha: ' + detalles.fecha + '\n';
-                if (detalles.motivo) mensaje += 'Motivo: ' + detalles.motivo + '\n';
-                mensaje += '\nEsta acción eliminará tanto el registro de seguimiento como el preoperacional asociado.';
+                let mensaje = '<strong>¿Está seguro de eliminar el siguiente registro?</strong><br><br>';
+                if (detalles.usuario) mensaje += '<b>Operario:</b> ' + detalles.usuario + '<br>';
+                if (detalles.fecha) mensaje += '<b>Fecha:</b> ' + detalles.fecha + '<br>';
+                if (detalles.motivo) mensaje += '<b>Motivo:</b> ' + detalles.motivo + '<br>';
+                mensaje += '<br><small>Esta acción eliminará tanto el registro de seguimiento como el preoperacional asociado.</small>';
 
-                if (confirm(mensaje)) {
-                    // Enviar solicitud de eliminación
-                    $.post(dirPage, { accion: 'eliminar_seguimiento', id_combinado: id }, function(res) {
-                        if (res.success) {
-                            alert(res.message);
-                            // Recargar la tabla
-                            tabla.ajax.reload();
-                        } else {
-                            mostrarError(res.message || 'Error al eliminar');
-                        }
-                    }, 'json').fail(function() {
-                        mostrarError('Error de comunicación con el servidor');
-                    });
-                }
-            }).fail(function() {
+                Swal.fire({
+                    title: 'Confirmar eliminación',
+                    html: mensaje,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Enviar solicitud de eliminación
+                        $.post(dirPage, { accion: 'eliminar_seguimiento', id_combinado: id }, function (res) {
+                            if (res.success) {
+                                Swal.fire({
+                                    title: 'Eliminado',
+                                    text: res.message,
+                                    icon: 'success',
+                                    confirmButtonText: 'Aceptar'
+                                });
+                                // Recargar la tabla
+                                tabla.ajax.reload();
+                            } else {
+                                mostrarError(res.message || 'Error al eliminar');
+                            }
+                        }, 'json').fail(function () {
+                            mostrarError('Error de comunicación con el servidor');
+                        });
+                    }
+                });
+            }).fail(function () {
                 mostrarError('No se pudieron cargar los detalles del registro');
             });
         }
@@ -437,7 +471,7 @@
                         errorThrown: errorThrown,
                         responseText: xhr.responseText
                     });
-                    alert('Error cargando tabla. Revisa consola y logs del servidor.');
+                    Swal.fire({ title: 'Error', text: 'Error cargando tabla. Revisa consola y logs del servidor.', icon: 'error', confirmButtonText: 'Aceptar' });
                 }
             },
             columns: [
@@ -465,9 +499,7 @@
                 { data: 'fecha_tecno_html' },
                 { data: 'fecha_licencia_html' },
                 { data: 'cambio_aceite_html' },
-                <?php if ($_SESSION['usuario_rol'] == 1 || $_SESSION['usuario_rol'] == 12): ?>
-                                                                                        { data: 'eliminar_html' }
-                <?php endif; ?>
+                <?php if ($_SESSION['usuario_rol'] == 1 || $_SESSION['usuario_rol'] == 12): ?> { data: 'eliminar_html' }<?php endif; ?>
             ],
             columnDefs: [
                 { targets: '_all', className: 'text-center', orderable: false }
@@ -492,18 +524,17 @@
                 }
             },
             scrollX: true,
-            scrollY: '60vh',
-            pageLength: 100,
+            pageLength: 50,
             fixedHeader: true
         });
 
         // Auto-refresh cada 10 minutos 
-        let refreshTimer = setInterval(function() {
+        let refreshTimer = setInterval(function () {
             tabla.ajax.reload(null, false); // false para mantener la página actual
         }, 600000);
 
         // Limpiar timer al salir de la página
-        $(window).on('beforeunload', function() {
+        $(window).on('beforeunload', function () {
             clearInterval(refreshTimer);
         });
 
@@ -709,14 +740,20 @@
                     if (res.debug_errors) {
                         console.warn('Errores de PHP capturados:', res.debug_errors);
                     }
-                    alert(res.message);
-                    if (res.success) {
-                        $('#modalIngreso').modal('hide');
-                        tabla.ajax.reload();
-                    }
+                    Swal.fire({
+                        title: res.success ? 'Éxito' : 'Error',
+                        text: res.message,
+                        icon: res.success ? 'success' : 'error',
+                        confirmButtonText: 'Aceptar'
+                    }).then(() => {
+                        if (res.success) {
+                            $('#modalIngreso').modal('hide');
+                            tabla.ajax.reload();
+                        }
+                    });
                 },
                 error: function () {
-                    alert('Error en la petición');
+                    Swal.fire({ title: 'Error', text: 'Error en la petición', icon: 'error', confirmButtonText: 'Aceptar' });
                 }
             });
 
