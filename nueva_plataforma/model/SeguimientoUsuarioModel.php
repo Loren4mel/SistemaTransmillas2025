@@ -245,9 +245,10 @@ class SeguimientoUsuarioModel
         $row['retorno_almuerzo_link'] = $this->linkRetornoAlmuerzo($row);
         $row['retorno_oficina_link'] = $this->linkRetornoOficina($row);
 
-        // Fechas con alerta
-        $row['fecha_seguro_html'] = $this->formatoFechaConAlerta($vehiculo['veh_fechaseguro'] ?? null, $fechaActual);
-        $row['fecha_tecno_html'] = $this->formatoFechaConAlerta($vehiculo['veh_fechategnomecanica'] ?? null, $fechaActual);
+        // Fechas con alerta y enlace a documento si existe
+        $vehiculoId = $row['prevehiculo'] ?? null;
+        $row['fecha_seguro_html'] = $this->formatoFechaConDocumento($vehiculo['veh_fechaseguro'] ?? null, $vehiculoId, 3, $fechaActual);
+        $row['fecha_tecno_html'] = $this->formatoFechaConDocumento($vehiculo['veh_fechategnomecanica'] ?? null, $vehiculoId, 4, $fechaActual);
         $row['fecha_licencia_html'] = $this->formatoFechaConAlerta($row['usu_fechalicencia'], $fechaActual);
 
         // Cambio de aceite
@@ -537,6 +538,42 @@ class SeguimientoUsuarioModel
             return "<span style='background-color:#F39C12'>$fecha</span>";
         }
         return $fecha;
+    }
+
+    private function formatoFechaConDocumento($fecha, $vehiculoId, $version, $hoy)
+    {
+        if (!$fecha || $fecha === '0000-00-00')
+            return '';
+
+        // Check if document exists with non-empty path
+        $documentoId = null;
+        if ($vehiculoId) {
+            $sql = "SELECT iddocumentos, doc_ruta FROM documentos
+                WHERE doc_idviene = ? AND doc_tabla = 'vehiculos' AND doc_version = ? AND doc_ruta != ''
+                ORDER BY doc_fecha DESC LIMIT 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bind_param("ii", $vehiculoId, $version);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $documentoId = $row['iddocumentos'];
+            }
+        }
+
+        // Apply color styling if near expiration
+        $dias = $this->diasHasta($hoy, $fecha);
+        $styledFecha = $fecha;
+        if ($dias <= 3 && $dias >= 0) {
+            $styledFecha = "<span style='background-color:#F39C12'>$fecha</span>";
+        }
+
+        // If document exists, wrap with link
+        if ($documentoId) {
+            $url = "?accion=ver_documento&id=" . $documentoId;
+            return "<a href='#' onclick='window.open(\"$url\", \"_blank\")'>$styledFecha</a>";
+        }
+
+        return $styledFecha;
     }
 
     private function formatoCambioAceite($row, $vehiculo)
