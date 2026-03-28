@@ -309,14 +309,20 @@ class SeguimientoUsuarioModel
                     $bg = ($row['idpreoperacinal'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
                     $text = '#000000';
                 } else {
-                    // Rojo pálido con texto rojo oscuro (preoperacional no validado)
-                    $bg = '#fde2e1';
-                    $text = '#7b1913';
+                    // Naranja claro con texto naranja oscuro (preoperacional no validado)
+                    $bg = '#FEF5E7';
+                    $text = '#F39C12';
                 }
             } else {
                 // Preoperacional validado: alternar blanco/gris claro, texto negro
-                $bg = ($row['idpreoperacinal'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
-                $text = '#000000';
+                // Si no hay ingreso (seguimiento), tratar como no validado (naranja)
+                if (empty($row['idseguimiento_user'])) {
+                    $bg = '#FEF5E7';
+                    $text = '#F39C12';
+                } else {
+                    $bg = ($row['idpreoperacinal'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
+                    $text = '#000000';
+                }
             }
         } elseif (!empty($row['idseguimiento_user'])) {
             // Seguimiento existente (sin preoperacional no validado): alternar blanco/gris claro
@@ -430,10 +436,10 @@ class SeguimientoUsuarioModel
     {
         if (empty($row['idpreoperacinal']))
             return '';
-        if ($row['preestado'] === 'No aplica' || $row['preestado'] === 'descanso' || $row['preestado'] === 'Vacaciones')
+        if ($row['preestado'] === 'No aplica' || $row['preestado'] === 'descanso' || $row['preestado'] === 'vacaciones')
             return $row['preestado'];
         $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=preencuesta";
-        return "<a href='#' onclick='window.open(\"$url\",\"_blank\",\"width=800,height=600,scrollbars=yes\")'>{$row['preestado']}</a>";
+        return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>{$row['preestado']}</a>";
     }
 
     private function linkValidacion($row)
@@ -442,7 +448,11 @@ class SeguimientoUsuarioModel
             return '';
         if ($row['preestado'] === 'Validado' || $row['preestado'] === 'Validado Covid19') {
             $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=predatosvalidados";
-            return "<a href='#' onclick='window.open(\"$url\",\"_blank\",\"width=800,height=600,scrollbars=yes\")'>Validado</a>";
+            return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>Validado</a>";
+        }
+        // Estados que no requieren validación
+        if ($row['preestado'] === 'No aplica' || $row['preestado'] === 'descanso' || $row['preestado'] === 'vacaciones' || $row['preestado'] === 'Vacaciones') {
+            return $row['preestado'];
         }
         return 'Sin Validar';
     }
@@ -458,9 +468,8 @@ class SeguimientoUsuarioModel
     {
         $param1 = $row['idseguimiento_user'] ?: $row['idusuarios'];
         $texto = $row['idseguimiento_user'] ? 'Ingreso+' : 'Sin Ingreso';
-        // El parámetro extra puede ser la sede o lo que necesites; aquí paso un string con caso y sede (si quieres)
-        // Si no necesitas más, puedes pasar un parámetro vacío o la fecha.
-        $paramExtra = $row['usu_idsede'] ?? 0;
+        // El parámetro extra puede ser la sede o lo que necesites; aquí paso la fecha del registro.
+        $paramExtra = $row['fecha'] ?? date('Y-m-d');
         return "<a href='#' onclick='abrirPopup(\"ingreso\", $param1, \"$paramExtra\")'>$texto</a>";
     }
 
@@ -691,7 +700,7 @@ class SeguimientoUsuarioModel
 
     /**
      * Genera HTML de advertencia para fechas de expiración (licencia conducción y tecnicomecánica)
-     * Retorna array con 'html', 'expired', 'urgency' (0=none,1=month,2=5days,3=expired)
+     * Retorna array con 'html', 'expired', 'urgency' (0=none,1=month,2=7days,3=expired)
      */
     private function generarAlertaExpiracion($fechaLicencia, $fechaTecno, $hoy = null)
     {
@@ -737,11 +746,11 @@ class SeguimientoUsuarioModel
             $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expirada hace ' . abs($dias) . ' días';
         } elseif ($dias <= 7) {
             $urgency = 2;
-            $colorClass = 'warning-red';
+            $colorClass = 'warning-yellow';
             $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expira en ' . $dias . ' días';
         } elseif ($dias <= 30) {
             $urgency = 1;
-            $colorClass = 'warning-yellow';
+            $colorClass = 'warning-orange';
             $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expira en ' . $dias . ' días';
         } else {
             return [
@@ -1137,31 +1146,76 @@ class SeguimientoUsuarioModel
 
     private function getPrioridadOrden($row)
     {
-        // 1 = preoperacional sin validar (más prioridad)
-        // 2 = no ha ingresado
-        // 3 = preoperacional no necesario
-        // 4 = preoperacional validado
-        // 5 = vacaciones
-        // 6 = descanso
+        // 1 = preoperacional sin validar además de los que tengan documento en alerta (más prioridad)
+        // 2 = preoperacional sin validar
+        // 3 = no ha ingresado
+        // 4 = En caso de validado y tenga documento en alerta, de tecnicomecanica o licencia de conducción, mostrarlo después de los no ingresados y preoperacional sin validar
+        // 5 = preoperacional no necesario
+        // 6 = preoperacional validado
+        // 7 = vacaciones
+        // 8 = descanso
+
+        $alerta = $row['alerta_expiracion']['urgency'] ?? 0;
+        $tieneAlerta = $alerta > 0;
+
         if (!empty($row['idpreoperacinal'])) {
             $estado = $row['preestado'];
             if ($estado !== 'Validado' && $estado !== 'Validado Covid19') {
+                // Preoperacional sin validar
                 if ($estado === 'No aplica') {
-                    return 3;
+                    return 5; // preoperacional no necesario
                 } else if ($estado === 'vacaciones') {
-                    return 5;
+                    return 7; // vacaciones
                 } else if ($estado === 'descanso') {
-                    return 6;
+                    return 8; // descanso
                 } else {
-                    return 1;
+                    // Preoperacional sin validar
+                    if ($tieneAlerta) {
+                        return 1; // con alerta de documento
+                    } else {
+                        return 2; // sin alerta
+                    }
+                }
+            } else {
+                // Preoperacional validado
+                // Si no hay ingreso (seguimiento), tratar como no validado
+                if (empty($row['idseguimiento_user'])) {
+                    if ($tieneAlerta) {
+                        return 1; // con alerta de documento
+                    } else {
+                        return 2; // sin alerta
+                    }
+                }
+                if ($tieneAlerta) {
+                    return 4; // validado con alerta de documento
+                } else {
+                    return 6; // validado sin alerta
                 }
             }
+        }
 
-        }
+        // Sin preoperacional
         if (empty($row['idseguimiento_user'])) {
-            return 2;
+            return 3; // no ha ingresado
         }
+
+        // Ingresado sin preoperacional (caso no contemplado en comentarios)
         return 6;
+    }
+
+    /**
+     * Verifica si existe un preoperacional validado para un usuario en una fecha específica
+     */
+    public function tienePreoperacionalValidado($idUsuario, $fecha)
+    {
+        $sql = "SELECT idpreoperacinal FROM `pre-operacional`
+                WHERE preidusuario = ? AND DATE(prefechaingreso) = ?
+                AND preestado IN ('Validado', 'Validado Covid19')";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("is", $idUsuario, $fecha);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result->num_rows > 0;
     }
 
     public function getTotalFiltrados($filtros, $search = '')

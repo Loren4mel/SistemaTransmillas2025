@@ -47,10 +47,15 @@
             margin-right: 8px;
             vertical-align: middle;
             animation: moderateFlash 1s infinite;
+            border: 2px solid #333;
+        }
+
+        .warning-orange {
+            background-color: #FF9800;
         }
 
         .warning-yellow {
-            background-color: #FFC107;
+            background-color: #FFEB3B;
         }
 
         .warning-red {
@@ -58,14 +63,12 @@
         }
 
         @keyframes moderateFlash {
-
             0%,
             100% {
                 opacity: 1;
             }
-
             50% {
-                opacity: 0.5;
+                opacity: 0.2;
             }
         }
 
@@ -761,6 +764,17 @@
             function verDocumento(url) {
                 window.open(url, '_blank');
             }
+        }
+
+        // Función para abrir ventana de validación preoperacional y recargar tabla al cerrar
+        function abrirValidacionPreoperacional(url) {
+            var ventana = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes');
+            var timer = setInterval(function() {
+                if (ventana.closed) {
+                    clearInterval(timer);
+                    tabla.ajax.reload();
+                }
+            }, 500);
         }
     </script>
 </body>
