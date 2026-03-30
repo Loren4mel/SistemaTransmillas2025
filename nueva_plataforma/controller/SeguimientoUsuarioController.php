@@ -472,6 +472,17 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'form_popup') {
                     exit;
                 }
 
+                // Si param es una fecha Y-m-d, usarla como fecha para buscar preoperacional
+                if ($param && preg_match('/^\d{4}-\d{2}-\d{2}$/', $param)) {
+                    $fecha = $param;
+                }
+
+                // Si hay preoperacional validado y no hay ingreso aún, pre-fijar motivo y descripción
+                if ($idUsuario && $fecha && $idSeguimiento == 0 && $modelo->tienePreoperacionalValidado($idUsuario, $fecha)) {
+                    $descripcion = 'En servicio';
+                    $motivoSeleccionado = 'Ingreso';
+                }
+
                 $sedeInfo = $modelo->getSedeById($sedeUsuario);
                 $sedeNombre = $sedeInfo['sed_nombre'] ?? '';
                 $zonas = $modelo->getZonasPorSede($sedeUsuario);
