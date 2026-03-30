@@ -597,7 +597,7 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'ver_documento') {
         $stmt->execute();
         $result = $stmt->get_result();
         if ($row = $result->fetch_assoc()) {
-            $ruta = $row['doc_ruta'];
+            $ruta = "../../" . $row['doc_ruta'];
             if (file_exists($ruta)) {
                 header('Content-Type: ' . mime_content_type($ruta));
                 header('Content-Disposition: inline; filename="' . basename($ruta) . '"');
