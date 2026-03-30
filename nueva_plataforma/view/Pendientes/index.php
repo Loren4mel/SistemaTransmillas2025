@@ -220,6 +220,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                               <th>Usuario</th>
                               <th>Rol</th>
                               <th>Documento abierto</th>
+                              <th>PDF firmado</th>
                               <th>Estado</th>
                               <th>Fecha confirmacion</th>
                               <th>Observacion</th>
@@ -238,6 +239,22 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                                     <?php endif; ?>
                                   <?php else: ?>
                                     <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Estado', 'value' => 'No']) ?>
+                                  <?php endif; ?>
+                                </td>
+                                <td>
+                                  <?php if ($usuarioPendiente['pdf_firmado_ruta'] !== ''): ?>
+                                    <a
+                                      class="document-link"
+                                      href="<?= htmlspecialchars($usuarioPendiente['pdf_firmado_ruta']) ?>"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <i class="bi bi-file-earmark-check"></i> Ver PDF firmado
+                                    </a>
+                                  <?php elseif ($usuarioPendiente['firma_ruta'] !== ''): ?>
+                                    <span class="meta-pendiente">Firma capturada, PDF pendiente</span>
+                                  <?php else: ?>
+                                    <span class="text-muted">Sin firma</span>
                                   <?php endif; ?>
                                 </td>
                                 <td>
@@ -306,6 +323,8 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                     data-tipo="<?= htmlspecialchars($pendiente['tipo']) ?>"
                     data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
                     data-puede-confirmar="<?= (int) ($pendiente['puede_confirmar'] ?? 1) ?>"
+                    data-requiere-firma="<?= (int) ($pendiente['requiere_firma'] ?? 0) ?>"
+                    data-firmado="<?= (int) ($pendiente['firmado'] ?? 0) ?>"
                   >
                     <td><?= htmlspecialchars($pendiente['fecha_inicio']) ?></td>
                     <td><?= htmlspecialchars($pendiente['fecha_fin']) ?></td>
@@ -315,15 +334,25 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                     </td>
                     <td>
                       <?php if (($pendiente['registro'] ?? '') === 'personalizado'): ?>
-                        <a
-                          class="document-link abrir-documento-pendiente"
-                          href="<?= htmlspecialchars($pendiente['documento']) ?>"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
-                        >
-                          <i class="bi bi-box-arrow-up-right"></i> Abrir
-                        </a>
+                        <?php if ((int) ($pendiente['requiere_firma'] ?? 0) === 1): ?>
+                          <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm abrir-documento-firmable"
+                            data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
+                          >
+                            <i class="bi bi-pen"></i> Revisar y firmar PDF
+                          </button>
+                        <?php else: ?>
+                          <a
+                            class="document-link abrir-documento-pendiente"
+                            href="<?= htmlspecialchars($pendiente['documento']) ?>"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
+                          >
+                            <i class="bi bi-box-arrow-up-right"></i> Abrir
+                          </a>
+                        <?php endif; ?>
                       <?php else: ?>
                         <a class="document-link" href="../../<?= htmlspecialchars($pendiente['documento']) ?>" target="_blank" rel="noopener noreferrer">
                           <i class="bi bi-box-arrow-up-right"></i> Abrir
@@ -341,7 +370,11 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                       <?php
                         $puedeConfirmar = (int) ($pendiente['puede_confirmar'] ?? 1) === 1;
                         $claseEstado = $puedeConfirmar ? 'estado-pendiente' : 'estado-bloqueado';
-                        $textoBloqueo = $puedeConfirmar ? '' : 'title="Debes revisar primero el documento o link antes de confirmar"';
+                        $requiereFirma = (int) ($pendiente['requiere_firma'] ?? 0) === 1;
+                        $mensajeBloqueo = $requiereFirma
+                          ? 'Debes abrir y firmar primero el PDF antes de confirmar'
+                          : 'Debes revisar primero el documento o link antes de confirmar';
+                        $textoBloqueo = $puedeConfirmar ? '' : 'title="' . htmlspecialchars($mensajeBloqueo, ENT_QUOTES, 'UTF-8') . '"';
                       ?>
                       <select class="form-select form-select-sm cambiar-campo validar-pendiente <?= $claseEstado ?>" <?= $textoBloqueo ?>>
                         <option value="">Seleccione...</option>
@@ -760,6 +793,34 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       });
     }
 
+    function mostrarAlertaFirmaPendiente() {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Debes firmar el PDF',
+        text: 'Primero debes abrir la ventana controlada, revisar el PDF y guardar la firma para poder validar este pendiente.'
+      });
+    }
+
+    function filaPuedeConfirmar($fila) {
+      const valorData = $fila.data('puede-confirmar');
+
+      if (typeof valorData !== 'undefined') {
+        return String(valorData) === '1';
+      }
+
+      return String($fila.attr('data-puede-confirmar')) === '1';
+    }
+
+    function filaRequiereFirma($fila) {
+      const valorData = $fila.data('requiere-firma');
+
+      if (typeof valorData !== 'undefined') {
+        return String(valorData) === '1';
+      }
+
+      return String($fila.attr('data-requiere-firma')) === '1';
+    }
+
     $('#formCrearPendiente').on('submit', function (e) {
       e.preventDefault();
 
@@ -877,7 +938,8 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
     $(document).on('click', '.validar-pendiente', function (e) {
       const $select = $(this);
       const $fila = $select.closest('tr');
-      const bloqueado = String($fila.data('puede-confirmar')) !== '1';
+      const bloqueado = !filaPuedeConfirmar($fila);
+      const requiereFirma = filaRequiereFirma($fila);
 
       if (!bloqueado) {
         return;
@@ -886,6 +948,11 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       e.preventDefault();
       $select.val('');
       aplicarClaseEstado($select, '', true);
+      if (requiereFirma) {
+        mostrarAlertaFirmaPendiente();
+        return;
+      }
+
       mostrarAlertaDocumentoPendiente();
     });
 
@@ -1077,10 +1144,52 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
         success: function (respuesta) {
           if (respuesta.success) {
             $fila.attr('data-puede-confirmar', '1');
+            $fila.data('puede-confirmar', 1);
             $select.prop('disabled', false).removeAttr('title');
             aplicarClaseEstado($select, '', false);
           }
         }
+      });
+    });
+
+    $(document).on('click', '.abrir-documento-firmable', function () {
+      const pendienteUsuarioId = $(this).data('pendiente-usuario-id');
+      const url = 'PendienteFirmaController.php?pendiente_usuario_id=' + encodeURIComponent(pendienteUsuarioId);
+      window.open(url, 'pendiente_firma_' + pendienteUsuarioId, 'width=1280,height=860,scrollbars=yes,resizable=yes');
+    });
+
+    window.addEventListener('message', function (event) {
+      if (!event.data || event.data.tipo !== 'pendiente_pdf_firmado') {
+        return;
+      }
+
+      const pendienteUsuarioId = parseInt(event.data.pendienteUsuarioId, 10);
+      if (!pendienteUsuarioId) {
+        return;
+      }
+
+      const $fila = $('#tablaPendientes tbody tr').filter(function () {
+        return parseInt($(this).data('pendiente-usuario-id'), 10) === pendienteUsuarioId;
+      }).first();
+
+      if ($fila.length === 0) {
+        return;
+      }
+
+      const $select = $fila.find('.validar-pendiente');
+      $fila.attr('data-puede-confirmar', '1');
+      $fila.data('puede-confirmar', 1);
+      $fila.attr('data-firmado', '1');
+      $fila.data('firmado', 1);
+      $select.prop('disabled', false).removeAttr('title');
+      aplicarClaseEstado($select, $select.val() || '', false);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'PDF firmado',
+        text: 'La firma quedo registrada y ya puedes confirmar este pendiente.',
+        timer: 1600,
+        showConfirmButton: false
       });
     });
 
@@ -1089,12 +1198,17 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       const $fila = $select.closest('tr');
       const confirmacion = $select.val();
       const observacion = $.trim($fila.find('.observacion-pendiente').val());
-      const bloqueado = String($fila.data('puede-confirmar')) !== '1';
+      const bloqueado = !filaPuedeConfirmar($fila);
+      const requiereFirma = filaRequiereFirma($fila);
 
       aplicarClaseEstado($select, confirmacion, bloqueado);
 
       if (bloqueado) {
-        mostrarAlertaDocumentoPendiente();
+        if (requiereFirma) {
+          mostrarAlertaFirmaPendiente();
+        } else {
+          mostrarAlertaDocumentoPendiente();
+        }
         $select.val('');
         aplicarClaseEstado($select, '', true);
         return;

@@ -6,12 +6,18 @@ class PendientesModel
     private mysqli $db;
     private string $uploadDir;
     private string $uploadUrlBase = '../uploads/pendientes/';
+    private string $uploadFirmaDir;
+    private string $uploadFirmaUrlBase = '../uploads/pendientes_firmas/';
+    private string $uploadPdfFirmadoDir;
+    private string $uploadPdfFirmadoUrlBase = '../uploads/pendientes_pdf_firmados/';
     private string $logFile;
 
     public function __construct()
     {
         $this->db = (new Database())->connect();
         $this->uploadDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pendientes';
+        $this->uploadFirmaDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pendientes_firmas';
+        $this->uploadPdfFirmadoDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pendientes_pdf_firmados';
         $this->logFile = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'pendientes.log';
         $this->asegurarEstructura();
     }
@@ -100,6 +106,7 @@ class PendientesModel
                 pu.id AS pendiente_usuario_id,
                 pu.pu_observacion,
                 pu.pu_documento_abierto,
+                pu.pu_firma_ruta,
                 pc.id AS pendiente_id,
                 pc.pen_titulo,
                 pc.pen_descripcion,
@@ -118,6 +125,9 @@ class PendientesModel
         $resultPersonalizados = $stmtPersonalizados->get_result();
 
         while ($row = $resultPersonalizados->fetch_assoc()) {
+            $requiereFirma = $this->esDocumentoPdfFirmable((string) $row['pen_documento']);
+            $firmado = trim((string) ($row['pu_firma_ruta'] ?? '')) !== '';
+
             $pendientes[] = [
                 'registro' => 'personalizado',
                 'id' => (int) $row['pendiente_id'],
@@ -130,7 +140,12 @@ class PendientesModel
                 'documento' => $row['pen_documento'],
                 'observacion' => $row['pu_observacion'] ?? '',
                 'documento_abierto' => (int) $row['pu_documento_abierto'],
-                'puede_confirmar' => (int) $row['pu_documento_abierto'],
+                'requiere_firma' => $requiereFirma ? 1 : 0,
+                'firmado' => $firmado ? 1 : 0,
+                'firma_ruta' => $row['pu_firma_ruta'] ?? '',
+                'puede_confirmar' => $requiereFirma
+                    ? ($firmado ? 1 : 0)
+                    : (int) $row['pu_documento_abierto'],
             ];
         }
         $stmtPersonalizados->close();
@@ -274,6 +289,8 @@ class PendientesModel
                     pu.pu_observacion,
                     pu.pu_documento_abierto,
                     pu.pu_fecha_documento_abierto,
+                    pu.pu_firma_ruta,
+                    pu.pu_pdf_firmado_ruta,
                     pu.pu_fecha_confirmacion
                 FROM pendientes_creados_usuarios pu
                 LEFT JOIN usuarios u ON u.idusuarios = pu.usuario_id
@@ -311,6 +328,8 @@ class PendientesModel
                     'confirmacion' => $confirmacion,
                     'documento_abierto' => (int) ($row['pu_documento_abierto'] ?? 0),
                     'fecha_documento_abierto' => $row['pu_fecha_documento_abierto'] ?? '',
+                    'firma_ruta' => $row['pu_firma_ruta'] ?? '',
+                    'pdf_firmado_ruta' => $row['pu_pdf_firmado_ruta'] ?? '',
                     'fecha_confirmacion' => $row['pu_fecha_confirmacion'] ?? '',
                     'observacion' => $row['pu_observacion'] ?? '',
                 ];
@@ -608,9 +627,90 @@ class PendientesModel
         return $ok;
     }
 
+    public function obtenerPendienteUsuarioParaFirma(int $pendienteUsuarioId, int $idUsuario): ?array
+    {
+        $sql = "SELECT
+                    pu.id,
+                    pu.usuario_id,
+                    pu.pu_documento_abierto,
+                    pu.pu_firma_ruta,
+                    pu.pu_fecha_firma,
+                    pc.pen_titulo,
+                    pc.pen_descripcion,
+                    pc.pen_documento
+                FROM pendientes_creados_usuarios pu
+                INNER JOIN pendientes_creados pc ON pc.id = pu.pendiente_id
+                WHERE pu.id = ?
+                  AND pu.usuario_id = ?
+                  AND pc.pen_estado = 1
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("ii", $pendienteUsuarioId, $idUsuario);
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$resultado) {
+            return null;
+        }
+
+        $resultado['requiere_firma'] = $this->esDocumentoPdfFirmable((string) ($resultado['pen_documento'] ?? '')) ? 1 : 0;
+
+        return $resultado;
+    }
+
+    public function guardarFirmaPendiente(int $pendienteUsuarioId, int $idUsuario, string $firmaBase64): array
+    {
+        $pendiente = $this->obtenerPendienteUsuarioParaFirma($pendienteUsuarioId, $idUsuario);
+        if ($pendiente === null) {
+            return ['success' => false, 'message' => 'El pendiente no existe para este usuario.'];
+        }
+
+        $documento = (string) ($pendiente['pen_documento'] ?? '');
+        if (!$this->esDocumentoPdfFirmable($documento)) {
+            return ['success' => false, 'message' => 'Solo se pueden firmar archivos PDF internos.'];
+        }
+
+        $rutaFirma = $this->guardarImagenFirmaPendiente($pendienteUsuarioId, $firmaBase64);
+        if ($rutaFirma === null) {
+            return ['success' => false, 'message' => 'No fue posible guardar la firma del pendiente.'];
+        }
+
+        $rutaPdfFirmado = $this->generarPdfFirmadoPendiente($pendiente, $rutaFirma, $pendienteUsuarioId, $idUsuario);
+        if ($rutaPdfFirmado === null) {
+            return ['success' => false, 'message' => 'No fue posible generar el PDF firmado del pendiente.'];
+        }
+
+        $sql = "UPDATE pendientes_creados_usuarios
+                SET pu_firma_ruta = ?,
+                    pu_pdf_firmado_ruta = ?,
+                    pu_fecha_firma = NOW(),
+                    pu_fecha_pdf_firmado = NOW(),
+                    pu_documento_abierto = 1,
+                    pu_fecha_documento_abierto = NOW()
+                WHERE id = ?
+                  AND usuario_id = ?";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("ssii", $rutaFirma, $rutaPdfFirmado, $pendienteUsuarioId, $idUsuario);
+        $stmt->execute();
+        $ok = $stmt->affected_rows > 0 || $this->pendienteYaFirmado($pendienteUsuarioId, $idUsuario);
+        $stmt->close();
+
+        return [
+            'success' => $ok,
+            'message' => $ok
+                ? 'Firma guardada correctamente.'
+                : 'No fue posible guardar la firma del pendiente.',
+            'firma_ruta' => $rutaFirma,
+            'pdf_firmado_ruta' => $rutaPdfFirmado,
+        ];
+    }
+
     public function confirmarPendientePersonalizado(int $pendienteUsuarioId, int $idUsuario, string $confirmacion, string $observacion): array
     {
-        $sqlValida = "SELECT pu_documento_abierto
+        $sqlValida = "SELECT pu_documento_abierto, pu_firma_ruta
                       FROM pendientes_creados_usuarios
                       WHERE id = ?
                         AND usuario_id = ?
@@ -629,6 +729,11 @@ class PendientesModel
 
         if ((int) $fila['pu_documento_abierto'] !== 1) {
             return ['success' => false, 'message' => 'Debes abrir el documento antes de confirmar este pendiente.'];
+        }
+
+        $pendiente = $this->obtenerPendienteUsuarioParaFirma($pendienteUsuarioId, $idUsuario);
+        if ($pendiente !== null && (int) ($pendiente['requiere_firma'] ?? 0) === 1 && trim((string) ($fila['pu_firma_ruta'] ?? '')) === '') {
+            return ['success' => false, 'message' => 'Debes firmar el PDF antes de confirmar este pendiente.'];
         }
 
         $sql = "UPDATE pendientes_creados_usuarios
@@ -718,6 +823,14 @@ class PendientesModel
             @mkdir($this->uploadDir, 0777, true);
         }
 
+        if (!is_dir($this->uploadFirmaDir)) {
+            @mkdir($this->uploadFirmaDir, 0777, true);
+        }
+
+        if (!is_dir($this->uploadPdfFirmadoDir)) {
+            @mkdir($this->uploadPdfFirmadoDir, 0777, true);
+        }
+
         $sqlPendientes = "CREATE TABLE IF NOT EXISTS pendientes_creados (
             id INT AUTO_INCREMENT PRIMARY KEY,
             pen_titulo VARCHAR(255) NOT NULL,
@@ -760,6 +873,26 @@ class PendientesModel
         $this->db->query($sqlRoles);
         $this->db->query($sqlTiposContrato);
         $this->db->query($sqlUsuarios);
+        $this->agregarColumnaSiNoExiste(
+            'pendientes_creados_usuarios',
+            'pu_firma_ruta',
+            "ALTER TABLE pendientes_creados_usuarios ADD COLUMN pu_firma_ruta VARCHAR(255) NULL AFTER pu_fecha_documento_abierto"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'pendientes_creados_usuarios',
+            'pu_fecha_firma',
+            "ALTER TABLE pendientes_creados_usuarios ADD COLUMN pu_fecha_firma DATETIME NULL AFTER pu_firma_ruta"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'pendientes_creados_usuarios',
+            'pu_pdf_firmado_ruta',
+            "ALTER TABLE pendientes_creados_usuarios ADD COLUMN pu_pdf_firmado_ruta VARCHAR(255) NULL AFTER pu_fecha_firma"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'pendientes_creados_usuarios',
+            'pu_fecha_pdf_firmado',
+            "ALTER TABLE pendientes_creados_usuarios ADD COLUMN pu_fecha_pdf_firmado DATETIME NULL AFTER pu_pdf_firmado_ruta"
+        );
     }
 
     private function obtenerUsuariosPorRolesYContrato(array $roles, array $tiposContrato): array
@@ -1002,6 +1135,170 @@ class PendientesModel
         return $ruta !== '' && strpos($ruta, $this->uploadUrlBase) === 0;
     }
 
+    private function esDocumentoPdfFirmable(string $ruta): bool
+    {
+        if (!$this->esDocumentoInterno($ruta)) {
+            return false;
+        }
+
+        $path = (string) (parse_url($ruta, PHP_URL_PATH) ?? $ruta);
+        return strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf';
+    }
+
+    private function guardarImagenFirmaPendiente(int $pendienteUsuarioId, string $firmaBase64): ?string
+    {
+        if (!preg_match('/^data:image\/png;base64,/', $firmaBase64)) {
+            $this->log('guardarImagenFirmaPendiente formato invalido', ['pendiente_usuario_id' => $pendienteUsuarioId]);
+            return null;
+        }
+
+        $firmaData = substr($firmaBase64, strpos($firmaBase64, ',') + 1);
+        $firmaData = str_replace(' ', '+', $firmaData);
+        $imagen = base64_decode($firmaData, true);
+
+        if ($imagen === false) {
+            $this->log('guardarImagenFirmaPendiente base64 invalido', ['pendiente_usuario_id' => $pendienteUsuarioId]);
+            return null;
+        }
+
+        $nombreArchivo = 'firma_pendiente_' . $pendienteUsuarioId . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.png';
+        $destino = $this->uploadFirmaDir . DIRECTORY_SEPARATOR . $nombreArchivo;
+
+        if (@file_put_contents($destino, $imagen) === false) {
+            $this->log('guardarImagenFirmaPendiente error escritura', ['destino' => $destino]);
+            return null;
+        }
+
+        return $this->uploadFirmaUrlBase . $nombreArchivo;
+    }
+
+    private function generarPdfFirmadoPendiente(array $pendiente, string $rutaFirmaRelativa, int $pendienteUsuarioId, int $idUsuario): ?string
+    {
+        $rutaDocumentoOriginal = $this->obtenerRutaAbsolutaDesdeRelativa((string) ($pendiente['pen_documento'] ?? ''));
+        $rutaFirma = $this->obtenerRutaAbsolutaDesdeRelativa($rutaFirmaRelativa);
+
+        if ($rutaDocumentoOriginal === null || $rutaFirma === null || !is_file($rutaDocumentoOriginal) || !is_file($rutaFirma)) {
+            $this->log('generarPdfFirmadoPendiente rutas invalidas', [
+                'documento' => $pendiente['pen_documento'] ?? '',
+                'firma' => $rutaFirmaRelativa,
+            ]);
+            return null;
+        }
+
+        $usuario = $this->obtenerUsuarioPorId($idUsuario);
+        $nombreUsuario = trim((string) ($usuario['usu_nombre'] ?? ('Usuario ' . $idUsuario)));
+
+        $this->cargarLibreriasPdf();
+
+        try {
+            $pdf = new \setasign\Fpdi\Fpdi();
+            $cantidadPaginas = $pdf->setSourceFile($rutaDocumentoOriginal);
+
+            for ($pagina = 1; $pagina <= $cantidadPaginas; $pagina++) {
+                $templateId = $pdf->importPage($pagina);
+                $tamano = $pdf->getTemplateSize($templateId);
+                $orientacion = $tamano['width'] > $tamano['height'] ? 'L' : 'P';
+                $pdf->AddPage($orientacion, [$tamano['width'], $tamano['height']]);
+                $pdf->useTemplate($templateId);
+            }
+
+            $pdf->AddPage('P', 'A4');
+            $pdf->SetAutoPageBreak(true, 18);
+            $pdf->SetMargins(18, 18, 18);
+            $pdf->SetFont('Arial', 'B', 16);
+            $pdf->Cell(0, 12, utf8_decode('Constancia de firma del pendiente'), 0, 1, 'C');
+            $pdf->Ln(4);
+
+            $pdf->SetFont('Arial', '', 11);
+            $pdf->MultiCell(0, 8, utf8_decode('Este documento fue revisado y firmado dentro del sistema por el usuario asignado.'));
+            $pdf->Ln(3);
+
+            $pdf->SetFont('Arial', 'B', 11);
+            $pdf->Cell(48, 8, utf8_decode('Pendiente:'), 0, 0);
+            $pdf->SetFont('Arial', '', 11);
+            $pdf->MultiCell(0, 8, utf8_decode((string) ($pendiente['pen_titulo'] ?? 'Sin titulo')));
+
+            $pdf->SetFont('Arial', 'B', 11);
+            $pdf->Cell(48, 8, utf8_decode('Descripcion:'), 0, 0);
+            $pdf->SetFont('Arial', '', 11);
+            $pdf->MultiCell(0, 8, utf8_decode((string) ($pendiente['pen_descripcion'] ?? 'Sin descripcion')));
+
+            $pdf->SetFont('Arial', 'B', 11);
+            $pdf->Cell(48, 8, utf8_decode('Firmado por:'), 0, 0);
+            $pdf->SetFont('Arial', '', 11);
+            $pdf->Cell(0, 8, utf8_decode($nombreUsuario), 0, 1);
+
+            $pdf->SetFont('Arial', 'B', 11);
+            $pdf->Cell(48, 8, utf8_decode('Fecha de firma:'), 0, 0);
+            $pdf->SetFont('Arial', '', 11);
+            $pdf->Cell(0, 8, date('Y-m-d H:i:s'), 0, 1);
+
+            $pdf->SetFont('Arial', 'B', 11);
+            $pdf->Cell(48, 8, utf8_decode('Id asignacion:'), 0, 0);
+            $pdf->SetFont('Arial', '', 11);
+            $pdf->Cell(0, 8, (string) $pendienteUsuarioId, 0, 1);
+
+            $pdf->Ln(10);
+            $pdf->SetFont('Arial', 'B', 12);
+            $pdf->Cell(0, 8, utf8_decode('Firma capturada'), 0, 1);
+            $pdf->Ln(4);
+            $pdf->Image($rutaFirma, 28, $pdf->GetY(), 150, 55, 'PNG');
+
+            $nombreArchivo = 'pendiente_firmado_' . $pendienteUsuarioId . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.pdf';
+            $destino = $this->uploadPdfFirmadoDir . DIRECTORY_SEPARATOR . $nombreArchivo;
+            $pdf->Output('F', $destino);
+
+            if (!is_file($destino)) {
+                $this->log('generarPdfFirmadoPendiente no genero archivo', ['destino' => $destino]);
+                return null;
+            }
+
+            return $this->uploadPdfFirmadoUrlBase . $nombreArchivo;
+        } catch (\Throwable $e) {
+            $this->log('generarPdfFirmadoPendiente error', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    private function cargarLibreriasPdf(): void
+    {
+        static $cargado = false;
+        if ($cargado) {
+            return;
+        }
+
+        $raiz = dirname(__DIR__, 2);
+
+        if (!class_exists('FPDF')) {
+            require_once $raiz . DIRECTORY_SEPARATOR . 'fpdf' . DIRECTORY_SEPARATOR . 'fpdf.php';
+        }
+
+        spl_autoload_register(static function ($class) use ($raiz) {
+            $prefijo = 'setasign\\Fpdi\\';
+            if (strpos($class, $prefijo) !== 0) {
+                return;
+            }
+
+            $relativa = substr($class, strlen($prefijo));
+            $ruta = $raiz . DIRECTORY_SEPARATOR . 'FPDI' . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . str_replace('\\', DIRECTORY_SEPARATOR, $relativa) . '.php';
+            if (is_file($ruta)) {
+                require_once $ruta;
+            }
+        });
+
+        $cargado = true;
+    }
+
+    private function obtenerRutaAbsolutaDesdeRelativa(string $ruta): ?string
+    {
+        if ($ruta === '' || strpos($ruta, '../') !== 0) {
+            return null;
+        }
+
+        $normalizada = str_replace(['../', '/'], ['', DIRECTORY_SEPARATOR], $ruta);
+        return dirname(__DIR__) . DIRECTORY_SEPARATOR . $normalizada;
+    }
+
     private function log(string $mensaje, array $contexto = []): void
     {
         $linea = '[' . date('Y-m-d H:i:s') . '] ' . $mensaje;
@@ -1026,6 +1323,45 @@ class PendientesModel
         $stmt->close();
 
         return isset($resultado['pu_documento_abierto']) && (int) $resultado['pu_documento_abierto'] === 1;
+    }
+
+    private function pendienteYaFirmado(int $pendienteUsuarioId, int $idUsuario): bool
+    {
+        $sql = "SELECT pu_firma_ruta
+                FROM pendientes_creados_usuarios
+                WHERE id = ?
+                  AND usuario_id = ?";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("ii", $pendienteUsuarioId, $idUsuario);
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return !empty($resultado['pu_firma_ruta']);
+    }
+
+    private function agregarColumnaSiNoExiste(string $tabla, string $columna, string $sqlAlter): void
+    {
+        $sql = "SELECT COUNT(*) AS total
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?
+                  AND COLUMN_NAME = ?";
+
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            return;
+        }
+
+        $stmt->bind_param("ss", $tabla, $columna);
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if ((int) ($resultado['total'] ?? 0) === 0) {
+            $this->db->query($sqlAlter);
+        }
     }
 
     private function mapearConceptoNomina(string $tipo): string

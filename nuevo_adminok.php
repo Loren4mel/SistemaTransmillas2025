@@ -1509,46 +1509,10 @@ case "addgastos":
 		$valores[7]=$sql; $valores[4]="adm_usuarios.php"; $valores[8]=1; 
 	break;
 	case "Buzon": 
-/////////////////////////////77
 
-	// if (isset($_FILES['param500'])){
-    
-  //   $cantidad= count($_FILES["imagenchat"]["tmp_name"]);
-    
-  //   for ($i=0; $i<$cantidad; $i++){
-  //   //Comprobamos si el fichero es una imagen
-  //       if ($_FILES['imagenchat']['type'][$i]=='image/png' || $_FILES['imagenchat']['type'][$i]=='image/jpeg'){
-                   
-  //       //Subimos el fichero al servidor
-  //       move_uploaded_file($_FILES["imagenchat"]["tmp_name"][$i],"./imgMensajes/".$_FILES["imagenchat"]["name"][$i]);
-  //       $validar=true;
-  //       $tipoD='';
-
-
-  //       }elseif($_FILES['imagenchat']['type'][$i]=='application/pdf'){
-  //           move_uploaded_file($_FILES["imagenchat"]["tmp_name"][$i],"./imgMensajes/".$_FILES["imagenchat"]["name"][$i]);
-  //           $validar=true;
-  //           $tipoD='pdf';
-  //             }else
-
-
-  //        $validar=false; 
-    
-		//     }
-		// } 
-
-		//  if (isset($_FILES['imagenchat']) && $validar==true){ 
-  //   for ($i=0; $i<$cantidad; $i++){
-
-  //   echo "<h1>";  $imagen = $_FILES["imagenchat"]["name"][$i]; echo "</h1>";  
-
-//    $sql=" INSERT INTO noticia (not_fecha, not_titulo, not_descripcion, not_expiracion,not_idrol,not_idusuario,not_userinsert,not_imagen,not_idDe,not_ciudad,not_visto,not_menMas) VALUES ('$fechatiempo', '$param1', '$param2', '$param3','$param4','$param6','$id_nombre','$imagen','$idUserActual','$param5','no','si')";
-
-//  } 
-// }
      echo  $sql="SELECT idusuarios FROM usuarios  where roles_idroles= '$param4' and  usu_idsede='$param5'";
- // echo "$id_nombre";
-$DB->Execute($sql); 
+ 
+		$DB->Execute($sql); 
   while($rw2=mysqli_fetch_row($DB->Consulta_ID))
   {
 
@@ -2123,6 +2087,19 @@ echo$rw2[0];
 	   $valores[7]=$sql; $valores[4]="informecreditos.php"; $valores[8]=1; 
 
    break;
+	case "Archivo Drive":
+	if (is_uploaded_file($_FILES['param1']['tmp_name'])){
+		// $imagen1 = md5(date("Y-m-d-H-i-s").$param4).".jpg";
+	
+		$nombreArchivo1 = $_FILES["param1"]["name"];
+		$imagen1 = date("Y-m-d-H-i-s").$nombreArchivo1;
+		move_uploaded_file($_FILES['param1']['tmp_name'], "./imgDocTransmi/".$imagen1);
+		}else{
+			$imagen1 = "";
+		}
+	$sql="UPDATE usuarios SET  `usu_doc_credito`='$imagen1' WHERE idusuarios='$param2'";			
+	$valores[7]=$sql; $valores[4]="inicio.php"; $valores[8]=1; 
+	break;
    	case "ConfirmaCompañero": 
 		$id=$_GET['id'];
 		$idSeg=$_GET['idSeg'];
@@ -2201,6 +2178,8 @@ if($bandera==1){
 		case "cajamenor":
 
 		break;
+
+
 	}
 }
 
