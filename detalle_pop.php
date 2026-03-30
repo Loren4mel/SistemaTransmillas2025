@@ -5382,7 +5382,7 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
 	$sql = "SELECT `rep_banco`,
 	`rep_cuenta`,`rep_nombre_consi`,`rep_valor` 
 	FROM `reportealertas` 
-	WHERE idreportealertas='$id_param ' ";
+	WHERE idreportealertas='$id_param' ";
 	$DB->Execute($sql);
 	$rw1 = mysqli_fetch_row($DB->Consulta_ID);
 
@@ -5484,7 +5484,40 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
     
     echo'<div id="loading"  style="display: none;">
     <img src="images/loading.gif" alt="Cargando..."></div>';
+}else if ($tabla == "Archivo Drive") {
+        $fecha = $_REQUEST["ide"];
+        $fechaactual = date("Y-m-d");
+        $sql2="SELECT `usu_doc_credito`FROM `usuarios` where idusuarios='$id_param'  ";
+        
+        $DB1->Execute($sql2); 
+        // $iddoc=$DB1->recogedato(0);
+        $rw1=mysqli_fetch_row($DB1->Consulta_ID);
+        $archivoExistente = isset($rw1[0]) ? trim($rw1[0]) : "";
+        $nombreArchivoExistente = $archivoExistente != "" ? basename($archivoExistente) : "Sin archivo cargado";
+
+        echo "<tr>";
+        echo "<td class='text' style='vertical-align:top; padding-top:8px;'><strong>Archivo actual:</strong></td>";
+        echo "<td colspan='3' style='padding:4px 0 10px 0;'>";
+        if ($archivoExistente != "") {
+            $archivoSeguro = htmlspecialchars($archivoExistente, ENT_QUOTES, 'UTF-8');
+            $nombreSeguro = htmlspecialchars($nombreArchivoExistente, ENT_QUOTES, 'UTF-8');
+            echo "<div style='display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid #d9d9d9; border-radius:6px; background:#f7f7f7;'>";
+            echo "<span class='text' style='word-break:break-word;'>".$nombreSeguro."</span>";
+            echo "<a href='imgDocTransmi/".$archivoSeguro."' target='_blank' class='btn btn-primary btn-sm'>Abrir</a>";
+            echo "</div>";
+        } else {
+            echo "<div class='text' style='padding:10px 12px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; color:#777;'>Sin archivo cargado</div>";
+        }
+        echo "</td>";
+        echo "</tr>";
+
+        $FB->llena_texto("Cargar archivo", 1, 6, $DB, "", "", "", 1, 0);
+        $FB->llena_texto("param2", 1, 13, $DB, "", "", $id_param, 5, 0);
+
+
+    
 }
+
 
 
     $FB->llena_texto("tabla", 1, 13, $DB, "", "", $tabla, 5, 0);

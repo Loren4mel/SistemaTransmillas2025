@@ -357,7 +357,7 @@ $FB->llena_texto("Tel&eacute;fonos :",2, $tcampot, $DB, "", "", $rw[2], 4, 2);
 	</div></td>";
 	
 
-$FB->llena_texto("Ciudad:",4,2,$DB,"(SELECT `idciudades`,`ciu_nombre` FROM `ciudades` )", "", "$param4", 4, 2);
+$FB->llena_texto("Ciudad:",4,2,$DB,"(SELECT `idciudades`,`ciu_nombre` FROM `ciudades` )", "", "$param4", 4, 1);
 //$FB->llena_texto("Direccion:",5, 1, $DB, "", "", $rw[5], 1, 0);
 
 @$direcc=explode("&",$rw[5]);
@@ -461,7 +461,24 @@ $Identificador="Id <mark>Cambie el nombre de este campo en hojas de vida cliente
 }else {
 	$Identificador=$datohvc[0];	
 }
-$FB->llena_texto("$Identificador",45, 1, $DB, "", "", "", 1, 0);
+$esCroydonFormulario = (strtoupper(trim($datoscliente[14])) === "CROYDON");
+if ($esCroydonFormulario) {
+	echo "<tr bgcolor='#FFFFFF' class='text'><td>$Identificador</td><td align='right' class='text'>";
+	echo "<div style='display:flex; gap:8px; align-items:center;'>";
+	echo "<select id='param45_prefijo' class='form-control' style='max-width:140px;'>
+		<option value=''>Siglas...</option>
+		<option value='S1'>S1</option>
+		<option value='OL'>OL</option>
+		<option value='S8'>S8</option>
+		<option value='SK'>SK</option>
+	</select>";
+	echo "<input id='param45_codigo' class='form-control' type='text' value='' placeholder='Codigo' autocomplete='off' onkeypress='return noenter();'>";
+	echo "</div>";
+	echo "<input name='param45' id='param45' type='hidden' value=''>";
+	echo "</td></tr>";
+} else {
+	$FB->llena_texto("$Identificador",45, 1, $DB, "", "", "", 1, 0);
+}
 $valortservicio=0;
 if($id_param!=''){
 	 $sql21="select gui_tiposervicio from guias where gui_idservicio=$id_param";
@@ -502,24 +519,31 @@ $FB->llena_texto("", 1, 142, $DB, "Guardar", "", 0, 12, 0);
 function validar_repuesta()
 {
 	var campoIdentificador = document.getElementById("param45");
+	var campoSiglasCroydon = document.getElementById("param45_prefijo");
+	var campoCodigoCroydon = document.getElementById("param45_codigo");
 	var nombreCredito = document.getElementById("param44");
 	var esCroydon = nombreCredito && nombreCredito.value.trim().toUpperCase() === "CROYDON";
 
 	if (esCroydon) {
+		sincronizarIdentificadorCroydon();
 		var valorIdentificador = campoIdentificador ? campoIdentificador.value.trim() : "";
+		var valorSiglasCroydon = campoSiglasCroydon ? campoSiglasCroydon.value.trim() : "";
+		var valorCodigoCroydon = campoCodigoCroydon ? campoCodigoCroydon.value.trim() : "";
 
-		if (valorIdentificador === "") {
-			alert("El campo identificador es obligatorio para CROYDON.");
-			if (campoIdentificador) {
-				campoIdentificador.focus();
+		if (valorSiglasCroydon === "" || valorCodigoCroydon === "") {
+			alert("Para CROYDON debes diligenciar las siglas y el codigo.");
+			if (campoSiglasCroydon && valorSiglasCroydon === "") {
+				campoSiglasCroydon.focus();
+			} else if (campoCodigoCroydon) {
+				campoCodigoCroydon.focus();
 			}
 			return false;
 		}
 
-		if (!/^[A-Za-z]/.test(valorIdentificador)) {
-			alert("El identificador para CROYDON debe comenzar con una letra.");
-			if (campoIdentificador) {
-				campoIdentificador.focus();
+		if (valorIdentificador === "") {
+			alert("No fue posible armar el identificador para CROYDON.");
+			if (campoCodigoCroydon) {
+				campoCodigoCroydon.focus();
 			}
 			return false;
 		}
@@ -560,43 +584,76 @@ function validar_repuesta()
 
  }
 
- function actualizarValidacionIdentificadorCroydon() {
+function actualizarValidacionIdentificadorCroydon() {
 	var campoIdentificador = document.getElementById("param45");
+	var campoSiglasCroydon = document.getElementById("param45_prefijo");
+	var campoCodigoCroydon = document.getElementById("param45_codigo");
 	var nombreCredito = document.getElementById("param44");
 
-	if (!campoIdentificador || !nombreCredito) {
+	if (!nombreCredito) {
 		return;
 	}
 
 	var esCroydon = nombreCredito.value.trim().toUpperCase() === "CROYDON";
-	campoIdentificador.required = esCroydon;
+	if (campoIdentificador) {
+		campoIdentificador.required = esCroydon;
+	}
+	if (campoSiglasCroydon) {
+		campoSiglasCroydon.required = esCroydon;
+	}
+	if (campoCodigoCroydon) {
+		campoCodigoCroydon.required = esCroydon;
+	}
  }
  
- function autocompletarIdentificador() {
+ function sincronizarIdentificadorCroydon() {
 	var campoIdentificador = document.getElementById("param45");
-	if (!campoIdentificador) {
+	var campoSiglas = document.getElementById("param45_prefijo");
+	var campoCodigo = document.getElementById("param45_codigo");
+
+	if (!campoIdentificador || !campoSiglas || !campoCodigo) {
 		return;
 	}
 
 	var equivalencias = {
-		"OL": "15",
-		"SK": "60",
-		"S8": "40",
-		"S1": "10"
+		"10": "S1",
+		"15": "OL",
+		"40": "S8",
+		"60": "SK"
 	};
 
-	campoIdentificador.addEventListener("input", function () {
-		var valorActual = this.value.toUpperCase().trim();
-		var numeroAsignado = equivalencias[valorActual];
+	var codigoLimpio = campoCodigo.value.replace(/\s+/g, " ").trimStart();
+	var codigoSoloDigitos = codigoLimpio.replace(/\D+/g, "");
+	var prefijoDetectado = equivalencias[codigoSoloDigitos.substring(0, 2)];
 
-		if (numeroAsignado) {
-			this.value = valorActual + " " + numeroAsignado;
-		}
-	});
+	campoCodigo.value = codigoLimpio;
+
+	if (prefijoDetectado) {
+		campoSiglas.value = prefijoDetectado;
+	}
+
+	if (campoSiglas.value !== "" && codigoLimpio !== "") {
+		campoIdentificador.value = campoSiglas.value + " " + codigoLimpio;
+	} else {
+		campoIdentificador.value = "";
+	}
+ }
+
+ function inicializarIdentificadorCroydon() {
+	var campoSiglas = document.getElementById("param45_prefijo");
+	var campoCodigo = document.getElementById("param45_codigo");
+
+	if (!campoSiglas || !campoCodigo) {
+		return;
+	}
+
+	campoCodigo.addEventListener("input", sincronizarIdentificadorCroydon);
+	campoSiglas.addEventListener("change", sincronizarIdentificadorCroydon);
+	sincronizarIdentificadorCroydon();
  }
 
  document.addEventListener("DOMContentLoaded", function () {
-	autocompletarIdentificador();
+	inicializarIdentificadorCroydon();
 	actualizarValidacionIdentificadorCroydon();
  });
  
