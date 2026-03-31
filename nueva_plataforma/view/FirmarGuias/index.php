@@ -54,6 +54,43 @@
     margin-bottom: 20px;
   }
 
+  .aviso-pago {
+    border-radius: 10px;
+    border: 2px solid transparent;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+  }
+
+  .aviso-pago strong {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+
+  .aviso-pago p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .aviso-pago.success {
+    background-color: #eaf7ef;
+    border-color: #198754;
+    color: #146c43;
+  }
+
+  .aviso-pago.warning {
+    background-color: #fff4e5;
+    border-color: #fd7e14;
+    color: #9a4d00;
+  }
+
+  .aviso-pago.info {
+    background-color: #e7f1ff;
+    border-color: #0b4a8b;
+    color: #0b4a8b;
+  }
+
   #signature-pad {
     border: 2px dashed #bfc9d4;
     border-radius: 6px;
@@ -137,6 +174,13 @@
     </div>
 <?php else: ?>
     <!-- AQUÍ VA TODO EL CANVAS Y BOTONES -->
+    <?php if (!empty($mensajeAvisoPago)): ?>
+    <div class="aviso-pago <?= htmlspecialchars($claseAvisoPago ?? 'info') ?>">
+      <strong><?= htmlspecialchars($tituloAvisoPago ?? 'Informacion del pago') ?></strong>
+      <p><?= htmlspecialchars($mensajeAvisoPago) ?></p>
+    </div>
+    <?php endif; ?>
+
     <div class="titulo-seccion">Firma del cliente</div>
     <div class="descripcion">
       Por favor, firme dentro del recuadro para finalizar y poder generar la guia soporte que llegara a su whatsapp.
@@ -155,12 +199,25 @@
 <script>
 
   const puedeFirmar = <?= $puedeFirmar ? 'true' : 'false' ?>;
+  const tituloAvisoPago = <?= json_encode($tituloAvisoPago ?? '') ?>;
+  const mensajeAvisoPago = <?= json_encode($mensajeAvisoPago ?? '') ?>;
+  const claseAvisoPago = <?= json_encode($claseAvisoPago ?? 'info') ?>;
 // === Inicialización del canvas ===
 const canvas = document.getElementById('signature-pad');
 const ctx = canvas.getContext('2d');
 let drawing = false;
 // let selloBase64 = null; // Si el usuario sube un sello
 let firmaRealizada = false; // 👈 NUEVA
+
+if (puedeFirmar && mensajeAvisoPago) {
+  Swal.fire({
+    icon: claseAvisoPago === 'success' ? 'success' : (claseAvisoPago === 'warning' ? 'warning' : 'info'),
+    title: tituloAvisoPago,
+    text: mensajeAvisoPago,
+    confirmButtonText: 'Entendido',
+    allowOutsideClick: false
+  });
+}
 
 // === FUNCIÓN PARA DIBUJAR EL TEXTO DE PAGO “QUEMADO” ===
 function dibujarTextoPago() {
