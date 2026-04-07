@@ -33,105 +33,105 @@ document.getElementById('param8').addEventListener('change', actualizarBloqueCon
 
 // Cargar datos del servicio al entrar
 async function cargarServicio() {
-  const params = new URLSearchParams(window.location.search);
-  const id = params.get('idServicio');
-  const prekilo = params.get('precioskiloini');
+  // const params = new URLSearchParams(window.location.search);
+  // const id = params.get('idServicio');
+  // const prekilo = params.get('precioskiloini');
 
-  if (!id) return;
+  // if (!id) return;
 
-  // 🔧 Helpers seguros
-  function setValue(id, value) {
-    const el = document.getElementById(id);
-    if (!el) {
-      console.warn('⚠️ No existe:', id);
-      return;
-    }
-    el.value = value ?? '';
-  }
+  // // 🔧 Helpers seguros
+  // function setValue(id, value) {
+  //   const el = document.getElementById(id);
+  //   if (!el) {
+  //     console.warn('⚠️ No existe:', id);
+  //     return;
+  //   }
+  //   el.value = value ?? '';
+  // }
 
-  function setChecked(id, value) {
-    const el = document.getElementById(id);
-    if (!el) {
-      console.warn('⚠️ No existe:', id);
-      return;
-    }
-    el.checked = (value == 1);
-  }
+  // function setChecked(id, value) {
+  //   const el = document.getElementById(id);
+  //   if (!el) {
+  //     console.warn('⚠️ No existe:', id);
+  //     return;
+  //   }
+  //   el.checked = (value == 1);
+  // }
 
-  try {
-    const resp = await fetch(`../controller/RecogerController.php?accion=buscarRecogida&id=${id}`);
+  // try {
+  //   const resp = await fetch(`../controller/RecogerController.php?accion=buscarRecogida&id=${id}`);
 
-    console.log('📡 status:', resp.status);
+  //   console.log('📡 status:', resp.status);
 
-    if (!resp.ok) {
-      throw new Error('Error HTTP: ' + resp.status);
-    }
+  //   if (!resp.ok) {
+  //     throw new Error('Error HTTP: ' + resp.status);
+  //   }
 
-    const text = await resp.text();
-    console.log('📦 RESPUESTA RAW:', text);
+  //   const text = await resp.text();
+  //   console.log('📦 RESPUESTA RAW:', text);
 
-    let s;
-    try {
-      s = JSON.parse(text);
-    } catch (err) {
-      console.error('❌ JSON inválido:', err);
-      throw new Error('La respuesta NO es JSON válido');
-    }
+  //   let s;
+  //   try {
+  //     s = JSON.parse(text);
+  //   } catch (err) {
+  //     console.error('❌ JSON inválido:', err);
+  //     throw new Error('La respuesta NO es JSON válido');
+  //   }
 
-    console.log('✅ JSON:', s);
+  //   console.log('✅ JSON:', s);
 
-    if (!s || Object.keys(s).length === 0) {
-      console.warn('⚠️ Servicio vacío');
-      return;
-    }
+  //   if (!s || Object.keys(s).length === 0) {
+  //     console.warn('⚠️ Servicio vacío');
+  //     return;
+  //   }
 
-    // 🔹 Datos básicos
-    setValue('idservicio', id);
-    setValue('precioinicialkilos', prekilo);
+  //   // 🔹 Datos básicos
+  //   setValue('idservicio', id);
+  //   setValue('precioinicialkilos', prekilo);
 
-    // 🔹 Campos principales
-    setValue('ser_prioridad', s.ser_prioridad);
-    setValue('ser_piezas', s.ser_piezas);
-    setValue('param19', s.ser_verificado);
-    setValue('ser_paquetedescripcion', s.ser_paquetedescripcion);
-    setValue('ser_valorprestamo', s.ser_valorprestamo);
-    setValue('ser_valorseguro', s.ser_valorseguro);
-    setValue('ser_devolverreci', s.ser_devolverreci);
-    setValue('ser_guiare', s.ser_consecutivo); // ✔ corregido
-    setValue('ser_estado', s.ser_estado);
-    setValue('ser_valorabono', s.ser_valorabono);
-    setValue('ser_peso', s.ser_peso);
-    setValue('ser_volumen', s.ser_volumen);
+  //   // 🔹 Campos principales
+  //   setValue('ser_prioridad', s.ser_prioridad);
+  //   setValue('ser_piezas', s.ser_piezas);
+  //   setValue('param19', s.ser_verificado);
+  //   setValue('ser_paquetedescripcion', s.ser_paquetedescripcion);
+  //   setValue('ser_valorprestamo', s.ser_valorprestamo);
+  //   setValue('ser_valorseguro', s.ser_valorseguro);
+  //   setValue('ser_devolverreci', s.ser_devolverreci);
+  //   setValue('ser_guiare', s.ser_consecutivo); // ✔ corregido
+  //   setValue('ser_estado', s.ser_estado);
+  //   setValue('ser_valorabono', s.ser_valorabono);
+  //   setValue('ser_peso', s.ser_peso);
+  //   setValue('ser_volumen', s.ser_volumen);
 
-    // 🔹 Params del sistema
-    setValue('param15', s.ser_prioridad);
-    setValue('param26', s.ser_descripcion);
-    setValue('param27', s.ser_consecutivo);
-    setValue('param11', s.ser_valor);
-    setValue('param13', s.cli_idciudad);
-    setValue('param9', s.ser_ciudadentrega);
-    setValue('param18', s.ser_idresponsable);
+  //   // 🔹 Params del sistema
+  //   setValue('param15', s.ser_prioridad);
+  //   setValue('param26', s.ser_descripcion);
+  //   setValue('param27', s.ser_consecutivo);
+  //   setValue('param11', s.ser_valor);
+  //   setValue('param13', s.cli_idciudad);
+  //   setValue('param9', s.ser_ciudadentrega);
+  //   setValue('param18', s.ser_idresponsable);
 
-    // 🔹 Campos opcionales (no siempre existen)
-    setValue('param112', s.ser_valor);
-    setValue('credito', s.rel_nom_credito);
-    setValue('param34', s.gui_tiposervicio);
-    setValue('param21', s.ser_tipopaq);
+  //   // 🔹 Campos opcionales (no siempre existen)
+  //   setValue('param112', s.ser_valor);
+  //   setValue('credito', s.rel_nom_credito);
+  //   setValue('param34', s.gui_tiposervicio);
+  //   setValue('param21', s.ser_tipopaq);
 
-    // 🔹 Checkbox (IMPORTANTE)
-    setChecked('rel_nom_credito', s.rel_nom_credito);
+  //   // 🔹 Checkbox (IMPORTANTE)
+  //   setChecked('rel_nom_credito', s.rel_nom_credito);
 
-    // 🔹 Reglas de tipo de pago
-    if (typeof aplicarReglasTipoPago === 'function') {
-      aplicarReglasTipoPago(s);
-    } else {
-      console.warn('⚠️ aplicarReglasTipoPago no existe');
-    }
+  //   // 🔹 Reglas de tipo de pago
+  //   if (typeof aplicarReglasTipoPago === 'function') {
+  //     aplicarReglasTipoPago(s);
+  //   } else {
+  //     console.warn('⚠️ aplicarReglasTipoPago no existe');
+  //   }
 
-  } catch (e) {
-    console.error('🔥 ERROR COMPLETO:', e);
-    alert("Erro cargando el servicio para recogida: " + e.message);
-  }
+  // } catch (e) {
+  //   console.error('🔥 ERROR COMPLETO:', e);
+  //   alert("Error cargando el servicio para recogida: " + e.message);
+  // }
 }
 
 // Cargar SELECT Tipo (tabla tipo)
