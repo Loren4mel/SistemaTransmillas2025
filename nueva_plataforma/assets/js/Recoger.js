@@ -130,7 +130,7 @@ async function cargarServicio() {
 
   } catch (e) {
     console.error('🔥 ERROR COMPLETO:', e);
-    alert("Error cargando el servicio para recogida: " + e.message);
+    alert("Erro cargando el servicio para recogida: " + e.message);
   }
 }
 
