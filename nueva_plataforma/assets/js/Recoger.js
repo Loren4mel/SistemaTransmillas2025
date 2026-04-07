@@ -372,6 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
   cargarTipos();
   cargarMetodosPago();
   cargarCreditos();
+  consultarEstadoFirma();
 });
 
 // Obtener la hora actual en formato HH:MM
@@ -412,7 +413,7 @@ function consultarEstadoFirma() {
   if (consultaEnCursoFirma) return;
   consultaEnCursoFirma = true;
 
-  fetch(`../controller/EntregarController.php?accion=consultarEstadoFirma&id=${ID_SERVICIO}`, {
+  fetch(`../controller/RecogerController.php?accion=consultarEstadoFirma&id=${ID_SERVICIO}`, {
     method: "GET"
   })
     .then(r => r.text())
@@ -424,6 +425,8 @@ function consultarEstadoFirma() {
       if (resp && resp.ok && resp.firmada === true) {
         setEstadoFirma("Ya está firmada", "text-success", "fa-check-circle");
         detenerPollingFirma();
+      } else {
+        setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
       }
     })
     .catch(err => {

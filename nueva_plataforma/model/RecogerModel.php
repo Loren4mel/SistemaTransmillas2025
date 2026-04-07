@@ -1817,7 +1817,7 @@ class RecogerModel
 
         $sql = "SELECT activo_para_firmar, firma_clientes
                 FROM firma_clientes
-                WHERE tipo_firma='Recoger' AND id_guia='$id'
+                WHERE tipo_firma='Recogida' AND id_guia='$id'
                 ORDER BY id DESC
                 LIMIT 1";
 
