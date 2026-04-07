@@ -41,7 +41,21 @@ async function cargarServicio() {
 
   try {
     const resp = await fetch(`../controller/RecogerController.php?accion=buscarRecogida&id=${id}`);
-    const s = await resp.json();
+
+    console.log('📡 status:', resp.status);
+
+    const text = await resp.text();
+    console.log('📦 RESPUESTA RAW:', text);
+
+    let s;
+    try {
+      s = JSON.parse(text);
+    } catch (err) {
+      console.error('❌ JSON inválido:', err);
+      throw new Error('La respuesta NO es JSON válido');
+    }
+
+    console.log('✅ JSON:', s);
     if (!s) return;
 
     document.getElementById('idservicio').value = id;
