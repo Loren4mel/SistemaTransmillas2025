@@ -254,7 +254,17 @@ function aplicarReglasTipoPago(s) {
 // GUARDAR RECOGIDO
 async function guardarRecogido() {
 
-   
+    const form = document.getElementById('formRecogido');
+    if (!form) {
+        console.error('No existe el formulario formRecogido');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error interno',
+            text: 'No se encontró el formulario de recogida.',
+        });
+        return;
+    }
+
     const data = new FormData(form);
 
     try {
