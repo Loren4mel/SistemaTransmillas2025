@@ -452,6 +452,7 @@ function iniciarPollingFirma() {
 
   setEstadoFirma("Validando firma en tiempo real...", "text-info", "fa-spinner");
   consultarEstadoFirma(); // inmediato
+  return;
 
   pollingFirmaId = setInterval(() => {
     consultarEstadoFirma();
@@ -501,18 +502,6 @@ async function calcularValorAutomatico() {
     // if (!tipoServ || (!peso && !volumen)) {
     //     return;
     // }
-
-    if (!tipopago || !String(tipopago).trim()) {
-      Swal.fire("Falta tipo de pago", "Debe seleccionar el tipo de pago antes de enviar la firma", "warning");
-      document.getElementById("param8").focus();
-      return;
-    }
-
-    if (!tipopago || !String(tipopago).trim()) {
-      Swal.fire("Falta tipo de pago", "Debe seleccionar el tipo de pago antes de enviar la firma", "warning");
-      document.getElementById("param8").focus();
-      return;
-    }
 
     const fd = new FormData();
     fd.append("accion", "calcularValorTotal");
@@ -577,6 +566,12 @@ async function calcularValorAutomatico() {
       return;
     }
 
+    if (!tipopago || !String(tipopago).trim()) {
+      Swal.fire("Falta tipo de pago", "Debe seleccionar el tipo de pago antes de enviar la firma", "warning");
+      document.getElementById("param8").focus();
+      return;
+    }
+
     const fd = new FormData();
     fd.append("accion", "enviarLinkFirma");
     fd.append("idservicio", idservicio);
@@ -597,9 +592,14 @@ async function calcularValorAutomatico() {
 
       Swal.fire("Enviado", "Link reenviado por WhatsApp ✔", "success");
       // 🚫 NO cerramos el modal, se queda abierto
-      iniciarPollingFirma();
+      setEstadoFirma("Firma enviada. Use el botÃ³n Verificar firma para validar el estado.", "text-info", "fa-paper-plane");
     });
   }); 
+
+  document.getElementById("btnVerificarFirma").addEventListener("click", function () {
+    setEstadoFirma("Validando firma...", "text-info", "fa-spinner");
+    consultarEstadoFirma();
+  });
 
   //Capturar Ubicacion
     function enviarFormulario()  {

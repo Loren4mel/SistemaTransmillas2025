@@ -298,6 +298,13 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
             </div>
             <div class="col-md-6">
               <button type="button"
+                      id="btnVerificarFirma"
+                      class="btn btn-outline-primary w-100 py-2 fw-bold mb-2">
+                <i class="fas fa-rotate-right me-2"></i> Verificar firma
+              </button>
+            </div>
+            <div class="col-md-6">
+              <button type="button"
                       id="btnMostrarSello"
                       class="btn btn-outline-success w-100 py-2 fw-bold">
                 <i class="fas fa-stamp me-2"></i> Sello
