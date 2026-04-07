@@ -110,8 +110,8 @@ async function cargarServicio() {
     aplicarReglasTipoPago(s);
 
     // iframe de firma
-    const iframe = document.getElementById('iframeFirma');
-    iframe.src = `/nueva_plataforma/view/recogerEntregar/firmar.php?para=${encodeURIComponent(id)}&accion=guardarFirmaRecogida`;
+    // const iframe = document.getElementById('iframeFirma');
+    // iframe.src = `/nueva_plataforma/view/recogerEntregar/firmar.php?para=${encodeURIComponent(id)}&accion=guardarFirmaRecogida`;
 
   } catch (e) {
     console.error(e);
