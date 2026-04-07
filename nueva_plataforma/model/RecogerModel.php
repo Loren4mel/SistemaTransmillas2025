@@ -1784,19 +1784,40 @@ class RecogerModel
             }
 
             $fecha = date("Y-m-d H:i:s");
+            $tipoEventoEsc = $this->esc($tipoEvento);
+            $fechaEsc = $this->esc($fecha);
 
-            $sql = "INSERT INTO servicios_ubicaciones (
-                        idservicios, idusuario, tipo_evento,
-                        latitud, longitud, precision_metros, fecha_registro
-                    ) VALUES (
-                        '".(int)$idservicios."',
-                        '".(int)$idusuario."',
-                        '".$this->escape($tipoEvento)."',
-                        '".$this->escape($latitud)."',
-                        '".$this->escape($longitud)."',
-                        '".$this->escape($precision)."',
-                        '".$this->escape($fecha)."'
-                    )";
+            $sqlExiste = "SELECT id
+                          FROM servicios_ubicaciones
+                          WHERE idservicios = '".(int)$idservicios."'
+                            AND tipo_evento = '".$tipoEventoEsc."'
+                          LIMIT 1";
+
+            $resExiste = $this->db->query($sqlExiste);
+            $registroExistente = $resExiste ? $resExiste->fetch_assoc() : null;
+
+            if ($registroExistente && !empty($registroExistente['id'])) {
+                $sql = "UPDATE servicios_ubicaciones
+                        SET idusuario = '".(int)$idusuario."',
+                            latitud = '".$this->esc((string)$latitud)."',
+                            longitud = '".$this->esc((string)$longitud)."',
+                            precision_metros = '".$this->esc((string)$precision)."',
+                            fecha_registro = '".$fechaEsc."'
+                        WHERE id = '".(int)$registroExistente['id']."'";
+            } else {
+                $sql = "INSERT INTO servicios_ubicaciones (
+                            idservicios, idusuario, tipo_evento,
+                            latitud, longitud, precision_metros, fecha_registro
+                        ) VALUES (
+                            '".(int)$idservicios."',
+                            '".(int)$idusuario."',
+                            '".$tipoEventoEsc."',
+                            '".$this->esc((string)$latitud)."',
+                            '".$this->esc((string)$longitud)."',
+                            '".$this->esc((string)$precision)."',
+                            '".$fechaEsc."'
+                        )";
+            }
 
             $this->db->query($sql);
 
