@@ -813,7 +813,7 @@ class RecogerModel
             throw new Exception("Error actualizando servicios: " . $conn->error);
         }
 
-        $this->guardarUbicacionServicio($id_param2, $id_usuario, "RECOGIDA",$data);
+        $this->guardarUbicacionServicio($id_param2, $id_usuario, "RECOGIDA", $POST);
         // =========================
         // Actualizar firma_clientes
         // =========================
@@ -1771,9 +1771,10 @@ class RecogerModel
         int $idservicios,
         int $idusuario,
         string $tipoEvento,
-        array $data
+        ?array $data = []
     ): void {
         try {
+            $data = is_array($data) ? $data : [];
             $latitud   = isset($data['latitud']) ? (float)$data['latitud'] : 0;
             $longitud  = isset($data['longitud']) ? (float)$data['longitud'] : 0;
             $precision = isset($data['precision_gps']) ? (float)$data['precision_gps'] : 0;

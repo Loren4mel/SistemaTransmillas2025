@@ -502,6 +502,18 @@ async function calcularValorAutomatico() {
     //     return;
     // }
 
+    if (!tipopago || !String(tipopago).trim()) {
+      Swal.fire("Falta tipo de pago", "Debe seleccionar el tipo de pago antes de enviar la firma", "warning");
+      document.getElementById("param8").focus();
+      return;
+    }
+
+    if (!tipopago || !String(tipopago).trim()) {
+      Swal.fire("Falta tipo de pago", "Debe seleccionar el tipo de pago antes de enviar la firma", "warning");
+      document.getElementById("param8").focus();
+      return;
+    }
+
     const fd = new FormData();
     fd.append("accion", "calcularValorTotal");
     fd.append("peso", peso);
