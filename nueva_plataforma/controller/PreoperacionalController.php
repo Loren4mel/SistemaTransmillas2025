@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
             case 'guardar':
                 $estado = $_POST['estado'] ?? '';
                 $dataJson = $_POST['data'] ?? '';
-                $idVehiculo = (int) ($_POST['param1'] ?? 0);
+                $idVehiculo = !empty($_POST['param1']) ? (int) $_POST['param1'] : null;
                 $tipoVehiculo = $_POST['param2'] ?? '';
                 $idUsuario = (int) ($_POST['user'] ?? $_SESSION['usuario_id']);
                 $fechaHora = date('Y-m-d H:i:s');

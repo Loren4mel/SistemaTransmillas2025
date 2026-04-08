@@ -405,7 +405,7 @@
                                     <!-- Kilometraje actual con imagen -->
                                     <tr bgcolor='$color' class='text' id='klmactual'>
                                         <td colspan='4'>KILOMETRAJE ACTUAL: <input name='param12' id='param12'
-                                                value='<?= htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? '') ?>'
+                                                value='<?= htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? NULL) ?>'
                                                 style='width:395px' class='form-control'></td>
                                     </tr>
                                     <tr bgcolor='$color'>
@@ -446,7 +446,7 @@
                                 <?php endif; ?>
 
                                 <!-- ==================== IMPLEMENTOS DE TRABAJO (solo rol 3 o validación) ==================== -->
-                                <?php if ($nivel_acceso == 3 || $param5 == 'valida'): ?>
+                                <?php if (($nivel_acceso == 3 || $param5 == 'valida') && !$esCovid): ?>
                                     <tr bgcolor="#074F91" class="tittle3">
                                         <td colspan="2">IMPLEMENTOS DE TRABAJO</td>
                                         <td>SI</td>
@@ -485,7 +485,7 @@
                                     echo "<tr bgcolor='$color' class='text'><td colspan='2'>Cuenta con Maleta?</td>";
                                     echo "<td><input type='radio' name='implementos14' class='obtener' value='1' required></td>";
                                     echo "<td><input type='radio' name='implementos14' class='obtener' value='2'></td></tr>";
-                                    echo "<tr bgcolor='$color' class='text'><td colspan='4'>Ultima vez que desinfecto la maleta:<input name='param21' id='param21' value='" . htmlspecialchars($registroExistente['pre_limpiomaleta'] ?? '') . "' style='width:395px' class='form-control'></td></tr>";
+                                    echo "<tr bgcolor='$color' class='text'><td colspan='4'>Ultima vez que desinfecto la maleta:<input name='param21' id='param21' value='" . htmlspecialchars($registroExistente['pre_limpiomaleta'] ?? NULL) . "' style='width:395px' class='form-control'></td></tr>";
                                     echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="2">PARAFISCALES O COPIA DE AFILIACION DE ARL</td><td>SI</td><td>NO</td></tr>';
                                     $parafiscales = [
                                         ['implementos18', 'Tiene copia de pago de parafiscales?'],
@@ -662,7 +662,7 @@
         var iduser = document.getElementById("user").value;
         var fecha = document.getElementById("fecha").value;
         var campo = document.getElementById("campo").value;
-        var tipovehiculo = document.getElementById("param3").value;
+        var tipovehiculo = document.getElementById("param3")?.value ?? 0;
 
         if (valida == 'ingresado' || valida == 'covid19') {
             if (campo) {

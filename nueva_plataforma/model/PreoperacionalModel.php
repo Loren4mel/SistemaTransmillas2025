@@ -88,9 +88,10 @@ class PreoperacionalModel
                  pre_limpiomaleta, pre_img_kilo, preestado)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $this->db->prepare($sql);
+        $vehiculo = $datos['prevehiculo'] ?? 0;
         $stmt->bind_param(
             "ississsssiiss",
-            $datos['prevehiculo'],
+            $vehiculo,
             $datos['pretipovehiculo'],
             $datos['prefechaingreso'],
             $datos['preidusuario'],
@@ -142,10 +143,26 @@ class PreoperacionalModel
 
     public function actualizarKilometrajeVehiculo($idVehiculo, $kilometraje)
     {
-        $sql = "UPDATE vehiculos SET veh_kilactual = ? WHERE idvehiculos = ?";
+        // Obtener kilometraje anterior y faltante para cambio de aceite
+        $sql = "SELECT veh_kilactual, veh_faltaparacambioaceite FROM vehiculos WHERE idvehiculos = ?";
         $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("ii", $kilometraje, $idVehiculo);
-        return $stmt->execute();
+        $stmt->bind_param("i", $idVehiculo);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        if (!$row)
+            return false;
+
+        $kmAnterior = (int) $row['veh_kilactual'];
+        $kmRestanteAceite = (int) $row['veh_faltaparacambioaceite'];
+
+        $kmRecorridos = $kilometraje - $kmAnterior;
+        $nuevoRestante = $kmRestanteAceite - $kmRecorridos;
+
+        $sqlUpdate = "UPDATE vehiculos SET veh_kilactual = ?, veh_restankmaceite = ?, veh_faltaparacambioaceite = ? WHERE idvehiculos = ?";
+        $stmtUpdate = $this->db->prepare($sqlUpdate);
+        $stmtUpdate->bind_param("iiii", $kilometraje, $kmRecorridos, $nuevoRestante, $idVehiculo);
+        return $stmtUpdate->execute();
     }
 
     public function guardarImagen($file, $idPreoperacional, $version)
