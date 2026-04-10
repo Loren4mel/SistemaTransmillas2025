@@ -360,6 +360,10 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
           bloqueSello.style.display = (bloqueSello.style.display === 'none' || bloqueSello.style.display === '')
             ? 'flex'
             : 'none';
+
+          if (bloqueSello.style.display === 'flex' && typeof window.llenarDatosQuienEntregaDesdeRemitente === 'function') {
+            window.llenarDatosQuienEntregaDesdeRemitente();
+          }
         });
       }
 

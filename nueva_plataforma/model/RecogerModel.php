@@ -104,7 +104,9 @@ class RecogerModel
             ser_pendientecobrar,
             ser_recogida,
             ser_cotizacion,
-            rel_nom_credito
+            rel_nom_credito,
+            cli_nombre,
+            cli_telefono
         FROM servicios
         INNER JOIN rel_sercli        ON idservicios = ser_idservicio
         INNER JOIN clientesservicios ON idclientesdir = ser_idclientes

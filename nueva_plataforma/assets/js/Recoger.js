@@ -87,6 +87,8 @@ async function cargarServicio() {
       return;
     }
 
+    window._servicioRecogida = s;
+
     // 🔹 Datos básicos
     setValue('idservicio', id);
     setValue('precioinicialkilos', prekilo);
@@ -133,6 +135,42 @@ async function cargarServicio() {
   } catch (e) {
     console.error('🔥 ERROR COMPLETO:', e);
     alert("Error cargando el servicio para recogida: " + e.message);
+  }
+}
+
+function normalizarTelefonoRemitente(telefono) {
+  const limpio = String(telefono ?? '').trim();
+  if (!limpio) return '';
+
+  if (limpio.startsWith('+')) {
+    return limpio;
+  }
+
+  const soloDigitos = limpio.replace(/\D/g, '');
+  if (!soloDigitos) return '';
+
+  if (soloDigitos.startsWith('57')) {
+    return `+${soloDigitos}`;
+  }
+
+  return `+57${soloDigitos}`;
+}
+
+function llenarDatosQuienEntregaDesdeRemitente() {
+  const servicio = window._servicioRecogida || {};
+  const nombreRemitente = String(servicio.cli_nombre ?? '').trim();
+  const telefonoRemitente = normalizarTelefonoRemitente(servicio.cli_telefono);
+
+  const campoNombre = document.getElementById('param82');
+  const campoTelefono = document.getElementById('param85');
+
+  if (campoNombre && nombreRemitente) {
+    campoNombre.value = nombreRemitente;
+    campoNombre.dispatchEvent(new Event('keyup', { bubbles: true }));
+  }
+
+  if (campoTelefono && telefonoRemitente) {
+    campoTelefono.value = telefonoRemitente;
   }
 }
 
@@ -402,6 +440,7 @@ document.getElementById("param7").value = `${horas}:${minutos}`;
 // Exponer funciones globales
 window.guardarRecogido = guardarRecogido;
 window.guardarNoRecogido = guardarNoRecogido;
+window.llenarDatosQuienEntregaDesdeRemitente = llenarDatosQuienEntregaDesdeRemitente;
 
 
 
