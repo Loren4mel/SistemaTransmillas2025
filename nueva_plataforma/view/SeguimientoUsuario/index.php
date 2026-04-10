@@ -87,6 +87,32 @@
         .dataTables_scrollBody {
             overflow-x: scroll !important;
         }
+
+        /* Select2 dropdown más alto */
+        .select2-dropdown.select2-large-dropdown {
+            height: 500px !important;
+            max-height: 70vh !important;
+            min-height: 200px !important;
+            overflow: hidden !important;
+        }
+        .select2-dropdown.select2-large-dropdown .select2-results {
+            height: calc(100% - 40px) !important; /* Restar altura del search */
+            overflow-y: auto !important;
+            max-height: none !important;
+        }
+        .select2-dropdown.select2-large-dropdown .select2-search {
+            height: 40px !important;
+            flex-shrink: 0 !important;
+        }
+        .select2-dropdown.select2-large-dropdown .select2-results__options {
+            max-height: none !important;
+        }
+        /* Asegurar que no haya límites de altura en elementos internos */
+        .select2-large-dropdown .select2-results__options,
+        .select2-large-dropdown .select2-results {
+            max-height: none !important;
+            height: auto !important;
+        }
     </style>
 </head>
 
@@ -454,7 +480,10 @@
                         placeholder: placeholder,
                         allowClear: true,
                         width: '100%',
-                        dropdownParent: $select.closest('.modal')
+                        dropdownParent: $select.closest('.modal'),
+                        dropdownCssClass: 'select2-large-dropdown',
+                        dropdownAutoWidth: true,
+                        dropdownCss: { 'max-height': '70vh', 'min-height': '200px', 'overflow': 'hidden' }
                     });
                 },
                 error: function (xhr, status, error) {
@@ -475,7 +504,10 @@
                     placeholder: placeholder,
                     allowClear: true,
                     width: '100%',
-                    dropdownParent: $(selector).closest('.modal')
+                    dropdownParent: $(selector).closest('.modal'),
+                    dropdownCssClass: 'select2-large-dropdown',
+                    dropdownAutoWidth: true,
+                    dropdownCss: { 'max-height': '70vh', 'min-height': '200px', 'overflow': 'hidden' }
                 });
                 return;
             }
@@ -500,7 +532,10 @@
                         placeholder: placeholder,
                         allowClear: true,
                         width: '100%',
-                        dropdownParent: $select.closest('.modal')
+                        dropdownParent: $select.closest('.modal'),
+                        dropdownCssClass: 'select2-large-dropdown',
+                        dropdownAutoWidth: true,
+                        dropdownCss: { 'max-height': '70vh', 'min-height': '200px', 'overflow': 'hidden' }
                     });
                 },
                 error: function () {
@@ -704,7 +739,7 @@
 
         // Al cerrar modales, destruir Select2 solo si existe la instancia
         $('#modalVacaciones, #modalLicencias, #modalIngreso, #popupModal').on('hidden.bs.modal', function () {
-            $(this).find('#vac_operario, #lic_operario').each(function () {
+            $(this).find('select').each(function () {
                 if ($(this).data('select2')) {
                     $(this).select2('destroy');
                 }
@@ -795,6 +830,27 @@
                 param: param
             }, function (html) {
                 $('#popupModalBody').html(html);
+                // Inicializar Select2 en selects relevantes después de cargar el HTML
+                setTimeout(function() {
+                    console.log('Inicializando Select2 para popup:', tipo, id);
+                    // IDs de selects que deben usar Select2
+                    var selectIds = ['zona', 'ing_zona', 'ing_operario', 'companero', 'vac_operario', 'lic_operario'];
+                    selectIds.forEach(function(id) {
+                        var $select = $('#' + id);
+                        if ($select.length && !$select.data('select2')) {
+                            console.log('Aplicando Select2 a:', id, $select.attr('id'));
+                            $select.select2({
+                                placeholder: 'Seleccione',
+                                allowClear: true,
+                                width: '100%',
+                                dropdownParent: $select.closest('.modal'),
+                                dropdownCssClass: 'select2-large-dropdown',
+                                dropdownAutoWidth: true,
+                                dropdownCss: { 'max-height': '70vh', 'min-height': '200px', 'overflow': 'hidden' }
+                            });
+                        }
+                    });
+                }, 100);
             }).fail(function (jqXHR, textStatus, errorThrown) {
                 console.error('Error al cargar popup:', textStatus, errorThrown);
                 $('#popupModalBody').html('<div class="alert alert-danger">Error al cargar el formulario. Ver consola.</div>');
@@ -848,6 +904,29 @@
                 }
             }, 500);
         }
+
+        // Forzar altura del dropdown Select2 al abrirse
+        $(document).on('select2:open', function(e) {
+            const dropdown = $('.select2-dropdown.select2-large-dropdown');
+            if (dropdown.length) {
+                // Aplicar estilos directamente para asegurar altura
+                dropdown.css({
+                    'height': '500px',
+                    'max-height': '70vh',
+                    'min-height': '200px',
+                    'overflow': 'hidden'
+                });
+                // Asegurar que los resultados tengan scroll
+                const results = dropdown.find('.select2-results');
+                if (results.length) {
+                    results.css({
+                        'height': 'calc(100% - 40px)',
+                        'overflow-y': 'auto',
+                        'max-height': 'none'
+                    });
+                }
+            }
+        });
     </script>
 </body>
 
