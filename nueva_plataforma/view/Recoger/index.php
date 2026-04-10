@@ -116,7 +116,7 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
 
           <div class="col-md-4">
             <label class="form-label fw-bold">Número de piezas</label>
-            <input type="number" id="ser_piezas" name="param2" class="form-control" min="1" />
+            <input type="number" id="ser_piezas" name="param2" class="form-control" min="1" required />
           </div>
         </div>
 
