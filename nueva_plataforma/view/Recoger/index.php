@@ -367,14 +367,6 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
         });
       }
 
-      if (imgSello) {
-        imgSello.addEventListener('change', function () {
-          if (typeof window.llenarDatosQuienEntregaDesdeRemitente === 'function') {
-            window.llenarDatosQuienEntregaDesdeRemitente();
-          }
-        });
-      }
-
       // if (btnSubirSello && imgSello) {
       //   btnSubirSello.addEventListener('click', function () {
       //     if (!imgSello.files || imgSello.files.length === 0) {

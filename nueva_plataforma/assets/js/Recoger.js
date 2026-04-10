@@ -132,8 +132,6 @@ async function cargarServicio() {
       console.warn('⚠️ aplicarReglasTipoPago no existe');
     }
 
-    autocompletarQuienEntregaSiAplica();
-
   } catch (e) {
     console.error('🔥 ERROR COMPLETO:', e);
     alert("Error cargando el servicio para recogida: " + e.message);
@@ -183,19 +181,6 @@ function llenarDatosQuienEntregaDesdeRemitente() {
 
   if (campoTelefono && telefonoRemitente) {
     campoTelefono.value = telefonoRemitente;
-  }
-}
-
-function autocompletarQuienEntregaSiAplica() {
-  const campoNombre = document.getElementById('param82');
-  const campoTelefono = document.getElementById('param85');
-
-  const nombreActual = String(campoNombre?.value ?? '').trim();
-  const telefonoActual = String(campoTelefono?.value ?? '').trim();
-  const telefonoVacio = !telefonoActual || telefonoActual === '+57';
-
-  if (!nombreActual || telefonoVacio) {
-    llenarDatosQuienEntregaDesdeRemitente();
   }
 }
 
@@ -466,7 +451,6 @@ document.getElementById("param7").value = `${horas}:${minutos}`;
 window.guardarRecogido = guardarRecogido;
 window.guardarNoRecogido = guardarNoRecogido;
 window.llenarDatosQuienEntregaDesdeRemitente = llenarDatosQuienEntregaDesdeRemitente;
-window.autocompletarQuienEntregaSiAplica = autocompletarQuienEntregaSiAplica;
 
 
 
