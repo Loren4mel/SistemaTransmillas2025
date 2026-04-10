@@ -22,10 +22,12 @@ function actualizarBloqueContado() {
 
   if (tipo === 2) {
     bloqueCredito.style.display = 'block';
-    campo.setAttribute('required', 'required');   // vuelve el campo obligatorio
   } else {
     bloqueCredito.style.display = 'none';
-    campo.removeAttribute('required');            // deja de ser obligatorio
+  }
+
+  if (tipo !== 1) {
+    campo.removeAttribute('required');
   }
 }
 
@@ -262,6 +264,11 @@ async function guardarRecogido() {
             title: 'Error interno',
             text: 'No se encontró el formulario de recogida.',
         });
+        return;
+    }
+
+    if (!form.checkValidity()) {
+        form.reportValidity();
         return;
     }
 
