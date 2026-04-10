@@ -132,6 +132,8 @@ async function cargarServicio() {
       console.warn('⚠️ aplicarReglasTipoPago no existe');
     }
 
+    autocompletarQuienEntregaSiAplica();
+
   } catch (e) {
     console.error('🔥 ERROR COMPLETO:', e);
     alert("Error cargando el servicio para recogida: " + e.message);
@@ -158,8 +160,18 @@ function normalizarTelefonoRemitente(telefono) {
 
 function llenarDatosQuienEntregaDesdeRemitente() {
   const servicio = window._servicioRecogida || {};
-  const nombreRemitente = String(servicio.cli_nombre ?? '').trim();
-  const telefonoRemitente = normalizarTelefonoRemitente(servicio.cli_telefono);
+  const nombreRemitente = String(
+    servicio.cli_nombre ??
+    servicio.remitente_nombre ??
+    servicio.ser_remitente ??
+    ''
+  ).trim();
+  const telefonoRemitente = normalizarTelefonoRemitente(
+    servicio.cli_telefono ??
+    servicio.remitente_telefono ??
+    servicio.ser_telefonocontacto ??
+    ''
+  );
 
   const campoNombre = document.getElementById('param82');
   const campoTelefono = document.getElementById('param85');
@@ -171,6 +183,19 @@ function llenarDatosQuienEntregaDesdeRemitente() {
 
   if (campoTelefono && telefonoRemitente) {
     campoTelefono.value = telefonoRemitente;
+  }
+}
+
+function autocompletarQuienEntregaSiAplica() {
+  const campoNombre = document.getElementById('param82');
+  const campoTelefono = document.getElementById('param85');
+
+  const nombreActual = String(campoNombre?.value ?? '').trim();
+  const telefonoActual = String(campoTelefono?.value ?? '').trim();
+  const telefonoVacio = !telefonoActual || telefonoActual === '+57';
+
+  if (!nombreActual || telefonoVacio) {
+    llenarDatosQuienEntregaDesdeRemitente();
   }
 }
 
@@ -441,6 +466,7 @@ document.getElementById("param7").value = `${horas}:${minutos}`;
 window.guardarRecogido = guardarRecogido;
 window.guardarNoRecogido = guardarNoRecogido;
 window.llenarDatosQuienEntregaDesdeRemitente = llenarDatosQuienEntregaDesdeRemitente;
+window.autocompletarQuienEntregaSiAplica = autocompletarQuienEntregaSiAplica;
 
 
 
