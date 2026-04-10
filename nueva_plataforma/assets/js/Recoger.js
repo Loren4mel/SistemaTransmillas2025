@@ -36,72 +36,101 @@ async function cargarServicio() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get('idServicio');
   const prekilo = params.get('precioskiloini');
-   
+
   if (!id) return;
+
+  // 🔧 Helpers seguros
+  function setValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) {
+      console.warn('⚠️ No existe:', id);
+      return;
+    }
+    el.value = value ?? '';
+  }
+
+  function setChecked(id, value) {
+    const el = document.getElementById(id);
+    if (!el) {
+      console.warn('⚠️ No existe:', id);
+      return;
+    }
+    el.checked = (value == 1);
+  }
 
   try {
     const resp = await fetch(`../controller/RecogerController.php?accion=buscarRecogida&id=${id}`);
-    const s = await resp.json();
-    if (!s) return;
 
-    document.getElementById('idservicio').value = id;
-    document.getElementById('precioinicialkilos').value = prekilo;
+    console.log('📡 status:', resp.status);
 
-    // Campos directos
-    document.getElementById('ser_prioridad').value           = s.ser_prioridad ?? '';
-    document.getElementById('ser_piezas').value              = s.ser_piezas ?? '';
-    // document.getElementById('ser_verificado').value          = s.ser_verificado ?? '';
-    document.getElementById('param19').value                 = s.ser_verificado ?? '';
-    document.getElementById('ser_paquetedescripcion').value  = s.ser_paquetedescripcion ?? '';
-    document.getElementById('ser_valorprestamo').value       = s.ser_valorprestamo ?? '';
-    document.getElementById('ser_valorseguro').value         = s.ser_valorseguro ?? '';
-    // document.getElementById('ser_devolverreci').value        = (s.ser_devolverreci == 1) ? 'SI' : 'NO';
-    document.getElementById('ser_devolverreci').value                 = s.ser_devolverreci ?? 0;
-    document.getElementById('ser_guiare').value              = s.ser_guiare ?? '';
-    document.getElementById('ser_estado').value              = s.ser_estado ?? '';
-    document.getElementById('ser_valorabono').value          = s.ser_valorabono ?? '';
-    document.getElementById('ser_peso').value                = s.ser_peso ?? '';
-    document.getElementById('ser_volumen').value             = s.ser_volumen ?? '';
-    document.getElementById('param15').value                 = s.ser_prioridad ?? '';
-    document.getElementById('param26').value                 = s.ser_descripcion ?? ''; // si lo tienes, opcional
-    document.getElementById('param27').value                 = s.ser_consecutivo ?? '';
-    document.getElementById('param11').value                 = s.ser_valor ?? '';
-    document.getElementById('param13').value                 = s.cli_idciudad ?? '';
-    document.getElementById('param9').value                 = s.ser_ciudadentrega ?? '';
-    document.getElementById('param18').value                 = s.ser_idresponsable ?? '';
-    document.getElementById('ser_guiare').value                 = s.ser_consecutivo ?? '';
-    document.getElementById('param112').value                 = s.ser_valor ?? '';
-    document.getElementById('rel_nom_credito').value                 = s.rel_nom_credito ?? '';
-    document.getElementById('credito').value                 = s.rel_nom_credito ?? '';
-    document.getElementById('param34').value                 = s.gui_tiposervicio ?? '';
-    document.getElementById('ser_paquetedescripcion').value                 = s.ser_paquetedescripcion ?? '';
-    document.getElementById('param21').value                 = s.ser_tipopaq ?? '';
+    if (!resp.ok) {
+      throw new Error('Error HTTP: ' + resp.status);
+    }
 
-    
+    const text = await resp.text();
+    console.log('📦 RESPUESTA RAW:', text);
 
+    let s;
+    try {
+      s = JSON.parse(text);
+    } catch (err) {
+      console.error('❌ JSON inválido:', err);
+      throw new Error('La respuesta NO es JSON válido');
+    }
 
-  
+    console.log('✅ JSON:', s);
 
-    // document.getElementById('rel_nom_credito').checked = (s.rel_nom_credito == 1);
+    if (!s || Object.keys(s).length === 0) {
+      console.warn('⚠️ Servicio vacío');
+      return;
+    }
 
-    
+    // 🔹 Datos básicos
+    setValue('idservicio', id);
+    setValue('precioinicialkilos', prekilo);
 
+    // 🔹 Campos principales
+    setValue('ser_prioridad', s.ser_prioridad);
+    setValue('ser_piezas', s.ser_piezas);
+    setValue('param19', s.ser_verificado);
+    setValue('ser_paquetedescripcion', s.ser_paquetedescripcion);
+    setValue('ser_valorprestamo', s.ser_valorprestamo);
+    setValue('ser_valorseguro', s.ser_valorseguro);
+    setValue('ser_devolverreci', s.ser_devolverreci);
+    setValue('ser_guiare', s.ser_consecutivo); // ✔ corregido
+    setValue('ser_estado', s.ser_estado);
+    setValue('ser_valorabono', s.ser_valorabono);
+    setValue('ser_peso', s.ser_peso);
+    setValue('ser_volumen', s.ser_volumen);
 
-    
-    
+    // 🔹 Params del sistema
+    setValue('param15', s.ser_prioridad);
+    setValue('param26', s.ser_descripcion);
+    setValue('param27', s.ser_consecutivo);
+    setValue('param11', s.ser_valor);
+    setValue('param13', s.cli_idciudad);
+    setValue('param9', s.ser_ciudadentrega);
+    setValue('param18', s.ser_idresponsable);
 
+    // 🔹 Campos opcionales (no siempre existen)
+    setValue('param112', s.ser_valor);
+    setValue('credito', s.rel_nom_credito);
+    setValue('param34', s.gui_tiposervicio);
+    setValue('param21', s.ser_tipopaq);
 
-    // Tipo (param21) se seteará cuando carguemos los tipos (cargarTipos)
-    // Tipo de pago (param8) y bloque "De Contado"
-    aplicarReglasTipoPago(s);
+    // 🔹 Checkbox (IMPORTANTE)
+    setChecked('rel_nom_credito', s.rel_nom_credito);
 
-    // iframe de firma
-    const iframe = document.getElementById('iframeFirma');
-    iframe.src = `/nueva_plataforma/view/recogerEntregar/firmar.php?para=${encodeURIComponent(id)}&accion=guardarFirmaRecogida`;
+    // 🔹 Reglas de tipo de pago
+    if (typeof aplicarReglasTipoPago === 'function') {
+      aplicarReglasTipoPago(s);
+    } else {
+      console.warn('⚠️ aplicarReglasTipoPago no existe');
+    }
 
   } catch (e) {
-    console.error(e);
-    alert("Error cargando el servicio para recogida.");
+    console.error('🔥 ERROR COMPLETO:', e);
+    alert("Error cargando el servicio para recogida: " + e.message);
   }
 }
 
@@ -225,7 +254,17 @@ function aplicarReglasTipoPago(s) {
 // GUARDAR RECOGIDO
 async function guardarRecogido() {
 
-   
+    const form = document.getElementById('formRecogido');
+    if (!form) {
+        console.error('No existe el formulario formRecogido');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error interno',
+            text: 'No se encontró el formulario de recogida.',
+        });
+        return;
+    }
+
     const data = new FormData(form);
 
     try {
@@ -343,6 +382,7 @@ document.addEventListener("DOMContentLoaded", () => {
   cargarTipos();
   cargarMetodosPago();
   cargarCreditos();
+  consultarEstadoFirma();
 });
 
 // Obtener la hora actual en formato HH:MM
@@ -383,7 +423,7 @@ function consultarEstadoFirma() {
   if (consultaEnCursoFirma) return;
   consultaEnCursoFirma = true;
 
-  fetch(`../controller/EntregarController.php?accion=consultarEstadoFirma&id=${ID_SERVICIO}`, {
+  fetch(`../controller/RecogerController.php?accion=consultarEstadoFirma&id=${ID_SERVICIO}`, {
     method: "GET"
   })
     .then(r => r.text())
@@ -395,6 +435,8 @@ function consultarEstadoFirma() {
       if (resp && resp.ok && resp.firmada === true) {
         setEstadoFirma("Ya está firmada", "text-success", "fa-check-circle");
         detenerPollingFirma();
+      } else {
+        setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
       }
     })
     .catch(err => {
@@ -410,6 +452,7 @@ function iniciarPollingFirma() {
 
   setEstadoFirma("Validando firma en tiempo real...", "text-info", "fa-spinner");
   consultarEstadoFirma(); // inmediato
+  return;
 
   pollingFirmaId = setInterval(() => {
     consultarEstadoFirma();
@@ -523,6 +566,12 @@ async function calcularValorAutomatico() {
       return;
     }
 
+    if (!tipopago || !String(tipopago).trim()) {
+      Swal.fire("Falta tipo de pago", "Debe seleccionar el tipo de pago antes de enviar la firma", "warning");
+      document.getElementById("param8").focus();
+      return;
+    }
+
     const fd = new FormData();
     fd.append("accion", "enviarLinkFirma");
     fd.append("idservicio", idservicio);
@@ -543,9 +592,14 @@ async function calcularValorAutomatico() {
 
       Swal.fire("Enviado", "Link reenviado por WhatsApp ✔", "success");
       // 🚫 NO cerramos el modal, se queda abierto
-      iniciarPollingFirma();
+      setEstadoFirma("Firma enviada. Use el botÃ³n Verificar firma para validar el estado.", "text-info", "fa-paper-plane");
     });
   }); 
+
+  document.getElementById("btnVerificarFirma").addEventListener("click", function () {
+    setEstadoFirma("Validando firma...", "text-info", "fa-spinner");
+    consultarEstadoFirma();
+  });
 
   //Capturar Ubicacion
     function enviarFormulario()  {
