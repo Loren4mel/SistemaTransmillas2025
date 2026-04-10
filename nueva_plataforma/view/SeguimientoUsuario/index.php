@@ -63,10 +63,12 @@
         }
 
         @keyframes moderateFlash {
+
             0%,
             100% {
                 opacity: 1;
             }
+
             50% {
                 opacity: 0.2;
             }
@@ -424,28 +426,86 @@
                 mostrarError('Error de comunicación con el servidor');
             });
         }
-        // Función para cargar operarios en un select y aplicar Select2
-        function cargarOperariosConSelect2(selector, sede = '', placeholder = 'Seleccione') {
-            let url = sede ? (dirPage + '?accion=get_operarios&idsede=' + sede) : (dirPage + '?accion=get_all_operarios');
-            $.get(url, function (data) {
-                let $select = $(selector);
-                $select.empty().append('<option value="">' + placeholder + '</option>');
-                data.forEach(function (op) {
-                    $select.append('<option value="' + op.idusuarios + '">' + op.usu_nombre + '</option>');
-                });
-                // Si ya tiene Select2, destrúyelo antes de reinicializar
-                if ($select.hasClass('select2-hidden-accessible')) {
-                    $select.select2('destroy');
+        // Función para cargar operarios con Select2
+        function cargarOperariosConSelect2(selector, sede, placeholder = 'Seleccione operario') {
+            let url = sede ? `${dirPage}?accion=get_operarios&idsede=${encodeURIComponent(sede)}` : `${dirPage}?accion=get_all_operarios`;
+
+            $.ajax({
+                url: url,
+                dataType: 'json',
+                success: function (data) {
+                    let $select = $(selector);
+                    // Limpiar y agregar opción por defecto
+                    $select.empty().append('<option value="">' + placeholder + '</option>');
+
+                    if (Array.isArray(data)) {
+                        data.forEach(function (op) {
+                            $select.append(`<option value="${op.idusuarios}">${op.usu_nombre}</option>`);
+                        });
+                    }
+
+                    // Destruir Select2 si ya existe
+                    if ($select.data('select2')) {
+                        $select.select2('destroy');
+                    }
+
+                    // Inicializar Select2
+                    $select.select2({
+                        placeholder: placeholder,
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $select.closest('.modal')
+                    });
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error cargando operarios:', status, error);
+                    mostrarError('No se pudieron cargar los operarios');
                 }
-                // Inicializar Select2
-                $select.select2({
+            });
+        }
+
+        // Función para cargar zonas con Select2
+        function cargarZonasConSelect2(selector, sedeId, placeholder = 'Seleccione zona') {
+            if (!sedeId) {
+                $(selector).empty().append('<option value="">' + placeholder + '</option>');
+                if ($(selector).data('select2')) {
+                    $(selector).select2('destroy');
+                }
+                $(selector).select2({
                     placeholder: placeholder,
                     allowClear: true,
                     width: '100%',
                     dropdownParent: $(selector).closest('.modal')
-                })
-            }).fail(function (xhr, status, error) {
-                console.error('Error cargando operarios:', status, error);
+                });
+                return;
+            }
+
+            $.ajax({
+                url: dirPage,
+                data: { accion: 'get_zonas', idsede: sedeId },
+                dataType: 'json',
+                success: function (data) {
+                    let $select = $(selector);
+                    $select.empty().append('<option value="">' + placeholder + '</option>');
+                    if (Array.isArray(data)) {
+                        data.forEach(z => {
+                            $select.append(`<option value="${z.idzonatrabajo}">${z.zon_nombre}</option>`);
+                        });
+                    }
+                    // Destruir y reinicializar Select2
+                    if ($select.data('select2')) {
+                        $select.select2('destroy');
+                    }
+                    $select.select2({
+                        placeholder: placeholder,
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $select.closest('.modal')
+                    });
+                },
+                error: function () {
+                    mostrarError('No se pudieron cargar las zonas de trabajo');
+                }
             });
         }
 
@@ -581,6 +641,12 @@
             $('#ingresoModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
             $.get(window.location.pathname, { accion: 'form_popup', tipo: 'ingreso_manual' }, function (html) {
                 $('#ingresoModalBody').html(html);
+                // Inicializar Select2 en los campos de operario y zona
+                setTimeout(function () {
+                    let sedeInicial = $('#ing_sede').val();
+                    cargarOperariosConSelect2('#ing_operario', sedeInicial, 'Seleccione operario');
+                    cargarZonasConSelect2('#ing_zona', sedeInicial, 'Seleccione zona');
+                }, 50);
             }).fail(function () {
                 $('#ingresoModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
             });
@@ -589,8 +655,8 @@
         // Cuando se carga el formulario de ingreso (vía AJAX), delegar eventos
         $(document).on('change', '#ing_sede', function () {
             let sede = $(this).val();
-            cargarOperarios('#ing_operario', sede, 'Seleccione');
-            cargarZonas('#ing_zona', sede);
+            cargarOperariosConSelect2('#ing_operario', sede, 'Seleccione operario');
+            cargarZonasConSelect2('#ing_zona', sede, 'Seleccione zona');
         });
 
         // Carga de operarios en modales de vacaciones y licencias al abrirlos
@@ -608,35 +674,41 @@
         // Al abrir modal de vacaciones
         $('#modalVacaciones').on('show.bs.modal', function () {
             $('#vacacionesModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
-            $.get(window.location.pathname, { accion: 'form_popup', tipo: 'vacaciones' }, function (html) {
-                $('#vacacionesModalBody').html(html);
-                // Después de cargar el formulario, cargar operarios con Select2
-                cargarOperariosConSelect2('#vac_operario', $('#sede').val(), 'Seleccione operario');
-            }).fail(function () {
-                $('#vacacionesModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
-            });
+            $.get(dirPage, { accion: 'form_popup', tipo: 'vacaciones' })
+                .done(function (html) {
+                    $('#vacacionesModalBody').html(html);
+                    // Pequeño retraso para asegurar que el DOM esté actualizado
+                    setTimeout(function () {
+                        cargarOperariosConSelect2('#vac_operario', $('#sede').val(), 'Seleccione operario');
+                    }, 50);
+                })
+                .fail(function () {
+                    $('#vacacionesModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
+                });
         });
 
         // Al abrir modal de licencias
         $('#modalLicencias').on('show.bs.modal', function () {
             $('#licenciasModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
-            $.get(window.location.pathname, { accion: 'form_popup', tipo: 'licencias' }, function (html) {
-                $('#licenciasModalBody').html(html);
-                // Después de cargar el formulario, cargar operarios con Select2
-                cargarOperariosConSelect2('#lic_operario', $('#sede').val(), 'Seleccione operario');
-            }).fail(function () {
-                $('#licenciasModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
-            });
+            $.get(dirPage, { accion: 'form_popup', tipo: 'licencias' })
+                .done(function (html) {
+                    $('#licenciasModalBody').html(html);
+                    setTimeout(function () {
+                        cargarOperariosConSelect2('#lic_operario', $('#sede').val(), 'Seleccione operario');
+                    }, 50);
+                })
+                .fail(function () {
+                    $('#licenciasModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
+                });
         });
 
         // Al cerrar modales, destruir Select2 solo si existe la instancia
-        $('#modalVacaciones, #modalLicencias').on('hidden.bs.modal', function () {
-            // Selecciona específicamente los selects de cada modal
-            var $select = $(this).find('#vac_operario, #lic_operario');
-            // Verifica que el elemento exista y tenga la instancia de Select2 activa
-            if ($select.length && $select.data('select2')) {
-                $select.select2('destroy');
-            }
+        $('#modalVacaciones, #modalLicencias, #modalIngreso, #popupModal').on('hidden.bs.modal', function () {
+            $(this).find('#vac_operario, #lic_operario').each(function () {
+                if ($(this).data('select2')) {
+                    $(this).select2('destroy');
+                }
+            });
         });
 
         // Manejo del formulario genérico en popup
@@ -671,7 +743,7 @@
             $('.noti_options[data-id="' + id + '"]').toggle();
         });
 
-        // --- Funciones de apertura de modales (mantenidas para compatibilidad) ---
+        // --- Funciones de apertura de modales ----
         function abrirModalIngreso() {
             $('#modalIngreso').modal('show');
         }
@@ -769,7 +841,7 @@
         // Función para abrir ventana de validación preoperacional y recargar tabla al cerrar
         function abrirValidacionPreoperacional(url) {
             var ventana = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes');
-            var timer = setInterval(function() {
+            var timer = setInterval(function () {
                 if (ventana.closed) {
                     clearInterval(timer);
                     tabla.ajax.reload();
