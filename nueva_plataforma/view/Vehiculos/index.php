@@ -231,7 +231,163 @@
     </div>
 </div>
 
-<!-- MODAL AGREGAR VEHÍCULO -->
+<!-- MODAL EDITAR VEHÍCULO -->
+<div class="modal fade" id="modalEditarVehiculo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+ 
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">Editar Vehículo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+ 
+            <div class="modal-body">
+                <form id="formEditarVehiculo" enctype="multipart/form-data">
+                    <!-- Campo oculto con el ID del vehículo a editar -->
+                    <input type="hidden" name="veh_id" id="edit_veh_id">
+ 
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Tipo Vehículo</label>
+                            <select name="veh_tipo" id="edit_veh_tipo" class="form-control" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Moto">Moto</option>
+                                <option value="Carro">Carro</option>
+                            </select>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Marca</label>
+                            <input type="text" class="form-control" name="veh_marca" id="edit_veh_marca" required>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Placa</label>
+                            <input type="text" class="form-control" name="veh_placa" id="edit_veh_placa" required>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Modelo</label>
+                            <input type="text" class="form-control" name="veh_modelo" id="edit_veh_modelo" required>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Color</label>
+                            <input type="text" class="form-control" name="veh_color" id="edit_veh_color" required>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Tipo</label>
+                            <input type="text" class="form-control" name="veh_tipov" id="edit_veh_tipov" required>
+                        </div>
+ 
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold text-secondary">Dueño</label>
+                            <select name="veh_dueno" id="edit_veh_dueno" class="form-control">
+                                <option value="">Seleccionar...</option>
+                                <?php foreach ($Dueños as $dueño): ?>
+                                    <option value="<?= $dueño['iddueños'] ?>"><?= $dueño['due_nombre'] ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📅 Fecha Seguro (SOAT)</label>
+                            <input type="date" name="veh_fecha_soat" id="edit_veh_fecha_soat" class="form-control">
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto Seguro (SOAT)</label>
+                            <!-- Vista previa de imagen actual -->
+                            <div id="preview_soat" class="mb-1"></div>
+                            <input type="file" name="veh_img_soat" class="form-control">
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📅 Fecha Tecnomecánica</label>
+                            <input type="date" name="veh_fecha_tecnomecanica" id="edit_veh_fecha_tecnomecanica" class="form-control">
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto Tecnomecánica</label>
+                            <div id="preview_tecnomecanica" class="mb-1"></div>
+                            <input type="file" name="veh_img_tecnomecanica" class="form-control">
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📅 Fecha Cambio de Aceite</label>
+                            <input type="date" name="veh_fecha_aceite" id="edit_veh_fecha_aceite" class="form-control">
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Km Actual</label>
+                            <input type="text" class="form-control" name="veh_kilactual" id="edit_veh_kilactual" required>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Km Cambio Aceite</label>
+                            <input type="text" class="form-control" name="veh_calkmcambioaceite" id="edit_veh_calkmcambioaceite" required>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Número Chasis</label>
+                            <input type="text" class="form-control" name="veh_chasis" id="edit_veh_chasis" required>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Número Motor</label>
+                            <input type="text" class="form-control" name="veh_motor" id="edit_veh_motor" required>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Número Cilindraje</label>
+                            <input type="text" class="form-control" name="veh_cilidraje" id="edit_veh_cilidraje" required>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Uso del Vehículo</label>
+                            <input type="text" class="form-control" name="veh_usuve" id="edit_veh_usuve">
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Estado</label>
+                            <select name="veh_estado" id="edit_veh_estado" class="form-control" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="0">Inactivo</option>
+                                <option value="1">Activo</option>
+                            </select>
+                        </div>
+ 
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold text-secondary">Especificaciones Técnicas</label>
+                            <textarea class="form-control" name="veh_especificaciones" id="edit_veh_especificaciones" rows="3"
+                                placeholder="Ingrese detalles técnicos, motor, estado general..."></textarea>
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Frente)</label>
+                            <div id="preview_anverso" class="mb-1"></div>
+                            <input type="file" name="veh_img_anverso" class="form-control">
+                        </div>
+ 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Respaldo)</label>
+                            <div id="preview_reverso" class="mb-1"></div>
+                            <input type="file" name="veh_img_reverso" class="form-control">
+                        </div>
+                    </div>
+ 
+                </form>
+            </div>
+ 
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="formEditarVehiculo" class="btn btn-primary" id="btnActualizar">Actualizar</button>
+            </div>
+ 
+        </div>
+    </div>
+</div>
 
 
 <!-- jQuery -->

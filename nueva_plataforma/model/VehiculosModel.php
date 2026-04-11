@@ -157,21 +157,6 @@ private function guardarImagen(array $file, string $carpetaRelativa)
         return "uploads/vehiculos/" . $nombre;
     }
     
-public function actualizarVehiculo($datos) {
-    // Aquí haces el UPDATE usando el ID
-    $id = $datos['id'];
-    $sql = "UPDATE vehiculos SET 
-            veh_tipo = '{$datos['tipo']}', 
-            veh_marca = '{$datos['marca']}', 
-            veh_placa = '{$datos['placa']}', 
-            veh_modelo = '{$datos['modelo']}', 
-            iddueños = '{$datos['iddueños']}', 
-            veh_estado = '{$datos['estado']}' 
-            WHERE idvehiculos = '$id'";
-    
-    return $this->db->query($sql); // O el método que uses para ejecutar SQL
-}
-
 public function obtenerDueños() {
     $sql = "SELECT idusuarios AS iddueños, usu_nombre AS due_nombre 
             FROM usuarios 
@@ -180,4 +165,76 @@ public function obtenerDueños() {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+public function obtenerVehiculoPorId($id) {
+    $id = intval($id);
+    $sql = "SELECT * FROM vehiculos WHERE idvehiculos = $id LIMIT 1";
+    $result = $this->db->query($sql);
+    return $result ? $result->fetch_assoc() : null;
 }
+
+public function actualizarVehiculo($datos) {
+    $veh_img_soat          = $this->guardarImagen($_FILES['veh_img_soat'],          "uploads/vehiculos");
+    $veh_img_tecnomecanica = $this->guardarImagen($_FILES['veh_img_tecnomecanica'], "uploads/vehiculos");
+    $veh_img_anverso       = $this->guardarImagen($_FILES['veh_img_anverso'],       "uploads/vehiculos");
+    $veh_img_reverso       = $this->guardarImagen($_FILES['veh_img_reverso'],       "uploads/vehiculos");
+
+    // Solo reemplaza imagen si subieron una nueva
+    $sqlImgs = "";
+    if ($veh_img_soat)          $sqlImgs .= ", veh_img_soat = '$veh_img_soat'";
+    if ($veh_img_tecnomecanica) $sqlImgs .= ", veh_img_tecnomecanica = '$veh_img_tecnomecanica'";
+    if ($veh_img_anverso)       $sqlImgs .= ", veh_img_anverso = '$veh_img_anverso'";
+    if ($veh_img_reverso)       $sqlImgs .= ", veh_img_reverso = '$veh_img_reverso'";
+
+    $id = intval($datos['veh_id']);
+
+    $sql = "UPDATE vehiculos SET
+        veh_tipo               = ?,
+        veh_marca              = ?,
+        veh_placa              = ?,
+        veh_modelo             = ?,
+        veh_color              = ?,
+        veh_tipov              = ?,
+        veh_dueño              = ?,
+        veh_fechaseguro        = ?,
+        veh_fechategnomecanica = ?,
+        veh_fechamantenimiento = ?,
+        veh_kilactual          = ?,
+        veh_calkmcambioaceite  = ?,
+        veh_chasis             = ?,
+        veh_motor              = ?,
+        veh_cilidraje          = ?,
+        veh_usuve              = ?,
+        veh_estado             = ?,
+        veh_observaciones      = ?
+        $sqlImgs
+        WHERE idvehiculos = $id";
+
+    $stmt = $this->db->prepare($sql);
+    $stmt->bind_param(
+        "ssssssssssssssssss",
+        $datos['veh_tipo'],
+        $datos['veh_marca'],
+        $datos['veh_placa'],
+        $datos['veh_modelo'],
+        $datos['veh_color'],
+        $datos['veh_tipov'],
+        $datos['veh_dueno'],
+        $datos['veh_fecha_soat'],
+        $datos['veh_fecha_tecnomecanica'],
+        $datos['veh_fecha_aceite'],
+        $datos['veh_kilactual'],
+        $datos['veh_calkmcambioaceite'],
+        $datos['veh_chasis'],
+        $datos['veh_motor'],
+        $datos['veh_cilidraje'],
+        $datos['veh_usuve'],
+        $datos['veh_estado'],
+        $datos['veh_especificaciones']
+    );
+
+    $resultado = $stmt->execute();
+    $stmt->close();
+    return $resultado;
+}
+}
+
