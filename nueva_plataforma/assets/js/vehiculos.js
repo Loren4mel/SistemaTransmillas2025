@@ -1,4 +1,3 @@
-
 $(document).ready(function () {
     const tabla = $('#tablaVehiculos').DataTable({
         ajax: {
@@ -24,132 +23,160 @@ $(document).ready(function () {
             { data: 'veh_calkmcambioaceite' },
             { data: 'veh_img_anverso' },
             { data: 'veh_img_reverso' },
-            // 🔁 Interactivo: agregar dispositivo
-            /*
-            {
-                data: null,
-                orderable: false,
-                searchable: false,
-                render: function (data, type, row) {
-                    return `
-            <button 
-              class="btn btn-sm btn-info"
-              title="Dispositivos"
-              onclick="verDispositivos(${row.idusuarios})">
-              <i class="fas fa-laptop"></i>
-            </button>
-          `;
-                }
-            },
-            */
-            // 🔁 Interactivo: usu_filtro → Ver en sistema
             {
                 data: 'veh_estado',
                 render: function (data, type, row) {
                     const clase = data == 1 ? 'estado-activo' : 'estado-inactivo';
                     return `
-            <select class="form-select form-select-sm cambiar-campo ${clase}"
-                    data-id="${row.idvehiculos}"
-                    data-campo="veh_estado">
-              <option value="1" ${data == 1 ? 'selected' : ''}>Activo</option>
-              <option value="0" ${data == 0 ? 'selected' : ''}>Inactivo</option>
-            </select>
-          `;
+                        <select class="form-select form-select-sm cambiar-campo ${clase}"
+                                data-id="${row.idvehiculos}"
+                                data-campo="veh_estado">
+                            <option value="1" ${data == 1 ? 'selected' : ''}>Activo</option>
+                            <option value="0" ${data == 0 ? 'selected' : ''}>Inactivo</option>
+                        </select>
+                    `;
                 }
             },
-
-            /*
-            {
-                data: 'usu_ver_nomina',
-                render: function (data, type, row) {
-                    const clase = data == 1 ? 'estado-activo' : 'estado-inactivo';
-                    return `
-            <select class="form-select form-select-sm cambiar-campo ${clase}"
-                    data-id="${row.idusuarios}"
-                    data-campo="usu_ver_nomina">
-              <option value="1" ${data == 1 ? 'selected' : ''}>Activo</option>
-              <option value="0" ${data == 0 ? 'selected' : ''}>Inactivo</option>
-            </select>
-          `;
-                }
-            },
-            {
-                data: 'usu_estado',
-                render: function (data, type, row) {
-                    const clase = data == 1 ? 'estado-activo' : 'estado-inactivo';
-                    return `
-            <select class="form-select form-select-sm cambiar-campo ${clase}"
-                    data-id="${row.idusuarios}"
-                    data-campo="usu_estado">
-              <option value="1" ${data == 1 ? 'selected' : ''}>Activo</option>
-              <option value="0" ${data == 0 ? 'selected' : ''}>Inactivo</option>
-            </select>
-          `;
-                }
-            },
-            */
-
-            // 🔁 Interactivo: Editar
             {
                 data: null,
                 orderable: false,
                 searchable: false,
                 render: function (data, type, row) {
                     return `
-            <a href="../../cambio_admin.php?id_param=${row.idvehiculos}&tabla=Vehiculo&condecion=" 
-              class="btn btn-sm btn-outline-primary" title="Editar" target="_blank">
-              <i class="fas fa-edit"></i>
-            </a>
-          `;
+                        <button class="btn btn-sm btn-outline-primary btn-editar-modal" 
+                                title="Editar" data-id="${row.idvehiculos}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    `;
                 }
             },
-
-            // 🔁 Interactivo: Eliminar
             {
                 data: null,
                 orderable: false,
                 searchable: false,
                 render: function (data, type, row) {
                     return `
-            <button class="btn btn-sm btn-danger eliminar-vehiculo"
-                    title="Eliminar"
-                    data-id="${row.idvehiculos}">
-              <i class="fas fa-trash-alt"></i>
-            </button>
-          `;
+                        <button class="btn btn-sm btn-danger eliminar-vehiculo"
+                                title="Eliminar" data-id="${row.idvehiculos}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    `;
                 }
             }
         ]
     });
 
-    // 🔁 Filtros: recargar tabla al cambiar
     $('#filtrotipodevehiculo, #filtroestado').on('change', function () {
         tabla.ajax.reload();
     });
+
+    // ✅ UN SOLO evento para guardar
+    $('#btnGuardar').on('click', function (e) {
+        e.preventDefault();
+
+        // Validar Placa
+        const placa = $('input[name="veh_placa"]').val().trim();
+        if (placa === "") {
+            Swal.fire("Error", "La placa es obligatoria", "error");
+            return;
+        }
+
+        // Validar Dueño — usando name del select
+        if ($('select[name="veh_dueno"]').val() === "") {
+            Swal.fire("Error", "Debe seleccionar un dueño para el vehículo", "error");
+            return;
+        }
+
+        // Validar archivos — usando name en lugar de id
+        const validarImagen = (input, nombreCampo) => {
+            if (input && input.files.length > 0) {
+                const archivo = input.files[0];
+                const extensiones = /(\.jpg|\.jpeg|\.png)$/i;
+                if (!extensiones.exec(archivo.name)) {
+                    Swal.fire("Error", `El archivo en ${nombreCampo} debe ser JPG o PNG`, "error");
+                    return false;
+                }
+                if (archivo.size > 5 * 1024 * 1024) {
+                    Swal.fire("Error", `La foto de ${nombreCampo} es muy pesada (máx 5MB)`, "error");
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        // Seleccionamos por name ya que no tienen id
+        const inputSoat = $('input[name="veh_img_soat"]')[0];
+        const inputTecno = $('input[name="veh_img_tecnomecanica"]')[0];
+        const inputFrente = $('input[name="veh_img_anverso"]')[0];
+        const inputRespaldo = $('input[name="veh_img_reverso"]')[0];
+
+        if (!validarImagen(inputSoat, "SOAT")) return;
+        if (!validarImagen(inputTecno, "Tecnomecánica")) return;
+        if (!validarImagen(inputFrente, "Tarjeta Propiedad Frente")) return;
+        if (!validarImagen(inputRespaldo, "Tarjeta Propiedad Respaldo")) return;
+
+        const formulario = document.getElementById('formVehiculo');
+        let datos = new FormData(formulario);
+        datos.append("guardar_vehiculo", true); // ✅ coincide con el controlador
+
+        Swal.fire({
+            title: 'Guardando...',
+            text: 'Subiendo información e imágenes al servidor',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        $.ajax({
+            url: 'nueva_plataforma/controller/VehiculosController.php',
+            type: 'POST',
+            data: datos,
+            cache: false,
+            contentType: false,
+            processData: false,
+            success: function (res) {
+                Swal.close();
+                try {
+                    const response = typeof res === 'object' ? res : JSON.parse(res);
+                    if (response.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '¡Éxito!',
+                            text: response.mensaje,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        $('#modalVehiculo').modal('hide');
+                        formulario.reset();
+                        if ($.fn.DataTable.isDataTable('#tablaVehiculos')) {
+                            $('#tablaVehiculos').DataTable().ajax.reload(null, false);
+                        }
+                    } else {
+                        Swal.fire("Error", response.mensaje, "error");
+                    }
+                } catch (e) {
+                    console.error("Respuesta no válida:", res);
+                    Swal.fire("Error", "Error en el formato de respuesta del servidor.", "error");
+                }
+            },
+            error: function () {
+                Swal.close();
+                Swal.fire("Error", "No se pudo conectar con el servidor", "error");
+            }
+        });
+    });
 });
 
-// 🔁 Detectar cambios en cualquier campo editable
+// Cambiar estado
 $('#tablaVehiculos tbody').on('change', '.cambiar-campo', function () {
     const id = $(this).data('id');
     const campo = $(this).data('campo');
     const valor = $(this).val();
 
-    // if(id == "usu_estado" and valor==0){
-    //   alert('Está apunto de desactivar al usuario, recuerde colocar fecha de finalizacion en la hoja de vida si aun no lo ha hecho');
-
-    // }
-
-    // Enviar actualización al servidor
     $.ajax({
-        url: '/nueva_plataforma/controller/VehiculosController.php',
+        url: 'nueva_plataforma/controller/VehiculosController.php',
         type: 'POST',
-        data: {
-            actualizar_campo: true,
-            id: id,
-            campo: campo,
-            valor: valor
-        },
-        success: function (res) {
+        data: { actualizar_campo: true, id, campo, valor },
+        success: function () {
             $('#tablaVehiculos').DataTable().ajax.reload(null, false);
         },
         error: function () {
@@ -158,169 +185,30 @@ $('#tablaVehiculos tbody').on('change', '.cambiar-campo', function () {
     });
 });
 
-// 🔁 Eliminar vehículo
+// Eliminar vehículo
 $('#tablaVehiculos tbody').on('click', '.eliminar-vehiculo', function () {
     const id = $(this).data('id');
 
-    if (confirm('¿Estás seguro de que deseas eliminar este vehículo?')) {
-        $.ajax({
-            url: '/nueva_plataforma/controller/VehiculosController.php',
-            type: 'POST',
-            data: {
-                eliminar_vehiculo: true,
-                id: id
-            },
-            success: function (res) {
-                $('#tablaVehiculos').DataTable().ajax.reload(null, false);
-            },
-            error: function () {
-                alert('Error al eliminar el vehículo.');
-            }
-        });
-    }
-});
-
-/*
-// 1. Referencias a los elementos
-const formVehiculo = document.getElementById('formVehiculo');
-const btnGuardar = document.getElementById('btnGuardarVehiculo');
-const myModalEl = document.getElementById('modalVehiculo');
-const myModal = new bootstrap.Modal(myModalEl);
-
-// 2. Evento de clic para guardar
-btnGuardar.addEventListener('click', async () => {
-    
-    // Creamos un objeto con los datos del formulario
-    const formData = new FormData(formVehiculo);
-    
-    // Agregamos una acción 
-    formData.append('accion', 'registrar');
-
-    try {
-        
-        const response = await fetch('controladores/VehiculosController.php', {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.json();
-
-        if (result.status === 'success') {
-            alert('¡Vehículo guardado con éxito!');
-            formVehiculo.reset(); // Limpia los campos
-            myModal.hide();       // Cierra el modal
-            // Aquí podrías llamar a una función para recargar tu tabla de vehículos
-            // listarVehiculos(); 
-        } else {
-            alert('Error: ' + result.message);
-        }
-
-    } catch (error) {
-        console.error('Error en la petición:', error);
-        alert('Hubo un fallo al conectar con el servidor.');
-    }
-});
-
-*/
-/* Funciones para gestionar dispositivos asociados a un usuario
-function verDispositivos(idUsuario) {
-
-    window.usuarioDispositivoActual = idUsuario;
-
-    $.ajax({
-        url: '/nueva_plataforma/controller/VehiculosController.php',
-        type: 'POST',
-        dataType: 'json',
-        data: {
-            listar_dispositivos: true,
-            idusuario: idUsuario
-        },
-        success: function (data) {
-
-            let tbody = $('#tablaDispositivos tbody');
-            tbody.html('');
-
-            if (data.length === 0) {
-                tbody.append(`
-          <tr>
-            <td colspan="6" class="text-muted">
-              No hay dispositivos asociados
-            </td>
-          </tr>
-        `);
-            }
-            data.forEach(d => {
-
-                const estado = d.authorized == 1
-                    ? '<span class="badge bg-success">Autorizado</span>'
-                    : '<span class="badge bg-warning text-dark">Pendiente</span>';
-
-                const accion = d.authorized == 1
-                    ? `<button class="btn btn-sm btn-danger" onclick="bloquearDispositivo(${d.id})">
-               <i class="fas fa-ban"></i>
-             </button>`
-                    : `<button class="btn btn-sm btn-success" onclick="autorizarDispositivo(${d.id})">
-               <i class="fas fa-check"></i>
-             </button>`;
-
-                tbody.append(`
-          <tr>
-            <td>${d.device_name ?? 'Sin nombre'}</td>
-            <td>${d.device_type ?? '-'}</td>
-            <td>${d.last_login ?? '-'}</td>
-            <td>${d.ip_last ?? '-'}</td>
-            <td>${estado}</td>
-            <td>${accion}</td>
-          </tr>
-        `);
+    Swal.fire({
+        title: '¿Eliminar vehículo?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: 'nueva_plataforma/controller/VehiculosController.php',
+                type: 'POST',
+                data: { eliminar_vehiculo: true, id },
+                success: function () {
+                    $('#tablaVehiculos').DataTable().ajax.reload(null, false);
+                },
+                error: function () {
+                    alert('Error al eliminar el vehículo.');
+                }
             });
-
-            $('#modalDispositivos').modal('show');
         }
     });
-}
-*/
-
-/* Funciones para autorizar o bloquear dispositivos asociados a un usuario
-
-function autorizarDispositivo(idDispositivo) {
-
-    if (!confirm('¿Autorizar este dispositivo?')) return;
-
-    $.ajax({
-        url: '/nueva_plataforma/controller/VehiculosController.php',
-        type: 'POST',
-        dataType: 'json',
-        data: {
-            autorizar_dispositivo: true,
-            id: idDispositivo
-        },
-        success: function (res) {
-            if (res.ok) {
-                // recargar la lista sin cerrar el modal
-                verDispositivos(window.usuarioDispositivoActual);
-            }
-        }
-    });
-}
-function bloquearDispositivo(idDispositivo) {
-
-    if (!confirm('¿Bloquear este dispositivo?')) return;
-
-    $.ajax({
-        url: '/nueva_plataforma/controller/VehiculosController.php',
-        type: 'POST',
-        dataType: 'json',
-        data: {
-            bloquear_dispositivo: true,
-            id: idDispositivo
-        },
-        success: function (res) {
-            if (res.ok) {
-                // recargar la lista sin cerrar el modal
-                verDispositivos(window.usuarioDispositivoActual);
-            }
-        }
-    });
-}
-*/
+});

@@ -27,6 +27,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     echo json_encode($vehiculos);
     exit;
 }
+//Metodo para guardar un nuevo vehiculo
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_vehiculo'])) {
+    $datos = $_POST;
+    $resultado = $modelo->guardarVehiculo($datos);
 
-include "../view/Vehiculos/index.php";
+    if (ob_get_length()) ob_clean();
+
+    echo json_encode([
+        'success' => $resultado ? true : false,
+        'mensaje' => $resultado ? 'Vehículo guardado correctamente' : 'Error al guardar'
+    ]);
+
+    exit;
+}
+
+// cargar vista con los dueños
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $Dueños = $modelo->obtenerDueños(); 
+}
+
+// 5. CARGA DE LA VISTA (Para tus pruebas en el navegador)
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    include "../view/Vehiculos/index.php";
+}
+
 
