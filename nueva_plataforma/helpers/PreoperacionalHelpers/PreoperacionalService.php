@@ -37,15 +37,16 @@ class PreoperacionalService
         $descValidada = $postData['param10'] ?? '';
         $idPre = (int) ($postData['param11'] ?? 0);
 
-        // Procesar imagen de kilometraje
+        // Procesar imágenes
         $imagenKilo = $this->procesarImagenKilometraje($files);
+        $imagenInspeccion = $this->procesarImagenInspeccionInicial($files, $dataJson);
 
         if ($idPre > 0) {
             // Actualización (validación)
             return $this->actualizarRegistro(
-                $idPre, $dataJson, $descValidada, $estado, 
-                $accionCorrectiva, $responsable, $temperatura, 
-                $kilometraje, $idVehiculo, $imagenKilo
+                $idPre, $dataJson, $descValidada, $estado,
+                $accionCorrectiva, $responsable, $temperatura,
+                $kilometraje, $idVehiculo, $imagenKilo, $imagenInspeccion
             );
         } else {
             // Nuevo registro
@@ -53,7 +54,7 @@ class PreoperacionalService
                 $idVehiculo, $tipoVehiculo, $fechaHora, $idUsuario,
                 $dataJson, $observaciones, $accionCorrectiva,
                 $responsable, $temperatura, $kilometraje,
-                $limpiomaleta, $imagenKilo, $estado, $files
+                $limpiomaleta, $imagenKilo, $estado, $files, $imagenInspeccion
             );
         }
     }
@@ -93,6 +94,14 @@ class PreoperacionalService
         return $this->model->obtenerRegistroPorId($idPre);
     }
 
+    /**
+     * Obtiene el último registro de un usuario
+     */
+    public function obtenerUltimoRegistro($idUsuario)
+    {
+        return $this->model->obtenerUltimoRegistro($idUsuario);
+    }
+
     // ==================== MÉTODOS PRIVADOS ====================
 
     /**
@@ -111,15 +120,38 @@ class PreoperacionalService
     }
 
     /**
+     * Procesa la imagen de inspección inicial cuando se desmarca el checkbox
+     */
+    private function procesarImagenInspeccionInicial($files, $dataJson)
+    {
+        // Verificar si hay datos de encuesta
+        $data = json_decode($dataJson, true);
+        if (!$data) return '';
+
+        // Buscar si inspec_1 NO está marcado (checkbox desmarcado = valor no presente o null)
+        if (isset($data['inspec_1']) && ($data['inspec_1'] === null || $data['inspec_1'] === '0' || !isset($data['inspec_1']))) {
+            // Buscar archivo de foto con nombre inspec_1_foto
+            if (isset($files['inspec_1_foto']) && $files['inspec_1_foto']['error'] === UPLOAD_ERR_OK) {
+                $nombreArchivo = "inspeccion_" . date("Y-m-d-H-i-s") . "_" . $files['inspec_1_foto']['name'];
+                $ruta = "./preoperacional/" . $nombreArchivo;
+                if (move_uploaded_file($files['inspec_1_foto']['tmp_name'], $ruta)) {
+                    return $ruta;
+                }
+            }
+        }
+        return '';
+    }
+
+    /**
      * Actualiza un registro existente
      */
     private function actualizarRegistro(
         $idPre, $dataJson, $descValidada, $estado,
         $accionCorrectiva, $responsable, $temperatura,
-        $kilometraje, $idVehiculo, $imagenKilo
+        $kilometraje, $idVehiculo, $imagenKilo, $imagenInspeccion
     ) {
         global $_SESSION;
-        
+
         $datosActualizar = [
             'prefechavalidacion' => date('Y-m-d H:i:s'),
             'predatosvalidados' => $dataJson,
@@ -131,15 +163,20 @@ class PreoperacionalService
             'pre_temperatura' => $temperatura,
             'pre_kilrecorridos' => $kilometraje
         ];
-        
+
         $ok = $this->model->actualizarPreoperacional($idPre, $datosActualizar);
-        
+
         if ($ok && $kilometraje > 0 && $idVehiculo > 0) {
             $this->model->actualizarKilometrajeVehiculo($idVehiculo, $kilometraje);
         }
-        
+
         if ($imagenKilo) {
             $this->model->actualizarImagenKilo($idPre, $imagenKilo);
+        }
+
+        // Guardar imagen de inspección si existe
+        if ($imagenInspeccion) {
+            $this->model->guardarImagen($imagenInspeccion, $idPre, 3); // Tipo 3 = inspección
         }
 
         return ['success' => true, 'message' => 'Preoperacional actualizado correctamente'];
@@ -152,7 +189,7 @@ class PreoperacionalService
         $idVehiculo, $tipoVehiculo, $fechaHora, $idUsuario,
         $dataJson, $observaciones, $accionCorrectiva,
         $responsable, $temperatura, $kilometraje,
-        $limpiomaleta, $imagenKilo, $estado, $files
+        $limpiomaleta, $imagenKilo, $estado, $files, $imagenInspeccion
     ) {
         $datosInsert = [
             'prevehiculo' => $idVehiculo,
@@ -170,14 +207,29 @@ class PreoperacionalService
             'preestado' => ($estado == 'covid19') ? 'covid19' : 'pendiente'
         ];
 
+        // Si hay imagen de inspección, agregarla a observaciones
+        if ($imagenInspeccion) {
+            $datosInsert['pre_obsevaciones'] = $observaciones . "\n[FOTO INSPECCIÓN: " . $imagenInspeccion . "]";
+        }
+
         $idInsertado = $this->model->insertarPreoperacional($datosInsert);
-        
+
         if ($idInsertado) {
             // Imagen de temperatura
             if (isset($files['param20']) && $files['param20']['error'] === UPLOAD_ERR_OK) {
                 $this->model->guardarImagen($files['param20'], $idInsertado, 2);
             }
-            
+
+            // Imagen de kilometraje
+            if ($imagenKilo) {
+                $this->model->actualizarImagenKilo($idInsertado, $imagenKilo);
+            }
+
+            // Imagen de inspección inicial
+            if ($imagenInspeccion) {
+                $this->model->guardarImagen($imagenInspeccion, $idInsertado, 3); // Tipo 3 = inspección
+            }
+
             if ($kilometraje > 0 && $idVehiculo > 0) {
                 $this->model->actualizarKilometrajeVehiculo($idVehiculo, $kilometraje);
             }

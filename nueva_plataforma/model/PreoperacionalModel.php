@@ -100,7 +100,7 @@ class PreoperacionalModel
 
     /**
      * Obtiene un registro de preoperacional por ID
-     * 
+     *
      * @param int $idPreoperacional ID del registro
      * @return array|null Datos del registro o null
      */
@@ -108,8 +108,24 @@ class PreoperacionalModel
     {
         $sql = "SELECT * FROM `pre-operacional`
                 WHERE idpreoperacinal = ?";
-        
+
         return $this->executeQuery($sql, "i", [$idPreoperacional]);
+    }
+
+    /**
+     * Obtiene el último registro de preoperacional de un usuario
+     *
+     * @param int $idUsuario ID del usuario
+     * @return array|null Datos del registro o null
+     */
+    public function obtenerUltimoRegistro($idUsuario)
+    {
+        $sql = "SELECT * FROM `pre-operacional`
+                WHERE preidusuario = ?
+                ORDER BY prefechaingreso DESC
+                LIMIT 1";
+
+        return $this->executeQuery($sql, "i", [$idUsuario]);
     }
 
     // ==================== INSERCIÓN Y ACTUALIZACIÓN ====================

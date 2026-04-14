@@ -80,8 +80,243 @@
     .table-responsive {
         font-size: 12px;
     }
-    
+
     .tittle3 {
+        font-size: 12px;
+    }
+}
+
+/* ==================== NUEVO FORMATO DE ENCUESTA ==================== */
+
+/* Header de sección */
+.section-header {
+    background-color: #074F91;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.section-header td {
+    padding: 12px 8px;
+}
+
+/* Fila de pregunta */
+.question-row {
+    background-color: #EFEFEF;
+    font-size: 14px;
+    transition: background-color 0.2s ease;
+}
+
+.question-row:hover {
+    background-color: #C8C6F9 !important;
+}
+
+.question-text {
+    padding: 10px 8px;
+}
+
+.option-cell {
+    text-align: center;
+    padding: 8px;
+}
+
+.radio-label {
+    display: inline-block;
+    cursor: pointer;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.radio-label:hover {
+    background-color: rgba(7, 79, 145, 0.1);
+}
+
+.radio-label input[type="radio"] {
+    margin-right: 5px;
+    cursor: pointer;
+}
+
+.radio-text {
+    font-weight: 500;
+}
+
+/* Header de fatiga */
+.fatigue-header {
+    background-color: #074F91;
+    color: white;
+    font-weight: bold;
+}
+
+/* Mensaje de advertencia */
+.warning-message {
+    background-color: #868A08;
+    color: white;
+    font-weight: bold;
+    padding: 15px;
+}
+
+.warning-message td {
+    padding: 10px;
+}
+
+/* Fila de información */
+.info-row {
+    background-color: #EFEFEF;
+    padding: 10px;
+}
+
+.input-clean-date {
+    display: inline-block;
+    width: 395px;
+    margin-top: 5px;
+}
+
+/* Resaltar respuestas incorrectas */
+.question-row.highlight-error {
+    background-color: #e4605e !important;
+}
+
+/* Formato indicador en la UI */
+.format-indicator {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.format-indicator.nuevo {
+    background-color: #28a745;
+    color: white;
+}
+
+.format-indicator.legado {
+    background-color: #ffc107;
+    color: #333;
+}
+
+/* ==================== SECCIONES PERSONALES ==================== */
+
+.personal-section {
+    background-color: #074F91;
+    color: white;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.personal-question {
+    background-color: #EFEFEF;
+    font-size: 14px;
+}
+
+.personal-question:hover {
+    background-color: #C8C6F9 !important;
+}
+
+/* ==================== FOTO UPLOAD ==================== */
+
+.photo-row {
+    background-color: #FFF3CD !important;
+}
+
+.photo-cell {
+    padding: 15px !important;
+}
+
+.photo-upload-container {
+    background-color: #FFFFFF;
+    border: 2px dashed #FF9800;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.photo-label {
+    display: block;
+    font-weight: bold;
+    color: #074F91;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.photo-label i {
+    margin-right: 8px;
+}
+
+.photo-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #CCCCCC;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.photo-alert {
+    background-color: #F8D7DA;
+    border: 1px solid #F5C6CB;
+    color: #721C24;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.photo-alert i {
+    margin-right: 8px;
+    color: #DC3545;
+}
+
+/* ==================== CHECKBOX VEHÍCULO ==================== */
+
+/* Checkbox SÍ (OK) - Verde */
+.checkbox-label.checkbox-si {
+    display: inline-block;
+    cursor: pointer;
+    margin: 0;
+    padding: 8px 14px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    background-color: #f8f9fa;
+    border: 2px solid #28a745;
+}
+
+.checkbox-label.checkbox-si:hover {
+    background-color: #d4edda;
+    border-color: #218838;
+}
+
+.checkbox-label.checkbox-si input[type="checkbox"] {
+    margin-right: 6px;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.checkbox-label.checkbox-si input[type="checkbox"]:checked {
+    accent-color: #28a745;
+}
+
+.checkbox-label.checkbox-si .checkbox-text {
+    font-weight: 600;
+    color: #155724;
+}
+
+/* ==================== SECCIONES CON ICONOS ==================== */
+
+.section-header td {
+    padding: 12px 8px;
+    font-size: 14px;
+}
+
+/* Responsive para foto upload */
+@media (max-width: 768px) {
+    .photo-upload-container {
+        padding: 10px;
+    }
+    
+    .photo-alert {
         font-size: 12px;
     }
 }

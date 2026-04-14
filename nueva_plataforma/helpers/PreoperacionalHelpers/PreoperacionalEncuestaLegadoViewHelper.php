@@ -11,7 +11,7 @@ class PreoperacionalEncuestaLegadoViewHelper
 {
     /**
      * Obtiene las preguntas COVID-19
-     * 
+     *
      * @return array Array de preguntas con [nombre, texto]
      */
     public static function getPreguntasCovid()
@@ -27,6 +27,34 @@ class PreoperacionalEncuestaLegadoViewHelper
             ['covid198', 'Realizo cambio de ropa de trabajo y esta se encuentra limpia?'],
             ['covid199', 'realizo cambio de tapabocas convencional lavable suministrado por la empresa y este se encuentra limpio?']
         ];
+    }
+
+    /**
+     * Renderiza las preguntas COVID-19 con valores existentes marcados
+     *
+     * @param string $color Color de fondo
+     * @param array|null $valoresExistentes Valores existentes para marcar como checked
+     * @return string HTML generado
+     */
+    public static function renderPreguntasCovid($color = '#EFEFEF', $valoresExistentes = null)
+    {
+        $preguntas = self::getPreguntasCovid();
+        $html = '';
+
+        foreach ($preguntas as $preg) {
+            $name = $preg[0];
+            $texto = $preg[1];
+            $valorExistente = $valoresExistentes[$name] ?? null;
+            $claseExtra = in_array($name, ['covid191', 'covid192', 'covid193', 'covid194', 'covid195', 'covid196', 'covid197']) ? 'optionCovid' . substr($name, -1) : '';
+
+            $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>";
+            $html .= "<td colspan='2'>{$texto}</td>";
+            $html .= "<td><input type='radio' name='{$name}' class='obtener {$claseExtra}' value='1' " . ($valorExistente == '1' ? 'checked' : '') . " required></td>";
+            $html .= "<td><input type='radio' name='{$name}' class='obtener' value='2' " . ($valorExistente == '2' ? 'checked' : '') . "></td>";
+            $html .= "</tr>";
+        }
+
+        return $html;
     }
 
     /**
@@ -241,16 +269,17 @@ class PreoperacionalEncuestaLegadoViewHelper
 
     /**
      * Genera el HTML para una sección de preguntas con radio buttons
-     * 
+     *
      * @param string $titulo Título de la sección
      * @param array $preguntas Array de preguntas
      * @param string $color Color de fondo
      * @param array $opciones Opciones de radio buttons (por defecto SI/NO/NA)
      * @param string $tipoHeader Tipo de header (default o custom)
+     * @param array|null $valoresExistentes Valores existentes para marcar como checked
      * @return string HTML generado
      */
-    public static function renderSeccionPreguntas($titulo, $preguntas, $color = '#EFEFEF', 
-                                                    $opciones = null, $tipoHeader = 'default')
+    public static function renderSeccionPreguntas($titulo, $preguntas, $color = '#EFEFEF',
+                                                    $opciones = null, $tipoHeader = 'default', $valoresExistentes = null)
     {
         if ($opciones === null) {
             $opciones = [
@@ -261,7 +290,7 @@ class PreoperacionalEncuestaLegadoViewHelper
         }
 
         $html = '';
-        
+
         // Header de la sección
         $colspan = count($opciones) + 1;
         $html .= "<tr bgcolor=\"#074F91\" class=\"tittle3\">\n";
@@ -272,14 +301,16 @@ class PreoperacionalEncuestaLegadoViewHelper
         foreach ($preguntas as $preg) {
             $name = $preg[0];
             $texto = $preg[1];
-            
+            $valorExistente = $valoresExistentes[$name] ?? null;
+
             $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>\n";
             $html .= "    <td>{$texto}</td>\n";
-            
+
             foreach ($opciones as $opcion) {
-                $html .= "    <td><input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' required></td>\n";
+                $checked = ($valorExistente == $opcion['value']) ? 'checked' : '';
+                $html .= "    <td><input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} required></td>\n";
             }
-            
+
             $html .= "</tr>\n";
         }
 
@@ -288,11 +319,12 @@ class PreoperacionalEncuestaLegadoViewHelper
 
     /**
      * Renderiza las secciones de preguntas para moto
-     * 
+     *
      * @param string $color Color de fondo
+     * @param array|null $valoresExistentes Valores existentes para marcar como checked
      * @return string HTML generado
      */
-    public static function renderMotoSections($color = '#EFEFEF')
+    public static function renderMotoSections($color = '#EFEFEF', $valoresExistentes = null)
     {
         $preguntas = self::getPreguntasMoto();
         $html = '';
@@ -304,10 +336,12 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ['value' => '3', 'label' => 'N.A']
             ];
             $html .= self::renderSeccionPreguntas(
-                $seccion['titulo'], 
-                $seccion['preguntas'], 
+                $seccion['titulo'],
+                $seccion['preguntas'],
                 $color,
-                $opciones
+                $opciones,
+                'default',
+                $valoresExistentes
             );
         }
 
@@ -319,11 +353,12 @@ class PreoperacionalEncuestaLegadoViewHelper
 
     /**
      * Renderiza las secciones de preguntas para carro
-     * 
+     *
      * @param string $color Color de fondo
+     * @param array|null $valoresExistentes Valores existentes para marcar como checked
      * @return string HTML generado
      */
-    public static function renderCarroSections($color = '#EFEFEF')
+    public static function renderCarroSections($color = '#EFEFEF', $valoresExistentes = null)
     {
         $preguntas = self::getPreguntasCarro();
         $html = '';
@@ -335,10 +370,12 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ['value' => '3', 'label' => 'N.A']
             ];
             $html .= self::renderSeccionPreguntas(
-                $seccion['titulo'], 
-                $seccion['preguntas'], 
+                $seccion['titulo'],
+                $seccion['preguntas'],
                 $color,
-                $opciones
+                $opciones,
+                'default',
+                $valoresExistentes
             );
         }
 
@@ -350,11 +387,12 @@ class PreoperacionalEncuestaLegadoViewHelper
 
     /**
      * Renderiza la sección de fatiga
-     * 
+     *
      * @param string $color Color de fondo
+     * @param array|null $valoresExistentes Valores existentes para marcar como checked
      * @return string HTML generado
      */
-    public static function renderFatigaSection($color = '#EFEFEF')
+    public static function renderFatigaSection($color = '#EFEFEF', $valoresExistentes = null)
     {
         $preguntas = self::getPreguntasFatiga();
         $opciones = [
@@ -370,11 +408,14 @@ class PreoperacionalEncuestaLegadoViewHelper
         foreach ($preguntas as $preg) {
             $name = $preg[0];
             $texto = $preg[1];
-            
+            $valorExistente = $valoresExistentes[$name] ?? null;
+
             $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>\n";
             $html .= "    <td colspan='2'>{$texto}</td>\n";
-            $html .= "    <td><input type='radio' name='{$name}' class='obtener' value='1' required></td>\n";
-            $html .= "    <td><input type='radio' name='{$name}' class='obtener' value='2'></td>\n";
+            foreach ($opciones as $opcion) {
+                $checked = ($valorExistente == $opcion['value']) ? 'checked' : '';
+                $html .= "    <td><input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} required></td>\n";
+            }
             $html .= "</tr>\n";
         }
 
@@ -383,12 +424,13 @@ class PreoperacionalEncuestaLegadoViewHelper
 
     /**
      * Renderiza la sección de implementos de trabajo
-     * 
+     *
      * @param string $color Color de fondo
      * @param string|null $ultimaLimpieza Valor de última limpieza de maleta
+     * @param array|null $valoresExistentes Valores existentes para marcar como checked
      * @return string HTML generado
      */
-    public static function renderImplementosTrabajo($color = '#EFEFEF', $ultimaLimpieza = null)
+    public static function renderImplementosTrabajo($color = '#EFEFEF', $ultimaLimpieza = null, $valoresExistentes = null)
     {
         $implementos = self::getImplementosTrabajo();
         $html = '';
@@ -401,29 +443,48 @@ class PreoperacionalEncuestaLegadoViewHelper
 
             // Header especial para maleta con colspan diferente
             if ($seccion['titulo'] === 'MALETA') {
-                $html .= '<tr bgcolor="#074F91" class="tittle3"><td colspan="2">MALETA</td><td>SI</td><td>NO</td></tr>';
-                
+                $html .= '<tr bgcolor="#074F91" class="tittle3"><td colspan="2" width="4" align="center">MALETA</td><td colspan="1" width="4" align="center">SI</td><td colspan="1" width="4" align="center">NO</td></tr>';
+
                 foreach ($seccion['preguntas'] as $preg) {
                     $name = $preg[0];
                     $texto = $preg[1];
-                    
-                    $html .= "<tr bgcolor='{$color}' class='text'><td colspan='2'>{$texto}</td>";
-                    $html .= "<td><input type='radio' name='{$name}' class='obtener' value='1' required></td>";
-                    $html .= "<td><input type='radio' name='{$name}' class='obtener' value='2'></td></tr>";
+                    $valorExistente = $valoresExistentes[$name] ?? null;
+
+                    $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>";
+                    $html .= "<td colspan='2'>{$texto}</td>";
+                    foreach ($opciones as $opcion) {
+                        $checked = ($valorExistente == $opcion['value']) ? 'checked' : '';
+                        $html .= "<td><input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} required></td>";
+                    }
+                    $html .= "</tr>";
                 }
 
                 // Campo de última limpieza
                 if ($ultimaLimpieza !== null) {
-                    $html .= "<tr bgcolor='{$color}' class='text'><td colspan='4'>Ultima vez que desinfecto la maleta:";
-                    $html .= "<input name='param21' id='param21' value='" . htmlspecialchars($ultimaLimpieza) . "' style='width:395px' class='form-control'></td></tr>";
+                    $html .= "<tr bgcolor='{$color}' class='text' id='maleta'>";
+                    $html .= "<td colspan='4'>Ultima vez que desinfecto la maleta:";
+                    $html .= "<input name='param21' id='param21' value='" . htmlspecialchars($ultimaLimpieza) . "' style='width:395px' class='text'></td></tr>";
                 }
             } else {
-                $html .= self::renderSeccionPreguntas(
-                    $seccion['titulo'], 
-                    $seccion['preguntas'], 
-                    $color,
-                    $opciones
-                );
+                $html .= '<tr bgcolor="#074F91" class="tittle3">';
+                $html .= '<td colspan="2" width="4" align="center">' . $seccion['titulo'] . '</td>';
+                $html .= '<td colspan="1" width="4" align="center">SI</td>';
+                $html .= '<td colspan="1" width="4" align="center">NO</td>';
+                $html .= '</tr>';
+
+                foreach ($seccion['preguntas'] as $preg) {
+                    $name = $preg[0];
+                    $texto = $preg[1];
+                    $valorExistente = $valoresExistentes[$name] ?? null;
+
+                    $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>";
+                    $html .= "<td colspan='2'>{$texto}</td>";
+                    foreach ($opciones as $opcion) {
+                        $checked = ($valorExistente == $opcion['value']) ? 'checked' : '';
+                        $html .= "<td><input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} required></td>";
+                    }
+                    $html .= "</tr>";
+                }
             }
         }
 
