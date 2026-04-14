@@ -1,58 +1,15 @@
 <?php
 // ==================== INICIO: BUFFER DE SALIDA ====================
 ob_start();
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-mysqli_report(MYSQLI_REPORT_ERROR);
 
-// ==================== MANEJADOR DE ERRORES PERSONALIZADO ====================
-$captured_errors = [];
-set_error_handler(function ($errno, $errstr, $errfile, $errline) use (&$captured_errors) {
-    $captured_errors[] = [
-        'type' => $errno,
-        'message' => $errstr,
-        'file' => $errfile,
-        'line' => $errline
-    ];
-    return true;
-});
-
-// ==================== MANEJADOR DE EXCEPCIONES GLOBAL ====================
-set_exception_handler(function ($exception) {
-    error_log("Excepcion no capturada: " . $exception->getMessage());
-    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
-        sendJsonResponse(['error' => $exception->getMessage(), 'trace' => $exception->getTraceAsString()], 500);
-    } else {
-        echo "<h1>Error</h1><pre>" . $exception->getMessage() . "\n" . $exception->getTraceAsString() . "</pre>";
-    }
-    exit;
-});
-
-// ==================== MANEJADOR DE ERRORES FATALES ====================
-register_shutdown_function(function () {
-    $error = error_get_last();
-    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        error_log("Error fatal: " . $error['message']);
-        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
-            ob_clean();
-            header('Content-Type: application/json');
-            echo json_encode(['fatal_error' => $error['message'], 'file' => $error['file'], 'line' => $error['line']]);
-        } else {
-            echo "<h1>Error fatal</h1><pre>" . $error['message'] . " en " . $error['file'] . ":" . $error['line'] . "</pre>";
-        }
-        exit;
-    }
-});
+// ==================== GESTIÓN DE ERRORES ====================
+require_once __DIR__ . '/../helpers/ErrorHandler.php';
+ErrorHandler::setup();
 
 // ==================== FUNCIÓN AUXILIAR PARA ENVIAR JSON ====================
 function sendJsonResponse($data, $statusCode = 200)
 {
-    if (ob_get_level())
-        ob_clean();
-    http_response_code($statusCode);
-    header('Content-Type: application/json');
-    echo json_encode($data);
-    exit;
+    ErrorHandler::sendJsonResponse($data, $statusCode);
 }
 
 // ==================== INCLUIR AUTENTICACIÓN ====================
@@ -114,7 +71,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             "data" => $result
         ];
 
-        global $captured_errors;
+        // Agregar errores de debug si existen
+        $captured_errors = ErrorHandler::getCapturedErrors();
         if (!empty($captured_errors) && ($_SERVER['SERVER_NAME'] ?? '') === 'localhost') {
             $response['debug_errors'] = $captured_errors;
         }
@@ -310,7 +268,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 break;
         }
 
-        global $captured_errors;
+        // Agregar errores de debug si existen
+        $captured_errors = ErrorHandler::getCapturedErrors();
         if (!empty($captured_errors) && ($_SERVER['SERVER_NAME'] ?? '') === 'localhost') {
             $response['debug_errors'] = $captured_errors;
         }
