@@ -1,6 +1,6 @@
 <link rel="stylesheet" href="https://cdn.materialdesignicons.com/5.4.55/css/materialdesignicons.min.css">
 <style>
-    /* Estilos para la franja azul con el título */
+    /* Estilos para la franja azul con el titulo */
     .titulo-barra {
         background-color: #007bff;
         color: white;
@@ -10,25 +10,46 @@
         font-weight: bold;
     }
 
-    /* Contenedor del QR */
+    /* Contenedor de medios de pago */
     .qr-container {
         display: flex;
+        flex-wrap: wrap;
         justify-content: center;
-        align-items: center;
-        text-align: center;
+        gap: 24px;
         margin: 20px 0;
-        cursor: pointer;
     }
 
-    /* Imagen QR */
-    .qr-container img {
+    .qr-card {
+        text-align: center;
+    }
+
+    .qr-title {
+        margin-bottom: 12px;
+        font-size: 20px;
+        font-weight: bold;
+    }
+
+    .qr-card img {
         max-width: 100%;
         height: auto;
         width: 300px;
         transition: transform 0.3s ease-in-out;
+        cursor: pointer;
     }
 
-    /* Imagen ampliada */
+    .qr-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 300px;
+        min-height: 300px;
+        padding: 20px;
+        border: 2px dashed #007bff;
+        border-radius: 12px;
+        background-color: #f8f9fa;
+        color: #555;
+    }
+
     .qr-expanded {
         position: fixed;
         top: 0;
@@ -51,29 +72,48 @@
 </style>
 
 <script>
-    function toggleQR() {
-        var qrOverlay = document.getElementById("qrOverlay");
+    function toggleQR(overlayId) {
+        var qrOverlay = document.getElementById(overlayId);
         qrOverlay.style.display = qrOverlay.style.display === "flex" ? "none" : "flex";
     }
 </script>
 
-<?php 
-require("login_autentica.php"); 
+<?php
+require("login_autentica.php");
 include("layout.php");
 
 echo '<div class="titulo-barra">Medios de Pago</div>';
 
-
+$mediosPago = [
+    [
+        "nombre" => "Bancolombia Llave",
+        "imagen" => "images/PagoBancolombiaLlave.png",
+        "overlay" => "qrOverlayBancolombia"
+    ],
+    [
+        "nombre" => "Daviplata",
+        "imagen" => "images/daviplata.png",
+        "overlay" => "qrOverlayDaviplata"
+    ]
+];
 ?>
 
-<!-- Contenedor del código QR -->
-<div class="qr-container" onclick="toggleQR()">
-    <img src="images/codigoQRBC.png" alt="Código QR">
-</div>
-
-<!-- Overlay para agrandar la imagen -->
-<div id="qrOverlay" class="qr-expanded" style="display: none;" onclick="toggleQR()">
-    <img src="images/codigoQRBC.png" alt="Código QR">
+<div class="qr-container">
+    <?php foreach ($mediosPago as $medio): ?>
+        <div class="qr-card">
+            <div class="qr-title"><?php echo htmlspecialchars($medio["nombre"]); ?></div>
+            <?php if (file_exists($medio["imagen"])): ?>
+                <img src="<?php echo htmlspecialchars($medio["imagen"]); ?>" alt="<?php echo htmlspecialchars($medio["nombre"]); ?>" onclick="toggleQR('<?php echo $medio["overlay"]; ?>')">
+                <div id="<?php echo htmlspecialchars($medio["overlay"]); ?>" class="qr-expanded" style="display: none;" onclick="toggleQR('<?php echo $medio["overlay"]; ?>')">
+                    <img src="<?php echo htmlspecialchars($medio["imagen"]); ?>" alt="<?php echo htmlspecialchars($medio["nombre"]); ?>">
+                </div>
+            <?php else: ?>
+                <div class="qr-placeholder">
+                    No se encontro la imagen de <?php echo htmlspecialchars($medio["nombre"]); ?>.
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endforeach; ?>
 </div>
 
 <?php

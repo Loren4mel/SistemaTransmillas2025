@@ -6,6 +6,63 @@ document.getElementById('tipoAccion').addEventListener('change', function(){
 });
 
 // ====== Mostrar / ocultar bloque "De Contado" según tipo de pago ======
+const imagenesPago = {
+  bancolombia: {
+    titulo: 'Bancolombia',
+    src: '../../images/PagoBancolombiaLlave.png'
+  },
+  davivienda: {
+    titulo: 'Davivienda',
+    src: '../../images/daviplata.png'
+  }
+};
+
+function resolverCanalPagoDesdeMetodo() {
+  const select = document.getElementById('param30');
+  if (!select) return null;
+
+  const texto = (select.options[select.selectedIndex]?.text || '').toLowerCase().trim();
+
+  if (texto.includes('bancolombia')) return 'bancolombia';
+  if (texto.includes('davivienda') || texto.includes('daviplata')) return 'davivienda';
+
+  return null;
+}
+
+function mostrarImagenPago(canal) {
+  const config = imagenesPago[canal];
+  const visor = document.getElementById('visorImagenPago');
+  const imagen = document.getElementById('imagenPagoPreview');
+  const titulo = document.getElementById('tituloImagenPago');
+
+  if (!config || !visor || !imagen || !titulo) return;
+
+  titulo.textContent = `Imagen de pago - ${config.titulo}`;
+  imagen.src = config.src;
+  imagen.alt = config.titulo;
+  visor.style.display = 'block';
+
+}
+
+function ocultarImagenPago() {
+  const visor = document.getElementById('visorImagenPago');
+  const imagen = document.getElementById('imagenPagoPreview');
+
+  if (visor) visor.style.display = 'none';
+  if (imagen) imagen.src = '';
+
+}
+
+function actualizarImagenPagoDesdeMetodo() {
+  const canal = resolverCanalPagoDesdeMetodo();
+
+  if (canal) {
+    mostrarImagenPago(canal);
+  } else {
+    ocultarImagenPago();
+  }
+}
+
 function actualizarBloqueContado() {
   const tipo = parseInt(document.getElementById('param8').value || 0);
   const bloque = document.getElementById('bloqueContado');
@@ -18,6 +75,7 @@ function actualizarBloqueContado() {
   } else {
     bloque.style.display = 'none';
     campo.removeAttribute('required');            // deja de ser obligatorio
+    ocultarImagenPago();
   }
 
   if (tipo === 2) {
@@ -232,6 +290,8 @@ async function cargarMetodosPago() {
       select.appendChild(op);
     });
 
+    actualizarImagenPagoDesdeMetodo();
+
   } catch (e) {
     console.error(e);
     alert("Error cargando métodos de pago.");
@@ -438,6 +498,11 @@ document.addEventListener("DOMContentLoaded", () => {
   cargarMetodosPago();
   cargarCreditos();
   consultarEstadoFirma();
+
+  const metodoPago = document.getElementById('param30');
+  if (metodoPago) {
+    metodoPago.addEventListener('change', actualizarImagenPagoDesdeMetodo);
+  }
 });
 
 // Obtener la hora actual en formato HH:MM
