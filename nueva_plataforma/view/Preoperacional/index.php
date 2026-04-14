@@ -1,6 +1,7 @@
 <?php
 /**
  * Vista del formulario de preoperacional
+ * 
  * Variables esperadas:
  * - $datosVehiculo: array con datos del vehículo y usuario
  * - $registroExistente: array con datos del registro previo (si existe)
@@ -10,6 +11,10 @@
  * - $nivel_acceso: int rol del usuario
  * - $param4, $param5, $iduser, $fecha, $preoperacional: parámetros de la URL
  */
+
+require_once __DIR__ . '/../../helpers/PreoperacionalHelpers/PreoperacionalEncuestaLegadoViewHelper.php';
+
+$color = "#EFEFEF";
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -18,7 +23,7 @@
     <meta charset="UTF-8">
     <title>Preoperacional - Transmillas</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Bootstrap 5 (asumimos que ya está en el layout, pero lo incluimos por si acaso) -->
+    <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -26,6 +31,8 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- jQuery (para precarga AJAX) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Estilos personalizados -->
+    <link rel="stylesheet" href="../assets/css/preoperacional.css">
     <style>
         /* Estilos para los radio buttons y tablas */
         .table td,
@@ -106,18 +113,7 @@
                                     <td colspan="1" width="4" align="center">NO</td>
                                 </tr>
                                 <?php
-                                $preguntasCovid = [
-                                    ['covid191', 'Ha sentido fatiga los últimos dos días?'],
-                                    ['covid192', 'Ha tenido fiebre mayor a 37,3?'],
-                                    ['covid193', 'Ha presentado tos seca?'],
-                                    ['covid194', 'Ha presentado dificultad para respirar?'],
-                                    ['covid195', 'Tiene dolor o molestia?'],
-                                    ['covid196', 'Tiene abundante secreción nasal?'],
-                                    ['covid197', 'Ha presentado dolor de garganta?'],
-                                    ['covid198', 'Realizo cambio de ropa de trabajo y esta se encuentra limpia?'],
-                                    ['covid199', 'realizo cambio de tapabocas convencional lavable suministrado por la empresa y este se encuentra limpio?']
-                                ];
-                                $color = "#EFEFEF";
+                                $preguntasCovid = PreoperacionalEncuestaLegadoViewHelper::getPreguntasCovid();
                                 foreach ($preguntasCovid as $preg) {
                                     $name = $preg[0];
                                     $texto = $preg[1];
@@ -173,234 +169,13 @@
 
                                     <!-- ==================== SECCIONES SEGÚN TIPO DE VEHÍCULO ==================== -->
                                     <?php if ($tipovehiculo == 'MOTO'): ?>
-                                        <!-- LLANTAS Y RINES -->
-                                        <tr bgcolor="#074F91" class="tittle3">
-                                            <td colspan="1" align="center">LLANTAS Y RINES</td>
-                                            <td colspan="1">SI</td>
-                                            <td colspan="1">NO</td>
-                                            <td colspan="1">N.A</td>
-                                        </tr>
-                                        <?php
-                                        $preguntasMoto = [
-                                            ['llantas1', 'Tienen rajaduras por un objeto condundecte?'],
-                                            ['llantas2', 'Tienen grietas finas en los laterales?'],
-                                            ['llantas3', 'Las llantas estan desinfladas?'],
-                                            ['llantas4', 'Las llantas estan sobreinfladas?'],
-                                            ['llantas5', 'Los rines y guardabarros estan en buen estado?'],
-                                            ['llantas6', 'Funcionan correctamente la suspensión y frenos de llantas?']
-                                        ];
-                                        foreach ($preguntasMoto as $p) {
-                                            echo "<tr bgcolor='$color' class='text' id='{$p[0]}0'>";
-                                            echo "<td colspan='1'>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td>";
-                                            echo "</tr>";
-                                        }
-                                        // TRANSMISIÓN
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">TRANSMISIÓN</td><td>SI</td><td>NO</td><td>N.A</td></tr>';
-                                        $transmision = [['transmision1', 'La cadena brilla? (Necesita engrase)'], ['transmision2', 'La cadena esta mal tensionada? (se oye al rodar)']];
-                                        foreach ($transmision as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // LUCES Y ESPEJOS
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">LUCES Y ESPEJOS</td><td>SI</td><td>NO</td><td>N.A</td></tr>';
-                                        $luces = [['Luces1', 'Funcionan correctamente las Luces de cruce y de frenado?'], ['Luces2', 'Los espejos estan en perfecto estado?'], ['Luces3', 'El manubrio está en óptimas condiciones?']];
-                                        foreach ($luces as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // FUGAS
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">FUGAS</td><td>SI</td><td>NO</td><td>N.A</td></tr>';
-                                        $fugas = [
-                                            ['fugas1', 'Fugas en el liquido de suspensión y de frenos?'],
-                                            ['fugas2', 'Fugas en el sistema de trasmisión (cardán, diferencial)?'],
-                                            ['fugas3', 'fugas en el aceite del motor y liquido de refrigeración?'],
-                                            ['fugas4', 'Fugas en el fluido que pasa por la caja de cambios?'],
-                                            ['fugas5', 'Fugas en el tanque de combustible?'],
-                                            ['fugas6', 'Fugas de gases en el mofle (deterioro)?']
-                                        ];
-                                        foreach ($fugas as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // MANDOS
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">MANDOS (CAMBIOS, FRENOS)</td><td>SI</td><td>NO</td><td>N.A</td></tr>';
-                                        $mandos = [['mandos1', 'El embrague esta endurecido?'], ['mandos2', 'El cable de acelerador vuelve del todo a su punto inical?']];
-                                        foreach ($mandos as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // ENTORNO GENERAL
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">ENTORNO GENERAL</td><td>SI</td><td>NO</td><td>N.A</td></tr>';
-                                        $entorno = [
-                                            ['entorno1', 'La moto esta en buenas condiciones de limpieza?'],
-                                            ['entorno2', 'Esta deteriorado el chasis de la moto? (oxidación, abolladuras, partes faltantes)?'],
-                                            ['entorno3', 'Caja de Herramientas']
-                                        ];
-                                        foreach ($entorno as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // ELEMENTOS DE PROTECCIÓN
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">ELEMENTOS DE PROTECCIÓN</td><td>SI</td><td>NO</td><td>N.A</td></tr>';
-                                        $elementos = [
-                                            ['elementos1', 'Se dispone de casco para moto en buen estado?'],
-                                            ['elementos2', 'Se dispone de guantes para moto?'],
-                                            ['elementos3', 'Se dispone de gafas protectoras?'],
-                                            ['elementos4', 'Se dispone de chaleco reflectivo para las horas de la noche?'],
-                                            ['elementos5', 'Se dispone de impermeable para temporadas de lluvias?'],
-                                            ['elementos6', 'SE REALIZÒ LA LIMPIEZA Y DESINFECCION DE LA MOTO?']
-                                        ];
-                                        foreach ($elementos as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        echo '<tr bgcolor="#868A08" class="tittle3"><td colspan="4">SI alguno de estos puntos tiene al menos como respuesta un SI, el trabajador debe de manera inmediata dar aviso de sus condciones al Jefe de operaciones de la empresa TRANSMILLAS EMPRESA DE CARGA Y LOGISTICA.</td></tr>';
-                                        ?>
+                                        <?= PreoperacionalEncuestaLegadoViewHelper::renderMotoSections($color) ?>
                                     <?php elseif ($tipovehiculo == 'CARRO'): ?>
-                                        <!-- DIRECCIONALES -->
-                                        <tr bgcolor="#074F91" class="tittle3">
-                                            <td colspan="1">DIRECCIONALES</td>
-                                            <td>B</td>
-                                            <td>M</td>
-                                            <td>N.A</td>
-                                        </tr>
-                                        <?php
-                                        $direccionales = [
-                                            ['direccionales1', 'Frontales Plenas altas y/o bajas'],
-                                            ['direccionales2', 'Direccionales delanteras de parqueo'],
-                                            ['direccionales3', 'Direccionales traseras de parqueo'],
-                                            ['direccionales4', 'De Stop y señal trasera']
-                                        ];
-                                        foreach ($direccionales as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // CABINA
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">CABINA</td><td>B</td><td>M</td><td>N.A</td></tr>';
-                                        $cabina = [
-                                            ['cabina1', 'Espejo central o retrovisor'],
-                                            ['cabina2', 'Espejos laterales'],
-                                            ['cabina3', 'Alarma de retroceso'],
-                                            ['cabina4', 'Cojineria'],
-                                            ['cabina5', 'Vidrio frontal'],
-                                            ['cabina6', 'Nivel de agua del parabrisas'],
-                                            ['cabina7', 'Vidrios Laterales o cortabrisas'],
-                                            ['cabina8', 'Vidrio trasero']
-                                        ];
-                                        foreach ($cabina as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // DISPOSITIVOS DE SEGURIDAD
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">DISPOSITIVOS DE SEGURIDAD</td><td>B</td><td>M</td><td>N.A</td></tr>';
-                                        $dispositivos = [
-                                            ['dispositivos1', 'Pito'],
-                                            ['dispositivos2', 'Pito de reversa'],
-                                            ['dispositivos3', 'Freno de servicio'],
-                                            ['dispositivos4', 'Freno de emergencia'],
-                                            ['dispositivos5', 'Dirección/suspensión delantera'],
-                                            ['dispositivos6', 'Cinturón de seguridad'],
-                                            ['dispositivos7', 'Estado general de puertas'],
-                                            ['dispositivos8', 'Limpia brisas y plumillas'],
-                                            ['dispositivos9', 'Extintor (indique fecha de vencimiento en observaciones)'],
-                                            ['dispositivos10', 'Botiquin'],
-                                            ['dispositivos11', 'Asientos en buena condición']
-                                        ];
-                                        foreach ($dispositivos as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // INDICADORES
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">INDICADORES</td><td>B</td><td>M</td><td>N.A</td></tr>';
-                                        $indicadores = [
-                                            ['indicadores1', 'Panel de Indicadores'],
-                                            ['indicadores2', 'Aceite'],
-                                            ['indicadores3', 'Agua']
-                                        ];
-                                        foreach ($indicadores as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // LLANTAS
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">LLANTAS</td><td>B</td><td>M</td><td>N.A</td></tr>';
-                                        $llantas = [
-                                            ['llantas1', 'Estado General de llantas'],
-                                            ['llantas2', 'Llanta de repuesto']
-                                        ];
-                                        foreach ($llantas as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        // HERRAMIENTAS MÍNIMAS
-                                        echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="1">HERRAMIENTAS MINIMAS</td><td>B</td><td>M</td><td>N.A</td></tr>';
-                                        $herramientas = [
-                                            ['Herramientas1', 'Gato'],
-                                            ['Herramientas2', 'Cruceta'],
-                                            ['Herramientas3', 'Cinta de seguridad'],
-                                            ['Herramientas4', 'Conos'],
-                                            ['Herramientas5', 'Linterna'],
-                                            ['Herramientas6', 'Caja de Herramientas'],
-                                            ['Herramientas7', 'SE REALIZÒ LA LIMPIEZA Y DESINFECCION DEL VEHÌCULO?']
-                                        ];
-                                        foreach ($herramientas as $p) {
-                                            echo "<tr bgcolor='$color' class='text'><td>{$p[1]}</td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='1' required></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='2'></td>";
-                                            echo "<td><input type='radio' name='{$p[0]}' class='obtener' value='3'></td></tr>";
-                                        }
-                                        echo '<tr bgcolor="#868A08" class="tittle3"><td colspan="4">SI alguno de estos puntos tiene al menos como respuesta un SI, el trabajador debe de manera inmediata dar aviso de sus condciones al Jefe de operaciones de la empresa TRANSMILLAS EMPRESA DE CARGA Y LOGISTICA.</td></tr>';
-                                        ?>
+                                        <?= PreoperacionalEncuestaLegadoViewHelper::renderCarroSections($color) ?>
                                     <?php endif; ?>
 
                                     <!-- CHECK LIST FATIGA (común) -->
-                                    <tr bgcolor="#074F91" class="tittle3">
-                                        <td colspan="2" align="center">CHECK LIST FATIGA</td>
-                                        <td colspan="1">SI</td>
-                                        <td colspan="1">NO</td>
-                                    </tr>
-                                    <?php
-                                    $preguntasFatiga = [
-                                        ['elementosp1', 'TENGO SUEÑO?'],
-                                        ['elementosp2', 'SIENTO LA VISTA CANSADA?'],
-                                        ['elementosp3', 'ME ENCUENTRO TOMANDO MEDICAMENTOS QUE ME IMPIDAN OPERAR O ALTERE MI CONCENTRACIÓN?'],
-                                        ['elementosp4', 'ME CUESTA ENFOCAR LA VISTA (VISIÓN BORROSA) O MANTENER LOS OJOS ABIERTOS?'],
-                                        ['elementosp5', 'SIENTO DIFICULTADES PARA CONCENTRARME O PERMANECER ALERTA?'],
-                                        ['elementosp6', 'ME SIENTO EN MALAS CONDICIONES (FISICAS Y/O ANIMICAS) PARA REALIZAR MIS TAREAS?'],
-                                        ['elementosp7', 'SE ENCUENTRA BAJO ALGÚN EFECTO DE ALCHOHOL O DROGAS?']
-                                    ];
-                                    foreach ($preguntasFatiga as $fat) {
-                                        echo "<tr bgcolor='$color' class='text' id='{$fat[0]}0'>";
-                                        echo "<td colspan='2'>{$fat[1]}</td>";
-                                        echo "<td><input type='radio' name='{$fat[0]}' class='obtener' value='1' required></td>";
-                                        echo "<td><input type='radio' name='{$fat[0]}' class='obtener' value='2'></td>";
-                                        echo "</tr>";
-                                    }
-                                    ?>
+                                    <?= PreoperacionalEncuestaLegadoViewHelper::renderFatigaSection($color) ?>
 
                                     <!-- Kilometraje actual con imagen -->
                                     <tr bgcolor='$color' class='text' id='klmactual'>
@@ -452,51 +227,7 @@
                                         <td>SI</td>
                                         <td>NO</td>
                                     </tr>
-                                    <tr bgcolor="#074F91" class="tittle3">
-                                        <td colspan="2">CELULAR</td>
-                                        <td>SI</td>
-                                        <td>NO</td>
-                                    </tr>
-                                    <?php
-                                    $implementos = [
-                                        ['implementos1', 'Cuenta con celular con acceso a Internet?'],
-                                        ['implementos2', 'La bateria de su Celular se encuentra Cargada?'],
-                                        ['implementos3', 'Su celular cuenta con datos y minutos?'],
-                                        ['implementos4', 'Tiene usted el cargador de su Celular?']
-                                    ];
-                                    foreach ($implementos as $imp) {
-                                        echo "<tr bgcolor='$color' class='text'><td colspan='2'>{$imp[1]}</td>";
-                                        echo "<td><input type='radio' name='{$imp[0]}' class='obtener' value='1' required></td>";
-                                        echo "<td><input type='radio' name='{$imp[0]}' class='obtener' value='2'></td></tr>";
-                                    }
-                                    echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="2">PESA</td><td>SI</td><td>NO</td></tr>';
-                                    $pesa = [
-                                        ['implementos10', 'Cuenta con Pesa?'],
-                                        ['implementos11', 'Su Pesa cuenta con Bateria?'],
-                                        ['implementos12', 'Verifico que su Pesa cuente con bateria?'],
-                                        ['implementos13', 'Verifico que su Pesa este funcionando Perfectamente?']
-                                    ];
-                                    foreach ($pesa as $imp) {
-                                        echo "<tr bgcolor='$color' class='text'><td colspan='2'>{$imp[1]}</td>";
-                                        echo "<td><input type='radio' name='{$imp[0]}' class='obtener' value='1' required></td>";
-                                        echo "<td><input type='radio' name='{$imp[0]}' class='obtener' value='2'></td></tr>";
-                                    }
-                                    echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="2">MALETA</td><td>SI</td><td>NO</td></tr>';
-                                    echo "<tr bgcolor='$color' class='text'><td colspan='2'>Cuenta con Maleta?</td>";
-                                    echo "<td><input type='radio' name='implementos14' class='obtener' value='1' required></td>";
-                                    echo "<td><input type='radio' name='implementos14' class='obtener' value='2'></td></tr>";
-                                    echo "<tr bgcolor='$color' class='text'><td colspan='4'>Ultima vez que desinfecto la maleta:<input name='param21' id='param21' value='" . htmlspecialchars($registroExistente['pre_limpiomaleta'] ?? NULL) . "' style='width:395px' class='form-control'></td></tr>";
-                                    echo '<tr bgcolor="#074F91" class="tittle3"><td colspan="2">PARAFISCALES O COPIA DE AFILIACION DE ARL</td><td>SI</td><td>NO</td></tr>';
-                                    $parafiscales = [
-                                        ['implementos18', 'Tiene copia de pago de parafiscales?'],
-                                        ['implementos19', 'Tiene copia de Afiliacion ARL(Peronal Nuevo)?']
-                                    ];
-                                    foreach ($parafiscales as $imp) {
-                                        echo "<tr bgcolor='$color' class='text'><td colspan='2'>{$imp[1]}</td>";
-                                        echo "<td><input type='radio' name='{$imp[0]}' class='obtener' value='1' required></td>";
-                                        echo "<td><input type='radio' name='{$imp[0]}' class='obtener' value='2'></td></tr>";
-                                    }
-                                    ?>
+                                    <?= PreoperacionalEncuestaLegadoViewHelper::renderImplementosTrabajo($color, $registroExistente['pre_limpiomaleta'] ?? null) ?>
                                 <?php endif; ?>
 
                                 <!-- ==================== COMPROMISO Y DECLARACIÓN ==================== -->
@@ -586,157 +317,8 @@
         </div>
     </div>
 
-    <script>
-        function asignar() {
-            var conver = '';
-            var chkdatos = document.getElementsByClassName("obtener");
-            for (i = 0; i < chkdatos.length; i++) {
-                if (chkdatos[i].checked) {
-                    conver = conver + '"' + chkdatos[i].name + '":' + '"' + chkdatos[i].value + '",';
-                }
-            }
-            var data = conver.substring(0, conver.length - 1);
-            data = '{' + data + '}';
-            document.getElementById("data").value = data;
-            return true;
-        }
-
-        document.getElementById('formPreoperacional').addEventListener('submit', function (e) {
-            e.preventDefault();
-            if (!asignar()) return;
-
-            const formData = new FormData(this);
-            formData.append('accion', 'guardar');
-            formData.append('ajax', '1');
-
-            const btn = document.getElementById('btnGuardar');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-
-            fetch(window.location.pathname, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-                .then(response => response.json())
-                .then(data => {
-                    btn.disabled = false;
-                    btn.innerHTML = 'Guardar';
-                    if (data.success) {
-                        Swal.fire({
-                            title: 'Éxito',
-                            text: data.message,
-                            icon: 'success',
-                            confirmButtonText: 'Aceptar'
-                        }).then(() => {
-                            // Redirigir a inicio.php como se hacía originalmente
-                            window.location.href = 'inicio.php?bandera=1';
-                        });
-                    } else {
-                        Swal.fire({
-                            title: 'Error',
-                            text: data.message || 'Ocurrió un error al guardar.',
-                            icon: 'error',
-                            confirmButtonText: 'Aceptar'
-                        });
-                        if (data.debug_errors) console.warn(data.debug_errors);
-                    }
-                })
-                .catch(error => {
-                    btn.disabled = false;
-                    btn.innerHTML = 'Guardar';
-                    Swal.fire({
-                        title: 'Error',
-                        text: 'Error de comunicación con el servidor.',
-                        icon: 'error',
-                        confirmButtonText: 'Aceptar'
-                    });
-                    console.error(error);
-                });
-        });
-
-        // ==================== PRECARGA DE DATOS (AJAX) ====================
-        var valida = document.getElementById("estado").value;
-        var iduser = document.getElementById("user").value;
-        var fecha = document.getElementById("fecha").value;
-        var campo = document.getElementById("campo").value;
-        var tipovehiculo = document.getElementById("param3")?.value ?? 0;
-
-        if (valida == 'ingresado' || valida == 'covid19') {
-            if (campo) {
-                // Definir valores esperados para moto (se puede extender para carro)
-                var valoresmoto = new Array();
-                valoresmoto['llantas1'] = '2';
-                valoresmoto['llantas2'] = '2';
-                valoresmoto['llantas3'] = '2';
-                valoresmoto['llantas4'] = '2';
-                valoresmoto['llantas5'] = '1';
-                valoresmoto['llantas6'] = '1';
-                valoresmoto['transmision1'] = '2';
-                valoresmoto['transmision2'] = '2';
-                valoresmoto['Luces1'] = '1';
-                valoresmoto['Luces2'] = '1';
-                valoresmoto['Luces3'] = '1';
-                valoresmoto['fugas1'] = '2';
-                valoresmoto['fugas2'] = '2';
-                valoresmoto['fugas3'] = '2';
-                valoresmoto['fugas4'] = '2';
-                valoresmoto['fugas5'] = '2';
-                valoresmoto['fugas6'] = '2';
-                valoresmoto['mandos1'] = '2';
-                valoresmoto['mandos2'] = '1';
-                valoresmoto['entorno1'] = '1';
-                valoresmoto['entorno2'] = '2';
-                valoresmoto['entorno3'] = '1';
-                valoresmoto['elementos1'] = '1';
-                valoresmoto['elementos2'] = '1';
-                valoresmoto['elementos3'] = '1';
-                valoresmoto['elementos4'] = '1';
-                valoresmoto['elementos5'] = '1';
-                valoresmoto['elementos6'] = '1';
-
-                $.ajax({
-                    url: window.location.pathname,
-                    type: "POST",
-                    data: { user: iduser, fecha: fecha, campo: campo, accion: "buscarDatos" },
-                    dataType: "json"
-                }).done(function (respuesta) {
-                    if (respuesta != null && respuesta !== '') {
-                        // respuesta es el JSON con los datos guardados
-                        for (var i in respuesta) {
-                            var value = respuesta[i];
-                            var tamano = document.getElementsByName(i);
-                            for (b = 0; b < tamano.length; b++) {
-                                var valor = tamano[b].value;
-                                if (valor == value) {
-                                    tamano[b].checked = true;
-                                    // Colorear fila si la respuesta no es la esperada
-                                    if (tipovehiculo == 'MOTO') {
-                                        // Solo si es de moto y la respuesta es diferente al valor esperado
-                                        if (value != valoresmoto[i]) {
-                                            document.getElementById(i + '0').style.backgroundColor = "#e4605e";
-                                        }
-                                    } else if (tipovehiculo == 'CARRO') {
-                                        // Lógica para carro: si es opción M (malo) pintar rojo
-                                        if (value != '1') {
-                                            document.getElementById(i + '0').style.backgroundColor = "#e4605e";
-                                        }
-                                    } else {
-                                        // Modo COVID: pintar rojo si respuesta es SI (1) en primeras 7
-                                        if (valida == 'covid19' && i.substr(0, 6) == 'covid1' && value == '1') {
-                                            document.getElementById(i + '0').style.backgroundColor = "#e4605e";
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-    </script>
+    <!-- JavaScript del formulario preoperacional -->
+    <script src="../assets/js/preoperacional.js?v=<?= filemtime(__DIR__ . '/../../assets/js/preoperacional.js') ?>"></script>
 </body>
 
 </html>

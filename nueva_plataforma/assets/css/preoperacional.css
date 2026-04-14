@@ -1,0 +1,87 @@
+/**
+ * Preoperacional - Estilos personalizados
+ * 
+ * Estilos específicos para el formulario de preoperacional
+ */
+
+/* Radio buttons y tablas */
+.table td,
+.table th {
+    vertical-align: middle;
+}
+
+.noti_bubble {
+    float: right;
+    padding: 2px 6px;
+    background-color: red;
+    color: white;
+    font-weight: bold;
+    border-radius: 60px;
+    box-shadow: 1px 1px 3px gray;
+    cursor: pointer;
+}
+
+.btnSaveCovid:disabled {
+    opacity: 0.5;
+}
+
+.text {
+    font-size: 14px;
+}
+
+.tittle3 {
+    background-color: #074F91;
+    color: white;
+    font-weight: bold;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #C8C6F9 !important;
+}
+
+/* Estilos para filas con observaciones */
+.fila-observaciones {
+    background-color: #f8f9fa;
+}
+
+/* Estilos para secciones de preguntas */
+.seccion-pregunta {
+    margin-bottom: 10px;
+}
+
+.seccion-pregunta td {
+    padding: 8px;
+}
+
+/* Estilos para inputs */
+.seccion-pregunta input[type="radio"] {
+    margin: 0 5px;
+}
+
+/* Estilos para mensajes de error */
+.error-row {
+    background-color: #e4605e !important;
+}
+
+/* Estilos para compromiso y declaración */
+.compromiso-text {
+    text-align: center;
+    font-weight: bold;
+}
+
+.declaracion-text {
+    background-color: #ff0000;
+    color: white;
+    font-weight: bold;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 12px;
+    }
+    
+    .tittle3 {
+        font-size: 12px;
+    }
+}
