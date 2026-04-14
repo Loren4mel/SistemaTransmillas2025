@@ -6,6 +6,63 @@ document.getElementById('tipoAccion').addEventListener('change', function(){
 });
 
 // ====== Mostrar / ocultar bloque "De Contado" según tipo de pago ======
+const imagenesPago = {
+  bancolombia: {
+    titulo: 'Bancolombia',
+    src: '../../images/PagoBancolombiaLlave.png'
+  },
+  davivienda: {
+    titulo: 'Davivienda',
+    src: '../../images/daviplata.png'
+  }
+};
+
+function resolverCanalPagoDesdeMetodo() {
+  const select = document.getElementById('param30');
+  if (!select) return null;
+
+  const texto = (select.options[select.selectedIndex]?.text || '').toLowerCase().trim();
+
+  if (texto.includes('bancolombia')) return 'bancolombia';
+  if (texto.includes('davivienda') || texto.includes('daviplata')) return 'davivienda';
+
+  return null;
+}
+
+function mostrarImagenPago(canal) {
+  const config = imagenesPago[canal];
+  const visor = document.getElementById('visorImagenPago');
+  const imagen = document.getElementById('imagenPagoPreview');
+  const titulo = document.getElementById('tituloImagenPago');
+
+  if (!config || !visor || !imagen || !titulo) return;
+
+  titulo.textContent = `Imagen de pago - ${config.titulo}`;
+  imagen.src = config.src;
+  imagen.alt = config.titulo;
+  visor.style.display = 'block';
+
+}
+
+function ocultarImagenPago() {
+  const visor = document.getElementById('visorImagenPago');
+  const imagen = document.getElementById('imagenPagoPreview');
+
+  if (visor) visor.style.display = 'none';
+  if (imagen) imagen.src = '';
+
+}
+
+function actualizarImagenPagoDesdeMetodo() {
+  const canal = resolverCanalPagoDesdeMetodo();
+
+  if (canal) {
+    mostrarImagenPago(canal);
+  } else {
+    ocultarImagenPago();
+  }
+}
+
 function actualizarBloqueContado() {
   const tipo = parseInt(document.getElementById('param8').value || 0);
   const bloque = document.getElementById('bloqueContado');
@@ -18,14 +75,17 @@ function actualizarBloqueContado() {
   } else {
     bloque.style.display = 'none';
     campo.removeAttribute('required');            // deja de ser obligatorio
+    ocultarImagenPago();
   }
 
   if (tipo === 2) {
     bloqueCredito.style.display = 'block';
-    campo.setAttribute('required', 'required');   // vuelve el campo obligatorio
   } else {
     bloqueCredito.style.display = 'none';
-    campo.removeAttribute('required');            // deja de ser obligatorio
+  }
+
+  if (tipo !== 1) {
+    campo.removeAttribute('required');
   }
 }
 
@@ -85,6 +145,8 @@ async function cargarServicio() {
       return;
     }
 
+    window._servicioRecogida = s;
+
     // 🔹 Datos básicos
     setValue('idservicio', id);
     setValue('precioinicialkilos', prekilo);
@@ -131,6 +193,52 @@ async function cargarServicio() {
   } catch (e) {
     console.error('🔥 ERROR COMPLETO:', e);
     alert("Error cargando el servicio para recogida: " + e.message);
+  }
+}
+
+function normalizarTelefonoRemitente(telefono) {
+  const limpio = String(telefono ?? '').trim();
+  if (!limpio) return '';
+
+  if (limpio.startsWith('+')) {
+    return limpio;
+  }
+
+  const soloDigitos = limpio.replace(/\D/g, '');
+  if (!soloDigitos) return '';
+
+  if (soloDigitos.startsWith('57')) {
+    return `+${soloDigitos}`;
+  }
+
+  return `+57${soloDigitos}`;
+}
+
+function llenarDatosQuienEntregaDesdeRemitente() {
+  const servicio = window._servicioRecogida || {};
+  const nombreRemitente = String(
+    servicio.cli_nombre ??
+    servicio.remitente_nombre ??
+    servicio.ser_remitente ??
+    ''
+  ).trim();
+  const telefonoRemitente = normalizarTelefonoRemitente(
+    servicio.cli_telefono ??
+    servicio.remitente_telefono ??
+    servicio.ser_telefonocontacto ??
+    ''
+  );
+
+  const campoNombre = document.getElementById('param82');
+  const campoTelefono = document.getElementById('param85');
+
+  if (campoNombre && nombreRemitente) {
+    campoNombre.value = nombreRemitente;
+    campoNombre.dispatchEvent(new Event('keyup', { bubbles: true }));
+  }
+
+  if (campoTelefono && telefonoRemitente) {
+    campoTelefono.value = telefonoRemitente;
   }
 }
 
@@ -181,6 +289,8 @@ async function cargarMetodosPago() {
       op.textContent = m.pag_nombre;
       select.appendChild(op);
     });
+
+    actualizarImagenPagoDesdeMetodo();
 
   } catch (e) {
     console.error(e);
@@ -262,6 +372,11 @@ async function guardarRecogido() {
             title: 'Error interno',
             text: 'No se encontró el formulario de recogida.',
         });
+        return;
+    }
+
+    if (!form.checkValidity()) {
+        form.reportValidity();
         return;
     }
 
@@ -383,6 +498,11 @@ document.addEventListener("DOMContentLoaded", () => {
   cargarMetodosPago();
   cargarCreditos();
   consultarEstadoFirma();
+
+  const metodoPago = document.getElementById('param30');
+  if (metodoPago) {
+    metodoPago.addEventListener('change', actualizarImagenPagoDesdeMetodo);
+  }
 });
 
 // Obtener la hora actual en formato HH:MM
@@ -395,6 +515,7 @@ document.getElementById("param7").value = `${horas}:${minutos}`;
 // Exponer funciones globales
 window.guardarRecogido = guardarRecogido;
 window.guardarNoRecogido = guardarNoRecogido;
+window.llenarDatosQuienEntregaDesdeRemitente = llenarDatosQuienEntregaDesdeRemitente;
 
 
 

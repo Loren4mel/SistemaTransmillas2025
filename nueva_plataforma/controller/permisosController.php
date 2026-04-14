@@ -3,6 +3,21 @@ require_once "../model/permisosModel.php";
 
 $modelo = new Permisos();
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['crear_permiso'])) {
+    header('Content-Type: application/json');
+
+    $respuesta = $modelo->crearPermiso(
+        $_POST['menu_idmenu'] ?? 0,
+        $_POST['roles_idroles'] ?? 0,
+        $_POST['per_crear'] ?? 0,
+        $_POST['per_editar'] ?? 0,
+        $_POST['per_eliminar'] ?? 0,
+        $_POST['per_consultar'] ?? 0
+    );
+
+    echo json_encode($respuesta);
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_campo'])) {
     $id = $_POST['id'];
@@ -14,10 +29,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_campo'])) 
     echo json_encode(['ok' => $ok]);
     exit;
 }
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_usuario'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_permiso'])) {
+    header('Content-Type: application/json');
+    $permiso = $modelo->obtenerPermisoPorId($_POST['id'] ?? 0);
+    echo json_encode([
+        'ok' => (bool) $permiso,
+        'data' => $permiso
+    ]);
+    exit;
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_edicion_permiso'])) {
+    header('Content-Type: application/json');
+
+    $respuesta = $modelo->actualizarPermiso(
+        $_POST['idpermisos'] ?? 0,
+        $_POST['menu_idmenu'] ?? 0,
+        $_POST['roles_idroles'] ?? 0,
+        $_POST['per_crear'] ?? 0,
+        $_POST['per_editar'] ?? 0,
+        $_POST['per_eliminar'] ?? 0,
+        $_POST['per_consultar'] ?? 0
+    );
+
+    echo json_encode($respuesta);
+    exit;
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_permiso'])) {
     $id = $_POST['id'];
-    $modelo->eliminarUsuario($id);
-    echo json_encode(['ok' => true]);
+    header('Content-Type: application/json');
+    $ok = $modelo->eliminarPermiso($id);
+    echo json_encode(['ok' => $ok]);
     exit;
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['listar_dispositivos'])) {

@@ -104,7 +104,9 @@ class RecogerModel
             ser_pendientecobrar,
             ser_recogida,
             ser_cotizacion,
-            rel_nom_credito
+            rel_nom_credito,
+            cli_nombre,
+            cli_telefono
         FROM servicios
         INNER JOIN rel_sercli        ON idservicios = ser_idservicio
         INNER JOIN clientesservicios ON idclientesdir = ser_idclientes
@@ -216,7 +218,16 @@ class RecogerModel
     $param84 = $this->esc($POST['param84'] ?? '');                // correo
     $param85 = $this->esc($POST['param85'] ?? '');                // teléfono
     $param86 = $this->esc($POST['param86'] ?? '');                // enviar_whatsapp
-    
+
+    if ($param2 === '' || !is_numeric($param2) || (float)$param2 <= 0) {
+        $this->logRecogido("ERROR: Numero de piezas invalido");
+        return ["ok" => false, "msg" => "El numero de piezas es obligatorio"];
+    }
+
+    if ($param8 === 1 && $param10 <= 0) {
+        $this->logRecogido("ERROR: Peso obligatorio para contado");
+        return ["ok" => false, "msg" => "El peso es obligatorio cuando el tipo de pago es Contado"];
+    }
     
 
     // Contexto

@@ -11,3 +11,7 @@ emailsEnviados.txt
 # Archivos temporales
 *.tmp
 
+# Imágenes subidas por usuarios
+nueva_plataforma/uploads/vehiculos/*
+!nueva_plataforma/uploads/vehiculos/.gitkeep
+

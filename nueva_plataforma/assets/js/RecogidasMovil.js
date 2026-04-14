@@ -222,6 +222,40 @@ document.addEventListener("DOMContentLoaded", function () {
   const bloqueContado = document.getElementById("bloque-contado");
   const bloqueCredito = document.getElementById("bloque-credito");
   const creditoSelect = document.getElementById("cliente_credito");
+  const metodoPago = document.getElementById("metodo_pago");
+  const visorImagenPago = document.getElementById("visorImagenPago");
+  const imagenPagoPreview = document.getElementById("imagenPagoPreview");
+  const tituloImagenPago = document.getElementById("tituloImagenPago");
+
+  const imagenesPago = {
+    DV: {
+      titulo: "Davivienda",
+      src: "../../images/daviplata.png"
+    },
+    NQ: {
+      titulo: "Bancolombia",
+      src: "../../images/PagoBancolombiaLlave.png"
+    }
+  };
+
+  function ocultarImagenPago() {
+    visorImagenPago?.classList.add("d-none");
+    if (imagenPagoPreview) imagenPagoPreview.src = "";
+  }
+
+  function actualizarImagenPago() {
+    const config = imagenesPago[metodoPago?.value || ""];
+
+    if (!config || !visorImagenPago || !imagenPagoPreview || !tituloImagenPago) {
+      ocultarImagenPago();
+      return;
+    }
+
+    tituloImagenPago.textContent = "Imagen de pago - " + config.titulo;
+    imagenPagoPreview.src = config.src;
+    imagenPagoPreview.alt = config.titulo;
+    visorImagenPago.classList.remove("d-none");
+  }
 
   function manejarTipoPago() {
     const valor = tipoPago.value;
@@ -229,10 +263,14 @@ document.addEventListener("DOMContentLoaded", function () {
     // oculta ambos
     bloqueContado?.classList.add("d-none");
     bloqueCredito?.classList.add("d-none");
+    ocultarImagenPago();
+    if (metodoPago) metodoPago.value = "";
 
     if (valor === "1") bloqueContado?.classList.remove("d-none");
     if (valor === "2") bloqueCredito?.classList.remove("d-none");
   }
+
+  metodoPago?.addEventListener("change", actualizarImagenPago);
 
   /* =========================
      AUTOCOMPLETE REMITENTE
