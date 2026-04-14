@@ -1,7 +1,9 @@
+
+const urlController = '../controller/VehiculosController.php';
 $(document).ready(function () {
     const tabla = $('#tablaVehiculos').DataTable({
         ajax: {
-            url: 'nueva_plataforma/controller/VehiculosController.php',
+            url: urlController,
             type: 'POST',
             data: function (d) {
                 d.ajax = true;
@@ -127,7 +129,7 @@ $(document).ready(function () {
         });
 
         $.ajax({
-            url: 'nueva_plataforma/controller/VehiculosController.php',
+            url: urlController,
             type: 'POST',
             data: datos,
             cache: false,
@@ -173,7 +175,7 @@ $('#tablaVehiculos tbody').on('change', '.cambiar-campo', function () {
     const valor = $(this).val();
 
     $.ajax({
-        url: 'nueva_plataforma/controller/VehiculosController.php',
+        url: urlController,
         type: 'POST',
         data: { actualizar_campo: true, id, campo, valor },
         success: function () {
@@ -199,7 +201,7 @@ $('#tablaVehiculos tbody').on('click', '.eliminar-vehiculo', function () {
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
-                url: 'nueva_plataforma/controller/VehiculosController.php',
+                url: urlController,
                 type: 'POST',
                 data: { eliminar_vehiculo: true, id },
                 success: function () {
@@ -220,7 +222,7 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
     const id = $(this).data('id');
 
     $.ajax({
-        url: 'nueva_plataforma/controller/VehiculosController.php',
+        url: urlController,
         type: 'POST',
         data: { obtener_vehiculo: true, id: id },
         success: function (res) {
@@ -292,7 +294,7 @@ $('#btnActualizar').on('click', function (e) {
     });
 
     $.ajax({
-        url: 'nueva_plataforma/controller/VehiculosController.php',
+        url: urlController,
         type: 'POST',
         data: datos,
         cache: false,
