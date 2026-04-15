@@ -74,7 +74,7 @@ switch ($tipoPagoNormalizado) {
         $claseAvisoPago = "success";
         break;
 
-    case "2":
+    case "3":
     case "al cobro":
         $textoPago = "Guia pendiente de pago en destino";
         $colorPago = "#dc3545";
@@ -83,14 +83,14 @@ switch ($tipoPagoNormalizado) {
         $claseAvisoPago = "warning";
         break;
 
-    case "3":
+    case "2":
     case "credito":
         $textoPago = "Guia pendiente por credito";
         $colorPago = "#dc3545";
         $tituloAvisoPago = "Guia pendiente por credito";
         $mensajeAvisoPago = "Esta guia no ha sido pagada porque corresponde a un servicio a credito.";
         $claseAvisoPago = "warning";
-        break;
+    break;
 }
 
 include "../view/FirmarGuias/index.php";
