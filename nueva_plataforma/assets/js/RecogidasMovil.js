@@ -921,16 +921,27 @@ function setEstadoFirma(texto, clase = "text-warning", icono = "fa-clock") {
 
 function consultarEstadoFirma() {
   const idservicio = document.getElementById("idservicio_firma")?.value || "";
-  if (!idservicio || consultaEnCursoFirma) return;
+  if (!idservicio) {
+    setEstadoFirma("No hay servicio para validar", "text-danger", "fa-circle-exclamation");
+    Swal.fire("Sin servicio", "Primero debes guardar la recogida para poder verificar la firma.", "warning");
+    return;
+  }
+
+  if (consultaEnCursoFirma) return;
 
   consultaEnCursoFirma = true;
 
   fetch(`../controller/RecogidasMovilController.php?accion=consultarEstadoFirma&id=${encodeURIComponent(idservicio)}`, {
     method: "GET"
   })
-    .then(r => r.text())
-    .then(raw => {
+    .then(async r => {
+      const raw = await r.text();
       const limpio = (raw || "").replace(/^\uFEFF/, "").trim();
+
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${limpio}`);
+      }
+
       return JSON.parse(limpio);
     })
     .then(resp => {
