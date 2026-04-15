@@ -116,7 +116,7 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
 
           <div class="col-md-4">
             <label class="form-label fw-bold">Número de piezas</label>
-            <input type="number" id="ser_piezas" name="param2" class="form-control" min="1" />
+            <input type="number" id="ser_piezas" name="param2" class="form-control" min="1" required />
           </div>
         </div>
 
@@ -243,6 +243,13 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
             <div class="col-md-6">
               <label class="form-label fw-bold">Imagen transacción</label>
               <!-- param40: imagen de transacción -->
+              <small class="text-muted d-block mb-3">La imagen cambia automáticamente según el método de pago seleccionado.</small>
+              <div id="visorImagenPago" class="card border-0 shadow-sm mb-3" style="display:none; max-width:420px;">
+                <div class="card-body">
+                  <label id="tituloImagenPago" class="form-label fw-bold mb-2">Imagen de pago</label>
+                  <img id="imagenPagoPreview" src="" alt="Imagen del medio de pago" class="img-fluid rounded border" />
+                </div>
+              </div>
               <input type="file" id="param40" name="param40" class="form-control" accept="image/*" />
             </div>
           </div>
@@ -303,10 +310,15 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
                 <i class="fas fa-stamp me-2"></i> Sello
               </button>
             </div>
-            <div class="mt-2">
+            <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
               <small id="estadoFirma" class="text-warning">
                 <i class="fas fa-clock me-1"></i> Esperando firma...
               </small>
+              <button type="button"
+                      id="btnVerificarFirma"
+                      class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-rotate-right me-1"></i> Verificar
+              </button>
             </div>
           </div>
 
@@ -355,6 +367,10 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
           bloqueSello.style.display = (bloqueSello.style.display === 'none' || bloqueSello.style.display === '')
             ? 'flex'
             : 'none';
+
+          if (bloqueSello.style.display === 'flex' && typeof window.llenarDatosQuienEntregaDesdeRemitente === 'function') {
+            window.llenarDatosQuienEntregaDesdeRemitente();
+          }
         });
       }
 

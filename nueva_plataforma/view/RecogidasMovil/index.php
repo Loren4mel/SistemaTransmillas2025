@@ -272,6 +272,12 @@
                 <option value="DV">DAVIVIENDA  AHORROS DAVIPLATA</option>
                 <option value="NQ">BANCOLOMBIA CORRIENTE  NEQUI</option>
                 </select>
+                <div id="visorImagenPago" class="card border-0 shadow-sm mt-3 d-none" style="max-width:420px;">
+                  <div class="card-body">
+                    <label id="tituloImagenPago" class="form-label fw-bold mb-2">Imagen de pago</label>
+                    <img id="imagenPagoPreview" src="" alt="Referencia del método de pago" class="img-fluid rounded border" />
+                  </div>
+                </div>
             </div>
 
             <div class="col-12 col-md-6">

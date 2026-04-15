@@ -104,7 +104,9 @@ class RecogerModel
             ser_pendientecobrar,
             ser_recogida,
             ser_cotizacion,
-            rel_nom_credito
+            rel_nom_credito,
+            cli_nombre,
+            cli_telefono
         FROM servicios
         INNER JOIN rel_sercli        ON idservicios = ser_idservicio
         INNER JOIN clientesservicios ON idclientesdir = ser_idclientes
@@ -216,7 +218,16 @@ class RecogerModel
     $param84 = $this->esc($POST['param84'] ?? '');                // correo
     $param85 = $this->esc($POST['param85'] ?? '');                // teléfono
     $param86 = $this->esc($POST['param86'] ?? '');                // enviar_whatsapp
-    
+
+    if ($param2 === '' || !is_numeric($param2) || (float)$param2 <= 0) {
+        $this->logRecogido("ERROR: Numero de piezas invalido");
+        return ["ok" => false, "msg" => "El numero de piezas es obligatorio"];
+    }
+
+    if ($param8 === 1 && $param10 <= 0) {
+        $this->logRecogido("ERROR: Peso obligatorio para contado");
+        return ["ok" => false, "msg" => "El peso es obligatorio cuando el tipo de pago es Contado"];
+    }
     
 
     // Contexto
@@ -813,7 +824,7 @@ class RecogerModel
             throw new Exception("Error actualizando servicios: " . $conn->error);
         }
 
-        $this->guardarUbicacionServicio($id_param2, $id_usuario, "RECOGIDA",$data);
+        $this->guardarUbicacionServicio($id_param2, $id_usuario, "RECOGIDA", $POST);
         // =========================
         // Actualizar firma_clientes
         // =========================
@@ -1771,9 +1782,10 @@ class RecogerModel
         int $idservicios,
         int $idusuario,
         string $tipoEvento,
-        array $data
+        ?array $data = []
     ): void {
         try {
+            $data = is_array($data) ? $data : [];
             $latitud   = isset($data['latitud']) ? (float)$data['latitud'] : 0;
             $longitud  = isset($data['longitud']) ? (float)$data['longitud'] : 0;
             $precision = isset($data['precision_gps']) ? (float)$data['precision_gps'] : 0;
@@ -1784,19 +1796,40 @@ class RecogerModel
             }
 
             $fecha = date("Y-m-d H:i:s");
+            $tipoEventoEsc = $this->esc($tipoEvento);
+            $fechaEsc = $this->esc($fecha);
 
-            $sql = "INSERT INTO servicios_ubicaciones (
-                        idservicios, idusuario, tipo_evento,
-                        latitud, longitud, precision_metros, fecha_registro
-                    ) VALUES (
-                        '".(int)$idservicios."',
-                        '".(int)$idusuario."',
-                        '".$this->escape($tipoEvento)."',
-                        '".$this->escape($latitud)."',
-                        '".$this->escape($longitud)."',
-                        '".$this->escape($precision)."',
-                        '".$this->escape($fecha)."'
-                    )";
+            $sqlExiste = "SELECT id
+                          FROM servicios_ubicaciones
+                          WHERE idservicios = '".(int)$idservicios."'
+                            AND tipo_evento = '".$tipoEventoEsc."'
+                          LIMIT 1";
+
+            $resExiste = $this->db->query($sqlExiste);
+            $registroExistente = $resExiste ? $resExiste->fetch_assoc() : null;
+
+            if ($registroExistente && !empty($registroExistente['id'])) {
+                $sql = "UPDATE servicios_ubicaciones
+                        SET idusuario = '".(int)$idusuario."',
+                            latitud = '".$this->esc((string)$latitud)."',
+                            longitud = '".$this->esc((string)$longitud)."',
+                            precision_metros = '".$this->esc((string)$precision)."',
+                            fecha_registro = '".$fechaEsc."'
+                        WHERE id = '".(int)$registroExistente['id']."'";
+            } else {
+                $sql = "INSERT INTO servicios_ubicaciones (
+                            idservicios, idusuario, tipo_evento,
+                            latitud, longitud, precision_metros, fecha_registro
+                        ) VALUES (
+                            '".(int)$idservicios."',
+                            '".(int)$idusuario."',
+                            '".$tipoEventoEsc."',
+                            '".$this->esc((string)$latitud)."',
+                            '".$this->esc((string)$longitud)."',
+                            '".$this->esc((string)$precision)."',
+                            '".$fechaEsc."'
+                        )";
+            }
 
             $this->db->query($sql);
 
@@ -1817,7 +1850,7 @@ class RecogerModel
 
         $sql = "SELECT activo_para_firmar, firma_clientes
                 FROM firma_clientes
-                WHERE tipo_firma='Recoger' AND id_guia='$id'
+                WHERE tipo_firma='Recogida' AND id_guia='$id'
                 ORDER BY id DESC
                 LIMIT 1";
 

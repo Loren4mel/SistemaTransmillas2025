@@ -56,23 +56,40 @@ if (!$idServicio || !$accionFirma) {
 // =========================
 
 $puedeFirmar = $modelo->servicioPuedeFirmar($idServicio, $accionFirma);
-// Preparar texto según tipo de pago (esto ya no va en la vista)
+// Preparar mensaje segun tipo de pago para mostrarlo de forma clara al abrir la guia
+$tipoPagoNormalizado = strtolower(trim((string) $tipoPago));
 $textoPago = "";
-$colorPago = "";
+$colorPago = "#0b4a8b";
+$tituloAvisoPago = "Informacion del pago";
+$mensajeAvisoPago = "Revise la informacion de pago antes de firmar.";
+$claseAvisoPago = "info";
 
-switch (strtolower($tipoPago)) {
-    case "3":
-    case "al cobro":
-    case "credito":
-    case "2":
-        $textoPago = "Esta guía NO está paga";
-        $colorPago = "#e74c3c";
-        break;
-
+switch ($tipoPagoNormalizado) {
     case "1":
     case "contado":
-        $textoPago = "Esta guía SÍ está paga";
-        $colorPago = "#2ecc71";
+        $textoPago = "Guia pagada al momento de la firma";
+        $colorPago = "#198754";
+        $tituloAvisoPago = "Guia pagada en este momento";
+        $mensajeAvisoPago = "Esta guia esta siendo pagada en este momento por la persona que va a firmar.";
+        $claseAvisoPago = "success";
+        break;
+
+    case "2":
+    case "al cobro":
+        $textoPago = "Guia pendiente de pago en destino";
+        $colorPago = "#dc3545";
+        $tituloAvisoPago = "Guia pendiente por pago en destino";
+        $mensajeAvisoPago = "Esta guia no ha sido pagada. El pago lo realizara el destinatario en la ciudad de destino.";
+        $claseAvisoPago = "warning";
+        break;
+
+    case "3":
+    case "credito":
+        $textoPago = "Guia pendiente por credito";
+        $colorPago = "#dc3545";
+        $tituloAvisoPago = "Guia pendiente por credito";
+        $mensajeAvisoPago = "Esta guia no ha sido pagada porque corresponde a un servicio a credito.";
+        $claseAvisoPago = "warning";
         break;
 }
 

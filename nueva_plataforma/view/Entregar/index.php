@@ -1,8 +1,8 @@
-<?php
-// Seguridad bÃƒÂ¡sica similar a otros mÃƒÂ³dulos (comentado como lo dejaste)
+﻿<?php
+// Seguridad básica similar a otros módulos (comentado como lo dejaste)
 // if (!isset($_POST['sede']) || !isset($_POST['acceso']) || !isset($_POST['usuario'])) {
 //     echo "<script>
-//             alert('No tiene acceso a esta pÃƒÂ¡gina');
+//             alert('No tiene acceso a esta página');
 //             window.close();
 //           </script>";
 //     exit;
@@ -26,7 +26,7 @@ date_default_timezone_set('America/Bogota');
 $porcobrar = $_GET['porcobrar'] ?? '';
 
 
-// Ã°Å¸â€Â¹ ID del servicio llega por GET como idServicio
+// ID del servicio llega por GET como idServicio
 $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
 ?>
 <!DOCTYPE html>
@@ -74,8 +74,8 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
   <!-- Barra superior (comentada como la dejaste) -->
   <!-- <nav class="navbar navbar-expand-lg topbar" style="background:#00458D;color:white;">
     <div class="container-fluid">
-      <button class="btn btn-light" onclick="history.back()">Ã¢Â¬â€¦ Volver</button>
-      <span class="navbar-text ms-3">MÃƒÂ³dulo: Entregar</span>
+      <button class="btn btn-light" onclick="history.back()">Volver</button>
+      <span class="navbar-text ms-3">Módulo: Entregar</span>
     </div>
   </nav> -->
 
@@ -91,10 +91,10 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
 
         <hr>
 
-        <!-- SELECTOR DE ACCIÃƒâ€œN -->
+        <!-- SELECTOR DE ACCIÓN -->
         <div class="row mb-4">
           <div class="col-md-4">
-            <label class="form-label fw-bold">Seleccione acciÃƒÂ³n</label>
+            <label class="form-label fw-bold">Seleccione acción</label>
             <select id="tipoAccion" class="form-select">
               <option value="">Seleccione...</option>
               <option value="entregar">ENTREGAR</option>
@@ -139,7 +139,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
           <input type="hidden" name="usuario" value="<?php echo htmlspecialchars($usuario); ?>">
           <input type="hidden" name="idservicio" id="idservicio" value="<?php echo htmlspecialchars($idservicio); ?>">
 
-          <!-- ========== SECCIÃƒâ€œN: DATOS DEL SERVICIO (equivalente a "Datos") ========== -->
+          <!-- ========== SECCIÓN: DATOS DEL SERVICIO (equivalente a "Datos") ========== -->
           <div class="section-title">Datos del servicio</div>
 
           <div class="row mb-3">
@@ -152,7 +152,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
             <?php endif; ?>
 
             <div class="col-md-4">
-              <label class="form-label label-strong">NÃƒÂºmero de piezas</label>
+              <label class="form-label label-strong">Número de piezas</label>
               <input type="number" name="ser_piezas" id="ser_piezas" class="form-control readonly-input" readonly>
             </div>
 
@@ -191,17 +191,17 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
               <input type="text" name="ser_valor" id="ser_valor" class="form-control readonly-input" readonly>
             </div>
             <div class="col-md-4">
-              <label class="form-label label-strong">GuÃƒÂ­a</label>
+              <label class="form-label label-strong">Guía</label>
               <input type="text" name="ser_guiare" id="ser_guiare" class="form-control readonly-input" readonly>
             </div>
           </div>
 
-          <!-- ========== SECCIÃƒâ€œN: TOTALES (equivalente a "TOTALES") ========== -->
+          <!-- ========== SECCIÓN: TOTALES (equivalente a "TOTALES") ========== -->
           <div class="section-title mt-4">Totales</div>
 
           <div class="row mb-3">
             <div class="col-md-3">
-              <label class="form-label label-strong">Valor de PrÃƒÂ©stamo</label>
+              <label class="form-label label-strong">Valor de Préstamo</label>
               <input type="text" id="valor_prestamo" name="valor_prestamo" 
                      class="form-control readonly-input" readonly>
             </div>
@@ -211,7 +211,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
                      class="form-control readonly-input" readonly>
             </div>
             <div class="col-md-3">
-              <label class="form-label label-strong">Cobro x PrÃƒÂ©stamo</label>
+              <label class="form-label label-strong">Cobro x Préstamo</label>
               <input type="text" id="cobro_prestamo" name="cobro_prestamo" 
                      class="form-control readonly-input" readonly>
             </div>
@@ -228,7 +228,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
               <input type="text" id="abono" name="abono" class="form-control readonly-input" readonly>
             </div>
             <div class="col-md-3">
-              <label class="form-label label-strong">TOTAL PRÃƒâ€°STAMO</label>
+              <label class="form-label label-strong">TOTAL PRÉSTAMO</label>
               <input type="text" id="total_prestamo" name="total_prestamo" 
                      class="form-control readonly-input" readonly>
             </div>
@@ -246,29 +246,40 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
 
           <div class="row mb-3" id="rowDevolucion" style="display:none;">
             <div class="col-md-3">
-              <label class="form-label label-strong">DEVOLUCIÃƒâ€œN</label>
+              <label class="form-label label-strong">DEVOLUCIÓN</label>
               <input type="text" id="devolucion" name="param19" 
                      class="form-control readonly-input" readonly>
             </div>
           </div>
 
-          <!-- ========== SECCIÃƒâ€œN: MÃƒâ€°TODO DE PAGO (solo si Al Cobro o pendiente cobrar) ========== -->
+          <!-- ========== SECCIÓN: MÉTODO DE PAGO (solo si Al Cobro o pendiente cobrar) ========== -->
           <div class="section-title mt-4">Pago</div>
 
           <div id="bloqueMetodoPago" style="display:none;">
             <div class="row mb-3">
               <div class="col-md-6">
-                <label class="form-label label-strong">MÃƒÂ©todo de pago</label>
+                <label class="form-label label-strong">Método de pago</label>
                 <select name="param30" id="metodo_pago" class="form-select">
                   <option value="">Seleccione...</option><option value="1||Efectivo">Efectivo</option>
                   <option value="2|457800098420|DAVIVIENDA  AHORROS DAVIPLATA">DAVIVIENDA  AHORROS DAVIPLATA</option>
                   <option value="4|26400000710|BANCOLOMBIA CORRIENTE  NEQUI">BANCOLOMBIA CORRIENTE  NEQUI</option>
-                  <!-- AquÃƒÂ­ puedes cargar dinÃƒÂ¡micamente desde PHP/BD si quieres -->
+                  <!-- Aquí puedes cargar dinámicamente desde PHP/BD si quieres -->
                 </select>
                 
               </div>
               <div class="col-md-6">
-                <label class="form-label label-strong">Imagen transacciÃƒÂ³n</label>
+                <label class="form-label label-strong">Referencias bancarias</label>
+                <div class="d-flex gap-2 flex-wrap mb-3">
+                  <button type="button" class="btn btn-outline-primary btn-sm" data-banco="bancolombia" onclick="toggleImagenBanco('bancolombia')">Bancolombia</button>
+                  <button type="button" class="btn btn-outline-danger btn-sm" data-banco="davivienda" onclick="toggleImagenBanco('davivienda')">Davivienda</button>
+                </div>
+                <div id="visorImagenBanco" class="card border-0 shadow-sm mb-3" style="display:none; max-width:420px;">
+                  <div class="card-body">
+                    <label id="tituloImagenBanco" class="form-label label-strong mb-2">Imagen bancaria</label>
+                    <img id="imagenBancoPreview" src="" alt="Referencia bancaria" class="img-fluid rounded border" />
+                  </div>
+                </div>
+                <label class="form-label label-strong">Imagen transacción</label>
                 <input type="file" name="img_transaccion" id="img_transaccion" 
                        class="form-control" accept="image/*">
               </div>
@@ -278,7 +289,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
           <!-- Si no es al cobro, enviamos 0 en param30 -->
           <input type="hidden" name="param30" id="param30_hidden" value="0">
 
-          <!-- ========== SECCIÃƒâ€œN: DATOS QUIEN ENTREGA ========== -->
+          <!-- ========== SECCIÓN: DATOS QUIEN ENTREGA ========== -->
           <div class="section-title mt-4">Datos de quien entrega</div>
 
           <div class="row mb-3">
@@ -298,7 +309,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
               </p>
             </div>
             <div class="col-md-6">
-              <label class="form-label label-strong" for="param85">TelÃƒÂ©fono WhatsApp</label>
+              <label class="form-label label-strong" for="param85">Teléfono WhatsApp</label>
               <input type="text" id="param85" name="param85" class="form-control" value="+57">
             </div>
           </div>
@@ -350,11 +361,11 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
             </iframe>
           </div> -->
 
-          <!-- ========== CAMPOS OCULTOS QUE TENÃƒÂAS EN TU CÃƒâ€œDIGO ========== -->
+          <!-- ========== CAMPOS OCULTOS QUE TENÍAS EN TU CÓDIGO ========== -->
           <input type="hidden" name="param8" id="param8"  />
           <input type="hidden" name="param9"  id="param9">   <!-- ser_ciudadentrega -->
           <input type="hidden" name="param22" id="param22">  <!-- cli_idciudad -->
-          <input type="hidden" name="param10" id="param10">  <!-- tipo pago/clasificaciÃƒÂ³n -->
+          <input type="hidden" name="param10" id="param10">  <!-- tipo pago/clasificación -->
           <input type="hidden" name="param11" id="param11">  <!-- ser_guiare -->
           <input type="hidden" name="iduserentrega" id="iduserentrega"> <!-- ser_idusuarioguia -->
           <input type="hidden" name="param20" id="param20">  <!-- kiliostotal -->
@@ -374,7 +385,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
 
 
 
-          <!-- BOTÃƒâ€œN GUARDAR -->
+          <!-- BOTÓN GUARDAR -->
           <div class="mt-4">
             <button type="button" id="btnGuardar" class="btn btn-success" onclick="enviarFormulario()">
               <i class="bi bi-save"></i> Guardar
@@ -412,7 +423,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
       // if (btnSubirSello && imgSello) {
       //   btnSubirSello.addEventListener('click', function () {
       //     if (!imgSello.files || imgSello.files.length === 0) {
-      //       Swal.fire('AtenciÃƒÂ³n', 'Selecciona una imagen de sello primero.', 'warning');
+      //       Swal.fire('Atención', 'Selecciona una imagen de sello primero.', 'warning');
       //       return;
       //     }
       //     Swal.fire('Listo', 'Imagen de sello seleccionada correctamente.', 'success');
@@ -453,7 +464,7 @@ document.getElementById("btnSubirSello").addEventListener("click", function () {
         return;
       }
 
-      Swal.fire("Sello guardado", "Proceso finalizado Ã¢Å“â€", "success");
+      Swal.fire("Sello guardado", "Proceso finalizado", "success");
       finalizarProceso();
     });
   };
