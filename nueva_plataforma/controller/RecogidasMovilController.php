@@ -447,8 +447,8 @@ if (!$isAjax) {
     $sede               = $session['usu_idsede']     ?? null;
     $acceso             = $session['usuario_rol']    ?? null;
 
-    $ciudadesR = $modelo->obtenerCiudadesRemitente($sede,$acceso);
     $ciudades = $modelo->obtenerCiudades();
+    $ciudadesR = $ciudades;
     
     $direcciones = $modelo->obtenerDirecciones();
     $lugares = $modelo->obtenerLugar();
