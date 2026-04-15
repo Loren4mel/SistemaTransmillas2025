@@ -368,31 +368,38 @@
 
 
 <!-- MODAL ACCIONES POST-GUARDADO -->
-<div class="modal fade" id="modalFirma" tabindex="-1">
-  <div class="modal-dialog modal-sm">
+<div class="modal fade" id="modalFirma" tabindex="-1" aria-labelledby="modalFirmaLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content">
 
       <div class="modal-header">
-        <h5 class="modal-title">Acciones del servicio</h5>
+        <h5 class="modal-title" id="modalFirmaLabel">
+          <i class="fas fa-circle-check me-2"></i>Acciones del servicio
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
       <div class="modal-body">
         <input type="hidden" id="idservicio_firma">
         <input type="hidden" id="link">
 
+        <div class="modal-firma-intro">
+          El servicio fue guardado correctamente. Selecciona como deseas continuar.
+        </div>
+
 
         <!-- BOTONES DE OPCIÓN -->
-        <div class="d-grid gap-2 mb-3">
-          <button class="btn btn-outline-primary" id="btnOpcionFirma">
-            📲 Reenviar link de firma
+        <div class="d-grid gap-2 mb-3 modal-firma-opciones">
+          <button class="btn btn-outline-primary" id="btnOpcionFirma" type="button">
+            📲 Enviar link de firma
           </button>
-          <button class="btn btn-outline-secondary" id="btnOpcionSello">
+          <button class="btn btn-outline-secondary" id="btnOpcionSello" type="button">
             🖋️ Subir sello
           </button>
         </div>
 
         <!-- ===== BLOQUE FIRMA ===== -->
-        <div id="bloqueFirma" class="d-none">
+        <div id="bloqueFirma" class="d-none modal-firma-panel">
           <hr>
           <div class="mb-2">
             <label>Nombre receptor</label>
@@ -404,13 +411,13 @@
             <input type="text" id="telefono_receptor" class="form-control">
           </div>
 
-          <button class="btn btn-success w-100" id="btnEnviarFirma">
+          <button class="btn btn-success w-100" id="btnEnviarFirma" type="button">
             Reenviar link
           </button>
         </div>
 
         <!-- ===== BLOQUE SELLO ===== -->
-        <div id="bloqueSello" class="d-none">
+        <div id="bloqueSello" class="d-none modal-firma-panel">
           <hr>
           <input type="hidden" id="idservicio_sello">
 
@@ -419,7 +426,7 @@
             <input type="file" id="imagen_sello" class="form-control" accept="image/*">
           </div>
 
-          <button class="btn btn-dark w-100" id="btnGuardarSello">
+          <button class="btn btn-dark w-100" id="btnGuardarSello" type="button">
             Guardar sello
           </button>
         </div>
@@ -427,7 +434,7 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="btnFinalizar">
+        <button class="btn btn-secondary" id="btnFinalizar" type="button">
           Finalizar
         </button>
       </div>
