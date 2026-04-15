@@ -84,13 +84,13 @@
                   <?php endforeach; ?>
                 </select>
               </div>
-              <div class="col-4 col-md-1"><input type="text" id="dir1R" name="dir1R" class="form-control" required></div>
-              <div class="col-2 col-md-1 text-center">#</div>
-              <div class="col-4 col-md-1"><input type="text" id="dir2R" name="dir2R" class="form-control" required></div>
-              <div class="col-2 col-md-1 text-center">-</div>
-              <div class="col-4 col-md-1"><input type="text" id="dir3R" name="dir3R" class="form-control" required></div>
+              <div class="col-4 col-md-1" id="wrapDir1R"><input type="text" id="dir1R" name="dir1R" class="form-control" required></div>
+              <div class="col-2 col-md-1 text-center" id="sepDirHashR">#</div>
+              <div class="col-4 col-md-1" id="wrapDir2R"><input type="text" id="dir2R" name="dir2R" class="form-control" required></div>
+              <div class="col-2 col-md-1 text-center" id="sepDirGuionR">-</div>
+              <div class="col-4 col-md-1" id="wrapDir3R"><input type="text" id="dir3R" name="dir3R" class="form-control" required></div>
 
-              <div class="col-12 col-md-5">
+              <div class="col-12 col-md-5" id="wrapComplementoR">
                 <label>Lugar</label>
                 <select id="param19" name="selectComplemento" class="form-select" required>
                   <option value="">Seleccione...</option>

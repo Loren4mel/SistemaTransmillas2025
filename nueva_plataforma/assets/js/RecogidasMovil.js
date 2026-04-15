@@ -321,6 +321,7 @@ document.addEventListener("DOMContentLoaded", function () {
         
 
         setValue("param5", dir[0] || "");
+        document.getElementById("param5")?.dispatchEvent(new Event("change"));
         setValue("param19", dir[2] || "");
         setValue("dir_complemento_detalle", dir[3] || "");
 
@@ -1185,25 +1186,49 @@ document.addEventListener("DOMContentLoaded", function () {
 document.addEventListener("DOMContentLoaded", function () {
 
   const tipoVia = document.getElementById("param5");
+  if (!tipoVia) return;
+  const dir1R = document.getElementById("dir1R");
+  const dir2R = document.getElementById("dir2R");
+  const dir3R = document.getElementById("dir3R");
+  const selectComplemento = document.getElementById("param19");
+  const contenedorComplemento = document.getElementById("camposComplemento");
+  const campoFinalComplemento = document.getElementById("complementoFinal");
 
-  const camposDireccion = [
-    document.getElementById("dir1R"),
-    document.getElementById("dir2R"),
-    document.getElementById("dir3R"),
-    document.getElementById("param19") // Lugar / Complemento
+  const camposDireccion = [dir1R, dir2R, dir3R, selectComplemento];
+  const bloquesOcultables = [
+    document.getElementById("wrapDir1R"),
+    document.getElementById("sepDirHashR"),
+    document.getElementById("wrapDir2R"),
+    document.getElementById("sepDirGuionR"),
+    document.getElementById("wrapDir3R"),
+    document.getElementById("wrapComplementoR"),
+    contenedorComplemento
   ];
+
+  function limpiarDerivadosComplemento() {
+    if (contenedorComplemento) contenedorComplemento.innerHTML = "";
+    if (campoFinalComplemento) campoFinalComplemento.value = "";
+    if (selectComplemento) selectComplemento.value = "";
+  }
 
   function actualizarRequeridos() {
     const valor = tipoVia.value.trim().toUpperCase();
 
     if (valor === "OFICINA TRANSMILLAS") {
       camposDireccion.forEach(campo => {
-        if (campo) campo.removeAttribute("required");
+        if (!campo) return;
+        campo.removeAttribute("required");
+        campo.value = "";
       });
+
+      limpiarDerivadosComplemento();
+      bloquesOcultables.forEach(bloque => bloque?.classList.add("d-none"));
     } else {
       camposDireccion.forEach(campo => {
         if (campo) campo.setAttribute("required", "required");
       });
+
+      bloquesOcultables.forEach(bloque => bloque?.classList.remove("d-none"));
     }
   }
 
