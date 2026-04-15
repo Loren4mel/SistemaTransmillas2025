@@ -840,6 +840,7 @@ function enviarFormulario() {
       { backdrop: "static", keyboard: false }
     );
 
+    setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
     modal.show();
   })
   .catch(err => {
@@ -908,6 +909,47 @@ function nombreCompletoValido(nombre) {
   return partes.length >= 2;
 }
 
+let consultaEnCursoFirma = false;
+
+function setEstadoFirma(texto, clase = "text-warning", icono = "fa-clock") {
+  const el = document.getElementById("estadoFirma");
+  if (!el) return;
+
+  el.className = clase;
+  el.innerHTML = `<i class="fas ${icono} me-1"></i> ${texto}`;
+}
+
+function consultarEstadoFirma() {
+  const idservicio = document.getElementById("idservicio_firma")?.value || "";
+  if (!idservicio || consultaEnCursoFirma) return;
+
+  consultaEnCursoFirma = true;
+
+  fetch(`../controller/RecogidasMovilController.php?accion=consultarEstadoFirma&id=${encodeURIComponent(idservicio)}`, {
+    method: "GET"
+  })
+    .then(r => r.text())
+    .then(raw => {
+      const limpio = (raw || "").replace(/^\uFEFF/, "").trim();
+      return JSON.parse(limpio);
+    })
+    .then(resp => {
+      if (resp && resp.ok && resp.firmada === true) {
+        setEstadoFirma("Ya esta firmada", "text-success", "fa-check-circle");
+        return;
+      }
+
+      setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
+    })
+    .catch(err => {
+      console.error("Error consultando estado de firma:", err);
+      setEstadoFirma("No se pudo validar la firma", "text-danger", "fa-circle-exclamation");
+    })
+    .finally(() => {
+      consultaEnCursoFirma = false;
+    });
+}
+
 const bloqueFirma = document.getElementById("bloqueFirma");
 const bloqueSello = document.getElementById("bloqueSello");
 
@@ -955,6 +997,11 @@ document.getElementById("btnEnviarFirma").addEventListener("click", function () 
     Swal.fire("Enviado", "Link reenviado por WhatsApp ✔", "success");
     // 🚫 NO cerramos el modal, se queda abierto
   });
+});
+
+document.getElementById("btnVerificarFirma").addEventListener("click", function () {
+  setEstadoFirma("Validando firma...", "text-info", "fa-spinner");
+  consultarEstadoFirma();
 });
 
 //Guardar sello
@@ -1010,6 +1057,7 @@ function finalizarProceso() {
   document.getElementById("nombre_receptor").value = "";
   document.getElementById("telefono_receptor").value = "";
   document.getElementById("imagen_sello").value = "";
+  setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
 
   bloqueFirma.classList.add("d-none");
   bloqueSello.classList.add("d-none");

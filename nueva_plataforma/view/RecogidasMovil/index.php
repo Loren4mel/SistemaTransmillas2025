@@ -398,6 +398,15 @@
           </button>
         </div>
 
+        <div class="modal-firma-estado d-flex align-items-center gap-2 flex-wrap mb-3">
+          <small id="estadoFirma" class="text-warning">
+            <i class="fas fa-clock me-1"></i> Esperando firma...
+          </small>
+          <button type="button" id="btnVerificarFirma" class="btn btn-sm btn-outline-primary">
+            <i class="fas fa-rotate-right me-1"></i> Verificar firma
+          </button>
+        </div>
+
         <!-- ===== BLOQUE FIRMA ===== -->
         <div id="bloqueFirma" class="d-none modal-firma-panel">
           <hr>
