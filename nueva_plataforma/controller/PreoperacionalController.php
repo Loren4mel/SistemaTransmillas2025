@@ -201,11 +201,12 @@ function loadView($service)
     $esConductor = PreoperacionalNuevaEncuestaViewHelper::esConductor($nivel_acceso, $tipovehiculo);
 
     // NUEVO FORMATO: Solo secciones basadas en rol (SIN COVID, SIN FATIGA)
-    // Cuando es conductor, NO se muestran preguntas administrativas
+    // Cuando es conductor o vehículo propio, NO se muestran preguntas administrativas
+    $esVehiculoPropio = PreoperacionalNuevaEncuestaViewHelper::tieneVehiculoPropio($tipovehiculo);
     $mostrarSecciones = [
-        'administrativo' => !$esConductor && PreoperacionalNuevaEncuestaViewHelper::esPersonalAdministrativo($nivel_acceso),
+        'administrativo' => !$esConductor && !$esVehiculoPropio && PreoperacionalNuevaEncuestaViewHelper::esPersonalAdministrativo($nivel_acceso),
         'conductor' => $esConductor,
-        'vehiculo_propio' => PreoperacionalNuevaEncuestaViewHelper::tieneVehiculoPropio($tipovehiculo),
+        'vehiculo_propio' => $esVehiculoPropio,
         'auxiliar_carga' => PreoperacionalNuevaEncuestaViewHelper::esAuxiliarCarga($nivel_acceso),
         'preoperacional_vehiculo' => ($tipovehiculo === 'CARRO'),
         'preoperacional_moto' => ($tipovehiculo === 'MOTO')
