@@ -1472,6 +1472,29 @@ class RecogidasMovilModel {
             file_put_contents($logFile, "=== FIN guardarFirmaRecogida() ===\n\n", FILE_APPEND);
         }
     }
+    public function existeFirmaEntregaPublica($idservicio) {
+        $id = (int)$idservicio;
+
+        $sql = "SELECT activo_para_firmar, firma_clientes
+                FROM firma_clientes
+                WHERE tipo_firma='Recogida' AND id_guia='$id'
+                ORDER BY id DESC
+                LIMIT 1";
+
+        $res = $this->db->query($sql);
+
+        if (!$res || $res->num_rows === 0) {
+            return false;
+        }
+
+        $row = $res->fetch_assoc();
+
+        if (isset($row['activo_para_firmar']) && (int)$row['activo_para_firmar'] === 0) {
+            return true;
+        }
+
+        return !empty($row['firma_clientes']);
+    }
     public function enviarGuiaWhat($telefono, $tipo, $idservi)
         
     {

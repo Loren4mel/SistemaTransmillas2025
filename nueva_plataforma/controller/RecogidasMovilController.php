@@ -408,6 +408,20 @@ if ($isAjax && ($_POST['accion'] ?? '') === 'enviarLinkFirma') {
         exit;
     }
 }
+
+if (isset($_GET['accion']) && $_GET['accion'] === 'consultarEstadoFirma') {
+
+    $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+    $firmada = ($id > 0) ? $modelo->existeFirmaEntregaPublica($id) : false;
+
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => true,
+        'firmada' => (bool)$firmada
+    ]);
+    exit;
+}
+
 function logController(string $mensaje, array $contexto = [])
 {
     $logDir  = __DIR__ . 'logs';
@@ -433,8 +447,8 @@ if (!$isAjax) {
     $sede               = $session['usu_idsede']     ?? null;
     $acceso             = $session['usuario_rol']    ?? null;
 
-    $ciudadesR = $modelo->obtenerCiudadesRemitente($sede,$acceso);
     $ciudades = $modelo->obtenerCiudades();
+    $ciudadesR = $ciudades;
     
     $direcciones = $modelo->obtenerDirecciones();
     $lugares = $modelo->obtenerLugar();
