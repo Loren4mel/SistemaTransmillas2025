@@ -31,7 +31,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
     <!-- jQuery (para precarga AJAX) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Estilos personalizados -->
-    <link rel="stylesheet" href="../assets/css/preoperacional.css">
+    <link rel="stylesheet" href="../assets/css/preoperacional.css?<?= filemtime(__DIR__ . '/../../assets/css/preoperacional.css') ?>">
     <style>
         /* Estilos para los radio buttons y tablas */
         .table td,
@@ -58,14 +58,41 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
             font-size: 14px;
         }
 
+        /* .tittle3 ahora se maneja en preoperacional.css para colores pasteles */
         .tittle3 {
-            background-color: #074F91;
             color: white;
             font-weight: bold;
         }
 
         .table-hover tbody tr:hover {
             background-color: #C8C6F9 !important;
+        }
+
+        /* Estilos para la firma a trazo */
+        .signature-container {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .signature-canvas {
+            border: 2px solid #074F91;
+            border-radius: 4px;
+            background-color: #ffffff;
+            cursor: crosshair;
+            touch-action: none;
+            display: block;
+            margin: 0 auto 10px auto;
+            max-width: 100%;
+        }
+
+        .signature-controls {
+            margin-top: 10px;
+        }
+
+        .signature-row {
+            background-color: #f8f9fa !important;
         }
     </style>
 </head>
@@ -226,52 +253,61 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
 
                     <div id="contenedor1" style="display:flex;">
                         <div id="primero" style="width: 100%; float:left;">
-                            <table class="table table-hover">
+                            <div class="table-responsive table-responsive-custom">
+                                <table class="table table-hover">
 
                                 <!-- ==================== NUEVO FORMATO: SOLO SECCIONES BASADAS EN ROL (SIN COVID, SIN FATIGA) ==================== -->
                                 <?php if ($usarNuevoFormato): ?>
                                     
                                     <!-- SECCIÓN ADMINISTRATIVO (solo roles administrativos) -->
                                     <?php if ($mostrarSecciones['administrativo'] ?? false): ?>
-                                        <tr bgcolor="#074F91" class="tittle3">
+                                        <tr class="tittle3 section-header administrativo">
                                             <td colspan="4">👤 EVALUACIÓN PERSONAL ADMINISTRATIVO</td>
                                         </tr>
                                         <?= PreoperacionalNuevaEncuestaViewHelper::renderPreguntasPersonales(
                                             PreoperacionalNuevaEncuestaViewHelper::getPreguntasAdministrativo(),
-                                            $color
+                                            $color,
+                                            '',
+                                            'administrativo'
                                         ) ?>
                                     <?php endif; ?>
 
                                     <!-- SECCIÓN CONDUCTOR (solo conductores de carro) -->
                                     <?php if ($mostrarSecciones['conductor'] ?? false): ?>
-                                        <tr bgcolor="#074F91" class="tittle3">
+                                        <tr class="tittle3 section-header conductor">
                                             <td colspan="4">🚗 EVALUACIÓN PERSONAL CONDUCTOR</td>
                                         </tr>
                                         <?= PreoperacionalNuevaEncuestaViewHelper::renderPreguntasPersonales(
                                             PreoperacionalNuevaEncuestaViewHelper::getPreguntasConductor(),
-                                            $color
+                                            $color,
+                                            '',
+                                            'conductor'
                                         ) ?>
                                     <?php endif; ?>
 
                                     <!-- SECCIÓN VEHÍCULO PROPIO (solo motos) -->
                                     <?php if ($mostrarSecciones['vehiculo_propio'] ?? false): ?>
-                                        <tr bgcolor="#074F91" class="tittle3">
+                                        <tr class="tittle3 section-header vehiculo-propio">
                                             <td colspan="4">🏍️ EVALUACIÓN VEHÍCULO PROPIO (MOTO)</td>
                                         </tr>
                                         <?= PreoperacionalNuevaEncuestaViewHelper::renderPreguntasPersonales(
                                             PreoperacionalNuevaEncuestaViewHelper::getPreguntasVehiculoPropio(),
-                                            $color
+                                            $color,
+                                            '',
+                                            'vehiculo-propio'
                                         ) ?>
                                     <?php endif; ?>
 
                                     <!-- SECCIÓN AUXILIAR DE CARGA -->
                                     <?php if ($mostrarSecciones['auxiliar_carga'] ?? false): ?>
-                                        <tr bgcolor="#074F91" class="tittle3">
+                                        <tr class="tittle3 section-header auxiliar-carga">
                                             <td colspan="4">📦 EVALUACIÓN AUXILIAR DE CARGA</td>
                                         </tr>
                                         <?= PreoperacionalNuevaEncuestaViewHelper::renderPreguntasPersonales(
                                             PreoperacionalNuevaEncuestaViewHelper::getPreguntasAuxiliarCarga(),
-                                            $color
+                                            $color,
+                                            '',
+                                            'auxiliar-carga'
                                         ) ?>
                                     <?php endif; ?>
 
@@ -306,7 +342,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             </tr>
                                         <?php endif; ?>
 
-                                        <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($color) ?>
+                                        <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($color, 'preoperacional-carro') ?>
                                         
                                         <!-- Kilometraje actual con imagen -->
                                         <tr bgcolor='$color' class='text' id='klmactual'>
@@ -382,7 +418,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             </tr>
                                         <?php endif; ?>
 
-                                        <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($color) ?>
+                                        <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($color, 'preoperacional-moto') ?>
                                         
                                         <!-- Kilometraje actual con imagen -->
                                         <tr bgcolor='$color' class='text' id='klmactual'>
@@ -431,6 +467,9 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                     <tr bgcolor="#ff0000" class="tittle3">
                                         <td colspan="4">Declaro que toda la información suministrada en el test anterior es verídica.</td>
                                     </tr>
+
+                                    <!-- FIRMA A TRAZO (solo nuevos formularios) -->
+                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderSeccionFirma() ?>
 
                                     <!-- VALIDACIÓN (solo si es modo validación) -->
                                     <?php if ($esValidacion): ?>
@@ -582,6 +621,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
 
                                 <?php endif; ?>
                             </table>
+                            </div>
                         </div>
                     </div>
 
@@ -595,6 +635,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
 
     <!-- JavaScript del formulario preoperacional -->
     <script src="../assets/js/preoperacional.js?v=<?= filemtime(__DIR__ . '/../../assets/js/preoperacional.js') ?>"></script>
+
 </body>
 
 </html>

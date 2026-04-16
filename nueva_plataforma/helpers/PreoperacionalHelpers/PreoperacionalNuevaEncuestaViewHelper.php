@@ -301,56 +301,80 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     /**
-     * Genera el HTML para una sección de preguntas de vehículo con checkbox positivo
-     * Formato: Checkbox SÍ (positivo) por cada pregunta
+     * Genera el HTML para una sección de preguntas de vehículo con checkboxes binarios (SÍ/NO)
+     * Formato: Dos checkboxes exclusivos (SÍ y NO) por cada pregunta
      * Las observaciones van al final de la sección
      *
      * @param string $titulo Título de la sección
      * @param array $preguntas Array de preguntas
      * @param string $color Color de fondo
-     * @param bool $requerido Si las preguntas son requeridas
+     * @param string $sectionType Tipo de sección para clases CSS
+     * @param string $subsectionKey Clave de subsección
      * @return string HTML generado
      */
-    public static function renderSeccionVehiculoCheckboxes($titulo, $preguntas, $color = '#EFEFEF', $requerido = true)
+    public static function renderSeccionVehiculoCheckboxes($titulo, $preguntas, $color = '#EFEFEF', $sectionType = '', $subsectionKey = '')
     {
         $html = '';
 
-        // Header de la sección
-        $html .= "<tr class=\"section-header\">\n";
-        $html .= "    <td colspan=\"2\">{$titulo}</td>\n";
+        // Header de la sección - combinar clase general de sección con subclase específica
+        $sectionClass = !empty($sectionType) ? " {$sectionType}" : '';
+        $subsectionClass = !empty($subsectionKey) ? " subsection-{$subsectionKey}" : '';
+        $html .= "<tr class=\"section-header{$sectionClass}{$subsectionClass}\">\n";
+        $html .= "    <td colspan=\"3\">{$titulo}</td>\n";
         $html .= "</tr>\n";
 
-        // Preguntas con checkbox SÍ (positivo)
+        // Preguntas con checkboxes binarios (SÍ y NO)
         foreach ($preguntas as $preg) {
             $name = $preg[0];
             $texto = $preg[1];
             $requirePhoto = isset($preg['require_photo']) && $preg['require_photo'];
 
-            // Fila principal con pregunta y checkbox SÍ (positivo)
-            $html .= "<tr class='question-row' id='{$name}_row'>\n";
+            // Fila principal con pregunta y checkboxes binarios
+            $rowClass = !empty($sectionType) ? " {$sectionType}" : '';
+            $rowSubclass = !empty($subsectionKey) ? " subsection-{$subsectionKey}" : '';
+            $html .= "<tr class='question-row{$rowClass}{$rowSubclass}' id='{$name}_row'>\n";
             $html .= "    <td class='question-text'>{$texto}</td>\n";
-            
-            // Checkbox SÍ (positivo - OK)
+
+            // Checkbox SÍ (valor 1)
             $html .= "    <td class='option-cell'>\n";
             $html .= "        <label class='checkbox-label checkbox-si'>\n";
-            $requiredAttr = $requerido ? 'required' : '';
-            $html .= "            <input type='checkbox' name='{$name}' id='{$name}' class='obtener checkbox-ok' value='1' {$requiredAttr} data-name='{$name}'>\n";
-            $html .= "            <span class='checkbox-text'>SÍ (OK)</span>\n";
+            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-si-input' value='1' data-name='{$name}' data-binary-group='{$name}'>\n";
+            $html .= "            <span class='checkbox-text'>SÍ</span>\n";
             $html .= "        </label>\n";
             $html .= "    </td>\n";
+
+            // Checkbox NO (valor 2)
+            $html .= "    <td class='option-cell'>\n";
+            $html .= "        <label class='checkbox-label checkbox-no'>\n";
+            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-no-input' value='2' data-name='{$name}' data-binary-group='{$name}'>\n";
+            $html .= "            <span class='checkbox-text'>NO</span>\n";
+            $html .= "        </label>\n";
+            $html .= "    </td>\n";
+
             $html .= "</tr>\n";
 
             // Campo de foto si es requerido (para inspección inicial)
             if ($requirePhoto) {
-                $html .= "<tr class='photo-row' id='{$name}_photo_row' style='display:none;'>\n";
-                $html .= "    <td colspan='2' class='photo-cell'>\n";
+                $photoRowClass = !empty($sectionType) ? " {$sectionType}" : '';
+                $photoRowSubclass = !empty($subsectionKey) ? " subsection-{$subsectionKey}" : '';
+
+                // Mensaje personalizado para inspección inicial
+                $alertMessage = "Debe subir una fotografía del problema encontrado y contactar al personal administrativo.";
+                $alertClass = "photo-alert";
+                if ($subsectionKey === 'inspeccion_inicial') {
+                    $alertMessage = "⚠️ <strong>INSPECCIÓN INICIAL REQUERIDA:</strong> El vehículo no se encuentra en óptimas condiciones. Debe subir una fotografía del problema y contactar inmediatamente al personal administrativo antes de continuar.";
+                    $alertClass = "photo-alert photo-alert-inspeccion-inicial";
+                }
+
+                $html .= "<tr class='photo-row{$photoRowClass}{$photoRowSubclass}' id='{$name}_photo_row' style='display:none;'>\n";
+                $html .= "    <td colspan='3' class='photo-cell'>\n";
                 $html .= "        <div class='photo-upload-container'>\n";
                 $html .= "            <label class='photo-label'>\n";
                 $html .= "                <i class='fas fa-camera'></i> Subir fotografía del problema\n";
                 $html .= "            </label>\n";
-                $html .= "            <input type='file' name='{$name}_foto' id='{$name}_foto' class='photo-input' accept='image/*' data-trigger='{$name}'>\n";
-                $html .= "            <div class='photo-alert'>\n";
-                $html .= "                <i class='fas fa-exclamation-triangle'></i> <strong>Atención:</strong> Debe subir una fotografía del problema encontrado y contactar al personal administrativo.\n";
+                $html .= "            <input type='file' name='{$name}_foto' id='{$name}_foto' class='photo-input' accept='image/*' data-trigger='{$name}' data-required-photo='true'>\n";
+                $html .= "            <div class='{$alertClass}'>\n";
+                $html .= "                <i class='fas fa-exclamation-triangle'></i> {$alertMessage}\n";
                 $html .= "            </div>\n";
                 $html .= "        </div>\n";
                 $html .= "    </td>\n";
@@ -362,46 +386,52 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     /**
-     * Renderiza preguntas simples con SÍ/NO (para preguntas personales)
+     * Renderiza preguntas simples con dos checkboxes binarios (SÍ y NO) para preguntas personales
+     * Formato: Dos checkboxes exclusivos (SÍ y NO) por cada pregunta
      *
      * @param array $preguntas Array de preguntas
      * @param string $color Color de fondo
-     * @param string $seccionId ID de la sección
+     * @param string $seccionId ID de la sección (opcional, para encabezado)
+     * @param string $sectionType Tipo de sección para clases CSS
      * @return string HTML generado
      */
-    public static function renderPreguntasPersonales($preguntas, $color = '#EFEFEF', $seccionId = '')
+    public static function renderPreguntasPersonales($preguntas, $color = '#EFEFEF', $seccionId = '', $sectionType = '')
     {
-        $opciones = [
-            ['value' => '1', 'label' => 'SÍ'],
-            ['value' => '2', 'label' => 'NO']
-        ];
-
         $html = '';
 
+        // Encabezado de sección si se proporciona
         if (!empty($seccionId)) {
-            $html .= "<tr class=\"section-header personal-section\">\n";
+            $sectionClass = !empty($sectionType) ? " {$sectionType}" : '';
+            $html .= "<tr class=\"section-header personal-section{$sectionClass}\">\n";
             $html .= "    <td colspan='3'>{$seccionId}</td>\n";
             $html .= "</tr>\n";
         }
 
+        // Preguntas con dos checkboxes binarios (SÍ y NO)
         foreach ($preguntas as $preg) {
             $name = $preg[0];
             $texto = $preg[1];
+            $rowClass = !empty($sectionType) ? " {$sectionType}" : '';
 
-            $html .= "<tr class='question-row personal-question' id='{$name}_row'>\n";
+            $html .= "<tr class='question-row personal-question{$rowClass}' id='{$name}_row'>\n";
             $html .= "    <td class='question-text'>{$texto}</td>\n";
+
+            // Checkbox SÍ (valor 1)
             $html .= "    <td class='option-cell'>\n";
-            $html .= "        <label class='radio-label'>\n";
-            $html .= "            <input type='radio' name='{$name}' class='obtener' value='1' required>\n";
-            $html .= "            <span class='radio-text'>SÍ</span>\n";
+            $html .= "        <label class='checkbox-label checkbox-si'>\n";
+            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-si-input' value='1' data-name='{$name}' data-binary-group='{$name}'>\n";
+            $html .= "            <span class='checkbox-text'>SÍ</span>\n";
             $html .= "        </label>\n";
             $html .= "    </td>\n";
+
+            // Checkbox NO (valor 2)
             $html .= "    <td class='option-cell'>\n";
-            $html .= "        <label class='radio-label'>\n";
-            $html .= "            <input type='radio' name='{$name}' class='obtener' value='2'>\n";
-            $html .= "            <span class='radio-text'>NO</span>\n";
+            $html .= "        <label class='checkbox-label checkbox-no'>\n";
+            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-no-input' value='2' data-name='{$name}' data-binary-group='{$name}'>\n";
+            $html .= "            <span class='checkbox-text'>NO</span>\n";
             $html .= "        </label>\n";
             $html .= "    </td>\n";
+
             $html .= "</tr>\n";
         }
 
@@ -414,22 +444,24 @@ class PreoperacionalNuevaEncuestaViewHelper
      * @param string $color Color de fondo
      * @return string HTML generado
      */
-    public static function renderVehiculoCarroSections($color = '#EFEFEF')
+    public static function renderVehiculoCarroSections($color = '#EFEFEF', $sectionType = 'preoperacional-carro')
     {
         $preguntas = self::getPreguntasVehiculoCarro();
         $html = '';
 
-        foreach ($preguntas as $seccion) {
+        foreach ($preguntas as $key => $seccion) {
             $html .= self::renderSeccionVehiculoCheckboxes(
                 $seccion['titulo'],
                 $seccion['preguntas'],
-                $color
+                $color,
+                $sectionType,
+                $key  // Pasar el key de la subsección
             );
         }
 
         // Mensaje de advertencia
         $html .= '<tr class="warning-message">';
-        $html .= '<td colspan="2">⚠️ Si no marca "SÍ (OK)", debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS. Para la inspección inicial, debe subir fotografía y contactar a administrativos.</td>';
+        $html .= '<td colspan="3">⚠️ Si marca "NO" en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS. Para la inspección inicial, debe subir fotografía y contactar a administrativos.</td>';
         $html .= '</tr>';
 
         return $html;
@@ -441,32 +473,83 @@ class PreoperacionalNuevaEncuestaViewHelper
      * @param string $color Color de fondo
      * @return string HTML generado
      */
-    public static function renderVehiculoMotoSections($color = '#EFEFEF')
+    public static function renderVehiculoMotoSections($color = '#EFEFEF', $sectionType = 'preoperacional-moto')
     {
         $preguntas = self::getPreguntasVehiculoMoto();
         $html = '';
 
-        foreach ($preguntas as $seccion) {
+        foreach ($preguntas as $key => $seccion) {
             $html .= self::renderSeccionVehiculoCheckboxes(
                 $seccion['titulo'],
                 $seccion['preguntas'],
-                $color
+                $color,
+                $sectionType,
+                $key  // Pasar el key de la subsección
             );
         }
 
         // Mensaje de advertencia
         $html .= '<tr class="warning-message">';
-        $html .= '<td colspan="2">⚠️ Si no marca "SÍ (OK)", debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS.</td>';
+        $html .= '<td colspan="3">⚠️ Si marca "NO" en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS.</td>';
         $html .= '</tr>';
 
         return $html;
     }
 
+    // ==================== FIRMA A TRAZO ====================
+
+    /**
+     * Genera el HTML para la sección de firma a trazo (solo formularios nuevos)
+     * Incluye canvas para dibujo con mouse/dedo y campo oculto para guardar la firma
+     *
+     * @param string $nombreCampo Nombre del campo hidden que almacenará la firma en base64
+     * @param bool $requerido Si la firma es obligatoria
+     * @return string HTML generado
+     */
+    public static function renderSeccionFirma($nombreCampo = 'firma_preoperacional', $requerido = true)
+    {
+        $requiredAttr = $requerido ? 'required' : '';
+        $html = '';
+
+        // Sección de firma con canvas
+        $html .= "<tr bgcolor=\"#074F91\" class=\"tittle3\">\n";
+        $html .= "    <td colspan=\"4\">✍️ FIRMA DEL RESPONSABLE</td>\n";
+        $html .= "</tr>\n";
+
+        $html .= "<tr class='signature-row'>\n";
+        $html .= "    <td colspan='4'>\n";
+        $html .= "        <div class='signature-container'>\n";
+
+        // Canvas para la firma
+        $html .= "            <canvas id='signatureCanvas' width='400' height='200' class='signature-canvas'></canvas>\n";
+
+        // Botones de control
+        $html .= "            <div class='signature-controls'>\n";
+        $html .= "                <button type='button' class='btn btn-sm btn-outline-danger' id='btnClearSignature'>\n";
+        $html .= "                    <i class='fas fa-eraser'></i> Limpiar Firma\n";
+        $html .= "                </button>\n";
+        $html .= "            </div>\n";
+
+        // Campo oculto para almacenar la firma en base64
+        $html .= "            <input type='hidden' name='{$nombreCampo}' id='{$nombreCampo}' value='' {$requiredAttr} data-signature-field='true'>\n";
+
+        // Mensaje informativo
+        $html .= "            <small class='text-muted d-block mt-2'>\n";
+        $html .= "                <i class='fas fa-info-circle'></i> Firme con el mouse o el dedo (en dispositivos táctiles)\n";
+        $html .= "            </small>\n";
+
+        $html .= "        </div>\n";
+        $html .= "    </td>\n";
+        $html .= "</tr>\n";
+
+        return $html;
+    }
+
     // ==================== DETECCIÓN DE FORMATO ====================
-    
+
     /**
      * Detecta el formato de encuesta basado en los datos almacenados
-     * 
+     *
      * @param string $dataJson JSON de datos de la encuesta
      * @return string 'nuevo' o 'legado'
      */

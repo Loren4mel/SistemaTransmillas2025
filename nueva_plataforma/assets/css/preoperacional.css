@@ -1,6 +1,6 @@
 /**
  * Preoperacional - Estilos personalizados
- * 
+ *
  * Estilos específicos para el formulario de preoperacional
  */
 
@@ -30,7 +30,6 @@
 }
 
 .tittle3 {
-    background-color: #074F91;
     color: white;
     font-weight: bold;
 }
@@ -75,17 +74,6 @@
     font-weight: bold;
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
-    .table-responsive {
-        font-size: 12px;
-    }
-
-    .tittle3 {
-        font-size: 12px;
-    }
-}
-
 /* ==================== NUEVO FORMATO DE ENCUESTA ==================== */
 
 /* Header de sección */
@@ -102,7 +90,6 @@
 
 /* Fila de pregunta */
 .question-row {
-    background-color: #EFEFEF;
     font-size: 14px;
     transition: background-color 0.2s ease;
 }
@@ -142,12 +129,6 @@
     font-weight: 500;
 }
 
-/* Header de fatiga */
-.fatigue-header {
-    background-color: #074F91;
-    color: white;
-    font-weight: bold;
-}
 
 /* Mensaje de advertencia */
 .warning-message {
@@ -161,17 +142,7 @@
     padding: 10px;
 }
 
-/* Fila de información */
-.info-row {
-    background-color: #EFEFEF;
-    padding: 10px;
-}
 
-.input-clean-date {
-    display: inline-block;
-    width: 395px;
-    margin-top: 5px;
-}
 
 /* Resaltar respuestas incorrectas */
 .question-row.highlight-error {
@@ -208,7 +179,7 @@
 }
 
 .personal-question {
-    background-color: #EFEFEF;
+    /* background-color ahora se maneja por clases específicas de sección */
     font-size: 14px;
 }
 
@@ -303,6 +274,39 @@
     color: #155724;
 }
 
+/* Checkbox NO - Rojo */
+.checkbox-label.checkbox-no {
+    display: inline-block;
+    cursor: pointer;
+    margin: 0;
+    padding: 8px 14px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    background-color: #f8f9fa;
+    border: 2px solid #dc3545;
+}
+
+.checkbox-label.checkbox-no:hover {
+    background-color: #f8d7da;
+    border-color: #c82333;
+}
+
+.checkbox-label.checkbox-no input[type="checkbox"] {
+    margin-right: 6px;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.checkbox-label.checkbox-no input[type="checkbox"]:checked {
+    accent-color: #dc3545;
+}
+
+.checkbox-label.checkbox-no .checkbox-text {
+    font-weight: 600;
+    color: #721c24;
+}
+
 /* ==================== SECCIONES CON ICONOS ==================== */
 
 .section-header td {
@@ -310,13 +314,489 @@
     font-size: 14px;
 }
 
-/* Responsive para foto upload */
+/* ==================== MEJORAS RESPONSIVE Y COLORES PASTEL ==================== */
+
+/* Contenedor responsive para tablas */
+.table-responsive-custom {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+/* Colores MUY VIVOS para secciones - Máxima visibilidad */
+.section-header.administrativo,
+.section-header.administrativo td {
+    background-color: #2B7FFF !important;
+    border-left: 5px solid #0055CC !important;
+}
+
+.section-header.conductor,
+.section-header.conductor td {
+    background-color: #00C896 !important;
+    border-left: 5px solid #009977 !important;
+}
+
+.section-header.vehiculo-propio,
+.section-header.vehiculo-propio td {
+    background-color: #FFC107 !important;
+    border-left: 5px solid #D39E00 !important;
+}
+
+.section-header.auxiliar-carga,
+.section-header.auxiliar-carga td {
+    background-color: #FF6B9D !important;
+    border-left: 5px solid #FF3D7A !important;
+}
+
+.section-header.preoperacional-carro,
+.section-header.preoperacional-carro td {
+    background-color: #BA8CBA !important;
+    border-left: 5px solid #9C6C9C !important;
+}
+
+.section-header.preoperacional-moto,
+.section-header.preoperacional-moto td {
+    background-color: #FF9933 !important;
+    border-left: 5px solid #E67A00 !important;
+}
+
+/* Fondo MUY NOTORIO para filas de preguntas según sección */
+.question-row.administrativo,
+.question-row.administrativo td {
+    background-color: #9CC2FF !important;
+    border-left: 3px solid #2B7FFF !important;
+    box-shadow: inset 0 0 10px rgba(43, 127, 255, 0.1);
+}
+
+.question-row.conductor,
+.question-row.conductor td {
+    background-color: #9CE0C8 !important;
+    border-left: 3px solid #00C896 !important;
+    box-shadow: inset 0 0 10px rgba(0, 200, 150, 0.1);
+}
+
+.question-row.vehiculo-propio,
+.question-row.vehiculo-propio td {
+    background-color: #FFDD88 !important;
+    border-left: 3px solid #FFC107 !important;
+    box-shadow: inset 0 0 10px rgba(255, 193, 7, 0.1);
+}
+
+.question-row.auxiliar-carga,
+.question-row.auxiliar-carga td {
+    background-color: #FFB8D0 !important;
+    border-left: 3px solid #FF6B9D !important;
+    box-shadow: inset 0 0 10px rgba(255, 107, 157, 0.1);
+}
+
+.question-row.preoperacional-carro,
+.question-row.preoperacional-carro td {
+    background-color: #D0C0D0 !important;
+    border-left: 3px solid #BA8CBA !important;
+    box-shadow: inset 0 0 10px rgba(186, 140, 186, 0.1);
+}
+
+.question-row.preoperacional-moto,
+.question-row.preoperacional-moto td {
+    background-color: #FFC999 !important;
+    border-left: 3px solid #FF9933 !important;
+    box-shadow: inset 0 0 10px rgba(255, 153, 51, 0.1);
+}
+
+/* Efecto hover mejorado para resaltar */
+.question-row.administrativo:hover,
+.question-row.administrativo:hover td {
+    background-color: #C0DCFF !important;
+}
+
+.question-row.conductor:hover,
+.question-row.conductor:hover td {
+    background-color: #C0F0DC !important;
+}
+
+.question-row.vehiculo-propio:hover,
+.question-row.vehiculo-propio:hover td {
+    background-color: #FFEBB8 !important;
+}
+
+.question-row.auxiliar-carga:hover,
+.question-row.auxiliar-carga:hover td {
+    background-color: #FFD8E0 !important;
+}
+
+.question-row.preoperacional-carro:hover,
+.question-row.preoperacional-carro:hover td {
+    background-color: #E0D0E0 !important;
+}
+
+.question-row.preoperacional-moto:hover,
+.question-row.preoperacional-moto:hover td {
+    background-color: #FFD8B8 !important;
+}
+
+/* ==================== SUBSECCIÓN COLORS FOR VEHICLE PREOPERACIONAL ==================== */
+
+/* MOTO - LLANTAS Y RINES (azul claro) */
+.section-header.preoperacional-moto.subsection-llantas_rines,
+.section-header.preoperacional-moto.subsection-llantas_rines td,
+.question-row.preoperacional-moto.subsection-llantas_rines,
+.question-row.preoperacional-moto.subsection-llantas_rines td {
+    background-color: #E6F0FF !important;
+    border-left-color: #2B7FFF !important;
+}
+
+/* MOTO - TRANSMISION (verde claro) */
+.section-header.preoperacional-moto.subsection-transmision,
+.section-header.preoperacional-moto.subsection-transmision td,
+.question-row.preoperacional-moto.subsection-transmision,
+.question-row.preoperacional-moto.subsection-transmision td {
+    background-color: #E6FFE6 !important;
+    border-left-color: #00C896 !important;
+}
+
+/* MOTO - LUCES Y ESPEJOS (azul claro) */
+.section-header.preoperacional-moto.subsection-luces_espejos,
+.section-header.preoperacional-moto.subsection-luces_espejos td,
+.question-row.preoperacional-moto.subsection-luces_espejos,
+.question-row.preoperacional-moto.subsection-luces_espejos td {
+    background-color: #D6E4FF !important;
+    border-left-color: #2B7FFF !important;
+}
+
+/* MOTO - FUGAS (amarillo claro) */
+.section-header.preoperacional-moto.subsection-fugas,
+.section-header.preoperacional-moto.subsection-fugas td,
+.question-row.preoperacional-moto.subsection-fugas,
+.question-row.preoperacional-moto.subsection-fugas td {
+    background-color: #FFF9E6 !important;
+    border-left-color: #FFC107 !important;
+}
+
+/* MOTO - MANDOS (azul claro) */
+.section-header.preoperacional-moto.subsection-mandos,
+.section-header.preoperacional-moto.subsection-mandos td,
+.question-row.preoperacional-moto.subsection-mandos,
+.question-row.preoperacional-moto.subsection-mandos td {
+    background-color: #E6F0FF !important;
+    border-left-color: #2B7FFF !important;
+}
+
+/* MOTO - ENTORNO GENERAL (rojo claro) */
+.section-header.preoperacional-moto.subsection-entorno_general,
+.section-header.preoperacional-moto.subsection-entorno_general td,
+.question-row.preoperacional-moto.subsection-entorno_general,
+.question-row.preoperacional-moto.subsection-entorno_general td {
+    background-color: #FFE6E6 !important;
+    border-left-color: #FF6B9D !important;
+}
+
+
+
+
+/* CARRO - INSPECCION INICIAL (rojo claro) */
+.section-header.preoperacional-carro.subsection-inspeccion_inicial,
+.section-header.preoperacional-carro.subsection-inspeccion_inicial td,
+.question-row.preoperacional-carro.subsection-inspeccion_inicial,
+.question-row.preoperacional-carro.subsection-inspeccion_inicial td {
+    background-color: #FFE6E6 !important;
+    border-left-color: #FF6B9D !important;
+}
+
+/* CARRO - LLANTAS (azul claro) */
+.section-header.preoperacional-carro.subsection-llantas,
+.section-header.preoperacional-carro.subsection-llantas td,
+.question-row.preoperacional-carro.subsection-llantas,
+.question-row.preoperacional-carro.subsection-llantas td {
+    background-color: #E6F0FF !important;
+    border-left-color: #2B7FFF !important;
+}
+
+/* CARRO - LUCES (azul claro) */
+.section-header.preoperacional-carro.subsection-luces,
+.section-header.preoperacional-carro.subsection-luces td,
+.question-row.preoperacional-carro.subsection-luces,
+.question-row.preoperacional-carro.subsection-luces td {
+    background-color: #D6E4FF !important;
+    border-left-color: #2B7FFF !important;
+}
+
+/* CARRO - CABINA (amarillo claro) */
+.section-header.preoperacional-carro.subsection-cabina,
+.section-header.preoperacional-carro.subsection-cabina td,
+.question-row.preoperacional-carro.subsection-cabina,
+.question-row.preoperacional-carro.subsection-cabina td {
+    background-color: #FFF9E6 !important;
+    border-left-color: #FFC107 !important;
+}
+
+/* CARRO - DISPOSITIVOS DE SEGURIDAD (verde claro) */
+.section-header.preoperacional-carro.subsection-dispositivos_seguridad,
+.section-header.preoperacional-carro.subsection-dispositivos_seguridad td,
+.question-row.preoperacional-carro.subsection-dispositivos_seguridad,
+.question-row.preoperacional-carro.subsection-dispositivos_seguridad td {
+    background-color: #E6FFE6 !important;
+    border-left-color: #00C896 !important;
+}
+
+/* CARRO - INDICADORES (azul claro) */
+.section-header.preoperacional-carro.subsection-indicadores,
+.section-header.preoperacional-carro.subsection-indicadores td,
+.question-row.preoperacional-carro.subsection-indicadores,
+.question-row.preoperacional-carro.subsection-indicadores td {
+    background-color: #E6F0FF !important;
+    border-left-color: #2B7FFF !important;
+}
+
+/* MOTO - ELEMENTOS DE PROTECCIÓN (morado claro) */
+.section-header.preoperacional-moto.subsection-elementos_proteccion,
+.section-header.preoperacional-moto.subsection-elementos_proteccion td,
+.question-row.preoperacional-moto.subsection-elementos_proteccion,
+.question-row.preoperacional-moto.subsection-elementos_proteccion td {
+    background-color: #F0E6FF !important;
+    border-left-color: #9C6C9C !important;
+}
+
+/* ==================== MEDIA QUERIES ==================== */
+
 @media (max-width: 768px) {
+    /* Responsive design original */
+    .table-responsive {
+        font-size: 12px;
+    }
+
+    .tittle3 {
+        font-size: 12px;
+    }
+
+    /* Responsive para foto upload */
     .photo-upload-container {
         padding: 10px;
     }
-    
+
     .photo-alert {
         font-size: 12px;
+    }
+
+    /* Mejoras RESPONSIVE avanzadas para móviles - Compatible con tablas */
+    /* Tabla fluida - se adapta al contenedor sin layout fijo */
+    .table-responsive-custom table {
+        min-width: 0;
+        width: 100%;
+        table-layout: auto; /* Layout automático para mejor ajuste */
+    }
+
+    /* Forzar box-sizing border-box para todos los elementos dentro de la tabla */
+    .table-responsive-custom * {
+        box-sizing: border-box;
+    }
+
+    /* Hacer que las filas se comporten como bloques */
+    .question-row {
+        display: block;
+        border-bottom: 2px solid #e0e0e0;
+        margin-bottom: 15px;
+        padding: 15px 0;
+        /* El background-color lo manejan las clases específicas de sección */
+        box-sizing: border-box;
+    }
+
+    /* Celdas como bloques completos */
+    .question-row td {
+        display: block;
+        width: 100% !important;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Texto de pregunta con wordwrap mejorado - padding optimizado */
+    .question-text {
+        display: block;
+        font-weight: 600;
+        padding: 12px 8px; /* Padding horizontal aún más reducido */
+        margin-bottom: 12px;
+        background-color: transparent;
+        border-radius: 8px;
+        border-left: 4px solid #074F91;
+        word-wrap: break-word;
+        overflow-wrap: anywhere; /* Más agresivo que break-word */
+        word-break: break-word; /* Asegura ruptura de palabras largas */
+        hyphens: auto;
+        font-size: 15px; /* Ligeramente más pequeño */
+        line-height: 1.4;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        box-sizing: border-box;
+        max-width: 100%;
+        overflow: hidden; /* Previene desbordamiento visual */
+    }
+
+    /* Celdas de opciones - padding reducido */
+    .option-cell {
+        display: block;
+        text-align: center;
+        padding: 8px 10px; /* Reducido padding horizontal */
+        margin-bottom: 8px;
+        box-sizing: border-box;
+    }
+
+    /* Radio buttons como botones grandes táctiles - ancho optimizado */
+    .radio-label {
+        display: inline-block;
+        width: 47%; /* Reducido para mejor ajuste */
+        max-width: 49%; /* Limitar crecimiento */
+        min-width: 100px; /* Más pequeño para pantallas muy estrechas */
+        padding: 10px 6px; /* Padding reducido */
+        margin: 4px 1.5%; /* Márgenes equilibrados */
+        border-radius: 8px;
+        background-color: white;
+        border: 2px solid #074F91;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        box-sizing: border-box;
+    }
+
+    .radio-label:hover {
+        background-color: #e6f0ff;
+        transform: translateY(-2px);
+        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    }
+
+    .radio-label input[type="radio"] {
+        margin-right: 8px;
+        transform: scale(1.2);
+        vertical-align: middle;
+    }
+
+    .radio-text {
+        font-size: 15px;
+        vertical-align: middle;
+    }
+
+    /* Headers de sección responsivos */
+    .section-header td {
+        padding: 15px 8px; /* Reducido padding */
+        font-size: 16px;
+        text-align: center;
+        letter-spacing: 0.3px;
+    }
+
+    /* Asegurar colores de fondo para headers en móvil */
+    .section-header.administrativo,
+    .section-header.administrativo td {
+        background-color: #2B7FFF !important;
+        border-left: 5px solid #0055CC !important;
+    }
+
+    .section-header.conductor,
+    .section-header.conductor td {
+        background-color: #00C896 !important;
+        border-left: 5px solid #009977 !important;
+    }
+
+    .section-header.vehiculo-propio,
+    .section-header.vehiculo-propio td {
+        background-color: #FFC107 !important;
+        border-left: 5px solid #D39E00 !important;
+    }
+
+    .section-header.auxiliar-carga,
+    .section-header.auxiliar-carga td {
+        background-color: #FF6B9D !important;
+        border-left: 5px solid #FF3D7A !important;
+    }
+
+    .section-header.preoperacional-carro,
+    .section-header.preoperacional-carro td {
+        background-color: #BA8CBA !important;
+        border-left: 5px solid #9C6C9C !important;
+    }
+
+    .section-header.preoperacional-moto,
+    .section-header.preoperacional-moto td {
+        background-color: #FF9933 !important;
+        border-left: 5px solid #E67A00 !important;
+    }
+
+    /* Checkboxes para vehículo en móviles - espacio optimizado */
+    .checkbox-label.checkbox-si {
+        display: block;
+        width: 85%; /* Reducido para más espacio lateral */
+        max-width: 280px;
+        margin: 12px auto;
+        padding: 14px;
+        font-size: 16px;
+        min-height: 60px;
+        text-align: center;
+        border-radius: 10px;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+        box-sizing: border-box;
+    }
+
+    .checkbox-label.checkbox-si input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin-right: 12px;
+        vertical-align: middle;
+    }
+
+    /* Ajustar contenedor de tabla responsive */
+    .table-responsive-custom {
+        overflow-x: visible; /* No scroll horizontal */
+        margin-bottom: 20px;
+    }
+
+    /* Asegurar que los bordes de color se mantengan */
+    .question-row.administrativo,
+    .question-row.conductor,
+    .question-row.vehiculo-propio,
+    .question-row.auxiliar-carga,
+    .question-row.preoperacional-carro,
+    .question-row.preoperacional-moto {
+        border-left-width: 0; /* El borde ahora está en .question-text */
+    }
+
+    .question-row.administrativo .question-text {
+        border-left-color: #2B7FFF;
+    }
+
+    .question-row.conductor .question-text {
+        border-left-color: #00C896;
+    }
+
+    .question-row.vehiculo-propio .question-text {
+        border-left-color: #FFC107;
+    }
+
+    .question-row.auxiliar-carga .question-text {
+        border-left-color: #FF6B9D;
+    }
+
+    .question-row.preoperacional-carro .question-text {
+        border-left-color: #BA8CBA;
+    }
+
+    .question-row.preoperacional-moto .question-text {
+        border-left-color: #FF9933;
+    }
+
+    /* Mejoras generales de espaciado en móviles */
+    .card-body {
+        padding: 1rem;
+    }
+
+    .card-header.mi-header h3 {
+        font-size: 1.2rem;
+    }
+
+    .tittle3 {
+        font-size: 1rem;
+        padding: 10px !important;
+    }
+
+    .signature-canvas {
+        width: 100% !important;
+        height: 150px !important;
     }
 }
