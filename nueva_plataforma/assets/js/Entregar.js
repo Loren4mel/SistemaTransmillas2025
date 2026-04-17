@@ -14,6 +14,56 @@
       }
     });
 
+    const imagenesBancos = {
+      bancolombia: {
+        titulo: 'Bancolombia',
+        src: '../../images/PagoBancolombiaLlave.png'
+      },
+      davivienda: {
+        titulo: 'Davivienda',
+        src: '../../images/daviplata.png'
+      }
+    };
+
+    let bancoVisibleActual = null;
+
+    function toggleImagenBanco(canal) {
+      const config = imagenesBancos[canal];
+      const visor = document.getElementById('visorImagenBanco');
+      const imagen = document.getElementById('imagenBancoPreview');
+      const titulo = document.getElementById('tituloImagenBanco');
+
+      if (!config || !visor || !imagen || !titulo) return;
+
+      if (bancoVisibleActual === canal && visor.style.display !== 'none') {
+        ocultarImagenBanco();
+        return;
+      }
+
+      titulo.textContent = 'Imagen bancaria - ' + config.titulo;
+      imagen.src = config.src;
+      imagen.alt = config.titulo;
+      visor.style.display = 'block';
+      bancoVisibleActual = canal;
+
+      document.querySelectorAll('[data-banco]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.banco === canal);
+      });
+    }
+
+    function ocultarImagenBanco() {
+      const visor = document.getElementById('visorImagenBanco');
+      const imagen = document.getElementById('imagenBancoPreview');
+
+      if (visor) visor.style.display = 'none';
+      if (imagen) imagen.src = '';
+      bancoVisibleActual = null;
+
+      document.querySelectorAll('[data-banco]').forEach(btn => {
+        btn.classList.remove('active');
+      });
+    }
+
     // ============================ CARGAR SERVICIO POR ID (GET) ============================
     function cargarServicio(id) {
       if (!id) {
@@ -95,6 +145,7 @@
             $('#bloqueMetodoPago').hide();
             $('#param30_hidden').val('0');
             $('#metodo_pago').val('');
+            ocultarImagenBanco();
           }
 
           // Armar URL del iframe de firma

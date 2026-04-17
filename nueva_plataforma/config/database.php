@@ -24,14 +24,21 @@ class Database {
         if (self::$conn === null) {
 
             $dbname="u713516042_transmillas"; 
-            $host="localhost";
+            $host="srv912.hstgr.io";
             $user="u713516042_jose";
             $pass="0?jBMSc4GUcN";
+
+
 
             // $host   = "localhost";
             // $user   = "u713516042_jose2";
             // $pass   = "Dobarli23@transmillas";
             // $dbname = "u713516042_transmillas2";
+
+            // $dbname="transmillaslocal"; 
+            // $host="localhost";
+            // $user="root";
+            // $pass="";
 
             // 👇 Sin named arguments
             self::$conn = new mysqli($host, $user, $pass, $dbname);
