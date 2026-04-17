@@ -31,10 +31,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_vehiculo'])) 
     $datos = $_POST;
     $resultado = $modelo->guardarVehiculo($datos);
     if (ob_get_length()) ob_clean();
-    echo json_encode([
-        'success' => $resultado ? true : false,
-        'mensaje' => $resultado ? 'Vehículo guardado correctamente' : 'Error al guardar'
-    ]);
+
+    // Si retornó array con error, mostrarlo
+    if (is_array($resultado) && isset($resultado['error'])) {
+        echo json_encode([
+            'success' => false,
+            'mensaje' => $resultado['error']  // ← verás el error real en el SweetAlert
+        ]);
+    } else {
+        echo json_encode([
+            'success' => $resultado ? true : false,
+            'mensaje' => $resultado ? 'Vehículo guardado correctamente' : 'Error al guardar'
+        ]);
+    }
     exit;
 }
 

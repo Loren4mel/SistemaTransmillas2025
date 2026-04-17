@@ -173,3 +173,46 @@ select.cambiar-campo {
     font-weight: 600;
     padding: 6px 14px;
 }
+
+/* ===== ESTILO SIMPLE PARA EL FILTRO DE ESTADO ===== */
+
+/* Fondo blanco por defecto */
+#filtroestado {
+    border-radius: 10px;
+    border: 1px solid var(--gris-borde);
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: white;
+}
+
+/* Cuando se selecciona Activo */
+#filtroestado[value="1"] {
+    background-color: #e8f2ec;
+    color: #1e7f4f;
+    border-color: #b7dfc7;
+}
+
+/* Cuando se selecciona Inactivo */
+#filtroestado[value="0"] {
+    background-color: #fdecec;
+    color: #b42318;
+    border-color: #f5b5b5;
+}
+
+/* Las opciones dentro del desplegable */
+#filtroestado option {
+    background-color: white;
+    color: #333;
+    padding: 8px;
+}
+
+#filtroestado option[value="1"] {
+    background-color: #e8f2ec;
+    color: #1e7f4f;
+}
+
+#filtroestado option[value="0"] {
+    background-color: #fdecec;
+    color: #b42318;
+}
