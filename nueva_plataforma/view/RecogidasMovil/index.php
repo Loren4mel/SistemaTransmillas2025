@@ -469,7 +469,7 @@
         <div class="modal-ayuda-video mx-auto">
           <iframe 
             id="videoAyuda"
-            src="https://player.vimeo.com/video/1183566728"
+            src="https://youtu.be/9aV2Z-V7pkI"
             title="Video de ayuda"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowfullscreen>

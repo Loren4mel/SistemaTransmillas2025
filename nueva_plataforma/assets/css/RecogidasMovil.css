@@ -486,8 +486,8 @@ button.btn-success {
   }
 
   #modalAyuda .modal-ayuda-video {
-    width: min(100%, 420px);
-    aspect-ratio: 9 / 16;
+    width: min(100%, 960px);
+    aspect-ratio: 16 / 9;
     background-color: #000;
     border-radius: 16px;
     overflow: hidden;
@@ -507,6 +507,7 @@ button.btn-success {
     }
 
     #modalAyuda .modal-ayuda-video {
-      width: min(100%, 92vw);
+      width: 100%;
+      border-radius: 12px;
     }
   }
