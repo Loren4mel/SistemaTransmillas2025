@@ -148,7 +148,8 @@ $FB->titulo_azul1("Eliminar ",1,0,0);
 }elseif ($funcion=="Conductores" or $tabla=="Editar conductor") {
    
     echo "<tr>";
-    echo "<td><button type='button' class='whatsapp-button' onclick='enviarids(\"$id_p\",\"Enviar Whatsapp Conductores\")' >Mensaje Whatsapp</button></td><tr>";    
+    echo "<td><button type='button' class='whatsapp-button' onclick='enviarids(\"$id_p\",\"Enviar Whatsapp Conductores\")' >Mensaje Whatsapp</button></td>";
+    echo "<td colspan='11' style='text-align:left; padding-left:10px;'><label style='display:flex; align-items:center; gap:6px; margin:0;'><input type='checkbox' id='seleccionarTodosConductores' onchange='seleccionarTodosConductores(this)'>Seleccionar todos</label></td></tr>";    
 $FB->titulo_azul1("Nombre",1,0,7); 
 $FB->titulo_azul1("Celular",1,0,0); 
 $FB->titulo_azul1("Whatsapp",1,0,0); 
@@ -222,7 +223,9 @@ include("footer.php");
 
         if (checkbox.checked) {
             // Si el checkbox está marcado, agregar el ID al array
-            idsSeleccionados.push(id);
+            if (!idsSeleccionados.includes(id)) {
+                idsSeleccionados.push(id);
+            }
         } else {
             // Si el checkbox está desmarcado, eliminar el ID del array
             const index = idsSeleccionados.indexOf(id);
@@ -231,15 +234,45 @@ include("footer.php");
             }
         }
 
+        actualizarCheckboxGeneralConductores();
         console.log("IDs seleccionados:", idsSeleccionados);
     }
+	function seleccionarTodosConductores(control) {
+		var checkboxes = document.querySelectorAll('.checkbox');
+		idsSeleccionados = [];
+
+		checkboxes.forEach(function (checkbox) {
+			checkbox.checked = control.checked;
+			if (control.checked) {
+				idsSeleccionados.push(parseInt(checkbox.value, 10));
+			}
+		});
+
+		console.log("IDs seleccionados:", idsSeleccionados);
+	}
+
+	function actualizarCheckboxGeneralConductores() {
+		var checkboxGeneral = document.getElementById('seleccionarTodosConductores');
+		var checkboxes = document.querySelectorAll('.checkbox');
+
+		if (!checkboxGeneral || checkboxes.length === 0) {
+			return;
+		}
+
+		checkboxGeneral.checked = Array.from(checkboxes).every(function (checkbox) {
+			return checkbox.checked;
+		});
+	}
 	function sendWhatsapp(fileNames) {
 		const loadingElement = document.getElementById('loading');
 		// Mostrar el GIF de carga
 		loadingElement.style.display = 'block';
 		const mensaje = document.getElementById('chekWhatsapp').value;
-    // Recorre cada elemento en fileNames y ejecuta una función para cada uno
-    fileNames.forEach(function (service) {
+		const origen = document.getElementById('ciudadDestinoWhatsapp').value;
+		const destino = document.getElementById('ciudadOrigenWhatsapp').value;
+         
+        // Recorre cada elemento en fileNames y ejecuta una función para cada uno
+        fileNames.forEach(function (service) {
         // Cada `service` contiene [idservicios, ser_telefonocontacto, ser_consecutivo, cli_telefono]
         const [id, contacto, consecutivo, telefono] = service;
         
@@ -247,7 +280,7 @@ include("footer.php");
         // console.log(`Procesando servicio ID: ${id}, Contacto: ${contacto}, Consecutivo: ${consecutivo}, Teléfono: ${telefono}, Mensaje: ${mensaje}`);
         
 		//  enviarAlertaWhat(consecutivo,contacto,mensaje,id);
-		 enviarAlertaWhat(consecutivo,telefono,mensaje,id);
+		 enviarAlertaWhat(consecutivo,telefono,mensaje,id,origen,destino);
         // Aquí puedes ejecutar la función deseada para cada servicio
         // Por ejemplo, podrías enviar un mensaje por WhatsApp usando una API o una integración adicional
     });
@@ -256,7 +289,7 @@ include("footer.php");
     loadingElement.style.display = 'none';
 }
 
-async function enviarAlertaWhat(numguia, telefono, tipo, idservi) {
+async function enviarAlertaWhat(numguia, telefono, tipo, idservi,origen,destino) {
     // URL de la API
     const url = "https://www.transmillas.com/ChatbotTransmillas/alertas.php";
 
@@ -265,7 +298,9 @@ async function enviarAlertaWhat(numguia, telefono, tipo, idservi) {
         numero_guia: numguia, // Número de guía
         telefono: telefono,    // Número de teléfono
         tipo_alerta: tipo,     // Tipo de alerta
-        id_guia: idservi       // ID de la guía
+        id_guia: idservi,      // ID de la guía
+        origen: origen,     // Tipo de alerta
+        destino: destino
     };
 
     try {

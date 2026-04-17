@@ -793,6 +793,9 @@ function diasSegundaQuince($year, $month) {
                     $codigoBanco="51";
 
                     }
+                    if ($Cedula=='31415887') {
+                        $Cedula='1348445';
+                    }
                       echo "<tr>";
                     
                       echo "<td>1</td>";//tipo identificacion

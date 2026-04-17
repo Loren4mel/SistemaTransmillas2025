@@ -122,7 +122,7 @@ $guias=0;
 		<td>".$rw1[24]."</td>
 		<td><a id='link'  onclick='pop_dis16($id_p,\"doc_Prefactura\",\"$rw1[3]\")';  title='Envia Factura vencida' >$rw1[3]</a><br>$verArchivo</td>
 		<td>".$rw1[4]."</td>
-		<td colspan='1' width='0' align='center' ><a id='link' onclick='llena_datos(4, $nivel_acceso, \"$id_p\", \"ASC\");' title='Descargar' >Descargar<a> <br> <a id='link' onclick='llena_datos(6, $nivel_acceso, \"$id_p\", \"$rw1[3]\");' title='Descargar' >✏️Ver<a></td>
+		<td colspan='1' width='0' align='center' ><a id='link' onclick='llena_datos(4, $nivel_acceso, \"$id_p\", \"ASC\");' title='Descargar' >Descargar<a> <br> </td>
 		<td>".$rw1[6]."</td>";
 		//<td>".$rw1[7]."</td>
 		//echo "<td align='center' ><a  onclick='pop_dis5($id_p,\"facturarcreditos\")';  style='cursor: pointer;' title='Recogidas' >$rw1[7]</a></td>";

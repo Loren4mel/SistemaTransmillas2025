@@ -421,7 +421,7 @@
           </div>
 
           <button class="btn btn-success w-100" id="btnEnviarFirma" type="button">
-            Reenviar link
+            Enviar link
           </button>
         </div>
 
@@ -454,7 +454,7 @@
 
 <!-- MODAL AYUDA -->
 <div class="modal fade" id="modalAyuda" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+  <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-centered" style="max-width: 1280px;">
     <div class="modal-content">
 
       <div class="modal-header bg-warning">
@@ -464,12 +464,12 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <div class="modal-body text-center">
+      <div class="modal-body text-center modal-ayuda-body">
 
-        <div class="ratio ratio-16x9">
+        <div class="modal-ayuda-video mx-auto">
           <iframe 
             id="videoAyuda"
-            src="https://www.youtube.com/embed/ID_DEL_VIDEO"
+            src="https://player.vimeo.com/video/1183566728"
             title="Video de ayuda"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowfullscreen>
