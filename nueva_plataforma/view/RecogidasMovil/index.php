@@ -454,7 +454,7 @@
 
 <!-- MODAL AYUDA -->
 <div class="modal fade" id="modalAyuda" tabindex="-1">
-  <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-centered" style="max-width: 1280px;">
+  <div class="modal-dialog modal-lg modal-dialog-centered" style="max-width: 1040px;">
     <div class="modal-content">
 
       <div class="modal-header bg-warning">
@@ -469,7 +469,7 @@
         <div class="modal-ayuda-video mx-auto">
           <iframe 
             id="videoAyuda"
-            src="https://youtu.be/9aV2Z-V7pkI"
+            src="https://www.youtube.com/embed/9aV2Z-V7pkI"
             title="Video de ayuda"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowfullscreen>
