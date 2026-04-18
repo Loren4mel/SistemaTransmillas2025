@@ -73,7 +73,6 @@ class VehiculosModel {
     $stmt = $this->db->prepare($sql);
 
     if (!$stmt) {
-        // ← VER ESTE ERROR en el JSON de respuesta
         return ['error' => 'Prepare falló: ' . $this->db->error];
     }
 
@@ -106,7 +105,7 @@ class VehiculosModel {
     $resultado = $stmt->execute();
 
     if (!$resultado) {
-        // ← TAMBIÉN VER ESTE ERROR
+        //TAMBIÉN VER ESTE ERROR
         return ['error' => 'Execute falló: ' . $stmt->error];
     }
 
@@ -173,6 +172,8 @@ private function guardarImagen(array $file, string $carpetaRelativa)
     //Ruta que usará el navegador
     return "uploads/vehiculos/" . $nombre;
 }    
+
+// Obtener lista de dueños activos para el dropdown
 public function obtenerDueños() {
     $sql = "SELECT idusuarios AS iddueños, usu_nombre AS due_nombre 
             FROM usuarios 

@@ -1,5 +1,5 @@
 
-const urlController = '../controller/VehiculosController.php';
+const urlController = '/SistemaTransmillas2025/nueva_plataforma/controller/VehiculosController.php';
 $(document).ready(function () {
     const tabla = $('#tablaVehiculos').DataTable({
         ajax: {
@@ -60,11 +60,15 @@ $(document).ready(function () {
             {
                 data: 'veh_estado',
                 render: function (data, type, row) {
-                    if (data == 1) {
-                        return '<span class="badge bg-success">Activo</span>';
-                    } else {
-                        return '<span class="badge bg-danger">Inactivo</span>';
-                    }
+                    const clase = data == 1 ? 'estado-activo' : 'estado-inactivo';
+                    return `
+            <select class="form-select form-select-sm cambiar-campo ${clase}"
+                    data-id="${row.idvehiculos}"
+                    data-campo="veh_estado">
+                <option value="1" ${data == 1 ? 'selected' : ''}>Activo</option>
+                <option value="0" ${data == 0 ? 'selected' : ''}>Inactivo</option>
+            </select>
+        `;
                 }
             },
 
@@ -105,16 +109,39 @@ $(document).ready(function () {
     $('#btnGuardar').on('click', function (e) {
         e.preventDefault();
 
-        // Validar Placa
-        const placa = $('input[name="veh_placa"]').val().trim();
-        if (placa === "") {
-            Swal.fire("Error", "La placa es obligatoria", "error");
+        // Validaaciones para campos obligatorios
+        const camposTexto = [
+            { name: 'veh_tipo', label: 'Tipo Vehículo' },
+            { name: 'veh_marca', label: 'Marca' },
+            { name: 'veh_placa', label: 'Placa' },
+            { name: 'veh_modelo', label: 'Modelo' },
+            { name: 'veh_color', label: 'Color' },
+            { name: 'veh_tipov', label: 'Tipo' },
+            { name: 'veh_kilactual', label: 'Km Actual' },
+            { name: 'veh_calkmcambioaceite', label: 'Km Cambio Aceite' },
+            { name: 'veh_chasis', label: 'Número Chasis' },
+            { name: 'veh_motor', label: 'Número Motor' },
+            { name: 'veh_cilidraje', label: 'Número Cilindraje' },
+            { name: 'veh_usuve', label: 'Uso del Vehículo' },
+        ];
+
+        for (const campo of camposTexto) {
+            const valor = $(`[name="${campo.name}"]`).val().trim();
+            if (valor === '') {
+                Swal.fire('Error', `El campo "${campo.label}" es obligatorio`, 'error');
+                return;
+            }
+        }
+
+        // Validacion para dueño
+        if ($('select[name="veh_dueno"]').val() === "") {
+            Swal.fire("Error", "Debe seleccionar un dueño para el vehículo", "error");
             return;
         }
 
-        // Validar Dueño — usando name del select
-        if ($('select[name="veh_dueno"]').val() === "") {
-            Swal.fire("Error", "Debe seleccionar un dueño para el vehículo", "error");
+        // Validar Estado
+        if ($('select[name="veh_estado"]').val() === '') {
+            Swal.fire('Error', 'Debe seleccionar un estado para el vehículo', 'error');
             return;
         }
 
@@ -276,7 +303,7 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
                 $('#edit_veh_estado').val(v.veh_estado);
                 $('#edit_veh_especificaciones').val(v.veh_observaciones);
 
-                // Previews de imágenes
+                // Vista previa de imágenes
                 mostrarPreviewEditar('preview_soat', v.veh_img_soat);
                 mostrarPreviewEditar('preview_tecnomecanica', v.veh_img_tecnomecanica);
                 mostrarPreviewEditar('preview_anverso', v.veh_img_anverso);
