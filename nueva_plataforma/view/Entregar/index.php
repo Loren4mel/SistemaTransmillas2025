@@ -352,13 +352,6 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
               </button>
             </div>
 
-            <div id="bloqueFirma" class="d-none">
-              <hr>
-              <button class="btn btn-success" id="btnEnviarFirma" type="button">
-                Enviar link
-              </button>
-            </div>
-
             <div id="bloqueSello" class="d-none">
               <hr>
               <div class="mb-2">
@@ -647,23 +640,13 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
       }
     }
 
-    const bloqueFirma = document.getElementById("bloqueFirma");
     const bloqueSello = document.getElementById("bloqueSello");
 
-    document.getElementById("btnOpcionFirma")?.addEventListener("click", () => {
-      bloqueFirma?.classList.remove("d-none");
+    document.getElementById("btnOpcionFirma")?.addEventListener("click", function () {
       bloqueSello?.classList.add("d-none");
-    });
-
-    document.getElementById("btnOpcionSello")?.addEventListener("click", () => {
-      bloqueSello?.classList.remove("d-none");
-      bloqueFirma?.classList.add("d-none");
-    });
-
-    document.getElementById("btnEnviarFirma")?.addEventListener("click", function () {
       const idservicio = document.getElementById("idservicio_firma")?.value || document.getElementById("idservicio")?.value || "";
-      const nombre = document.getElementById("param82")?.value || "";
-      const telefono = document.getElementById("param85")?.value || "";
+      const nombre = document.getElementById("param82")?.value.trim() || "";
+      const telefono = document.getElementById("param85")?.value.trim() || "";
       const link = document.getElementById("link_firma_entrega")?.value || "";
 
       if (!idservicio) {
@@ -671,8 +654,15 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
         return;
       }
 
+      if (!validarNombreCompleto()) {
+        Swal.fire("Nombre incompleto", "Debe ingresar nombre y apellido de quien entrega.", "warning");
+        document.getElementById("param82")?.focus();
+        return;
+      }
+
       if (!telefono) {
         Swal.fire("Falta teléfono", "Debe ingresar el WhatsApp", "warning");
+        document.getElementById("param85")?.focus();
         return;
       }
 
@@ -701,6 +691,10 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
         console.error(err);
         Swal.fire("Error", "No se pudo enviar el link de firma.", "error");
       });
+    });
+
+    document.getElementById("btnOpcionSello")?.addEventListener("click", () => {
+      bloqueSello?.classList.remove("d-none");
     });
 
     document.getElementById("btnVerificarFirma")?.addEventListener("click", function () {
