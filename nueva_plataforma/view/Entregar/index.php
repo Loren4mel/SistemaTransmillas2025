@@ -298,8 +298,8 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
           <!-- Si no es al cobro, enviamos 0 en param30 -->
           <input type="hidden" name="param30" id="param30_hidden" value="0">
 
-          <!-- ========== SECCIÓN: DATOS QUIEN ENTREGA ========== -->
-          <div class="section-title mt-4">Datos de quien entrega</div>
+          <!-- ========== SECCIÓN: DATOS QUIEN RECIBE ========== -->
+          <div class="section-title mt-4">Datos de quien recibe</div>
 
           <div class="row mb-3">
             <div class="col-md-6">
@@ -354,17 +354,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
 
             <div id="bloqueFirma" class="d-none">
               <hr>
-              <div class="row g-2">
-                <div class="col-md-6">
-                  <label class="form-label label-strong" for="nombre_receptor">Nombre receptor</label>
-                  <input type="text" id="nombre_receptor" class="form-control">
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label label-strong" for="telefono_receptor">Teléfono WhatsApp</label>
-                  <input type="text" id="telefono_receptor" class="form-control">
-                </div>
-              </div>
-              <button class="btn btn-success mt-3" id="btnEnviarFirma" type="button">
+              <button class="btn btn-success" id="btnEnviarFirma" type="button">
                 Enviar link
               </button>
             </div>
@@ -569,8 +559,6 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
           const linkFirma = `${servicio.idservicios}&accion=guardarFirmaEntrega&tipo_pago=${encodeURIComponent(tipoPagoFirma)}`;
           $('#idservicio_firma').val(servicio.idservicios);
           $('#link_firma_entrega').val(linkFirma);
-          $('#nombre_receptor').val($('#param82').val() || '');
-          $('#telefono_receptor').val($('#param85').val() || '');
           setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
 
           // Opcional: mensaje
@@ -614,19 +602,6 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
 
       el.className = clase;
       el.innerHTML = `<i class="fas ${icono} me-1"></i> ${texto}`;
-    }
-
-    function syncDatosFirma() {
-      const nombreReceptor = document.getElementById("nombre_receptor");
-      const telefonoReceptor = document.getElementById("telefono_receptor");
-
-      if (nombreReceptor && !nombreReceptor.value) {
-        nombreReceptor.value = document.getElementById("param82")?.value || "";
-      }
-
-      if (telefonoReceptor && !telefonoReceptor.value) {
-        telefonoReceptor.value = document.getElementById("param85")?.value || "";
-      }
     }
 
     async function consultarEstadoFirma(mostrarAlertaSinServicio = true) {
@@ -676,7 +651,6 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
     const bloqueSello = document.getElementById("bloqueSello");
 
     document.getElementById("btnOpcionFirma")?.addEventListener("click", () => {
-      syncDatosFirma();
       bloqueFirma?.classList.remove("d-none");
       bloqueSello?.classList.add("d-none");
     });
@@ -687,11 +661,9 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
     });
 
     document.getElementById("btnEnviarFirma")?.addEventListener("click", function () {
-      syncDatosFirma();
-
       const idservicio = document.getElementById("idservicio_firma")?.value || document.getElementById("idservicio")?.value || "";
-      const nombre = document.getElementById("nombre_receptor")?.value || "";
-      const telefono = document.getElementById("telefono_receptor")?.value || "";
+      const nombre = document.getElementById("param82")?.value || "";
+      const telefono = document.getElementById("param85")?.value || "";
       const link = document.getElementById("link_firma_entrega")?.value || "";
 
       if (!idservicio) {
