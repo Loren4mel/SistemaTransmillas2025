@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="/SistemaTransmillas2025/nueva_plataforma/assets/css/vehiculos.css">
+<link rel="stylesheet" href="../assets/css/vehiculos.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
@@ -405,7 +405,7 @@
   <!-- DataTables desde CDN -->
    
 
-<script src="/SistemaTransmillas2025/nueva_plataforma/assets/js/vehiculos.js"></script>
+<script src="../assets/js/vehiculos.js"></script>
 
 
 

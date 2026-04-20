@@ -67,5 +67,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_vehiculo']
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $Dueños = $modelo->obtenerDueños();
-    include "../view/Vehiculos/index.php";
+    include "../view/vehiculos/index.php";
 }
