@@ -14,56 +14,6 @@
       }
     });
 
-    const imagenesBancos = {
-      bancolombia: {
-        titulo: 'Bancolombia',
-        src: '../../images/PagoBancolombiaLlave.png'
-      },
-      davivienda: {
-        titulo: 'Davivienda',
-        src: '../../images/daviplata.png'
-      }
-    };
-
-    let bancoVisibleActual = null;
-
-    function toggleImagenBanco(canal) {
-      const config = imagenesBancos[canal];
-      const visor = document.getElementById('visorImagenBanco');
-      const imagen = document.getElementById('imagenBancoPreview');
-      const titulo = document.getElementById('tituloImagenBanco');
-
-      if (!config || !visor || !imagen || !titulo) return;
-
-      if (bancoVisibleActual === canal && visor.style.display !== 'none') {
-        ocultarImagenBanco();
-        return;
-      }
-
-      titulo.textContent = 'Imagen bancaria - ' + config.titulo;
-      imagen.src = config.src;
-      imagen.alt = config.titulo;
-      visor.style.display = 'block';
-      bancoVisibleActual = canal;
-
-      document.querySelectorAll('[data-banco]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.banco === canal);
-      });
-    }
-
-    function ocultarImagenBanco() {
-      const visor = document.getElementById('visorImagenBanco');
-      const imagen = document.getElementById('imagenBancoPreview');
-
-      if (visor) visor.style.display = 'none';
-      if (imagen) imagen.src = '';
-      bancoVisibleActual = null;
-
-      document.querySelectorAll('[data-banco]').forEach(btn => {
-        btn.classList.remove('active');
-      });
-    }
-
     // ============================ CARGAR SERVICIO POR ID (GET) ============================
     function cargarServicio(id) {
       if (!id) {
@@ -71,22 +21,18 @@
         return;
       }
 
-    $.ajax({
-  url: '../controller/EntregarController.php',
-  type: 'GET',
-  data: { accion: 'buscarEntrega', id: id },
-  dataType: 'text', // <- importante
-  success: function (raw) {
-    try {
-      const limpio = (raw || '').replace(/^\uFEFF/, '').trim(); // quita BOM
-      const servicio = JSON.parse(limpio);
+      $.ajax({
+        url: '../controller/EntregarController.php',
+        type: 'GET',
+        data: { accion: 'buscarEntrega', id: id },
+        dataType: 'json',
+        success: function (servicio) {
+          if (!servicio) {
+            alert('No se encontró el servicio.');
+            return;
+          }
 
-      if (!servicio) {
-        alert('No se encontró el servicio.');
-        return;
-      }
-
- // Rellenar campos principales (según SELECT del modelo)
+          // Rellenar campos principales (según SELECT del modelo)
           $('#idservicio').val(servicio.idservicios);
           $('#ser_piezas').val(servicio.ser_piezas);
           $('#ser_paquetedescripcion').val(servicio.ser_paquetedescripcion);
@@ -145,7 +91,6 @@
             $('#bloqueMetodoPago').hide();
             $('#param30_hidden').val('0');
             $('#metodo_pago').val('');
-            ocultarImagenBanco();
           }
 
           // Armar URL del iframe de firma
@@ -153,19 +98,15 @@
           const para        = encodeURIComponent(servicio.idservicios);
           const urlFirma    = `/nueva_plataforma/view/recogerEntregar/firmar.php?para=${para}&accion=guardarFirmaEntrega&tipo_pago=${tipoPagoUrl}`;
           $('#iframeFirma').attr('src', urlFirma);
-    } catch (e) {
-      console.error('JSON inválido buscarEntrega:', e, raw);
-      alert('Respuesta inválida del servidor en buscarEntrega');
-    }
-  },
-  error: function (xhr, status, err) {
-    console.error('AJAX buscarEntrega ERROR', { status, err, code: xhr.status, body: xhr.responseText });
-    alert('Error al cargar los datos del servicio.');
-  }
-});
-    }
 
-
+          // Opcional: mensaje
+          // alert('Servicio cargado. Ahora seleccione la acción (Entregar / No Entregado).');
+        },
+        error: function () {
+          alert('Error al cargar los datos del servicio.');
+        }
+      });
+    }
 
     // Al cargar la página, traemos el servicio automáticamente usando el idServicio del GET
     $(document).ready(function () {
@@ -193,7 +134,33 @@
 
     // ============================ GUARDAR ENTREGA ============================
     function guardarEntregar() {
+      // Validar acción seleccionada
+      if ($('#tipoAccion').val() !== 'entregar') {
+        alert('Debe seleccionar la acción ENTREGAR para usar este formulario.');
+        return;
+      }
 
+      // Validar que haya servicio cargado
+      if (!$('#idservicio').val()) {
+        alert('No hay servicio cargado (idservicio vacío).');
+        return;
+      }
+
+      // Validar nombre
+      if (!validarNombreCompleto()) {
+        alert('Verifique el nombre de quien entrega.');
+        $('#param82').focus();
+        return;
+      }
+
+      // Si hay bloque de método de pago visible, validar select
+      if ($('#bloqueMetodoPago').is(':visible')) {
+        if (!$('#metodo_pago').val()) {
+          alert('Seleccione un método de pago.');
+          $('#metodo_pago').focus();
+          return;
+        }
+      }
 
       const form = document.getElementById('formEntregar');
       let data = new FormData(form);
@@ -361,66 +328,6 @@
     window.guardarEntregar = guardarEntregar;
     window.guardarNoEntregar = guardarNoEntregar;
 
-// =================================
-// VAlIDAR FIRMA EN TR
-// =================================
-
-let pollingFirmaId = null;
-let consultaEnCursoFirma = false;
-
-function setEstadoFirma(texto, clase = "text-warning", icono = "fa-clock") {
-  const el = document.getElementById("estadoFirma");
-  if (!el) return;
-
-  el.className = clase;
-  el.innerHTML = `<i class="fas ${icono} me-1"></i> ${texto}`;
-}
-
-function detenerPollingFirma() {
-  if (pollingFirmaId) {
-    clearInterval(pollingFirmaId);
-    pollingFirmaId = null;
-  }
-}
-
-function consultarEstadoFirma() {
-  if (consultaEnCursoFirma) return;
-  consultaEnCursoFirma = true;
-
-  fetch(`../controller/EntregarController.php?accion=consultarEstadoFirma&id=${ID_SERVICIO}`, {
-    method: "GET"
-  })
-    .then(r => r.text())
-    .then(raw => {
-      const limpio = (raw || "").replace(/^\uFEFF/, "").trim(); // quita BOM
-      return JSON.parse(limpio);
-    })
-    .then(resp => {
-      if (resp && resp.ok && resp.firmada === true) {
-        setEstadoFirma("Ya está firmada", "text-success", "fa-check-circle");
-        detenerPollingFirma();
-      }
-    })
-    .catch(err => {
-      console.error("Error consultando estado de firma:", err);
-    })
-    .finally(() => {
-      consultaEnCursoFirma = false;
-    });
-}
-
-function iniciarPollingFirma() {
-  if (pollingFirmaId) return; // evita múltiples intervalos
-
-  setEstadoFirma("Validando firma en tiempo real...", "text-info", "fa-spinner");
-  consultarEstadoFirma(); // inmediato
-
-  pollingFirmaId = setInterval(() => {
-    consultarEstadoFirma();
-  }, 10000);
-}
-
-window.addEventListener("beforeunload", detenerPollingFirma);
     //enviar firma
     document.getElementById("btnEnviarFirma").addEventListener("click", function () {
       const idservicio = ID_SERVICIO; // 🔥 directo desde PHP
@@ -429,13 +336,11 @@ window.addEventListener("beforeunload", detenerPollingFirma);
       const tipopago = document.getElementById("param8").value;
 
 
-    const telefonoLimpio = (telefono || "").trim();
-    const soloPrefijoColombia = telefonoLimpio.replace(/\s+/g, "") === "+57";
 
-    if (!telefonoLimpio || soloPrefijoColombia) {
-      Swal.fire("Falta teléfono", "Debe ingresar el WhatsApp", "warning");
-      return;
-    }
+      if (!telefono) {
+        Swal.fire("Falta teléfono", "Debe ingresar el WhatsApp", "warning");
+        return;
+      }
 
       const fd = new FormData();
       fd.append("accion", "enviarLinkFirma");
@@ -444,101 +349,18 @@ window.addEventListener("beforeunload", detenerPollingFirma);
       fd.append("telefono", telefono);
       fd.append("tipopago", tipopago);
 
-    fetch("../controller/EntregarController.php", {
-      method: "POST",
-      body: fd
-    })
-    .then(r => r.text())
-    .then(raw => {
-      const limpio = (raw || "").replace(/^\uFEFF/, "").trim(); // quita BOM
-      return JSON.parse(limpio);
-    })
-    .then(resp => {
-      if (!resp.ok) {
-        Swal.fire("Error", resp.mensaje || "No se pudo enviar", "error");
-        return;
-      }
-
-      Swal.fire("Enviado", resp.mensaje || "Link reenviado por WhatsApp ✔", "success");
-      iniciarPollingFirma(); // si ya lo agregaste
-    })
-    .catch(err => {
-      console.error("Error enviar firma:", err);
-      Swal.fire("Error", "Respuesta inválida del servidor", "error");
-    });
-    });
-
-    //Capturar Ubicacion
-    function enviarFormulario() {
-          // Validar acción seleccionada
-      if ($('#tipoAccion').val() !== 'entregar') {
-        alert('Debe seleccionar la acción ENTREGAR para usar este formulario.');
-        return;
-      }
-
-      // Validar que haya servicio cargado
-      if (!$('#idservicio').val()) {
-        alert('No hay servicio cargado (idservicio vacío).');
-        return;
-      }
-
-      // Validar nombre
-      if (!validarNombreCompleto()) {
-        alert('Verifique el nombre de quien entrega.');
-        $('#param82').focus();
-        return;
-      }
-
-      // Si hay bloque de método de pago visible, validar select
-      if ($('#bloqueMetodoPago').is(':visible')) {
-        if (!$('#metodo_pago').val()) {
-          alert('Seleccione un método de pago.');
-          $('#metodo_pago').focus();
+      fetch("../controller/EntregarController.php", {
+        method: "POST",
+        body: fd
+      })
+      .then(r => r.json())
+      .then(resp => {
+        if (!resp.ok) {
+          Swal.fire("Error", resp.mensaje || "No se pudo enviar", "error");
           return;
         }
-      }
 
-    mostrarCargando("Obteniendo ubicación GPS...", "Espere un momento");
-
-    if (!navigator.geolocation) {
-        console.warn("GPS no disponible");
-        guardarEntregar();
-        return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-        function (pos) {
-        document.getElementById("latitud").value = pos.coords.latitude;
-        document.getElementById("longitud").value = pos.coords.longitude;
-        document.getElementById("precision_gps").value = pos.coords.accuracy;
-
-        console.log("📍 Ubicación capturada", pos.coords);
-
-        guardarEntregar();
-        },
-        function (err) {
-        console.warn("⚠️ No se pudo obtener GPS", err);
-        guardarEntregar();
-        },
-        {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-        }
-    );
-    }
-    function mostrarCargando(titulo = "Procesando...", texto = "Por favor espere") {
-    Swal.fire({
-        title: titulo,
-        text: texto,
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        didOpen: () => {
-        Swal.showLoading();
-        }
+        Swal.fire("Enviado", "Link reenviado por WhatsApp ✔", "success");
+        // 🚫 NO cerramos el modal, se queda abierto
+      });
     });
-    }
-
-    function cerrarCargando() {
-    Swal.close();
-    }

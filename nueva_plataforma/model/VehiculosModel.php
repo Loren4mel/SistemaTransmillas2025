@@ -13,27 +13,22 @@ class VehiculosModel {
         `veh_fechaseguro`, `veh_fechategnomecanica`, `veh_fechamantenimiento`, `veh_kilactual`, 
         `veh_aceitekil`, `veh_dueño`, `veh_estado`, `veh_chasis`, `veh_tipov`, `veh_cilidraje`, 
         `veh_motor`, `veh_color`, `veh_usuve`, `veh_observaciones`, `veh_calkmcambioaceite`, 
-        `veh_restankmaceite`, `veh_faltaparacambioaceite`, `veh_kmalcambaceite`,
+        `veh_restankmaceite`, `veh_faltaparacambioaceite`, `veh_kmalcambaceite`, `veh_img_anverso`, `veh_img_reverso`,
 
         usu_nombre
         FROM `vehiculos` INNER JOIN usuarios ON veh_dueño = idusuarios";
 
         
+    if ($filtroTipovehiculo !== '') {
+        $sql .= " AND veh_tipo = '" . $this->db->real_escape_string($filtroTipovehiculo) . "'";
+    }
 
+    if ($filtroEstado !== '') {
+        $sql .= " AND veh_estado = '" . $this->db->real_escape_string($filtroEstado) . "'";
+    }
 
-        // if ($filtroTipovehiculo !== '') {
-        //     $sql .= " AND tipodevehiculo = '" . $this->db->real_escape_string($filtroTipovehiculo) . "'";
-        // }
-
-        // if ($filtroEstado !== '') {
-        //     $sql .= " AND estado = '" . $this->db->real_escape_string($filtroEstado) . "'";
-        // }
-
-        // $sql .= " ORDER BY marca ASC";
-
-        $result = $this->db->query($sql);
-        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
-            $sql .= " AND idroles = '" . $this->db->real_escape_string($filtroRol) . "'";
+    $result = $this->db->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     }
     
     public function actualizarCampo($id, $campo, $valor) {
@@ -56,6 +51,11 @@ class VehiculosModel {
     }
     
     public function guardarVehiculo($datos) {
+    $fechas = ['veh_fechaseguro', 'veh_fechategnomecanica', 'veh_fechamantenimiento'];
+    foreach ($fechas as $f) {
+        if (empty($datos[$f])) $datos[$f] = null;
+    }
+
     $veh_img_anverso       = $this->guardarImagen($_FILES['veh_img_anverso'],       "uploads/vehiculos");
     $veh_img_reverso       = $this->guardarImagen($_FILES['veh_img_reverso'],       "uploads/vehiculos");
     $veh_img_soat          = $this->guardarImagen($_FILES['veh_img_soat'],          "uploads/vehiculos");
@@ -72,21 +72,24 @@ class VehiculosModel {
 
     $stmt = $this->db->prepare($sql);
 
-    // ✅ 22 valores = 22 tipos: 6s + i + 15s
+    if (!$stmt) {
+        return ['error' => 'Prepare falló: ' . $this->db->error];
+    }
+
     $stmt->bind_param(
-        "ssssssississssssssssss",
+        "ssssssisssssssssssssss", 
         $datos['veh_tipo'],
         $datos['veh_marca'],
         $datos['veh_placa'],
         $datos['veh_modelo'],
         $datos['veh_color'],
         $datos['veh_tipov'],
-        $datos['veh_dueno'],        // ✅ sin tilde, coincide con name del select
-        $datos['veh_fecha_soat'],   
+        $datos['veh_dueno'],
+        $datos['veh_fechaseguro'],
         $veh_img_soat,
-        $datos['veh_fechategnomecanica'], 
+        $datos['veh_fechategnomecanica'],
         $veh_img_tecnomecanica,
-        $datos['veh_fecha_aceite'], // ✅ nombre corregido
+        $datos['veh_fechamantenimiento'],
         $datos['veh_kilactual'],
         $datos['veh_calkmcambioaceite'],
         $datos['veh_chasis'],
@@ -100,66 +103,81 @@ class VehiculosModel {
     );
 
     $resultado = $stmt->execute();
+
+    if (!$resultado) {
+        //TAMBIÉN VER ESTE ERROR
+        return ['error' => 'Execute falló: ' . $stmt->error];
+    }
+
     $stmt->close();
-    return $resultado;
+    return true;
 }
 
 private function guardarImagen(array $file, string $carpetaRelativa)
-    {
-        if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
-            return "";
-        }
-
-        $raiz = $_SERVER['DOCUMENT_ROOT'] . "/SistemaTransmillas2025/nueva_plataforma/";
-        $carpetaAbsoluta = dirname(__DIR__) . "/" . $carpetaRelativa;
-
-        if (!is_dir($carpetaRelativa)) {
-            @mkdir($carpetaRelativa, 0777, true);
-        }
-
-        $nombre = date("Y-m-d-H-i-s") . "-" . basename($file["name"]);
-        $destino = rtrim($carpetaRelativa, "/") . "/" . $nombre;
-
-        $info = getimagesize($file['tmp_name']);
-        if (!$info) return "";
-
-        $mime = $info['mime'];
-        switch ($mime) {
-            case 'image/jpeg':
-                $imagen = imagecreatefromjpeg($file['tmp_name']);
-                break;
-            case 'image/png':
-                $imagen = imagecreatefrompng($file['tmp_name']);
-                break;
-            default:
-                return "";
-        }
-
-        // Redimensionar si es muy grande
-        $maxW = 1280;
-        $maxH = 1280;
-        $w = imagesx($imagen);
-        $h = imagesy($imagen);
-
-        if ($w > $maxW || $h > $maxH) {
-            $ratio = min($maxW / $w, $maxH / $h);
-            $nw = (int)($w * $ratio);
-            $nh = (int)($h * $ratio);
-
-            $tmp = imagecreatetruecolor($nw, $nh);
-            imagecopyresampled($tmp, $imagen, 0, 0, 0, 0, $nw, $nh, $w, $h);
-            $imagen = $tmp;
-        }
-
-        imagejpeg($imagen, $destino, 70);
-        imagedestroy($imagen);
-
-        return "uploads/vehiculos/" . $nombre;
+{
+    // Validar que exista archivo
+    if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        return "";
     }
-    
+
+    // Ruta ABSOLUTA en el servidor
+    $rutaBase = $_SERVER['DOCUMENT_ROOT'] . "/SistemaTransmillas2025/nueva_plataforma/" . $carpetaRelativa;
+    // Crear carpeta si no existe (CORRECTO)
+    if (!is_dir($rutaBase)) {
+        mkdir($rutaBase, 0777, true);
+    }
+
+    // Nombre único
+    $nombre = date("Y-m-d-H-i-s") . "-" . basename($file["name"]);
+
+    // Ruta donde se guarda físicamente
+    $destino = $rutaBase . "/" . $nombre;
+
+    // Validar que sea imagen
+    $info = getimagesize($file['tmp_name']);
+    if (!$info) return "";
+
+    $mime = $info['mime'];
+    switch ($mime) {
+        case 'image/jpeg':
+            $imagen = imagecreatefromjpeg($file['tmp_name']);
+            break;
+        case 'image/png':
+            $imagen = imagecreatefrompng($file['tmp_name']);
+            break;
+        default:
+            return "";
+    }
+
+    // Redimensionar si es muy grande
+    $maxW = 1280;
+    $maxH = 1280;
+    $w = imagesx($imagen);
+    $h = imagesy($imagen);
+
+    if ($w > $maxW || $h > $maxH) {
+        $ratio = min($maxW / $w, $maxH / $h);
+        $nw = (int)($w * $ratio);
+        $nh = (int)($h * $ratio);
+
+        $tmp = imagecreatetruecolor($nw, $nh);
+        imagecopyresampled($tmp, $imagen, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        $imagen = $tmp;
+    }
+
+    // Guardar imagen
+    imagejpeg($imagen, $destino, 70);
+    imagedestroy($imagen);
+
+    //Ruta que usará el navegador
+    return "uploads/vehiculos/" . $nombre;
+}    
+
+// Obtener lista de dueños activos para el dropdown
 public function obtenerDueños() {
     $sql = "SELECT idusuarios AS iddueños, usu_nombre AS due_nombre 
             FROM usuarios 
+            WHERE usu_estado = 1
             ORDER BY usu_nombre ASC";
     $result = $this->db->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
@@ -219,9 +237,9 @@ public function actualizarVehiculo($datos) {
         $datos['veh_color'],
         $datos['veh_tipov'],
         $datos['veh_dueno'],
-        $datos['veh_fecha_soat'],
-        $datos['veh_fecha_tecnomecanica'],
-        $datos['veh_fecha_aceite'],
+        $datos['veh_fechaseguro'],
+        $datos['veh_fechategnomecanica'],
+        $datos['veh_fechamantenimiento'],
         $datos['veh_kilactual'],
         $datos['veh_calkmcambioaceite'],
         $datos['veh_chasis'],

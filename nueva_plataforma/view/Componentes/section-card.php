@@ -1,4 +1,11 @@
 <?php
+if (function_exists('component_log')) {
+  component_log('Inicio section-card', [
+    'title' => $title ?? null,
+    'icon' => $icon ?? null,
+  ]);
+}
+
 $title = $title ?? '';
 $icon = $icon ?? '';
 $headerAside = $headerAside ?? '';
@@ -22,3 +29,8 @@ $bodyClass = trim($bodyClass ?? 'card-body');
     <?= $body ?>
   </div>
 </div>
+<?php
+if (function_exists('component_log')) {
+  component_log('Fin section-card', ['title' => $title]);
+}
+?>

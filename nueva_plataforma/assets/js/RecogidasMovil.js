@@ -1009,7 +1009,7 @@ document.getElementById("btnEnviarFirma").addEventListener("click", function () 
     // 🚫 NO cerramos el modal, se queda abierto
   });
 });
-
+//Verificar firma
 document.getElementById("btnVerificarFirma").addEventListener("click", function () {
   setEstadoFirma("Validando firma...", "text-info", "fa-spinner");
   consultarEstadoFirma();
@@ -1072,6 +1072,8 @@ function finalizarProceso() {
 
   bloqueFirma.classList.add("d-none");
   bloqueSello.classList.add("d-none");
+
+  window.location.href = "https://sistema.transmillas.com";
 }
 
 document.getElementById("btnFinalizar").addEventListener("click", finalizarProceso);

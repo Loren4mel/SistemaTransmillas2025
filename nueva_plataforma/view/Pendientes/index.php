@@ -2,6 +2,35 @@
 date_default_timezone_set('America/Bogota');
 require_once __DIR__ . '/../../helpers/view.php';
 $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
+
+if (!function_exists('pendientesViewLog')) {
+  function pendientesViewLog(string $mensaje, array $contexto = []): void
+  {
+    $directorioLogs = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'logs';
+    if (!is_dir($directorioLogs)) {
+      @mkdir($directorioLogs, 0777, true);
+    }
+
+    $rutaLog = $directorioLogs . DIRECTORY_SEPARATOR . 'pendientes_view.log';
+    $linea = '[' . date('Y-m-d H:i:s') . '] ' . $mensaje;
+
+    if (!empty($contexto)) {
+      $linea .= ' | ' . json_encode($contexto, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    $linea .= PHP_EOL;
+    @file_put_contents($rutaLog, $linea, FILE_APPEND);
+  }
+}
+
+pendientesViewLog('Inicio vista Pendientes', [
+  'rolUsuario' => $rolUsuario ?? null,
+  'pendientes' => isset($pendientes) && is_array($pendientes) ? count($pendientes) : null,
+  'pendientesCreados' => isset($pendientesCreados) && is_array($pendientesCreados) ? count($pendientesCreados) : null,
+]);
+
+$puedeAdministrarPendientes = ($rolUsuario ?? 0) === 1;
+$puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], true);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -23,6 +52,59 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
     }
     .document-link:hover {
       color: #0a3b6e;
+    }
+    .document-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .document-actions.vertical {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .document-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid #c8d9ea;
+      background: linear-gradient(180deg, #ffffff 0%, #f5faff 100%);
+      color: #134074;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      box-shadow: 0 8px 20px rgba(19, 64, 116, 0.08);
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .document-chip:hover {
+      color: #0d325c;
+      border-color: #9dc0e2;
+      box-shadow: 0 12px 24px rgba(19, 64, 116, 0.14);
+      transform: translateY(-1px);
+    }
+    .document-chip i {
+      font-size: 14px;
+    }
+    .document-chip.file {
+      background: linear-gradient(180deg, #ffffff 0%, #eef7ff 100%);
+    }
+    .document-chip.link {
+      background: linear-gradient(180deg, #ffffff 0%, #f3fbf6 100%);
+      border-color: #c7e3d0;
+      color: #15603a;
+    }
+    .document-chip.link:hover {
+      color: #10482c;
+      border-color: #9fd0b0;
+    }
+    .document-chip.sign {
+      justify-content: center;
+      background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
+      border-color: #b8cdf5;
+      color: #214d9b;
     }
     .observacion-pendiente,
     .form-control,
@@ -53,6 +135,28 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       border-radius: 12px;
       padding: 12px;
       background: #fff;
+    }
+    .usuarios-box {
+      max-height: 260px;
+      overflow: auto;
+      border: 1px solid var(--gris-borde);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    .filtros-usuarios {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .usuario-item.oculto-por-filtro {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .filtros-usuarios {
+        grid-template-columns: 1fr;
+      }
     }
     .estado-bloqueado {
       background-color: #eef2f7 !important;
@@ -103,15 +207,36 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
     .bloque-asignacion {
       display: none;
     }
+    .badge-nueva-funcion {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #fff4d6;
+      color: #9a6700;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid #f3d27a;
+      box-shadow: 0 6px 18px rgba(154, 103, 0, 0.12);
+      transition: opacity .35s ease, transform .35s ease;
+    }
+    .badge-nueva-funcion.oculto {
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <div class="container-fluid mt-4">
-    <?php if ($rolUsuario === 1): ?>
+    <?php if ($puedeAdministrarPendientes): ?>
+      <?php pendientesViewLog('Render seccion gestion gerente'); ?>
       <?php ob_start(); ?>
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div class="hint-card mb-0">
-          El gerente puede crear pendientes con archivo o link y asignarlos a uno o varios roles.
+          El gerente puede crear pendientes con archivo, link o ambos y asignarlos a uno o varios roles.
           Los usuarios no podran confirmarlos hasta abrir el documento.
         </div>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCrearPendiente">
@@ -130,7 +255,8 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       ?>
     <?php endif; ?>
 
-    <?php if ($rolUsuario === 1): ?>
+    <?php if ($puedeVerSeguimientoPendientes): ?>
+      <?php pendientesViewLog('Render seguimiento gerente'); ?>
       <?php ob_start(); ?>
       <?php if (empty($pendientesCreados)): ?>
         <?= component('empty-state', [
@@ -140,6 +266,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       <?php else: ?>
         <div class="accordion" id="accordionPendientesCreados">
           <?php foreach ($pendientesCreados as $indice => $pendienteCreado): ?>
+            <?php pendientesViewLog('Render pendiente creado', ['indice' => $indice, 'pendienteId' => $pendienteCreado['id'] ?? null]); ?>
             <?php $collapseId = 'pendienteCreado_' . (int) $pendienteCreado['id']; ?>
             <div class="accordion-item mb-3 border rounded-3 overflow-hidden">
                   <h2 class="accordion-header" id="heading_<?= $collapseId ?>">
@@ -169,9 +296,18 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                   <div id="<?= $collapseId ?>" class="accordion-collapse collapse" aria-labelledby="heading_<?= $collapseId ?>" data-bs-parent="#accordionPendientesCreados">
                     <div class="accordion-body">
                       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                        <a class="document-link" href="<?= htmlspecialchars($pendienteCreado['documento']) ?>" target="_blank" rel="noopener noreferrer">
-                          <i class="bi bi-box-arrow-up-right"></i> Abrir documento
-                        </a>
+                        <div class="document-actions">
+                          <?php if (!empty($pendienteCreado['documento_archivo'])): ?>
+                            <a class="document-chip file" href="<?= htmlspecialchars($pendienteCreado['documento_archivo']) ?>" target="_blank" rel="noopener noreferrer">
+                              <i class="bi bi-file-earmark-arrow-down"></i> Abrir archivo
+                            </a>
+                          <?php endif; ?>
+                          <?php if (!empty($pendienteCreado['documento_link'])): ?>
+                            <a class="document-chip link" href="<?= htmlspecialchars($pendienteCreado['documento_link']) ?>" target="_blank" rel="noopener noreferrer">
+                              <i class="bi bi-link-45deg"></i> Abrir link
+                            </a>
+                          <?php endif; ?>
+                        </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                           <span class="meta-pendiente">
                             Roles: <?= htmlspecialchars(implode(', ', $pendienteCreado['roles_nombres'])) ?>
@@ -180,38 +316,45 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                             Contrato: <?= htmlspecialchars(!empty($pendienteCreado['tipos_contrato']) ? implode(', ', $pendienteCreado['tipos_contrato']) : 'Todos') ?>
                           </span>
                           <span class="meta-pendiente">
+                            Firma: <?= htmlspecialchars(($pendienteCreado['modo_firma'] ?? 'individual') === 'multiple' ? 'Multiple' : 'Individual') ?>
+                          </span>
+                          <span class="meta-pendiente">
                             Estado general: <?= (int) $pendienteCreado['estado'] === 1 ? 'Activo' : 'Inactivo' ?>
                           </span>
                         </div>
                       </div>
 
-                      <div class="acciones-gerente mb-3">
-                        <button
-                          type="button"
-                          class="btn btn-outline-primary btn-sm btn-editar-pendiente"
-                          data-bs-toggle="modal"
-                          data-bs-target="#modalEditarPendiente"
-                          data-pendiente-id="<?= (int) $pendienteCreado['id'] ?>"
-                          data-concepto="<?= htmlspecialchars(in_array($pendienteCreado['titulo'], $conceptosPendiente, true) ? $pendienteCreado['titulo'] : 'Otro') ?>"
-                          data-titulo="<?= htmlspecialchars(in_array($pendienteCreado['titulo'], $conceptosPendiente, true) ? '' : $pendienteCreado['titulo']) ?>"
-                          data-descripcion="<?= htmlspecialchars($pendienteCreado['descripcion']) ?>"
-                          data-documento="<?= htmlspecialchars($pendienteCreado['documento']) ?>"
-                          data-tipo-documento="<?= htmlspecialchars(strpos($pendienteCreado['documento'], '../uploads/pendientes/') === 0 ? 'archivo' : 'link') ?>"
-                          data-roles='<?= htmlspecialchars(json_encode($pendienteCreado['roles_ids']), ENT_QUOTES, 'UTF-8') ?>'
-                          data-tipos-contrato='<?= htmlspecialchars(json_encode($pendienteCreado['tipos_contrato']), ENT_QUOTES, 'UTF-8') ?>'
-                          data-modo-asignacion="<?= htmlspecialchars($pendienteCreado['modo_asignacion']) ?>"
-                          data-usuario-objetivo-id="<?= (int) $pendienteCreado['usuario_objetivo_id'] ?>"
-                        >
-                          <i class="bi bi-pencil-square"></i> Editar
-                        </button>
-                        <button
-                          type="button"
-                          class="btn btn-outline-danger btn-sm btn-eliminar-pendiente"
-                          data-pendiente-id="<?= (int) $pendienteCreado['id'] ?>"
-                        >
-                          <i class="bi bi-trash"></i> Eliminar
-                        </button>
-                      </div>
+                      <?php if ($puedeAdministrarPendientes): ?>
+                        <div class="acciones-gerente mb-3">
+                          <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm btn-editar-pendiente"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalEditarPendiente"
+                            data-pendiente-id="<?= (int) $pendienteCreado['id'] ?>"
+                            data-concepto="<?= htmlspecialchars(in_array($pendienteCreado['titulo'], $conceptosPendiente, true) ? $pendienteCreado['titulo'] : 'Otro') ?>"
+                            data-titulo="<?= htmlspecialchars(in_array($pendienteCreado['titulo'], $conceptosPendiente, true) ? '' : $pendienteCreado['titulo']) ?>"
+                            data-descripcion="<?= htmlspecialchars($pendienteCreado['descripcion']) ?>"
+                            data-documento-archivo="<?= htmlspecialchars($pendienteCreado['documento_archivo'] ?? '') ?>"
+                            data-documento-link="<?= htmlspecialchars($pendienteCreado['documento_link'] ?? '') ?>"
+                            data-roles='<?= htmlspecialchars(json_encode($pendienteCreado['roles_ids']), ENT_QUOTES, 'UTF-8') ?>'
+                            data-tipos-contrato='<?= htmlspecialchars(json_encode($pendienteCreado['tipos_contrato']), ENT_QUOTES, 'UTF-8') ?>'
+                            data-modo-asignacion="<?= htmlspecialchars($pendienteCreado['modo_asignacion']) ?>"
+                            data-modo-firma="<?= htmlspecialchars($pendienteCreado['modo_firma'] ?? 'individual') ?>"
+                            data-usuario-objetivo-id="<?= (int) $pendienteCreado['usuario_objetivo_id'] ?>"
+                            data-usuarios-objetivo-ids='<?= htmlspecialchars(json_encode($pendienteCreado['usuarios_objetivo_ids'] ?? []), ENT_QUOTES, 'UTF-8') ?>'
+                          >
+                            <i class="bi bi-pencil-square"></i> Editar
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-outline-danger btn-sm btn-eliminar-pendiente"
+                            data-pendiente-id="<?= (int) $pendienteCreado['id'] ?>"
+                          >
+                            <i class="bi bi-trash"></i> Eliminar
+                          </button>
+                        </div>
+                      <?php endif; ?>
 
                       <div class="table-responsive">
                         <table class="table table-bordered table-hover tabla-seguimiento">
@@ -228,6 +371,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                           </thead>
                           <tbody>
                             <?php foreach ($pendienteCreado['usuarios'] as $usuarioPendiente): ?>
+                              <?php pendientesViewLog('Render usuario seguimiento', ['pendienteId' => $pendienteCreado['id'] ?? null, 'usuarioId' => $usuarioPendiente['usuario_id'] ?? null]); ?>
                               <tr>
                                 <td><?= htmlspecialchars($usuarioPendiente['usuario_nombre']) ?></td>
                                 <td><?= htmlspecialchars($usuarioPendiente['rol_nombre']) ?></td>
@@ -296,6 +440,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
     <?php endif; ?>
 
     <?php ob_start(); ?>
+    <?php pendientesViewLog('Render mis pendientes'); ?>
     <?php if (empty($pendientes)): ?>
       <?= component('empty-state', [
         'title' => 'No tienes pendientes por validar',
@@ -317,6 +462,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
               </thead>
               <tbody>
                 <?php foreach ($pendientes as $pendiente): ?>
+                  <?php pendientesViewLog('Render fila pendiente', ['registro' => $pendiente['registro'] ?? null, 'pendienteUsuarioId' => $pendiente['pendiente_usuario_id'] ?? null]); ?>
                   <tr
                     data-registro="<?= htmlspecialchars($pendiente['registro']) ?>"
                     data-fecha-inicio="<?= htmlspecialchars($pendiente['fecha_inicio']) ?>"
@@ -331,27 +477,58 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                     <td>
                       <div><?= htmlspecialchars($pendiente['concepto']) ?></div>
                       <div class="meta-pendiente"><?= htmlspecialchars($pendiente['detalle'] ?? ucfirst($pendiente['registro'])) ?></div>
+                      <?php if (($pendiente['registro'] ?? '') === 'personalizado' && (int) ($pendiente['requiere_firma'] ?? 0) === 1): ?>
+                        <div class="meta-pendiente">Firma <?= htmlspecialchars(($pendiente['modo_firma'] ?? 'individual') === 'multiple' ? 'multiple' : 'individual') ?></div>
+                      <?php endif; ?>
                     </td>
                     <td>
                       <?php if (($pendiente['registro'] ?? '') === 'personalizado'): ?>
                         <?php if ((int) ($pendiente['requiere_firma'] ?? 0) === 1): ?>
-                          <button
-                            type="button"
-                            class="btn btn-outline-primary btn-sm abrir-documento-firmable"
-                            data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
-                          >
-                            <i class="bi bi-pen"></i> Revisar y firmar PDF
-                          </button>
+                          <div class="document-actions vertical">
+                            <button
+                              type="button"
+                              class="document-chip sign abrir-documento-firmable"
+                              data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
+                            >
+                              <i class="bi bi-pen"></i> Revisar y firmar PDF
+                            </button>
+                            <?php if (!empty($pendiente['documento_link'])): ?>
+                              <a
+                                class="document-chip link abrir-documento-pendiente"
+                                href="<?= htmlspecialchars($pendiente['documento_link']) ?>"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
+                              >
+                                <i class="bi bi-link-45deg"></i> Abrir link
+                              </a>
+                            <?php endif; ?>
+                          </div>
                         <?php else: ?>
-                          <a
-                            class="document-link abrir-documento-pendiente"
-                            href="<?= htmlspecialchars($pendiente['documento']) ?>"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
-                          >
-                            <i class="bi bi-box-arrow-up-right"></i> Abrir
-                          </a>
+                          <div class="document-actions vertical">
+                            <?php if (!empty($pendiente['documento_archivo'])): ?>
+                              <a
+                                class="document-chip file abrir-documento-pendiente"
+                                href="<?= htmlspecialchars($pendiente['documento_archivo']) ?>"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
+                              >
+                                <i class="bi bi-file-earmark-arrow-down"></i> Abrir archivo
+                              </a>
+                            <?php endif; ?>
+                            <?php if (!empty($pendiente['documento_link'])): ?>
+                              <a
+                                class="document-chip link abrir-documento-pendiente"
+                                href="<?= htmlspecialchars($pendiente['documento_link']) ?>"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
+                              >
+                                <i class="bi bi-link-45deg"></i> Abrir link
+                              </a>
+                            <?php endif; ?>
+                          </div>
                         <?php endif; ?>
                       <?php else: ?>
                         <a class="document-link" href="../../<?= htmlspecialchars($pendiente['documento']) ?>" target="_blank" rel="noopener noreferrer">
@@ -407,7 +584,7 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
     ?>
   </div>
 
-  <?php if ($rolUsuario === 1): ?>
+  <?php if ($puedeAdministrarPendientes): ?>
     <div class="modal fade" id="modalCrearPendiente" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -436,27 +613,40 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                   <input type="text" class="form-control" id="titulo" name="titulo" placeholder="Escribe el concepto">
                 </div>
 
-                <div class="col-md-6">
-                  <label for="tipo_documento" class="form-label">Tipo de documento</label>
-                  <select class="form-select" id="tipo_documento" name="tipo_documento" required>
-                    <option value="archivo" selected>Archivo</option>
-                    <option value="link">Link</option>
-                  </select>
-                </div>
-
-                <div class="col-md-6 documento-opcion" id="grupoDocumentoArchivo" style="display: block;">
+                <div class="col-md-6" id="grupoDocumentoArchivo" style="display: block;">
                   <label for="documento" class="form-label">Archivo</label>
                   <input type="file" class="form-control" id="documento" name="documento" accept=".pdf,.png,.jpg,.jpeg,.webp">
                 </div>
 
-                <div class="col-md-6 documento-opcion" id="grupoDocumentoLink">
+                <div class="col-md-6" id="grupoDocumentoLink" style="display: block;">
                   <label for="documento_link" class="form-label">Link</label>
                   <input type="url" class="form-control" id="documento_link" name="documento_link" placeholder="https://...">
+                  <div class="meta-pendiente mt-1">Puedes cargar solo archivo, solo link o ambos.</div>
                 </div>
 
                 <div class="col-12">
                   <label for="descripcion" class="form-label">Descripcion</label>
                   <textarea class="form-control" id="descripcion" name="descripcion" rows="3" placeholder="Explica brevemente que se debe revisar o confirmar"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="modo_firma" class="form-label">
+                    Modo de firma
+                    <span class="badge-nueva-funcion" id="badgeModoFirmaCrear">
+                      <i class="bi bi-stars"></i> Nueva funcion: permite firma individual o varias firmas en un mismo PDF
+                    </span>
+                  </label>
+                  <select class="form-select" id="modo_firma" name="modo_firma">
+                    <option value="individual" selected>Individual</option>
+                    <option value="multiple">Multiple</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Como funciona</label>
+                  <div class="hint-card" id="hintModoFirmaCrear">
+                    Cada usuario firma su propia constancia y confirma con la logica actual.
+                  </div>
                 </div>
 
                 <div class="col-md-4">
@@ -468,15 +658,49 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                 </div>
 
                 <div class="col-md-8 bloque-asignacion" id="bloqueUsuarioEspecifico">
-                  <label for="usuario_especifico_id" class="form-label">Usuario especifico</label>
-                  <select class="form-select" id="usuario_especifico_id" name="usuario_especifico_id">
-                    <option value="">Seleccione...</option>
-                    <?php foreach ($usuariosAsignables as $usuarioAsignable): ?>
-                      <option value="<?= (int) $usuarioAsignable['idusuarios'] ?>">
-                        <?= htmlspecialchars($usuarioAsignable['usu_nombre'] . ' / ' . ($usuarioAsignable['rol_nombre'] ?? 'Sin rol') . ' / ' . ($usuarioAsignable['usu_tipocontrato'] ?? 'Sin contrato')) ?>
-                      </option>
-                    <?php endforeach; ?>
-                  </select>
+                  <label class="form-label">Usuarios especificos</label>
+                  <div class="filtros-usuarios">
+                    <input type="text" class="form-control" id="filtro_usuarios_texto" placeholder="Buscar por nombre o rol">
+                    <select class="form-select" id="filtro_usuarios_rol">
+                      <option value="">Todos los roles</option>
+                      <?php foreach ($roles as $rol): ?>
+                        <option value="<?= htmlspecialchars(mb_strtolower(trim((string) $rol['rol_nombre']), 'UTF-8')) ?>">
+                          <?= htmlspecialchars($rol['rol_nombre']) ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                  </div>
+                  <div class="usuarios-box">
+                    <div class="row">
+                      <?php foreach ($usuariosAsignables as $usuarioAsignable): ?>
+                        <?php
+                        $nombreUsuarioFiltro = trim((string) ($usuarioAsignable['usu_nombre'] ?? ''));
+                        $rolUsuarioFiltro = trim((string) ($usuarioAsignable['rol_nombre'] ?? 'Sin rol'));
+                        $textoFiltroUsuario = mb_strtolower($nombreUsuarioFiltro . ' ' . $rolUsuarioFiltro, 'UTF-8');
+                        $rolFiltroUsuario = mb_strtolower($rolUsuarioFiltro, 'UTF-8');
+                        ?>
+                        <div
+                          class="col-12 mb-2 usuario-item"
+                          data-filtro-texto="<?= htmlspecialchars($textoFiltroUsuario, ENT_QUOTES, 'UTF-8') ?>"
+                          data-filtro-rol="<?= htmlspecialchars($rolFiltroUsuario, ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                          <div class="form-check">
+                            <input
+                              class="form-check-input usuario-especifico-check"
+                              type="checkbox"
+                              name="usuarios_especificos_ids[]"
+                              value="<?= (int) $usuarioAsignable['idusuarios'] ?>"
+                              id="usuario_especifico_<?= (int) $usuarioAsignable['idusuarios'] ?>"
+                            >
+                            <label class="form-check-label" for="usuario_especifico_<?= (int) $usuarioAsignable['idusuarios'] ?>">
+                              <?= htmlspecialchars($usuarioAsignable['usu_nombre']) ?>
+                              <span class="meta-pendiente">/ <?= htmlspecialchars(($usuarioAsignable['rol_nombre'] ?? 'Sin rol') . ' / ' . ($usuarioAsignable['usu_tipocontrato'] ?? 'Sin contrato')) ?></span>
+                            </label>
+                          </div>
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="col-md-8 bloque-asignacion" id="bloqueRolesContratoCrear" style="display: block;">
@@ -559,28 +783,42 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                   <input type="text" class="form-control" id="editar_titulo" name="titulo" placeholder="Escribe el concepto">
                 </div>
 
-                <div class="col-md-6">
-                  <label for="editar_tipo_documento" class="form-label">Tipo de documento</label>
-                  <select class="form-select" id="editar_tipo_documento" name="tipo_documento" required>
-                    <option value="archivo">Archivo</option>
-                    <option value="link">Link</option>
-                  </select>
-                </div>
-
-                <div class="col-md-6 documento-opcion" id="grupoEditarDocumentoArchivo">
+                <div class="col-md-6" id="grupoEditarDocumentoArchivo">
                   <label for="editar_documento" class="form-label">Archivo</label>
                   <input type="file" class="form-control" id="editar_documento" name="documento" accept=".pdf,.png,.jpg,.jpeg,.webp">
-                  <div class="meta-pendiente mt-1">Si no subes uno nuevo, se conserva el archivo actual.</div>
+                  <div class="meta-pendiente mt-1" id="textoEditarDocumentoArchivo">Si no subes uno nuevo, se conserva el archivo actual.</div>
                 </div>
 
-                <div class="col-md-6 documento-opcion" id="grupoEditarDocumentoLink">
+                <div class="col-md-6" id="grupoEditarDocumentoLink">
                   <label for="editar_documento_link" class="form-label">Link</label>
                   <input type="url" class="form-control" id="editar_documento_link" name="documento_link" placeholder="https://...">
+                  <input type="hidden" id="editar_archivo_actual" value="">
+                  <div class="meta-pendiente mt-1">Puedes dejar archivo, link o ambos.</div>
                 </div>
 
                 <div class="col-12">
                   <label for="editar_descripcion" class="form-label">Descripcion</label>
                   <textarea class="form-control" id="editar_descripcion" name="descripcion" rows="3" placeholder="Explica brevemente que se debe revisar o confirmar"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="editar_modo_firma" class="form-label">
+                    Modo de firma
+                    <span class="badge-nueva-funcion" id="badgeModoFirmaEditar">
+                      <i class="bi bi-stars"></i> Nueva funcion: permite firma individual o varias firmas en un mismo PDF
+                    </span>
+                  </label>
+                  <select class="form-select" id="editar_modo_firma" name="modo_firma">
+                    <option value="individual">Individual</option>
+                    <option value="multiple">Multiple</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Como funciona</label>
+                  <div class="hint-card" id="hintModoFirmaEditar">
+                    Cada usuario firma su propia constancia y confirma con la logica actual.
+                  </div>
                 </div>
 
                 <div class="col-md-4">
@@ -592,15 +830,49 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
                 </div>
 
                 <div class="col-md-8 bloque-asignacion" id="bloqueEditarUsuarioEspecifico">
-                  <label for="editar_usuario_especifico_id" class="form-label">Usuario especifico</label>
-                  <select class="form-select" id="editar_usuario_especifico_id" name="usuario_especifico_id">
-                    <option value="">Seleccione...</option>
-                    <?php foreach ($usuariosAsignables as $usuarioAsignable): ?>
-                      <option value="<?= (int) $usuarioAsignable['idusuarios'] ?>">
-                        <?= htmlspecialchars($usuarioAsignable['usu_nombre'] . ' / ' . ($usuarioAsignable['rol_nombre'] ?? 'Sin rol') . ' / ' . ($usuarioAsignable['usu_tipocontrato'] ?? 'Sin contrato')) ?>
-                      </option>
-                    <?php endforeach; ?>
-                  </select>
+                  <label class="form-label">Usuarios especificos</label>
+                  <div class="filtros-usuarios">
+                    <input type="text" class="form-control" id="editar_filtro_usuarios_texto" placeholder="Buscar por nombre o rol">
+                    <select class="form-select" id="editar_filtro_usuarios_rol">
+                      <option value="">Todos los roles</option>
+                      <?php foreach ($roles as $rol): ?>
+                        <option value="<?= htmlspecialchars(mb_strtolower(trim((string) $rol['rol_nombre']), 'UTF-8')) ?>">
+                          <?= htmlspecialchars($rol['rol_nombre']) ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                  </div>
+                  <div class="usuarios-box">
+                    <div class="row">
+                      <?php foreach ($usuariosAsignables as $usuarioAsignable): ?>
+                        <?php
+                        $nombreUsuarioFiltro = trim((string) ($usuarioAsignable['usu_nombre'] ?? ''));
+                        $rolUsuarioFiltro = trim((string) ($usuarioAsignable['rol_nombre'] ?? 'Sin rol'));
+                        $textoFiltroUsuario = mb_strtolower($nombreUsuarioFiltro . ' ' . $rolUsuarioFiltro, 'UTF-8');
+                        $rolFiltroUsuario = mb_strtolower($rolUsuarioFiltro, 'UTF-8');
+                        ?>
+                        <div
+                          class="col-12 mb-2 usuario-item"
+                          data-filtro-texto="<?= htmlspecialchars($textoFiltroUsuario, ENT_QUOTES, 'UTF-8') ?>"
+                          data-filtro-rol="<?= htmlspecialchars($rolFiltroUsuario, ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                          <div class="form-check">
+                            <input
+                              class="form-check-input editar-usuario-especifico-check"
+                              type="checkbox"
+                              name="usuarios_especificos_ids[]"
+                              value="<?= (int) $usuarioAsignable['idusuarios'] ?>"
+                              id="editar_usuario_especifico_<?= (int) $usuarioAsignable['idusuarios'] ?>"
+                            >
+                            <label class="form-check-label" for="editar_usuario_especifico_<?= (int) $usuarioAsignable['idusuarios'] ?>">
+                              <?= htmlspecialchars($usuarioAsignable['usu_nombre']) ?>
+                              <span class="meta-pendiente">/ <?= htmlspecialchars(($usuarioAsignable['rol_nombre'] ?? 'Sin rol') . ' / ' . ($usuarioAsignable['usu_tipocontrato'] ?? 'Sin contrato')) ?></span>
+                            </label>
+                          </div>
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="col-12 bloque-asignacion" id="bloqueEditarRolesContrato" style="display: block;">
@@ -666,49 +938,74 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
         order: []
       });
 
-      alternarTipoDocumento();
       alternarConceptoPersonalizado();
       alternarModoAsignacion();
-      alternarTipoDocumentoEditar();
+      actualizarHintModoFirma();
       alternarConceptoPersonalizadoEditar();
       alternarModoAsignacionEditar();
+      actualizarHintModoFirmaEditar();
+      programarOcultarBadgeNuevaFuncion('#badgeModoFirmaCrear');
+      programarOcultarBadgeNuevaFuncion('#badgeModoFirmaEditar');
+      inicializarFiltrosUsuarios();
     });
 
-    function alternarTipoDocumento() {
-      const tipo = $('#tipo_documento').val();
-      const esArchivo = tipo === 'archivo';
-
-      $('#grupoDocumentoArchivo').toggle(esArchivo);
-      $('#grupoDocumentoLink').toggle(!esArchivo);
-
-      $('#documento').prop('required', esArchivo);
-      $('#documento_link').prop('required', !esArchivo);
-
-      if (esArchivo) {
-        $('#documento_link').val('');
-      } else {
-        $('#documento').val('');
-      }
+    function normalizarTextoFiltro(texto) {
+      return (texto || '')
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
     }
 
-    $('#tipo_documento').on('change', alternarTipoDocumento);
+    function filtrarUsuariosLista(textoSelector, rolSelector, itemsSelector) {
+      const texto = normalizarTextoFiltro($(textoSelector).val());
+      const rol = normalizarTextoFiltro($(rolSelector).val());
 
-    function alternarTipoDocumentoEditar() {
-      const tipo = $('#editar_tipo_documento').val();
-      const esArchivo = tipo === 'archivo';
+      $(itemsSelector).each(function () {
+        const $item = $(this);
+        const textoItem = normalizarTextoFiltro($item.attr('data-filtro-texto'));
+        const rolItem = normalizarTextoFiltro($item.attr('data-filtro-rol'));
+        const coincideTexto = texto === '' || textoItem.indexOf(texto) !== -1;
+        const coincideRol = rol === '' || rolItem === rol;
 
-      $('#grupoEditarDocumentoArchivo').toggle(esArchivo);
-      $('#grupoEditarDocumentoLink').toggle(!esArchivo);
-      $('#editar_documento_link').prop('required', !esArchivo);
-
-      if (esArchivo) {
-        $('#editar_documento_link').val('');
-      } else {
-        $('#editar_documento').val('');
-      }
+        $item.toggleClass('oculto-por-filtro', !(coincideTexto && coincideRol));
+      });
     }
 
-    $('#editar_tipo_documento').on('change', alternarTipoDocumentoEditar);
+    function inicializarFiltrosUsuarios() {
+      $('#filtro_usuarios_texto, #filtro_usuarios_rol').on('input change', function () {
+        filtrarUsuariosLista('#filtro_usuarios_texto', '#filtro_usuarios_rol', '#bloqueUsuarioEspecifico .usuario-item');
+      });
+
+      $('#editar_filtro_usuarios_texto, #editar_filtro_usuarios_rol').on('input change', function () {
+        filtrarUsuariosLista('#editar_filtro_usuarios_texto', '#editar_filtro_usuarios_rol', '#bloqueEditarUsuarioEspecifico .usuario-item');
+      });
+    }
+
+    function programarOcultarBadgeNuevaFuncion(selector) {
+      const $badge = $(selector);
+      if ($badge.length === 0) {
+        return;
+      }
+
+      $badge.removeClass('oculto');
+      window.setTimeout(function () {
+        $badge.addClass('oculto');
+      }, 4500);
+    }
+
+    document.getElementById('modalCrearPendiente')?.addEventListener('shown.bs.modal', function () {
+      programarOcultarBadgeNuevaFuncion('#badgeModoFirmaCrear');
+      $('#filtro_usuarios_texto').val('');
+      $('#filtro_usuarios_rol').val('');
+      filtrarUsuariosLista('#filtro_usuarios_texto', '#filtro_usuarios_rol', '#bloqueUsuarioEspecifico .usuario-item');
+    });
+
+    document.getElementById('modalEditarPendiente')?.addEventListener('shown.bs.modal', function () {
+      programarOcultarBadgeNuevaFuncion('#badgeModoFirmaEditar');
+      filtrarUsuariosLista('#editar_filtro_usuarios_texto', '#editar_filtro_usuarios_rol', '#bloqueEditarUsuarioEspecifico .usuario-item');
+    });
 
     function alternarConceptoPersonalizado() {
       const esOtro = $('#concepto').val() === 'Otro';
@@ -727,17 +1024,29 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       $('#bloqueUsuarioEspecifico').toggle(esUsuario);
       $('#bloqueRolesContratoCrear').toggle(!esUsuario);
       $('#bloqueTiposContratoCrear').toggle(!esUsuario);
-      $('#usuario_especifico_id').prop('required', esUsuario);
-
       if (esUsuario) {
         $('#formCrearPendiente input[name="roles[]"]').prop('checked', false);
         $('#formCrearPendiente input[name="tipos_contrato[]"]').prop('checked', false);
       } else {
-        $('#usuario_especifico_id').val('');
+        $('#formCrearPendiente input[name="usuarios_especificos_ids[]"]').prop('checked', false);
+        $('#filtro_usuarios_texto').val('');
+        $('#filtro_usuarios_rol').val('');
+        filtrarUsuariosLista('#filtro_usuarios_texto', '#filtro_usuarios_rol', '#bloqueUsuarioEspecifico .usuario-item');
       }
     }
 
     $('#modo_asignacion').on('change', alternarModoAsignacion);
+
+    function actualizarHintModoFirma() {
+      const esMultiple = $('#modo_firma').val() === 'multiple';
+      $('#hintModoFirmaCrear').text(
+        esMultiple
+          ? 'Cada firma se agrega al mismo PDF acumulado para que se vean todas las firmas registradas.'
+          : 'Cada usuario firma su propia constancia y confirma con la logica actual.'
+      );
+    }
+
+    $('#modo_firma').on('change', actualizarHintModoFirma);
 
     function alternarConceptoPersonalizadoEditar() {
       const esOtro = $('#editar_concepto').val() === 'Otro';
@@ -756,17 +1065,29 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       $('#bloqueEditarUsuarioEspecifico').toggle(esUsuario);
       $('#bloqueEditarRolesContrato').toggle(!esUsuario);
       $('#bloqueEditarTiposContrato').toggle(!esUsuario);
-      $('#editar_usuario_especifico_id').prop('required', esUsuario);
-
       if (esUsuario) {
         $('#formEditarPendiente input[name="roles[]"]').prop('checked', false);
         $('#formEditarPendiente input[name="tipos_contrato[]"]').prop('checked', false);
       } else {
-        $('#editar_usuario_especifico_id').val('');
+        $('#formEditarPendiente input[name="usuarios_especificos_ids[]"]').prop('checked', false);
+        $('#editar_filtro_usuarios_texto').val('');
+        $('#editar_filtro_usuarios_rol').val('');
+        filtrarUsuariosLista('#editar_filtro_usuarios_texto', '#editar_filtro_usuarios_rol', '#bloqueEditarUsuarioEspecifico .usuario-item');
       }
     }
 
     $('#editar_modo_asignacion').on('change', alternarModoAsignacionEditar);
+
+    function actualizarHintModoFirmaEditar() {
+      const esMultiple = $('#editar_modo_firma').val() === 'multiple';
+      $('#hintModoFirmaEditar').text(
+        esMultiple
+          ? 'Cada firma se agrega al mismo PDF acumulado para que se vean todas las firmas registradas.'
+          : 'Cada usuario firma su propia constancia y confirma con la logica actual.'
+      );
+    }
+
+    $('#editar_modo_firma').on('change', actualizarHintModoFirmaEditar);
 
     function aplicarClaseEstado($select, valor, bloqueado) {
       $select.removeClass('estado-pendiente estado-activo estado-inactivo estado-bloqueado');
@@ -826,9 +1147,10 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
 
       const concepto = $('#concepto').val();
       const conceptoPersonalizado = $.trim($('#titulo').val());
-      const tipoDocumento = $('#tipo_documento').val();
       const modoAsignacion = $('#modo_asignacion').val();
-      const usuarioEspecificoId = $('#usuario_especifico_id').val();
+      const usuariosEspecificosIds = $('#formCrearPendiente input[name="usuarios_especificos_ids[]"]:checked').map(function () {
+        return $(this).val();
+      }).get();
       const archivoSeleccionado = $('#documento').val();
       const linkDocumento = $.trim($('#documento_link').val());
       const cantidadTiposContrato = $('#formCrearPendiente input[name="tipos_contrato[]"]:checked').length;
@@ -852,29 +1174,20 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
         return;
       }
 
-      if (tipoDocumento === 'archivo' && !archivoSeleccionado) {
+      if (!archivoSeleccionado && !linkDocumento) {
         Swal.fire({
           icon: 'warning',
-          title: 'Archivo requerido',
-          text: 'Debes seleccionar el archivo del pendiente.'
+          title: 'Documento requerido',
+          text: 'Debes agregar un archivo, un link o ambos.'
         });
         return;
       }
 
-      if (tipoDocumento === 'link' && !linkDocumento) {
+      if (modoAsignacion === 'usuario' && usuariosEspecificosIds.length === 0) {
         Swal.fire({
           icon: 'warning',
-          title: 'Link requerido',
-          text: 'Debes escribir el link del documento.'
-        });
-        return;
-      }
-
-      if (modoAsignacion === 'usuario' && !usuarioEspecificoId) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Usuario requerido',
-          text: 'Debes seleccionar el usuario especifico.'
+          title: 'Usuarios requeridos',
+          text: 'Debes seleccionar al menos una persona.'
         });
         return;
       }
@@ -977,10 +1290,33 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       $('#editar_concepto').val($boton.data('concepto'));
       $('#editar_titulo').val($boton.data('titulo'));
       $('#editar_descripcion').val($boton.data('descripcion'));
-      $('#editar_tipo_documento').val($boton.data('tipo-documento'));
       $('#editar_modo_asignacion').val($boton.data('modo-asignacion'));
-      $('#editar_usuario_especifico_id').val($boton.data('usuario-objetivo-id'));
-      $('#editar_documento_link').val($boton.data('tipo-documento') === 'link' ? $boton.data('documento') : '');
+      $('#editar_modo_firma').val($boton.data('modo-firma') || 'individual');
+      let usuariosObjetivoIds = [];
+      try {
+        usuariosObjetivoIds = JSON.parse($boton.attr('data-usuarios-objetivo-ids') || '[]');
+      } catch (error) {
+        usuariosObjetivoIds = [];
+      }
+      if (usuariosObjetivoIds.length === 0 && $boton.data('usuario-objetivo-id')) {
+        usuariosObjetivoIds = [String($boton.data('usuario-objetivo-id'))];
+      }
+      $('.editar-usuario-especifico-check').prop('checked', false);
+      usuariosObjetivoIds.map(String).forEach(function (usuarioId) {
+        $('#editar_usuario_especifico_' + usuarioId).prop('checked', true);
+      });
+      $('#editar_filtro_usuarios_texto').val('');
+      $('#editar_filtro_usuarios_rol').val('');
+      filtrarUsuariosLista('#editar_filtro_usuarios_texto', '#editar_filtro_usuarios_rol', '#bloqueEditarUsuarioEspecifico .usuario-item');
+      const documentoArchivo = $boton.attr('data-documento-archivo') || '';
+      const documentoLink = $boton.attr('data-documento-link') || '';
+      $('#editar_archivo_actual').val(documentoArchivo);
+      $('#textoEditarDocumentoArchivo').text(
+        documentoArchivo
+          ? 'Ya hay un archivo cargado. Si subes uno nuevo, reemplaza el actual.'
+          : 'Actualmente este pendiente no tiene archivo. Puedes adjuntar uno si lo necesitas.'
+      );
+      $('#editar_documento_link').val(documentoLink);
       $('#editar_documento').val('');
 
       $('.editar-rol').prop('checked', false);
@@ -994,8 +1330,8 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       });
 
       alternarConceptoPersonalizadoEditar();
-      alternarTipoDocumentoEditar();
       alternarModoAsignacionEditar();
+      actualizarHintModoFirmaEditar();
     });
 
     $('#formEditarPendiente').on('submit', function (e) {
@@ -1003,10 +1339,12 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
 
       const concepto = $('#editar_concepto').val();
       const conceptoPersonalizado = $.trim($('#editar_titulo').val());
-      const tipoDocumento = $('#editar_tipo_documento').val();
       const modoAsignacion = $('#editar_modo_asignacion').val();
-      const usuarioEspecificoId = $('#editar_usuario_especifico_id').val();
+      const usuariosEspecificosIds = $('#formEditarPendiente input[name="usuarios_especificos_ids[]"]:checked').map(function () {
+        return $(this).val();
+      }).get();
       const archivoSeleccionado = $('#editar_documento').val();
+      const archivoActual = $.trim($('#editar_archivo_actual').val());
       const linkDocumento = $.trim($('#editar_documento_link').val());
       const cantidadRoles = $('#formEditarPendiente input[name="roles[]"]:checked').length;
       const cantidadTiposContrato = $('#formEditarPendiente input[name="tipos_contrato[]"]:checked').length;
@@ -1021,13 +1359,13 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
         return;
       }
 
-      if (tipoDocumento === 'link' && !linkDocumento) {
-        Swal.fire({ icon: 'warning', title: 'Link requerido', text: 'Debes escribir el link del documento.' });
+      if (!archivoSeleccionado && !archivoActual && !linkDocumento) {
+        Swal.fire({ icon: 'warning', title: 'Documento requerido', text: 'Debes dejar un archivo, un link o ambos.' });
         return;
       }
 
-      if (modoAsignacion === 'usuario' && !usuarioEspecificoId) {
-        Swal.fire({ icon: 'warning', title: 'Usuario requerido', text: 'Debes seleccionar el usuario especifico.' });
+      if (modoAsignacion === 'usuario' && usuariosEspecificosIds.length === 0) {
+        Swal.fire({ icon: 'warning', title: 'Usuarios requeridos', text: 'Debes seleccionar al menos una persona.' });
         return;
       }
 
@@ -1181,13 +1519,41 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       $fila.data('puede-confirmar', 1);
       $fila.attr('data-firmado', '1');
       $fila.data('firmado', 1);
-      $select.prop('disabled', false).removeAttr('title');
-      aplicarClaseEstado($select, $select.val() || '', false);
+      $select.val('Si');
+      $select.prop('disabled', true).removeAttr('title');
+      aplicarClaseEstado($select, 'Si', false);
+
+      if (event.data.autoConfirmado === true) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Pendiente validado',
+          text: event.data.modoFirma === 'multiple'
+            ? 'Tu firma quedo registrada, el PDF acumulado fue actualizado y el pendiente ya quedo validado.'
+            : 'La firma quedo registrada y el pendiente ya quedo validado.',
+          timer: 1800,
+          showConfirmButton: false
+        });
+
+        $fila.fadeOut(200, function () {
+          if ($.fn.DataTable.isDataTable('#tablaPendientes')) {
+            $('#tablaPendientes').DataTable().row($(this)).remove().draw(false);
+          } else {
+            $(this).remove();
+          }
+
+          if ($('#tablaPendientes tbody tr').length === 0) {
+            location.reload();
+          }
+        });
+        return;
+      }
 
       Swal.fire({
         icon: 'success',
         title: 'PDF firmado',
-        text: 'La firma quedo registrada y ya puedes confirmar este pendiente.',
+        text: event.data.modoFirma === 'multiple'
+          ? 'Tu firma quedo registrada y el PDF acumulado fue actualizado.'
+          : 'La firma quedo registrada y ya puedes confirmar este pendiente.',
         timer: 1600,
         showConfirmButton: false
       });
@@ -1279,5 +1645,6 @@ $conceptosPendiente = ['Documento', 'Pago', 'Firma', 'Aprobacion'];
       });
     });
   </script>
+  <?php pendientesViewLog('Fin vista Pendientes'); ?>
 </body>
 </html>

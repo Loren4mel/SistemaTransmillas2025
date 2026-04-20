@@ -1,30 +1,134 @@
 <?php
-
-
-require("../../login_autentica.php"); // ESTE archivo debe tener session_start()
-
 require_once "../model/EntregarModel.php";
 
 $modelo = new EntregarModel();
 
+/* ============================================================
+   ACCION: CARGAR SELLO COMO FIRMA DE ENTREGA
+   ============================================================ */
+if (isset($_POST['accion']) && $_POST['accion'] === 'guardarSello') {
+
+    header('Content-Type: application/json; charset=utf-8');
+
+    try {
+        if (empty($_POST['idservicio']) || !is_numeric($_POST['idservicio'])) {
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'ID de servicio invalido'
+            ]);
+            exit;
+        }
+
+        if (empty($_POST['firmaBase64'])) {
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'No se recibio la imagen del sello'
+            ]);
+            exit;
+        }
+
+        $firmaBase64 = $_POST['firmaBase64'];
+
+        if (strpos($firmaBase64, 'data:image') !== 0) {
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'Formato de imagen invalido'
+            ]);
+            exit;
+        }
+
+        $guardado = $modelo->guardarFirmaEntrega((int)$_POST['idservicio'], $firmaBase64);
+
+        echo json_encode([
+            'ok' => (bool)$guardado,
+            'mensaje' => $guardado ? 'Sello guardado correctamente' : 'No se pudo guardar el sello'
+        ]);
+        exit;
+
+    } catch (Throwable $e) {
+        echo json_encode([
+            'ok' => false,
+            'mensaje' => 'Error interno al guardar sello'
+        ]);
+        exit;
+    }
+}
 
 /* ============================================================
-   ACCIÓN: MOSTRAR VISTA
+   ACCION: ENVIAR LINK DE FIRMA DE ENTREGA
    ============================================================ */
-if (isset($_GET['accion']) && $_GET['accion'] === 'vista') {
+if (isset($_POST['accion']) && $_POST['accion'] === 'enviarLinkFirma') {
 
-    // Recibir idServicio por GET
-    $idServicio = $_GET['idServicio'] ?? 0;
+    header('Content-Type: application/json; charset=utf-8');
 
-    // Recibir datos POST si vienen desde otro módulo
-    $sede    = $_POST['sede']    ?? '';
-    $acceso  = $_POST['acceso']  ?? '';
-    $usuario = $_POST['usuario'] ?? '';
+    try {
+        $idservicio = $_POST['idservicio'] ?? null;
+        $telefono   = trim($_POST['telefono'] ?? '');
+        $link       = trim($_POST['link'] ?? '');
 
-    // Cargar vista principal
-    include "../view/Entregar/index.php";
+        if (empty($idservicio) || !is_numeric($idservicio)) {
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'ID de servicio invalido'
+            ]);
+            exit;
+        }
+
+        if (empty($telefono)) {
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'Telefono requerido'
+            ]);
+            exit;
+        }
+
+        if ($link === '') {
+            $link = $idservicio . '&accion=guardarFirmaEntrega&tipo_pago=';
+        }
+
+        $resp = $modelo->reEnviarFirmaWhat($telefono, 44, (int)$idservicio, $link);
+
+        if (empty($resp['ok'])) {
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'No se pudo enviar el mensaje de WhatsApp'
+            ]);
+            exit;
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'mensaje' => 'Link enviado correctamente'
+        ]);
+        exit;
+
+    } catch (Throwable $e) {
+        echo json_encode([
+            'ok' => false,
+            'mensaje' => 'Error interno al enviar link'
+        ]);
+        exit;
+    }
+}
+
+/* ============================================================
+   ACCION: CONSULTAR ESTADO DE FIRMA
+   ============================================================ */
+if (isset($_GET['accion']) && $_GET['accion'] === 'consultarEstadoFirma') {
+
+    $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+    $firmada = ($id > 0) ? $modelo->existeFirmaEntregaPublica($id) : false;
+
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => true,
+        'firmada' => (bool)$firmada
+    ]);
     exit;
 }
+
+
+
 
 /* ============================================================
    ACCIÓN: GUARDAR ENTREGA
@@ -58,171 +162,25 @@ if (isset($_POST['accion']) && $_POST['accion'] === 'guardarNoEntregar') {
     echo json_encode($resp);
     exit;
 }
+
 /* ============================================================
-   Enviar Firma Entrega
+   ACCIÓN: MOSTRAR VISTA
    ============================================================ */
-if (isset($_POST['accion']) && $_POST['accion'] === 'enviarLinkFirma') {
-    // ini_set('display_errors', 1);
-    // ini_set('display_startup_errors', 1);
-    // error_reporting(E_ALL);
+if (isset($_GET['accion']) && $_GET['accion'] === 'vista') {
 
-    header('Content-Type: application/json');
+    // Recibir idServicio por GET
+    $idServicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : 0;
 
-    $session = $_SESSION ?? [];
-    $usuario = $session['usuario_id'] ?? null;
+    // Recibir datos POST si vienen desde otro módulo
+    $sede    = $_POST['sede']    ?? '';
+    $acceso  = $_POST['acceso']  ?? '';
+    $usuario = $_POST['usuario'] ?? '';
 
-    if (empty($usuario)) {
-        // logController('ACCESO DENEGADO enviarLinkFirma', [
-        //     'motivo' => 'Sesión no válida'
-        // ]);
-
-        echo json_encode([
-            'ok' => false,
-            'mensaje' => 'Sesión expirada'
-        ]);
-        exit;
-    }
-
-    // logController('REQUEST enviarLinkFirma', [
-    //     'post' => $_POST,
-    //     'usuario' => $usuario
-    // ]);
-
-    try {
-
-        // 🔎 Validaciones básicas
-        $idservicio = $_POST['idservicio'] ?? null;
-        $nombre     = trim($_POST['nombre'] ?? '');
-        $telefono   = trim($_POST['telefono'] ?? '');
-        $tipopago   = trim($_POST['tipopago'] ?? '');
-
-        $link = "$idservicio&accion=guardarFirmaEntrega&tipo_pago=$tipopago";
-
-        if (empty($idservicio) || !is_numeric($idservicio)) {
-            echo json_encode([
-                'ok' => false,
-                'mensaje' => 'ID de servicio inválido'
-            ]);
-            exit;
-        }
-
-        if (empty($telefono)) {
-            echo json_encode([
-                'ok' => false,
-                'mensaje' => 'Teléfono requerido'
-            ]);
-            exit;
-        }
-
-        $idservicio = intval($idservicio);
-
-        // 🔥 Tipo de alerta (usa el mismo que tu sistema ya maneje)
-        $tipoAlerta = 44;
-
-        // 🔥 Llamar al modelo
-        $resp = $modelo->reEnviarFirmaWhat($telefono, $tipoAlerta, $idservicio, $link);
-
-        if (!$resp['ok']) {
-            echo json_encode([
-                'ok' => false,
-                'mensaje' => 'No se pudo enviar el mensaje de WhatsApp'
-            ]);
-            exit;
-        }
-
-        echo json_encode([
-            'ok' => true,
-            'mensaje' => 'Link enviado correctamente'
-        ]);
-        exit;
-
-    } catch (Throwable $e) {
-
-        echo json_encode([
-            'ok' => false,
-            'mensaje' => 'Error interno al reenviar link'
-        ]);
-        exit;
-    }
+    // Cargar vista principal
+    include "../view/Entregar/index.php";
+    exit;
 }
-/* ============================================================
-   ACCIÓN: Cargar sello
-   ============================================================ */
 
-if (isset($_POST['accion']) && $_POST['accion'] === 'guardarSello') {
-
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
-    error_reporting(E_ALL);
-
-    header('Content-Type: application/json');
-
-    $session = $_SESSION ?? [];
-    $usuario = $session['usuario_id'] ?? null;
-
-    if (empty($usuario)) {
-        echo json_encode([
-            'ok' => false,
-            'mensaje' => 'Sesión expirada'
-        ]);
-        exit;
-    }
-
-    try {
-
-        if (empty($_POST['idservicio']) || !is_numeric($_POST['idservicio'])) {
-            echo json_encode([
-                'ok' => false,
-                'mensaje' => 'ID de servicio inválido'
-            ]);
-            exit;
-        }
-
-        $idservicio = intval($_POST['idservicio']);
-
-        if (empty($_POST['firmaBase64'])) {
-            echo json_encode([
-                'ok' => false,
-                'mensaje' => 'No se recibió la imagen del sello'
-            ]);
-            exit;
-        }
-
-        $firmaBase64 = $_POST['firmaBase64'];
-
-        if (strpos($firmaBase64, 'data:image') !== 0) {
-            echo json_encode([
-                'ok' => false,
-                'mensaje' => 'Formato de imagen inválido'
-            ]);
-            exit;
-        }
-
-        $guardado = $modelo->guardarFirmaRecogida($idservicio, $firmaBase64);
-
-        if (!$guardado) {
-            echo json_encode([
-                'ok' => false,
-                'mensaje' => 'No se pudo guardar el sello'
-            ]);
-            exit;
-        }
-
-        echo json_encode([
-            'ok' => true,
-            'mensaje' => 'Sello guardado correctamente'
-        ]);
-        exit;
-
-    } catch (Throwable $e) {
-
-        echo json_encode([
-            'ok' => false,
-            'mensaje' => 'Error interno al guardar sello'
-        ]);
-        exit;
-    }
-}
 
 /* ============================================================
    ACCIÓN: BUSCAR DATOS DEL SERVICIO
@@ -237,23 +195,8 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'buscarEntrega') {
     echo json_encode($datos);
     exit;
 }
-/* ============================================================
-   ACCIÓN: CONSULTAR ESTADO DE FIRMA
-   ============================================================ */
-if (isset($_GET['accion']) && $_GET['accion'] === 'consultarEstadoFirma') {
 
-    $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-    $firmada = ($id > 0) ? $modelo->existeFirmaEntregaPublica($id) : false;
-
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode([
-        'ok' => true,
-        'firmada' => (bool)$firmada
-    ]);
-    exit;
-}
 
 // Si no coincide ninguna acción
 echo "Acción no válida.";
 exit;
-

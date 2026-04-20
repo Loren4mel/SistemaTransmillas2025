@@ -100,6 +100,14 @@
   </style>
 </head>
 <body>
+  <?php
+    $modoFirmaPendiente = ($pendiente['pen_modo_firma'] ?? 'individual') === 'multiple' ? 'multiple' : 'individual';
+    $documentoParaFirma = $pendiente['documento_para_firma'] ?? ($pendiente['pen_documento'] ?? '');
+    $firmasRegistradas = (int) ($pendiente['firmas_registradas'] ?? 0);
+    $textoEstado = !empty($pendiente['pu_firma_ruta'])
+      ? ($modoFirmaPendiente === 'multiple' ? 'Tu firma ya esta registrada' : 'PDF firmado')
+      : 'Pendiente por firmar';
+  ?>
   <div class="layout-firma">
     <section class="panel panel-pdf">
       <div class="encabezado">
@@ -107,20 +115,26 @@
         <p><?= htmlspecialchars($pendiente['pen_descripcion'] ?? 'Revisa el PDF y firma en el panel lateral.') ?></p>
       </div>
       <div class="visor-pdf">
-        <iframe src="<?= htmlspecialchars($pendiente['pen_documento']) ?>#toolbar=1&navpanes=0"></iframe>
+        <iframe id="visorDocumento" src="<?= htmlspecialchars($documentoParaFirma) ?>#toolbar=1&navpanes=0"></iframe>
       </div>
     </section>
 
     <aside class="panel panel-firma">
       <div>
         <div class="badge-estado <?= !empty($pendiente['pu_firma_ruta']) ? 'firmado' : '' ?>" id="estadoFirma">
-          <?= !empty($pendiente['pu_firma_ruta']) ? 'PDF firmado' : 'Pendiente por firmar' ?>
+          <?= htmlspecialchars($textoEstado) ?>
         </div>
       </div>
 
       <div>
         <h2 class="h5 mb-2">Firma del usuario</h2>
-        <p class="texto-ayuda">La firma queda asociada al pendiente y habilita la confirmacion desde la pantalla principal.</p>
+        <p class="texto-ayuda">
+          <?php if ($modoFirmaPendiente === 'multiple'): ?>
+            Este pendiente usa firma multiple. Cada firma actualiza el mismo PDF acumulado y ya van <?= $firmasRegistradas ?> firma(s) registradas.
+          <?php else: ?>
+            La firma queda asociada al pendiente y habilita la confirmacion desde la pantalla principal.
+          <?php endif; ?>
+        </p>
       </div>
 
       <canvas id="signature-pad"></canvas>
@@ -137,8 +151,11 @@
     const canvas = document.getElementById('signature-pad');
     const ctx = canvas.getContext('2d');
     const estadoFirma = document.getElementById('estadoFirma');
+    const visorDocumento = document.getElementById('visorDocumento');
+    const btnGuardarFirma = document.getElementById('btnGuardarFirma');
     let drawing = false;
     let hasDrawn = false;
+    let guardandoFirma = false;
 
     function resizeCanvas() {
       const ratio = window.devicePixelRatio || 1;
@@ -212,9 +229,13 @@
       hasDrawn = false;
     });
 
-    document.getElementById('btnGuardarFirma').addEventListener('click', async function () {
+    btnGuardarFirma.addEventListener('click', async function () {
       if (!hasDrawn) {
         alert('Debes firmar dentro del recuadro antes de guardar.');
+        return;
+      }
+
+      if (guardandoFirma) {
         return;
       }
 
@@ -224,30 +245,60 @@
       formData.append('firma', canvas.toDataURL('image/png'));
 
       try {
+        guardandoFirma = true;
+        btnGuardarFirma.disabled = true;
+        btnGuardarFirma.textContent = 'Guardando...';
+
         const respuesta = await fetch('PendienteFirmaController.php', {
           method: 'POST',
           body: formData
         });
 
-        const data = await respuesta.json();
+        const textoRespuesta = await respuesta.text();
+        let data = null;
+
+        try {
+          data = JSON.parse(textoRespuesta);
+        } catch (parseError) {
+          console.error('Respuesta no JSON al guardar firma:', textoRespuesta);
+          throw new Error('Respuesta invalida del servidor al guardar la firma.');
+        }
+
         if (!respuesta.ok || !data.success) {
           alert(data.message || 'No fue posible guardar la firma.');
           return;
         }
 
-        estadoFirma.textContent = 'PDF firmado';
+        estadoFirma.textContent = data.modo_firma === 'multiple'
+          ? 'Tu firma ya esta registrada'
+          : 'PDF firmado';
         estadoFirma.classList.add('firmado');
+        if (data.pdf_firmado_ruta && visorDocumento) {
+          visorDocumento.src = data.pdf_firmado_ruta + '#toolbar=1&navpanes=0';
+        }
 
-        if (window.opener && !window.opener.closed) {
-          window.opener.postMessage({
-            tipo: 'pendiente_pdf_firmado',
-            pendienteUsuarioId: <?= (int) $pendienteUsuarioId ?>
-          }, '*');
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage({
+              tipo: 'pendiente_pdf_firmado',
+              pendienteUsuarioId: <?= (int) $pendienteUsuarioId ?>,
+              modoFirma: data.modo_firma || 'individual',
+              firmasRegistradas: data.firmas_registradas || 0,
+              autoConfirmado: data.auto_confirmado === true
+            }, '*');
+          }
+        } catch (postMessageError) {
+          console.warn('No fue posible notificar a la ventana principal:', postMessageError);
         }
 
         alert(data.message || 'Firma guardada correctamente.');
       } catch (error) {
+        console.error('Error al guardar firma:', error);
         alert('Ocurrio un error al guardar la firma.');
+      } finally {
+        guardandoFirma = false;
+        btnGuardarFirma.disabled = false;
+        btnGuardarFirma.textContent = 'Guardar firma';
       }
     });
 

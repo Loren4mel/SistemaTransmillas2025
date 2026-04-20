@@ -139,7 +139,7 @@ $totalcontado=0;
 
         $sqlrecogida="SELECT ima_ruta,ima_tipo,idimagenguias,ima_fecha from imagenguias where ima_tipo='Entrega' and  ima_idservicio=$id_p ";
 
-			if ($rw1[1]<"2024-12-01 00:00:00"){
+			if ($rw1[10]<"2024-12-01 00:00:00"){
 
 			    $DB1->Execute($sqlrecogida); 
 				$guiasi=mysqli_fetch_row($DB1->Consulta_ID);
@@ -152,7 +152,7 @@ $totalcontado=0;
 				$confoto="https://4226-186-28-196-131.ngrok-free.app/SistemaTransmillas/$foto";
 				}
 				
-			}elseif ($rw1[1]<="2025-02-13 00:00:00") {
+			}elseif ($rw1[10]<="2025-02-13 00:00:00") {
 
 				$DB1->Execute($sqlrecogida); 
 				$guiasi=mysqli_fetch_row($DB1->Consulta_ID);
