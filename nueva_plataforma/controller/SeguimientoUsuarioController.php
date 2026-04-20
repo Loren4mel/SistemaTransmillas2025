@@ -105,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 $descripcion = $_POST['descripcion'] ?? '';
                 $zona = intval($_POST['zona'] ?? 0);
                 $prueba = $_POST['prueba'] ?? 'No aplica';
+                $horas = $_POST['horas'] ?? '';
                 $imagen = $_FILES['imagen'] ?? null;
 
                 $data = [
@@ -113,7 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                     'motivo' => $motivo,
                     'descripcion' => $descripcion,
                     'zona' => $zona,
-                    'prueba' => $prueba
+                    'prueba' => $prueba,
+                    'horas' => $horas
                 ];
 
                 if ($idSeguimiento > 0) {
@@ -225,7 +227,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                     'motivo' => $_POST['motivo'],
                     'descripcion' => $_POST['descripcion'],
                     'zona' => intval($_POST['zona']),
-                    'prueba' => $_POST['prueba']
+                    'prueba' => $_POST['prueba'],
+                    'horas' => $_POST['horas'] ?? ''
                 ];
                 $imagen = $_FILES['imagen'] ?? null;
                 $ok = $modelo->insertarIngreso($data, $imagen, $_SESSION['usuario_id']);
@@ -356,6 +359,7 @@ if (isset($_GET['accion'])) {
                         $descripcion = '';
                         $zonaSeleccionada = 0;
                         $pruebaSeleccionada = 'No aplica';
+                        $horasSeleccionada = '';
                         $usuario = null;
                         ob_clean();
                         include "../view/SeguimientoUsuario/popups/ingreso.php";
@@ -374,6 +378,7 @@ if (isset($_GET['accion'])) {
                         $usuario = null;
                         $sedeUsuario = 0;
                         $sedeNombre = '';
+                        $horasSeleccionada = '';
 
                         if ($id > 0) {
                             $seguimiento = $modelo->getSeguimientoById($id);
@@ -385,6 +390,7 @@ if (isset($_GET['accion'])) {
                                 $descripcion = $seguimiento['seg_descr'];
                                 $zonaSeleccionada = $seguimiento['seg_idzona'];
                                 $pruebaSeleccionada = $seguimiento['seg_alcohol'];
+                                $horasSeleccionada = $seguimiento['seg_horas_trabajadas'] ?? '';
                                 $usuario = $modelo->getOperarioById($idUsuario);
                                 $sedeUsuario = $usuario['usu_idsede'] ?? 0;
                             } else {
