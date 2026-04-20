@@ -1,5 +1,5 @@
 
-const urlController = '../controller/VehiculosController.php';
+const urlController = '/SistemaTransmillas2025/nueva_plataforma/controller/VehiculosController.php';
 $(document).ready(function () {
     const tabla = $('#tablaVehiculos').DataTable({
         ajax: {
@@ -23,22 +23,55 @@ $(document).ready(function () {
             { data: 'veh_fechamantenimiento' },
             { data: 'veh_kilactual' },
             { data: 'veh_calkmcambioaceite' },
-            { data: 'veh_img_anverso' },
-            { data: 'veh_img_reverso' },
+            //Vista previa de imágenes
+            {
+                data: 'veh_img_anverso',
+                orderable: false,
+                searchable: false,
+                render: function (data, type, row) {
+                    if (!data) return '<span class="text-muted" style="font-size:11px;">Sin imagen</span>';
+
+                    const ruta = '/SistemaTransmillas2025/nueva_plataforma/' + data;
+
+                    return `<img src="${ruta}" 
+                    style="height:50px; width:75px; object-fit:cover; 
+                           border-radius:4px; border:1px solid #dee2e6; cursor:pointer;"
+                    onclick="window.open('${ruta}', '_blank')"
+                    title="Ver imagen completa">`;
+                }
+            },
+            {
+                data: 'veh_img_reverso',
+                orderable: false,
+                searchable: false,
+                render: function (data, type, row) {
+                    if (!data) return '<span class="text-muted" style="font-size:11px;">Sin imagen</span>';
+
+                    const ruta = '/SistemaTransmillas2025/nueva_plataforma/' + data;
+
+                    return `<img src="${ruta}" 
+                    style="height:50px; width:75px; object-fit:cover; 
+                           border-radius:4px; border:1px solid #dee2e6; cursor:pointer;"
+                    onclick="window.open('${ruta}', '_blank')"
+                    title="Ver imagen completa">`;
+                }
+            },
+
             {
                 data: 'veh_estado',
                 render: function (data, type, row) {
                     const clase = data == 1 ? 'estado-activo' : 'estado-inactivo';
                     return `
-                        <select class="form-select form-select-sm cambiar-campo ${clase}"
-                                data-id="${row.idvehiculos}"
-                                data-campo="veh_estado">
-                            <option value="1" ${data == 1 ? 'selected' : ''}>Activo</option>
-                            <option value="0" ${data == 0 ? 'selected' : ''}>Inactivo</option>
-                        </select>
-                    `;
+            <select class="form-select form-select-sm cambiar-campo ${clase}"
+                    data-id="${row.idvehiculos}"
+                    data-campo="veh_estado">
+                <option value="1" ${data == 1 ? 'selected' : ''}>Activo</option>
+                <option value="0" ${data == 0 ? 'selected' : ''}>Inactivo</option>
+            </select>
+        `;
                 }
             },
+
             {
                 data: null,
                 orderable: false,
@@ -72,20 +105,43 @@ $(document).ready(function () {
         tabla.ajax.reload();
     });
 
-    // ✅ UN SOLO evento para guardar
+    //Un solo evento para guardar
     $('#btnGuardar').on('click', function (e) {
         e.preventDefault();
 
-        // Validar Placa
-        const placa = $('input[name="veh_placa"]').val().trim();
-        if (placa === "") {
-            Swal.fire("Error", "La placa es obligatoria", "error");
+        // Validaaciones para campos obligatorios
+        const camposTexto = [
+            { name: 'veh_tipo', label: 'Tipo Vehículo' },
+            { name: 'veh_marca', label: 'Marca' },
+            { name: 'veh_placa', label: 'Placa' },
+            { name: 'veh_modelo', label: 'Modelo' },
+            { name: 'veh_color', label: 'Color' },
+            { name: 'veh_tipov', label: 'Tipo' },
+            { name: 'veh_kilactual', label: 'Km Actual' },
+            { name: 'veh_calkmcambioaceite', label: 'Km Cambio Aceite' },
+            { name: 'veh_chasis', label: 'Número Chasis' },
+            { name: 'veh_motor', label: 'Número Motor' },
+            { name: 'veh_cilidraje', label: 'Número Cilindraje' },
+            { name: 'veh_usuve', label: 'Uso del Vehículo' },
+        ];
+
+        for (const campo of camposTexto) {
+            const valor = $(`[name="${campo.name}"]`).val().trim();
+            if (valor === '') {
+                Swal.fire('Error', `El campo "${campo.label}" es obligatorio`, 'error');
+                return;
+            }
+        }
+
+        // Validacion para dueño
+        if ($('select[name="veh_dueno"]').val() === "") {
+            Swal.fire("Error", "Debe seleccionar un dueño para el vehículo", "error");
             return;
         }
 
-        // Validar Dueño — usando name del select
-        if ($('select[name="veh_dueno"]').val() === "") {
-            Swal.fire("Error", "Debe seleccionar un dueño para el vehículo", "error");
+        // Validar Estado
+        if ($('select[name="veh_estado"]').val() === '') {
+            Swal.fire('Error', 'Debe seleccionar un estado para el vehículo', 'error');
             return;
         }
 
@@ -119,7 +175,7 @@ $(document).ready(function () {
 
         const formulario = document.getElementById('formVehiculo');
         let datos = new FormData(formulario);
-        datos.append("guardar_vehiculo", true); // ✅ coincide con el controlador
+        datos.append("guardar_vehiculo", true);
 
         Swal.fire({
             title: 'Guardando...',
@@ -215,9 +271,7 @@ $('#tablaVehiculos tbody').on('click', '.eliminar-vehiculo', function () {
     });
 });
 
-// =============================================
 // EDITAR VEHÍCULO - Abrir modal con datos
-// =============================================
 $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
     const id = $(this).data('id');
 
@@ -237,9 +291,9 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
                 $('#edit_veh_color').val(v.veh_color);
                 $('#edit_veh_tipov').val(v.veh_tipov);
                 $('#edit_veh_dueno').val(v.veh_dueño);
-                $('#edit_veh_fecha_soat').val(v.veh_fechaseguro);
-                $('#edit_veh_fecha_tecnomecanica').val(v.veh_fechategnomecanica);
-                $('#edit_veh_fecha_aceite').val(v.veh_fechamantenimiento);
+                $('#edit_veh_fechaseguro').val(v.veh_fechaseguro);
+                $('#edit_veh_fechategnomecanica').val(v.veh_fechategnomecanica);
+                $('#edit_veh_fechamantenimiento').val(v.veh_fechamantenimiento);
                 $('#edit_veh_kilactual').val(v.veh_kilactual);
                 $('#edit_veh_calkmcambioaceite').val(v.veh_calkmcambioaceite);
                 $('#edit_veh_chasis').val(v.veh_chasis);
@@ -249,7 +303,7 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
                 $('#edit_veh_estado').val(v.veh_estado);
                 $('#edit_veh_especificaciones').val(v.veh_observaciones);
 
-                // Previews de imágenes
+                // Vista previa de imágenes
                 mostrarPreviewEditar('preview_soat', v.veh_img_soat);
                 mostrarPreviewEditar('preview_tecnomecanica', v.veh_img_tecnomecanica);
                 mostrarPreviewEditar('preview_anverso', v.veh_img_anverso);
@@ -270,15 +324,24 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
 function mostrarPreviewEditar(containerId, ruta) {
     const div = document.getElementById(containerId);
     if (ruta) {
-        div.innerHTML = `<img src="nueva_plataforma/${ruta}" 
-            style="max-height:60px; border-radius:4px; border:1px solid #dee2e6; margin-bottom:4px;">
-            <small class="text-muted d-block">Imagen actual (sube una nueva para reemplazar)</small>`;
+        const urlCompleta = '/SistemaTransmillas2025/nueva_plataforma/' + ruta;
+        div.innerHTML = `
+            <a href="${urlCompleta}" target="_blank" title="Ver imagen completa">
+                <img src="${urlCompleta}" 
+                    style="max-height:60px; border-radius:4px; border:1px solid #dee2e6; 
+                           margin-bottom:4px; cursor:pointer;"
+                    onerror="this.style.display='none'">
+            </a>
+            <small class="text-muted d-block">
+                <a href="${urlCompleta}" target="_blank">🔍 Ver imagen actual</a> 
+                — Sube una nueva para reemplazar
+            </small>`;
     } else {
-        div.innerHTML = '';
+        div.innerHTML = '<small class="text-muted">Sin imagen</small>';
     }
 }
-// EDITAR VEHÍCULO - Guardar cambios
 
+// EDITAR VEHÍCULO - Guardar cambios
 $('#btnActualizar').on('click', function (e) {
     e.preventDefault();
 
@@ -327,3 +390,4 @@ $('#btnActualizar').on('click', function (e) {
         }
     });
 });
+

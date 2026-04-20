@@ -18,7 +18,7 @@ body {
     box-shadow: 0 10px 30px rgba(0, 0, 0, .06);
 }
 
-/* Header */
+
 .mi-header {
     background: linear-gradient(135deg,
             var(--azul-principal),
@@ -28,7 +28,7 @@ body {
     padding: 20px;
 }
 
-/* Filtros */
+
 label {
     font-weight: 600;
     color: #555;
@@ -40,7 +40,6 @@ select.form-select {
     border: 1px solid var(--gris-borde);
 }
 
-/* Tabla */
 .table {
     border-collapse: separate;
     border-spacing: 0 8px;
@@ -65,14 +64,12 @@ select.form-select {
     vertical-align: middle;
 }
 
-/* Badges */
 .badge {
     border-radius: 20px;
     padding: 6px 12px;
 }
 
 /* Botones */
-
 .btn-agregar-azul {
     background-color: #0d6efd;
     color: white;
@@ -141,13 +138,12 @@ select.bg-danger {
     border-color: var(--azul-principal);
 }
 
-/* Hover */
 .table-hover tbody tr:hover {
     transform: scale(1.01);
     transition: all .2s ease;
 }
 
-/* ===== ESTADOS MODERNOS SUAVES ===== */
+/*ESTADOS MODERNOS SUAVES*/
 
 .estado-activo {
     background-color: #e8f2ec !important;
@@ -161,15 +157,51 @@ select.bg-danger {
     border: 1px solid #f5b5b5;
 }
 
-.estado-pendiente {
-    background-color: #fff4e5 !important;
-    color: #b54708 !important;
-    border: 1px solid #f6d7a7;
-}
-
 /* Selects más elegantes */
 select.cambiar-campo {
     border-radius: 20px;
     font-weight: 600;
     padding: 6px 14px;
+}
+
+
+/* Fondo blanco por defecto */
+#filtroestado {
+    border-radius: 10px;
+    border: 1px solid var(--gris-borde);
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: white;
+}
+
+/* Cuando se selecciona Activo */
+#filtroestado[value="1"] {
+    background-color: #e8f2ec;
+    color: #1e7f4f;
+    border-color: #b7dfc7;
+}
+
+/* Cuando se selecciona Inactivo */
+#filtroestado[value="0"] {
+    background-color: #fdecec;
+    color: #b42318;
+    border-color: #f5b5b5;
+}
+
+/* Las opciones dentro del desplegable */
+#filtroestado option {
+    background-color: white;
+    color: #333;
+    padding: 8px;
+}
+
+#filtroestado option[value="1"] {
+    background-color: #e8f2ec;
+    color: #1e7f4f;
+}
+
+#filtroestado option[value="0"] {
+    background-color: #fdecec;
+    color: #b42318;
 }

@@ -10,21 +10,23 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="../assets/css/vehiculos.css">
+<link rel="stylesheet" href="/SistemaTransmillas2025/nueva_plataforma/assets/css/vehiculos.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
-  
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <button class="btn btn-sm btn-light border">Volver</button>
-    
-    <button type="button" class="btn btn-primary" id="btnNuevo" 
-        data-bs-toggle="modal" 
-        data-bs-target="#modalVehiculo">
-    <i class="fas fa-plus me-1"></i> Agregar Vehículo
-    </button>
-</div>  
+
+<div class="container-fluid py-4"> 
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <button class="btn btn-sm btn-light border">Volver</button>
+        
+        <button type="button" class="btn btn-primary" id="btnNuevo" 
+                data-bs-toggle="modal" 
+                data-bs-target="#modalVehiculo">
+            <i class="fas fa-plus me-1"></i> Agregar Vehículo
+        </button>
+    </div>
 <div class="card shadow p-3 mb-4 bg-body rounded">
   <div class="card-header mi-header d-flex align-items-center justify-content-between">
     <h3 class="mb-0">
@@ -46,12 +48,13 @@
             <label for="filtroestado">Estado</label>
             <select id="filtroestado" name="filtroestado" class="form-control">
               <option value="">Seleccionar...</option>
-              <option value="Inactivo">Inactivo</option>
-              <option value="Activo">Activo</option>
+              <option value="0">Inactivo</option>
+              <option value="1">Activo</option>
             </select>
           </div>
       </div>
 
+      <!-- Tabla de Vehículos -->
       <div class="table-responsive">
         <table id="tablaVehiculos" class="table table-hover table-bordered align-middle text-center">
           <thead class="thead-modern">
@@ -104,33 +107,33 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Marca</label>
+                            <label class="form-label fw-bold text-secondary">Marca *</label>
                             <input type="text" class="form-control" name="veh_marca" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Placa</label>
+                            <label class="form-label fw-bold text-secondary">Placa *</label>
                             <input type="text" class="form-control" name="veh_placa" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Modelo</label>
+                            <label class="form-label fw-bold text-secondary">Modelo *</label>
                             <input type="text" class="form-control" name="veh_modelo" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Color</label>
+                            <label class="form-label fw-bold text-secondary">Color *</label>
                             <input type="text" class="form-control" name="veh_color" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Tipo</label>
+                            <label class="form-label fw-bold text-secondary">Tipo *</label>
                             <input type="text" class="form-control" name="veh_tipov" required>
                         </div>
 
                         <div class="col-md-12 mb-3">
-                            <label class="form-label fw-bold text-secondary">Dueño</label>
-                            <select name="veh_dueno" class="form-control">
+                            <label class="form-label fw-bold text-secondary">Dueño *</label>
+                            <select name="veh_dueno" class="form-control" required>
                                 <option value="">Seleccionar...</option>
                                 <?php foreach ($Dueños as $dueño): ?>
                                     <option value="<?= $dueño['iddueños'] ?>"><?= $dueño['due_nombre'] ?></option>
@@ -140,7 +143,7 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Seguro (SOAT)</label>
-                            <input type="date" name="veh_fecha_soat" value="<?= date('Y-m-d') ?>" class="form-control">
+                            <input type="date" name="veh_fechaseguro" value="<?= date('Y-m-d') ?>" class="form-control">
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -150,7 +153,7 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Tecnomecánica</label>
-                            <input type="date" name="veh_fecha_tecnomecanica" value="<?= date('Y-m-d') ?>" class="form-control">
+                            <input type="date" name="veh_fechategnomecanica" value="<?= date('Y-m-d') ?>" class="form-control">
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -160,41 +163,41 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Cambio de Aceite</label>
-                            <input type="date" name="veh_fecha_aceite" value="<?= date('Y-m-d') ?>" class="form-control">
+                            <input type="date" name="veh_fechamantenimiento" value="<?= date('Y-m-d') ?>" class="form-control">
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Km Actual</label>
+                            <label class="form-label fw-bold text-secondary">Km Actual *</label>
                             <input type="text" class="form-control" name="veh_kilactual" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Km Cambio Aceite</label>
+                            <label class="form-label fw-bold text-secondary">Km Cambio Aceite *</label>
                             <input type="text" class="form-control" name="veh_calkmcambioaceite" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Número Chasis</label>
+                            <label class="form-label fw-bold text-secondary">Número Chasis *</label>
                             <input type="text" class="form-control" name="veh_chasis" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Número Motor</label>
+                            <label class="form-label fw-bold text-secondary">Número Motor *</label>
                             <input type="text" class="form-control" name="veh_motor" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Número Cilindraje</label>
+                            <label class="form-label fw-bold text-secondary">Número Cilindraje *</label>
                             <input type="text" class="form-control" name="veh_cilidraje" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Uso del Vehículo</label>
-                            <input type="text" class="form-control" name="veh_usuve">
+                            <label class="form-label fw-bold text-secondary">Uso del Vehículo *</label>
+                            <input type="text" class="form-control" name="veh_usuve" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Estado</label>
+                            <label class="form-label fw-bold text-secondary">Estado *</label>
                             <select name="veh_estado" class="form-control" required>
                                 <option value="">Seleccionar...</option>
                                 <option value="0">Inactivo</option>
@@ -293,7 +296,7 @@
  
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Seguro (SOAT)</label>
-                            <input type="date" name="veh_fecha_soat" id="edit_veh_fecha_soat" class="form-control">
+                            <input type="date" name="veh_fechaseguro" id="edit_veh_fecha_soat" class="form-control">
                         </div>
  
                         <div class="col-md-6 mb-3">
@@ -305,7 +308,7 @@
  
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Tecnomecánica</label>
-                            <input type="date" name="veh_fecha_tecnomecanica" id="edit_veh_fecha_tecnomecanica" class="form-control">
+                            <input type="date" name="veh_fechategnomecanica" id="edit_veh_fechategnomecanica" class="form-control">
                         </div>
  
                         <div class="col-md-6 mb-3">
@@ -316,7 +319,7 @@
  
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Cambio de Aceite</label>
-                            <input type="date" name="veh_fecha_aceite" id="edit_veh_fecha_aceite" class="form-control">
+                            <input type="date" name="veh_fechamantenimiento" id="edit_veh_fechamantenimiento" class="form-control">
                         </div>
  
                         <div class="col-md-6 mb-3">
@@ -399,10 +402,11 @@
 <!-- DataTables -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-  <!-- ✅ DataTables desde CDN -->
+  <!-- DataTables desde CDN -->
    
 
-<script src="../assets/js/vehiculos.js"></script>
+<script src="/SistemaTransmillas2025/nueva_plataforma/assets/js/vehiculos.js"></script>
+
 
 
 
