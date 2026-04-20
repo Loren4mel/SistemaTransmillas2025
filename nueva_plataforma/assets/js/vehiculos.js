@@ -1,5 +1,5 @@
 
-const urlController = '/SistemaTransmillas2025/nueva_plataforma/controller/VehiculosController.php';
+const urlController = 'controller/VehiculosController.php';
 $(document).ready(function () {
     const tabla = $('#tablaVehiculos').DataTable({
         ajax: {
