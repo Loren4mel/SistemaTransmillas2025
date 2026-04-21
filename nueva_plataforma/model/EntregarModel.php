@@ -1,6 +1,6 @@
 <?php
 
-require_once "../config/databasePruebas.php";
+require_once "../config/databesePruebas.php";
 
 class EntregarModel {
 
