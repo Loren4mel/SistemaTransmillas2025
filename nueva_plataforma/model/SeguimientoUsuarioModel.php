@@ -1097,7 +1097,7 @@ class SeguimientoUsuarioModel
             $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expirada hace ' . abs($dias) . ' días';
         } elseif ($dias <= 7) {
             $urgency = 2;
-            $colorClass = 'warning-yellow';
+            $colorClass = 'warning-red';
             $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expira en ' . $dias . ' días';
         } elseif ($dias <= 30) {
             $urgency = 1;
@@ -1120,6 +1120,29 @@ class SeguimientoUsuarioModel
         return round(($fechaTs - $hoyTs) / 86400);
     }
 
+    /**
+     * Calcula la fecha de finalización sumando horas a la fecha de ingreso.
+     *
+     * @param string $fechaCompleta Fecha y hora de ingreso (Y-m-d H:i:s)
+     * @param string $motivo Motivo del ingreso
+     * @param int $horas Cantidad de horas (0 si no aplica)
+     * @return string|null Fecha de finalización o NULL si no corresponde
+     */
+    private function calcularFechaFinalizo(string $fechaCompleta, string $motivo, int $horas): ?string
+    {
+        if ($motivo === 'IngresoHoras' && $horas > 0 && !empty($fechaCompleta)) {
+            try {
+                $fecha = new DateTime($fechaCompleta);
+                $fecha->add(new DateInterval('PT' . $horas . 'H'));
+                return $fecha->format('Y-m-d H:i:s');
+            } catch (Exception $e) {
+                error_log("Error calculando fecha finalizo: " . $e->getMessage());
+                return null;
+            }
+        }
+        return null;
+    }
+
     // ==================== OPERACIONES CRUD ====================
 
     /**
@@ -1133,20 +1156,24 @@ class SeguimientoUsuarioModel
     public function insertarIngreso(array $data, ?array $imagen, int $idUsuario): bool
     {
         $fechaCompleta = $data['fecha'] . ' ' . date('H:i:s');
-        $sql = "INSERT INTO seguimiento_user 
-                (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_idzona, seg_alcohol, seg_fechaalcohol, seg_iduserregistro)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $horas = isset($data['horas']) && $data['horas'] !== '' ? intval($data['horas']) : 0;
+        $fechaFinalizo = $this->calcularFechaFinalizo($fechaCompleta, $data['motivo'], $horas);
+        $sql = "INSERT INTO seguimiento_user
+                (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_idzona, seg_alcohol, seg_horas_trabajadas, seg_fechaalcohol, seg_iduserregistro, seg_fechafinalizo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param(
-            "isssisss",
+            "isssssisis",
             $data['operario'],
             $fechaCompleta,
             $data['motivo'],
             $data['descripcion'],
             $data['zona'],
             $data['prueba'],
+            $horas,
             $data['fecha'],
-            $idUsuario
+            $idUsuario,
+            $fechaFinalizo
         );
         $ok = $stmt->execute();
         $idSeguimiento = $this->db->insert_id;
@@ -1170,17 +1197,32 @@ class SeguimientoUsuarioModel
      */
     public function actualizarIngreso(int $idSeguimiento, array $data, ?array $imagen, int $idUsuario): bool
     {
-        $sql = "UPDATE seguimiento_user SET 
-                seg_motivo = ?, seg_descr = ?, seg_idzona = ?, seg_alcohol = ?, seg_horas_trabajadas = ?
+        $horas = isset($data['horas']) && $data['horas'] !== '' ? intval($data['horas']) : 0;
+
+        // Obtener la fecha de ingreso actual para calcular fecha final
+        $fechaIngreso = null;
+        $sqlSelect = "SELECT seg_fechaingreso FROM seguimiento_user WHERE idseguimiento_user = ?";
+        $stmtSelect = $this->db->prepare($sqlSelect);
+        $stmtSelect->bind_param("i", $idSeguimiento);
+        $stmtSelect->execute();
+        $result = $stmtSelect->get_result();
+        if ($row = $result->fetch_assoc()) {
+            $fechaIngreso = $row['seg_fechaingreso'];
+        }
+        $fechaFinalizo = $this->calcularFechaFinalizo($fechaIngreso ?? '', $data['motivo'], $horas);
+
+        $sql = "UPDATE seguimiento_user SET
+                seg_motivo = ?, seg_descr = ?, seg_idzona = ?, seg_alcohol = ?, seg_horas_trabajadas = ?, seg_fechafinalizo = ?
                 WHERE idseguimiento_user = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param(
-            "ssissi",
+            "ssisisi",
             $data['motivo'],
             $data['descripcion'],
             $data['zona'],
             $data['prueba'],
-            $data['horas'],
+            $horas,
+            $fechaFinalizo,
             $idSeguimiento
         );
         $ok = $stmt->execute();
