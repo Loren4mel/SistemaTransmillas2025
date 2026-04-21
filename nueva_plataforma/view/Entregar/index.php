@@ -73,9 +73,38 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
       border-radius: 0.5rem;
       padding: 1rem;
       background: #f8f9fa;
+      position: relative;
     }
     .firma-estado {
       min-height: 31px;
+    }
+    .firma-guia-btn {
+      border: 0;
+      background: transparent;
+      color: #0d6efd;
+      font-size: 0.9rem;
+      padding: 0;
+    }
+    .firma-tour-activo {
+      box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.22);
+      border-radius: 0.375rem;
+    }
+    .firma-aviso-guia {
+      display: none;
+      border: 1px solid #b6d4fe;
+      border-left: 4px solid #0d6efd;
+      border-radius: 0.375rem;
+      background: #eef5ff;
+      color: #084298;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      transition: opacity 0.35s ease;
+    }
+    .firma-aviso-guia.mostrar {
+      display: flex;
+    }
+    .firma-aviso-guia.ocultando {
+      opacity: 0;
     }
   </style>
 </head>
@@ -330,6 +359,22 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
             <input type="hidden" id="idservicio_firma">
             <input type="hidden" id="link_firma_entrega">
 
+            <div id="avisoGuiaFirma" class="firma-aviso-guia align-items-start gap-2" role="status" aria-live="polite">
+              <i class="fas fa-circle-info mt-1"></i>
+              <div>
+                <strong>Nueva forma de firmar:</strong>
+                completa los datos, envía el link al WhatsApp y luego verifica la firma antes de guardar.
+              </div>
+              <button type="button" id="btnCerrarAvisoGuiaFirma" class="btn-close ms-auto" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+
+              <button type="button" id="btnGuiaFirma" class="firma-guia-btn">
+                <i class="fas fa-circle-question me-1"></i> Ayuda
+              </button>
+            </div>
+
             <div class="row g-2 mb-3">
               <div class="col-md-6">
                 <button class="btn btn-outline-primary w-100" id="btnOpcionFirma" type="button">
@@ -402,6 +447,145 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <script>
+    const GUIA_FIRMA_KEY = "guiaFirmaEntregaVistaV1";
+    let guiaFirmaTimeouts = [];
+    let popoverGuiaFirmaActual = null;
+
+    function localStorageSeguro() {
+      try {
+        return window.localStorage;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function limpiarGuiaFirma() {
+      guiaFirmaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      guiaFirmaTimeouts = [];
+
+      if (popoverGuiaFirmaActual) {
+        popoverGuiaFirmaActual.hide();
+        popoverGuiaFirmaActual.dispose();
+        popoverGuiaFirmaActual = null;
+      }
+
+      document.querySelectorAll(".firma-tour-activo").forEach(el => {
+        el.classList.remove("firma-tour-activo");
+      });
+    }
+
+    function ocultarAvisoGuiaFirma() {
+      const aviso = document.getElementById("avisoGuiaFirma");
+      if (!aviso) return;
+
+      aviso.classList.add("ocultando");
+      guiaFirmaTimeouts.push(setTimeout(() => {
+        aviso.classList.remove("mostrar", "ocultando");
+      }, 350));
+    }
+
+    function mostrarAvisoGuiaFirma() {
+      const aviso = document.getElementById("avisoGuiaFirma");
+      if (!aviso) return;
+
+      aviso.classList.remove("ocultando");
+      aviso.classList.add("mostrar");
+
+      guiaFirmaTimeouts.push(setTimeout(ocultarAvisoGuiaFirma, 8500));
+    }
+
+    function mostrarPasoGuiaFirma(paso, siguiente) {
+      const objetivo = document.getElementById(paso.id);
+      if (!objetivo || typeof bootstrap === "undefined") {
+        siguiente();
+        return;
+      }
+
+      if (popoverGuiaFirmaActual) {
+        popoverGuiaFirmaActual.hide();
+        popoverGuiaFirmaActual.dispose();
+      }
+
+      document.querySelectorAll(".firma-tour-activo").forEach(el => {
+        el.classList.remove("firma-tour-activo");
+      });
+
+      objetivo.classList.add("firma-tour-activo");
+      popoverGuiaFirmaActual = new bootstrap.Popover(objetivo, {
+        title: paso.titulo,
+        content: paso.texto,
+        placement: paso.ubicacion || "top",
+        trigger: "manual",
+        container: "body"
+      });
+
+      popoverGuiaFirmaActual.show();
+
+      guiaFirmaTimeouts.push(setTimeout(() => {
+        objetivo.classList.remove("firma-tour-activo");
+        if (popoverGuiaFirmaActual) {
+          popoverGuiaFirmaActual.hide();
+          popoverGuiaFirmaActual.dispose();
+          popoverGuiaFirmaActual = null;
+        }
+        siguiente();
+      }, paso.duracion || 5200));
+    }
+
+    function iniciarGuiaFirma(forzar = false) {
+      if ($('#tipoAccion').val() !== 'entregar') return;
+
+      const storage = localStorageSeguro();
+      if (!forzar && storage?.getItem(GUIA_FIRMA_KEY) === "1") return;
+
+      limpiarGuiaFirma();
+      mostrarAvisoGuiaFirma();
+
+      if (!forzar) {
+        storage?.setItem(GUIA_FIRMA_KEY, "1");
+      }
+
+      document.querySelector(".firma-panel")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+
+      const pasos = [
+        {
+          id: "btnOpcionFirma",
+          titulo: "1. Enviar link",
+          texto: "Después de escribir nombre y WhatsApp, este botón envía el link para que el cliente firme desde su celular.",
+          ubicacion: "top"
+        },
+        {
+          id: "btnVerificarFirma",
+          titulo: "2. Verificar",
+          texto: "Cuando el cliente avise que firmó, valida aquí. El estado cambiará a firmado si ya quedó registrado.",
+          ubicacion: "top"
+        },
+        {
+          id: "btnOpcionSello",
+          titulo: "3. Sello como respaldo",
+          texto: "Si no pueden firmar por link, puedes subir una imagen del sello y guardar la entrega con ese soporte.",
+          ubicacion: "top"
+        }
+      ];
+
+      let indice = 0;
+      const siguiente = () => {
+        if (indice >= pasos.length) {
+          limpiarGuiaFirma();
+          return;
+        }
+        mostrarPasoGuiaFirma(pasos[indice], () => {
+          indice += 1;
+          siguiente();
+        });
+      };
+
+      guiaFirmaTimeouts.push(setTimeout(siguiente, 700));
+    }
+
     // ========================= SELECT ACCIÓN ==========================
     $('#tipoAccion').on('change', function() {
       let accion = $(this).val();
@@ -409,12 +593,15 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
       if (accion === "entregar") {
         $('#formEntregar').show();
         $('#formNoEntregado').hide();
+        setTimeout(() => iniciarGuiaFirma(false), 350);
       } else if (accion === "noentregado") {
         $('#formEntregar').hide();
         $('#formNoEntregado').show();
+        limpiarGuiaFirma();
       } else {
         $('#formEntregar').hide();
         $('#formNoEntregado').hide();
+        limpiarGuiaFirma();
       }
     });
 
@@ -571,6 +758,14 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
       } else {
         alert('No se recibió el parámetro idServicio en la URL.');
       }
+
+      document.getElementById("btnGuiaFirma")?.addEventListener("click", function () {
+        iniciarGuiaFirma(true);
+      });
+
+      document.getElementById("btnCerrarAvisoGuiaFirma")?.addEventListener("click", function () {
+        ocultarAvisoGuiaFirma();
+      });
     });
 
     // ============================ VALIDAR NOMBRE COMPLETO ============================
@@ -643,6 +838,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
     const bloqueSello = document.getElementById("bloqueSello");
 
     document.getElementById("btnOpcionFirma")?.addEventListener("click", function () {
+      limpiarGuiaFirma();
       bloqueSello?.classList.add("d-none");
       const idservicio = document.getElementById("idservicio_firma")?.value || document.getElementById("idservicio")?.value || "";
       const nombre = document.getElementById("param82")?.value.trim() || "";
@@ -694,10 +890,12 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
     });
 
     document.getElementById("btnOpcionSello")?.addEventListener("click", () => {
+      limpiarGuiaFirma();
       bloqueSello?.classList.remove("d-none");
     });
 
     document.getElementById("btnVerificarFirma")?.addEventListener("click", function () {
+      limpiarGuiaFirma();
       setEstadoFirma("Validando firma...", "text-info", "fa-spinner");
       consultarEstadoFirma();
     });
