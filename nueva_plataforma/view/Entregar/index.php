@@ -418,6 +418,9 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
           <input type="hidden" name="param20" id="param20">  <!-- kiliostotal -->
           <input type="hidden" name="param21" id="param21">  <!-- gui_tiposervicio -->
           <input type="hidden" name="ser_pendientecobrar" id="ser_pendientecobrar">
+          <input type="hidden" id="latitud" name="latitud">
+          <input type="hidden" id="longitud" name="longitud">
+          <input type="hidden" id="precision_gps" name="precision_gps">
 
 
           <input type="hidden" name="id_usuario" id="id_usuario" value="<?echo$usuario;?>">  <!-- gui_tiposervicio -->
@@ -915,13 +918,31 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
         return;
       }
 
-      const reader = new FileReader();
+      if (!archivo.type || !archivo.type.startsWith("image/")) {
+        Swal.fire("Archivo invalido", "El sello debe ser una imagen.", "warning");
+        return;
+      }
 
-      reader.onload = function (e) {
+      if (archivo.size > 25 * 1024 * 1024) {
+        Swal.fire("Imagen muy pesada", "El sello no debe superar 25 MB.", "warning");
+        return;
+      }
+
+      Swal.fire({
+        title: "Guardando sello...",
+        text: "Por favor espera.",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      comprimirImagenSello(archivo)
+      .then(function (imagenBase64) {
         const fd = new FormData();
         fd.append("accion", "guardarSello");
         fd.append("idservicio", idservicio);
-        fd.append("firmaBase64", e.target.result);
+        fd.append("firmaBase64", imagenBase64);
 
         fetch("../controller/EntregarController.php", {
           method: "POST",
@@ -941,13 +962,84 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
           console.error(err);
           Swal.fire("Error", "No se pudo guardar el sello.", "error");
         });
-      };
-
-      reader.readAsDataURL(archivo);
+      })
+      .catch(function (err) {
+        console.error(err);
+        Swal.fire("Error", "No se pudo preparar la imagen del sello.", "error");
+      });
     });
 
+    function comprimirImagenSello(archivo) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+          const img = new Image();
+
+          img.onload = function () {
+            const maxDimension = 1600;
+            const ratio = Math.min(maxDimension / img.width, maxDimension / img.height, 1);
+            const ancho = Math.max(1, Math.round(img.width * ratio));
+            const alto = Math.max(1, Math.round(img.height * ratio));
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            canvas.width = ancho;
+            canvas.height = alto;
+            ctx.drawImage(img, 0, 0, ancho, alto);
+
+            resolve(canvas.toDataURL("image/jpeg", 0.82));
+          };
+
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+
+        reader.onerror = reject;
+        reader.readAsDataURL(archivo);
+      });
+    }
+
     // ============================ GUARDAR ENTREGA ============================
-    function guardarEntregar() {
+    function capturarUbicacionEntrega() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          console.warn("GPS no disponible");
+          resolve(false);
+          return;
+        }
+
+        Swal.fire({
+          title: "Obteniendo ubicación GPS...",
+          text: "Espere un momento.",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        navigator.geolocation.getCurrentPosition(
+          function (pos) {
+            document.getElementById("latitud").value = pos.coords.latitude;
+            document.getElementById("longitud").value = pos.coords.longitude;
+            document.getElementById("precision_gps").value = pos.coords.accuracy;
+            console.log("Ubicación de entrega capturada", pos.coords);
+            resolve(true);
+          },
+          function (err) {
+            console.warn("No se pudo obtener GPS de entrega", err);
+            resolve(false);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      });
+    }
+
+    async function guardarEntregar() {
       // Validar acción seleccionada
       if ($('#tipoAccion').val() !== 'entregar') {
         alert('Debe seleccionar la acción ENTREGAR para usar este formulario.');
@@ -975,6 +1067,8 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
           return;
         }
       }
+
+      await capturarUbicacionEntrega();
 
       const form = document.getElementById('formEntregar');
       let data = new FormData(form);
@@ -1044,7 +1138,7 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
     }
 
     // ============================ GUARDAR NO ENTREGADO ============================
-    function guardarNoEntregar() {
+    async function guardarNoEntregar() {
       if (!$('#idservicio').val()) {
         alert("No hay servicio cargado (idservicio vacío).");
         return;
@@ -1071,6 +1165,8 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
         return;
       }
 
+      await capturarUbicacionEntrega();
+
       let data = new FormData();
       data.append("accion", "guardarNoEntregar");
       data.append("idservicio", $('#idservicio').val());
@@ -1078,6 +1174,9 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
       data.append("usuario", "<?php echo $usuario; ?>");
       data.append("id_nombre", "<?php echo $nombre; ?>");
       data.append("acceso", "<?php echo $acceso; ?>");
+      data.append("latitud", $('#latitud').val());
+      data.append("longitud", $('#longitud').val());
+      data.append("precision_gps", $('#precision_gps').val());
 
 
       data.append("foto_evidencia", evidencia);
