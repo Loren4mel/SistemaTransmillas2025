@@ -61,8 +61,12 @@ $ubicaciones = $guia['ubicaciones'];
 $colorTP = "";
 $textoTP = "";
 $tipoPagoTexto = $totales['clasificacion_texto']; // Contado, Credito, etc.
+$esEntregaAlCobro = ($tipo === 'Entrega' && $tipoPagoTexto == 'Al Cobro');
 
-if ($tipoPagoTexto == 'Credito' || $tipoPagoTexto == 'Al Cobro' || (int)$guia['ser_pendientecobrar'] === 1) {
+if ($esEntregaAlCobro) {
+    $colorTP = "bg-success text-white";
+    $textoTP = "Guia paga en destino";
+} elseif ($tipoPagoTexto == 'Credito' || $tipoPagoTexto == 'Al Cobro' || (int)$guia['ser_pendientecobrar'] === 1) {
     $colorTP = "bg-danger text-white";
     $textoTP = "Falta pago";
 } elseif ($tipoPagoTexto == 'Contado') {
@@ -82,7 +86,9 @@ if ($tipoPagoTexto == 'Credito' && $creditoNombre) {
 if ($pagoInfo) {
     $pagoEn = $pagoInfo['pago_text'];
 } else {
-    if ($tipoPagoTexto == 'Contado') {
+    if ($esEntregaAlCobro) {
+        $pagoEn = "Destino";
+    } elseif ($tipoPagoTexto == 'Contado') {
         $pagoEn = "Efectivo";
     } else {
         $pagoEn = "Por Definir";
