@@ -8,6 +8,7 @@ $modelo = new recogerEntregarModel();
 if (isset($_POST['accion']) && $_POST['accion'] === 'guardarFirmaEntrega') {
     $idServicio = $_POST['idServicio'] ?? '';
     $firmaBase64 = $_POST['firma'] ?? '';
+    $origenFirma = $_POST['origenFirma'] ?? 'firma';
 
     if (empty($idServicio) || empty($firmaBase64)) {
         echo json_encode(['success' => false, 'message' => 'Faltan datos.']);
@@ -15,7 +16,7 @@ if (isset($_POST['accion']) && $_POST['accion'] === 'guardarFirmaEntrega') {
     }
 
     // Llamamos al modelo
-    $resultado = $modelo->guardarFirmaEntrega($idServicio, $firmaBase64);
+    $resultado = $modelo->guardarFirmaEntrega($idServicio, $firmaBase64, $origenFirma);
 
     echo json_encode(['success' => $resultado]);
     exit;
@@ -26,6 +27,7 @@ if (isset($_POST['accion']) && $_POST['accion'] === 'guardarFirmaEntrega') {
 if (isset($_POST['accion']) && $_POST['accion'] === 'guardarFirmaRecogida') {
     $idServicio = $_POST['idServicio'] ?? '';
     $firmaBase64 = $_POST['firma'] ?? '';
+    $origenFirma = $_POST['origenFirma'] ?? 'firma';
 
     if (empty($idServicio) || empty($firmaBase64)) {
         echo json_encode(['success' => false, 'message' => 'Faltan datos.']);
@@ -33,7 +35,7 @@ if (isset($_POST['accion']) && $_POST['accion'] === 'guardarFirmaRecogida') {
     }
 
     // Llamamos al modelo
-    $resultado = $modelo->guardarFirmaRecogida($idServicio, $firmaBase64);
+    $resultado = $modelo->guardarFirmaRecogida($idServicio, $firmaBase64, $origenFirma);
 
     echo json_encode(['success' => $resultado]);
     exit;

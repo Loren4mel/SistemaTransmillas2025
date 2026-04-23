@@ -679,6 +679,12 @@ async function calcularValorAutomatico() {
     const telefono = document.getElementById("param85").value;
     const tipopago = document.getElementById("param8").value;
 
+    if (!validarNombreCompleto()) {
+      Swal.fire("Nombre incompleto", "Debe ingresar nombre y apellido de quien entrega.", "warning");
+      document.getElementById("param82").focus();
+      return;
+    }
+
     const telefonoLimpio = (telefono || "").trim();
     const soloPrefijoColombia = telefonoLimpio.replace(/\s+/g, "") === "+57";
 

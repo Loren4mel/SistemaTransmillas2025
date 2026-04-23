@@ -1402,15 +1402,22 @@ class RecogidasMovilModel {
                 $telefono = ($resTel->num_rows > 0) ? $resTel->fetch_assoc()['telefono'] : null;
 
                 // 🔎 Obtener número de guía desde servicios
-                $sqlGuia = "SELECT ser_consecutivo FROM servicios WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo,ser_telefonocontacto FROM servicios WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
                 $resGuia = $stmtGuia->get_result();
-                $numguia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc()['ser_consecutivo'] : null;
+                $rowGuia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc() : null;
+                $numguia = $rowGuia['ser_consecutivo'] ?? null;
+                $numDestinatario = $rowGuia['ser_telefonocontacto'] ?? null;
 
+                if (!empty($telefono) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($telefono, 42, $numguia . "R");
+                }
+                if (!empty($numDestinatario) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($numDestinatario, 42, $numguia . "R");
+                }
 
-                $this->enviarGuiaWhat( $telefono, 42, $numguia."R");
 
                 file_put_contents($logFile, "✅ Firma actualizada correctamente\n", FILE_APPEND);
                 return true;
@@ -1441,13 +1448,22 @@ class RecogidasMovilModel {
                 $telefono = ($resTel->num_rows > 0) ? $resTel->fetch_assoc()['telefono'] : null;
 
                 // 🔎 Obtener número de guía desde servicios
-                $sqlGuia = "SELECT ser_consecutivo FROM servicios WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo,ser_telefonocontacto FROM servicios WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
                 $resGuia = $stmtGuia->get_result();
-                $numguia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc()['ser_consecutivo'] : null;
-                $this->enviarGuiaWhat( $telefono, 42, $numguia."R");
+                $rowGuia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc() : null;
+                $numguia = $rowGuia['ser_consecutivo'] ?? null;
+                $numDestinatario = $rowGuia['ser_telefonocontacto'] ?? null;
+
+                if (!empty($telefono) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($telefono, 42, $numguia . "R");
+                }
+                if (!empty($numDestinatario) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($numDestinatario, 42, $numguia . "R");
+                }
+
                 file_put_contents($logFile, "✅ Firma insertada correctamente\n", FILE_APPEND);
                 return true;
             }
