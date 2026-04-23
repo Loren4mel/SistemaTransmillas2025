@@ -9,6 +9,11 @@
 (function () {
     'use strict';
 
+    // Capturar errores globales
+    window.addEventListener('error', function(e) {
+        console.error('Error global en Preoperacional JS:', e.message, 'en', e.filename, 'línea', e.lineno);
+    });
+
     /**
      * Configura la exclusividad para checkboxes binarios (SÍ/NO)
      * Solo un checkbox por grupo puede estar marcado
@@ -282,16 +287,42 @@
     }
 
     /**
+     * Valida que se haya proporcionado una firma
+     */
+    function validarFirma() {
+        var firmaInput = document.getElementById('firma_preoperacional');
+        if (!firmaInput) {
+            console.error('Campo firma_preoperacional no encontrado');
+            return false;
+        }
+
+        var firmaValor = firmaInput.value.trim();
+
+        if (!firmaValor) {
+            Swal.fire({
+                title: 'Firma requerida',
+                text: 'Debe firmar en el canvas antes de guardar el preoperacional.',
+                icon: 'warning',
+                confirmButtonText: 'Entendido'
+            });
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Maneja el envío del formulario
      */
     function handleSubmitForm() {
         var form = document.getElementById('formPreoperacional');
-        if (!form) return;
-
+        if (!form) {
+            return;
+        }
         form.addEventListener('submit', function (e) {
             e.preventDefault();
 
-            // Validar que se hayan respondido todos los checkboxes binarios
+            // Validar que se hayan respondedido todos los checkboxes binarios
             if (!validarCheckboxesBinarios()) {
                 return;
             }
@@ -301,7 +332,14 @@
                 return;
             }
 
-            if (!asignar()) return;
+            // Validar firma
+            if (!validarFirma()) {
+                return;
+            }
+
+            if (!asignar()) {
+                return;
+            }
 
             var formData = new FormData(this);
             formData.append('accion', 'guardar');
@@ -463,7 +501,9 @@
      */
     function initSignatureCanvas() {
         var canvas = document.getElementById('signatureCanvas');
-        if (!canvas) return;
+        if (!canvas) {
+            return;
+        }
 
         var ctx = canvas.getContext('2d');
         var isDrawing = false;
@@ -575,6 +615,11 @@
                     if (hiddenInput) {
                         hiddenInput.value = dataURL;
                     }
+                } else {
+                    var hiddenInput = document.getElementById('firma_preoperacional');
+                    if (hiddenInput) {
+                        hiddenInput.value = '';
+                    }
                 }
             });
         }
@@ -584,11 +629,42 @@
      * Inicialización cuando el DOM está listo
      */
     function init() {
-        initBinaryCheckboxes();    // Para checkboxes binarios (SÍ/NO)
-        initCheckboxObservers();   // Para checkboxes de vehículo único
-        handleSubmitForm();
-        cargarDatosPrecarga();
-        initSignatureCanvas();
+        try {
+            console.log('Preoperacional JS: Inicializando...');
+            initBinaryCheckboxes();    // Para checkboxes binarios (SÍ/NO)
+            initCheckboxObservers();   // Para checkboxes de vehículo único
+            initSignatureCanvas();     // Canvas de firma (debe registrarse antes de handleSubmitForm)
+            handleSubmitForm();
+            cargarDatosPrecarga();
+
+            // Depuración: listener de clic al botón Guardar
+            var btnGuardar = document.getElementById('btnGuardar');
+            if (btnGuardar) {
+                console.log('Preoperacional JS: Botón Guardar encontrado, agregando listener de clic para depuración');
+                btnGuardar.addEventListener('click', function(e) {
+                    console.log('DEBUG: Click en botón Guardar detectado');
+                    // No prevenir default, dejar que el submit del formulario se dispare
+                });
+            } else {
+                console.error('Preoperacional JS: ERROR - No se encontró el botón con id btnGuardar');
+            }
+
+            // También registrar listener con jQuery por si hay conflictos
+            if (typeof $ !== 'undefined') {
+                console.log('Preoperacional JS: jQuery disponible, registrando listener adicional');
+                $('#formPreoperacional').on('submit', function(e) {
+                    console.log('jQuery: Evento submit capturado');
+                });
+                $('#btnGuardar').on('click', function(e) {
+                    console.log('jQuery: Click en botón Guardar capturado');
+                });
+            }
+
+            console.log('Preoperacional JS: Inicialización completada');
+        } catch (error) {
+            console.error('Preoperacional JS: Error durante la inicialización:', error);
+            console.error('Stack trace:', error.stack);
+        }
     }
 
     // Ejecutar cuando el DOM esté listo

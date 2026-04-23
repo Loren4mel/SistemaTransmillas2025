@@ -530,8 +530,8 @@ class PreoperacionalNuevaEncuestaViewHelper
         $html .= "                </button>\n";
         $html .= "            </div>\n";
 
-        // Campo oculto para almacenar la firma en base64
-        $html .= "            <input type='hidden' name='{$nombreCampo}' id='{$nombreCampo}' value='' {$requiredAttr} data-signature-field='true'>\n";
+        // Campo oculto para almacenar la firma en base64 (type='hidden' para evitar validación HTML5)
+        $html .= "            <input type='hidden' name='{$nombreCampo}' id='{$nombreCampo}' value='' data-signature-field='true'>\n";
 
         // Mensaje informativo
         $html .= "            <small class='text-muted d-block mt-2'>\n";
