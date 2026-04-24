@@ -211,6 +211,69 @@ class PreoperacionalModel
     }
 
     /**
+     * Actualiza campos específicos de un registro de preoperacional
+     *
+     * @param int $id ID del registro
+     * @param array $campos Array asociativo de campos a actualizar [campo => valor]
+     * @return bool True si la actualización fue exitosa, false en caso contrario
+     */
+    public function actualizarCamposPreoperacional($id, $campos)
+    {
+        if (empty($campos)) {
+            error_log("PreoperacionalModel: actualizarCamposPreoperacional - Array de campos vacío");
+            return false;
+        }
+
+        $columnasPermitidas = [
+            'preencuesta', 'predatosvalidados', 'pre_descvalidada', 'preestado',
+            'pre_correctiva', 'pre_responsable', 'pre_temperatura', 'pre_kilrecorridos',
+            'pre_limpiomaleta', 'pre_img_kilo', 'pre_obsevaciones',
+            'prefechavalidacion', 'pre_iduservalida'
+        ];
+
+        $setParts = [];
+        $types = '';
+        $values = [];
+
+        foreach ($campos as $campo => $valor) {
+            if (!in_array($campo, $columnasPermitidas, true)) {
+                error_log("PreoperacionalModel: actualizarCamposPreoperacional - Columna no permitida: $campo");
+                continue;
+            }
+            $setParts[] = "$campo = ?";
+            // Determinar tipo basado en el valor
+            if (is_int($valor)) {
+                $types .= 'i';
+            } elseif (is_float($valor)) {
+                $types .= 'd';
+            } else {
+                $types .= 's';
+            }
+            $values[] = $valor;
+        }
+
+        $values[] = $id; // ID al final
+        $types .= 'i';
+
+        $sql = "UPDATE `pre-operacional` SET " . implode(', ', $setParts) . " WHERE idpreoperacinal = ?";
+
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("PreoperacionalModel: actualizarCamposPreoperacional - Error preparando SQL: " . $this->db->error);
+            return false;
+        }
+
+        $stmt->bind_param($types, ...$values);
+        $result = $stmt->execute();
+
+        if (!$result) {
+            error_log("PreoperacionalModel: actualizarCamposPreoperacional - Error ejecutando: " . $stmt->error);
+        }
+
+        return $result;
+    }
+
+    /**
      * Actualiza el kilometraje del vehículo y calcula KM restantes para cambio de aceite
      * 
      * @param int $idVehiculo ID del vehículo
@@ -243,30 +306,90 @@ class PreoperacionalModel
 
     /**
      * Guarda una imagen asociada al preoperacional
-     * 
+     *
      * @param array $file Archivo subido ($_FILES)
      * @param int $idPreoperacional ID del registro
      * @param int $version Versión del documento
-     * @return bool True si el guardado fue exitoso, false en caso contrario
+     * @return int|false ID del documento insertado o false en caso de error
      */
     public function guardarImagen($file, $idPreoperacional, $version)
     {
         if (empty($file['tmp_name'])) {
+            error_log("PreoperacionalModel: guardarImagen - tmp_name vacío");
             return false;
         }
-        
+
         $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $file['name'];
-        $ruta = "./preoperacional/" . $nombreArchivo;
-        
+        $rutaBase = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
+        $ruta = $rutaBase . $nombreArchivo;
+
+        if (!is_dir($rutaBase)) {
+            mkdir($rutaBase, 0777, true);
+        }
+
         if (move_uploaded_file($file['tmp_name'], $ruta)) {
             $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version)
                     VALUES (NOW(), ?, ?, 'pre-operacional', ?, ?)";
-            
+
             $stmt = $this->db->prepare($sql);
-            return $stmt->bind_param("ssii", $file['name'], $ruta, $idPreoperacional, $version) 
+            $result = $stmt->bind_param("ssii", $file['name'], $ruta, $idPreoperacional, $version)
                    && $stmt->execute();
+
+            if ($result) {
+                return $this->db->insert_id;
+            }
+
+            return false;
+        } else {
+            error_log("PreoperacionalModel: guardarImagen - ERROR al mover archivo");
         }
-        
+
+        return false;
+    }
+
+    /**
+     * Guarda una imagen desde una ruta de archivo existente
+     * (Para imágenes generadas como firmas base64 convertidas a archivo)
+     *
+     * @param string $rutaArchivo Ruta completa al archivo temporal
+     * @param string $nombreOriginal Nombre original del archivo
+     * @param int $idPreoperacional ID del registro
+     * @param int $version Versión del documento
+     * @return int|false ID del documento insertado o false en caso de error
+     */
+    public function guardarImagenDesdeRuta($rutaArchivo, $nombreOriginal, $idPreoperacional, $version)
+    {
+        if (!file_exists($rutaArchivo)) {
+            error_log("PreoperacionalModel: guardarImagenDesdeRuta - ERROR: Archivo temporal no existe: " . $rutaArchivo);
+            return false;
+        }
+
+        $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $nombreOriginal;
+        $rutaBase = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
+        $rutaDestino = $rutaBase . $nombreArchivo;
+
+        if (!is_dir($rutaBase)) {
+            mkdir($rutaBase, 0777, true);
+        }
+
+        if (copy($rutaArchivo, $rutaDestino)) {
+            $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version)
+                    VALUES (NOW(), ?, ?, 'pre-operacional', ?, ?)";
+
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->bind_param("ssii", $nombreOriginal, $rutaDestino, $idPreoperacional, $version)
+                   && $stmt->execute();
+
+            if (!$result) {
+                error_log("PreoperacionalModel: guardarImagenDesdeRuta - Error SQL: " . $stmt->error);
+                return false;
+            }
+
+            return $this->db->insert_id;
+        } else {
+            error_log("PreoperacionalModel: guardarImagenDesdeRuta - ERROR al copiar archivo");
+        }
+
         return false;
     }
 
@@ -285,6 +408,20 @@ class PreoperacionalModel
         $stmt = $this->db->prepare($sql);
         return $stmt->bind_param("si", $rutaImagen, $idPreoperacional) 
                && $stmt->execute();
+    }
+
+    /**
+     * Obtiene el documento de firma asociado a un preoperacional
+     *
+     * @param int $idPreoperacional ID del registro preoperacional
+     * @return array|null Datos del documento (doc_ruta, doc_nombre) o null si no existe
+     */
+    public function obtenerDocumentoFirma($idPreoperacional)
+    {
+        $sql = "SELECT doc_ruta, doc_nombre FROM documentos
+                WHERE doc_idviene = ? AND doc_version = 4 AND doc_tabla = 'pre-operacional'
+                LIMIT 1";
+        return $this->executeQuery($sql, "i", [$idPreoperacional]);
     }
 
     // ==================== MÉTODOS PRIVADOS ====================

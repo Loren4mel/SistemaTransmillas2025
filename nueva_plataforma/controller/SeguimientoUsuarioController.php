@@ -335,7 +335,6 @@ if (isset($_GET['accion'])) {
                 exit;
 
             case 'form_popup':
-                error_log('form_popup triggered, tipo: ' . ($_GET['tipo'] ?? 'none'));
                 $tipo = $_GET['tipo'] ?? '';
                 $id = intval($_GET['id'] ?? 0);
                 $param = $_GET['param'] ?? '';

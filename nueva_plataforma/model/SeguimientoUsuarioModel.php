@@ -935,7 +935,7 @@ class SeguimientoUsuarioModel
         $estado = $row['preestado'];
         if (in_array($estado, ['No aplica', 'descanso', 'vacaciones']))
             return $estado;
-        $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=preencuesta";
+        $url = "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}";
         return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>$estado</a>";
     }
 
@@ -944,7 +944,7 @@ class SeguimientoUsuarioModel
         if (empty($row['idpreoperacinal']))
             return '';
         if (in_array($row['preestado'], ['Validado', 'Validado Covid19'])) {
-            $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=predatosvalidados";
+            $url = "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}";
             return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>Validado</a>";
         }
         if (in_array($row['preestado'], ['No aplica', 'descanso', 'vacaciones', 'Vacaciones'])) {

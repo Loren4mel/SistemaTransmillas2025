@@ -9,6 +9,11 @@
 (function () {
     'use strict';
 
+    // Capturar errores globales
+    window.addEventListener('error', function(e) {
+        console.error('Error global en Preoperacional JS:', e.message, 'en', e.filename, 'línea', e.lineno);
+    });
+
     /**
      * Configura la exclusividad para checkboxes binarios (SÍ/NO)
      * Solo un checkbox por grupo puede estar marcado
@@ -68,29 +73,6 @@
                             photoRow.style.display = 'none';
                         }
                     }
-                }
-            }
-        });
-    }
-
-    /**
-     * Maneja el cambio en checkboxes de vehículo (checkbox único SÍ/NO)
-     * Lógica:
-     * - Si checkbox SÍ (OK) está marcado: ocultar campo de foto
-     * - Si checkbox SÍ (OK) NO está marcado: mostrar campo de foto (si aplica)
-     */
-    function initCheckboxObservers() {
-        // Delegación de eventos para checkboxes dinámicos
-        document.addEventListener('change', function(e) {
-            // Manejar checkbox SÍ (OK) único (vehículos)
-            if (e.target.classList.contains('checkbox-ok') && !e.target.classList.contains('checkbox-binary')) {
-                var checkboxName = e.target.getAttribute('data-name');
-                var isChecked = e.target.checked;
-
-                // Mostrar/ocultar campo de foto si existe
-                var photoRow = document.getElementById(checkboxName + '_photo_row');
-                if (photoRow) {
-                    photoRow.style.display = isChecked ? 'none' : '';
                 }
             }
         });
@@ -282,26 +264,102 @@
     }
 
     /**
+     * Valida que se haya proporcionado una firma
+     */
+    function validarFirma() {
+        // En modo validación no se necesita capturar nueva firma
+        if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
+            return true;
+        }
+
+        var firmaInput = document.getElementById('firma_preoperacional');
+        if (!firmaInput) {
+            // Formato legado: no tiene campo de firma, no requiere validación
+            return true;
+        }
+
+        var firmaValor = firmaInput.value.trim();
+
+        if (!firmaValor) {
+            Swal.fire({
+                title: 'Firma requerida',
+                text: 'Debe firmar en el canvas antes de guardar el preoperacional.',
+                icon: 'warning',
+                confirmButtonText: 'Entendido'
+            });
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Deshabilita todos los campos del formulario en modo validación
+     * para evitar modificaciones, excepto el textarea de nota de validación
+     */
+    function disableFormInValidationMode() {
+        if (typeof ES_VALIDACION === 'undefined' || !ES_VALIDACION) {
+            return;
+        }
+
+        // Marcar checkboxes y radios con clase CSS (sin disabled para preservar estilo visual)
+        var inputs = document.querySelectorAll('.obtener');
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].classList.add('validation-disabled');
+            inputs[i].setAttribute('tabindex', '-1');
+        }
+
+        // Poner readonly en campos de texto, textareas y número (excepto validation note)
+        var textInputs = document.querySelectorAll('input[type="text"], input[type="number"], textarea');
+        for (var j = 0; j < textInputs.length; j++) {
+            var el = textInputs[j];
+            // No deshabilitar campos ocultos ni el textarea de validación
+            if (el.type !== 'hidden' && el.id !== 'desc_validacion' && el.id !== 'observaciones_validacion') {
+                el.readOnly = true;
+            }
+        }
+
+        // Deshabilitar inputs de archivo
+        var fileInputs = document.querySelectorAll('input[type="file"]');
+        for (var k = 0; k < fileInputs.length; k++) {
+            fileInputs[k].disabled = true;
+        }
+    }
+
+    /**
      * Maneja el envío del formulario
      */
     function handleSubmitForm() {
         var form = document.getElementById('formPreoperacional');
-        if (!form) return;
-
+        if (!form) {
+            return;
+        }
         form.addEventListener('submit', function (e) {
             e.preventDefault();
 
-            // Validar que se hayan respondido todos los checkboxes binarios
-            if (!validarCheckboxesBinarios()) {
-                return;
+            var esValidacion = (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION);
+
+            // En modo validación, omitir validaciones de checkboxes, fotos y firma
+            if (!esValidacion) {
+                // Validar que se hayan respondedido todos los checkboxes binarios
+                if (!validarCheckboxesBinarios()) {
+                    return;
+                }
+
+                // Validar fotos requeridas
+                if (!validarFotosRequeridas()) {
+                    return;
+                }
+
+                // Validar firma
+                if (!validarFirma()) {
+                    return;
+                }
             }
 
-            // Validar fotos requeridas
-            if (!validarFotosRequeridas()) {
+            if (!asignar()) {
                 return;
             }
-
-            if (!asignar()) return;
 
             var formData = new FormData(this);
             formData.append('accion', 'guardar');
@@ -334,7 +392,13 @@
                             icon: 'success',
                             confirmButtonText: 'Aceptar'
                         }).then(function () {
-                            window.location.href = 'inicio.php?bandera=1';
+                            if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
+                                window.close();
+                            } else if (typeof URL_REDIRECT !== 'undefined' && URL_REDIRECT) {
+                                window.location.href = URL_REDIRECT;
+                            } else {
+                                window.close();
+                            }
                         });
                     } else {
                         Swal.fire({
@@ -366,14 +430,13 @@
     }
 
     /**
-     * Precarga los datos guardados y resalta las diferencias
+     * Precarga los datos guardados en el formulario
      */
     function cargarDatosPrecarga() {
         var estadoInput = document.getElementById("estado");
         var userInput = document.getElementById("user");
         var fechaInput = document.getElementById("fecha");
         var campoInput = document.getElementById("campo");
-        var param3Input = document.getElementById("param3");
 
         if (!estadoInput || !userInput || !fechaInput || !campoInput) return;
 
@@ -381,40 +444,9 @@
         var iduser = userInput.value;
         var fecha = fechaInput.value;
         var campo = campoInput.value;
-        var tipovehiculo = param3Input ? param3Input.value : '0';
 
         if (valida !== 'ingresado' && valida !== 'covid19') return;
         if (!campo) return;
-
-        // Valores esperados para moto (si la respuesta es diferente, se resalta)
-        var valoresmoto = {};
-        valoresmoto['llantas1'] = '2';
-        valoresmoto['llantas2'] = '2';
-        valoresmoto['llantas4'] = '2';
-        valoresmoto['llantas5'] = '1';
-        valoresmoto['llantas6'] = '1';
-        valoresmoto['transmision1'] = '2';
-        valoresmoto['transmision2'] = '2';
-        valoresmoto['Luces1'] = '1';
-        valoresmoto['Luces2'] = '1';
-        valoresmoto['Luces3'] = '1';
-        valoresmoto['fugas1'] = '2';
-        valoresmoto['fugas2'] = '2';
-        valoresmoto['fugas3'] = '2';
-        valoresmoto['fugas4'] = '2';
-        valoresmoto['fugas5'] = '2';
-        valoresmoto['fugas6'] = '2';
-        valoresmoto['mandos1'] = '2';
-        valoresmoto['mandos2'] = '1';
-        valoresmoto['entorno1'] = '1';
-        valoresmoto['entorno2'] = '2';
-        valoresmoto['entorno3'] = '1';
-        valoresmoto['elementos1'] = '1';
-        valoresmoto['elementos2'] = '1';
-        valoresmoto['elementos3'] = '1';
-        valoresmoto['elementos4'] = '1';
-        valoresmoto['elementos5'] = '1';
-        valoresmoto['elementos6'] = '1';
 
         $.ajax({
             url: window.location.pathname,
@@ -423,31 +455,23 @@
             dataType: "json"
         }).done(function (respuesta) {
             if (respuesta != null && respuesta !== '') {
-                for (var i in respuesta) {
-                    var value = respuesta[i];
-                    var tamano = document.getElementsByName(i);
+                for (var name in respuesta) {
+                    if (!respuesta.hasOwnProperty(name)) continue;
+                    var value = respuesta[name];
+                    var inputs = document.getElementsByName(name);
 
-                    for (b = 0; b < tamano.length; b++) {
-                        var valor = tamano[b].value;
-                        if (valor == value) {
-                            tamano[b].checked = true;
+                    if (!inputs || inputs.length === 0) continue;
 
-                            // Colorear fila si la respuesta no es la esperada
-                            if (tipovehiculo == 'MOTO') {
-                                if (value != valoresmoto[i]) {
-                                    var row = document.getElementById(i + '0');
-                                    if (row) row.style.backgroundColor = "#e4605e";
-                                }
-                            } else if (tipovehiculo == 'CARRO') {
-                                if (value != '1') {
-                                    var row = document.getElementById(i + '0');
-                                    if (row) row.style.backgroundColor = "#e4605e";
-                                }
-                            } else {
-                                // Modo COVID: pintar rojo si respuesta es SI (1) en primeras 7
-                                if (valida == 'covid19' && i.substr(0, 6) == 'covid1' && value == '1') {
-                                    var row = document.getElementById(i + '0');
-                                    if (row) row.style.backgroundColor = "#e4605e";
+                    for (var b = 0; b < inputs.length; b++) {
+                        var input = inputs[b];
+                        if (input.value == value) {
+                            input.checked = true;
+
+                            // Mostrar fila de foto si aplica (NO = valor 2)
+                            if (value === '2') {
+                                var photoRow = document.getElementById(name + '_photo_row');
+                                if (photoRow) {
+                                    photoRow.style.display = '';
                                 }
                             }
                         }
@@ -463,7 +487,9 @@
      */
     function initSignatureCanvas() {
         var canvas = document.getElementById('signatureCanvas');
-        if (!canvas) return;
+        if (!canvas) {
+            return;
+        }
 
         var ctx = canvas.getContext('2d');
         var isDrawing = false;
@@ -575,6 +601,11 @@
                     if (hiddenInput) {
                         hiddenInput.value = dataURL;
                     }
+                } else {
+                    var hiddenInput = document.getElementById('firma_preoperacional');
+                    if (hiddenInput) {
+                        hiddenInput.value = '';
+                    }
                 }
             });
         }
@@ -584,11 +615,20 @@
      * Inicialización cuando el DOM está listo
      */
     function init() {
-        initBinaryCheckboxes();    // Para checkboxes binarios (SÍ/NO)
-        initCheckboxObservers();   // Para checkboxes de vehículo único
-        handleSubmitForm();
-        cargarDatosPrecarga();
-        initSignatureCanvas();
+        try {
+            initBinaryCheckboxes();
+            handleSubmitForm();
+            cargarDatosPrecarga();
+
+            // En modo validación: deshabilitar formulario y mostrar firma como imagen
+            if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
+                disableFormInValidationMode();
+            } else {
+                initSignatureCanvas();
+            }
+        } catch (error) {
+            console.error('Preoperacional JS: Error durante la inicialización:', error);
+        }
     }
 
     // Ejecutar cuando el DOM esté listo
