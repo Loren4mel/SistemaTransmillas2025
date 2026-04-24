@@ -14,6 +14,20 @@ require_once __DIR__ . '/../../helpers/PreoperacionalHelpers/PreoperacionalNueva
 
 $color = "#EFEFEF";
 $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
+
+/**
+ * Convierte una ruta absoluta del servidor a una URL accesible desde el navegador
+ */
+function rutaAbsolutaAUrl($rutaAbsoluta)
+{
+    if (empty($rutaAbsoluta)) return '';
+    $docRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']);
+    $ruta = str_replace('\\', '/', $rutaAbsoluta);
+    if (strpos($ruta, $docRoot) === 0) {
+        return substr($ruta, strlen($docRoot));
+    }
+    return $rutaAbsoluta; // fallback: devolver tal cual
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -52,6 +66,21 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
 
         .btnSaveCovid:disabled {
             opacity: 0.5;
+        }
+
+        /* En modo validación, los controles deshabilitados no deben verse opacados */
+        #formPreoperacional .obtener:disabled,
+        #formPreoperacional input:disabled,
+        #formPreoperacional select:disabled {
+            opacity: 1 !important;
+            cursor: default;
+        }
+
+        /* En modo validación, controles con clase validation-disabled (sin disabled real) */
+        #formPreoperacional .validation-disabled {
+            opacity: 1 !important;
+            pointer-events: none;
+            cursor: default;
         }
 
         .text {
@@ -115,120 +144,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                 </h3>
             </div>
 
-            <!-- ==================== BOTONES DE PRUEBA ==================== -->
-            <?php if (!$esCovid): ?>
-            <div class="card mt-3 mb-3 shadow-sm">
-                <div class="card-header bg-warning text-dark">
-                    <strong>🧪 MODO PRUEBA - Cambiar entre casos</strong>
-                </div>
-                <div class="card-body">
-                    <p class="mb-2"><strong>Caso actual:</strong>
-                        <span class="badge bg-primary">
-                            <?php
-                            if (!empty($casoPrueba) && $casoPrueba === 'legado') {
-                                echo 'Formato Legado (' . $tipovehiculo . ')';
-                            } elseif ($mostrarSecciones['administrativo'] ?? false) {
-                                echo 'Administrativo';
-                            } elseif ($mostrarSecciones['conductor'] ?? false) {
-                                echo 'Conductor (Carro)';
-                            } elseif ($mostrarSecciones['auxiliar_carga'] ?? false) {
-                                echo 'Auxiliar de Carga';
-                            } elseif ($mostrarSecciones['vehiculo_propio'] ?? false) {
-                                echo 'Vehículo Propio (Moto)';
-                            } else {
-                                echo 'Por defecto';
-                            }
-                            ?>
-                        </span>
-                    </p>
-                    <div class="btn-group flex-wrap" role="group">
-                        <a href="?caso_prueba=administrativo&tipo_vehiculo=NONE" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-user-tie"></i> Caso 1: Administrativo
-                        </a>
-                        <a href="?caso_prueba=conductor&tipo_vehiculo=CARRO" class="btn btn-outline-success btn-sm">
-                            <i class="fas fa-car"></i> Caso 2: Conductor (Carro)
-                        </a>
-                        <a href="?caso_prueba=moto&tipo_vehiculo=MOTO" class="btn btn-outline-warning btn-sm">
-                            <i class="fas fa-motorcycle"></i> Caso 3: Moto Propia
-                        </a>
-                        <a href="?caso_prueba=auxiliar&tipo_vehiculo=NONE" class="btn btn-outline-info btn-sm">
-                            <i class="fas fa-box"></i> Caso 4: Auxiliar de Carga
-                        </a>
-                        <a href="?caso_prueba=legado&tipo_vehiculo=CARRO" class="btn btn-outline-secondary btn-sm">
-                            <i class="fas fa-history"></i> Caso 5: Legado Carro
-                        </a>
-                        <a href="?caso_prueba=legado&tipo_vehiculo=MOTO" class="btn btn-outline-dark btn-sm">
-                            <i class="fas fa-history"></i> Caso 6: Legado Moto
-                        </a>
-                    </div>
-                    <hr>
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle"></i> 
-                        Estos botones recargan la página con parámetros de prueba para verificar cada caso.
-                    </small>
-                </div>
-            </div>
-            <?php endif; ?>
 
-            <!-- ==================== PANEL DE INFORMACIÓN DE SECCIONES ==================== -->
-            <?php if ($usarNuevoFormato && !$esCovid && empty($casoPrueba) || ($usarNuevoFormato && !empty($casoPrueba) && $casoPrueba !== 'legado')): ?>
-            <div class="card mb-3 shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <strong>📋 Secciones Activas en este Caso</strong>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <?php if ($mostrarSecciones['administrativo']): ?>
-                        <div class="col-md-3 mb-2">
-                            <div class="alert alert-primary mb-0">
-                                <i class="fas fa-user-tie"></i> Administrativo
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($mostrarSecciones['conductor']): ?>
-                        <div class="col-md-3 mb-2">
-                            <div class="alert alert-success mb-0">
-                                <i class="fas fa-car"></i> Conductor
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($mostrarSecciones['vehiculo_propio']): ?>
-                        <div class="col-md-3 mb-2">
-                            <div class="alert alert-warning mb-0">
-                                <i class="fas fa-motorcycle"></i> Vehículo Propio
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($mostrarSecciones['auxiliar_carga']): ?>
-                        <div class="col-md-3 mb-2">
-                            <div class="alert alert-info mb-0">
-                                <i class="fas fa-box"></i> Auxiliar de Carga
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($mostrarSecciones['preoperacional_vehiculo']): ?>
-                        <div class="col-md-3 mb-2">
-                            <div class="alert alert-dark mb-0">
-                                <i class="fas fa-truck"></i> Preoperacional Carro
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($mostrarSecciones['preoperacional_moto']): ?>
-                        <div class="col-md-3 mb-2">
-                            <div class="alert alert-dark mb-0">
-                                <i class="fas fa-motorcycle"></i> Preoperacional Moto
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
 
             <div class="card-body">
                 <form id="formPreoperacional" enctype="multipart/form-data">
@@ -241,15 +157,11 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                     <input type="hidden" name="campo" id="campo" value="<?= $registroExistente ? 'preencuesta' : '' ?>">
                     <input type="hidden" name="data" id="data" value="">
                     <input type="hidden" name="tabla" value="<?= htmlspecialchars($preoperacional) ?>">
-                    <input type="hidden" name="param11" value="<?= $registroExistente['idpreoperacinal'] ?? '' ?>">
+                    <input type="hidden" name="id_preoperacional" value="<?= $registroExistente['idpreoperacinal'] ?? '' ?>">
                     <input type="hidden" name="idvehiculo" value="<?= $datosVehiculo['idvehiculos'] ?? 0 ?>">
-                    <input type="hidden" name="param1" value="<?= $datosVehiculo['idvehiculos'] ?? 0 ?>">
-                    <input type="hidden" name="param2" value="<?= htmlspecialchars($tipovehiculo) ?>">
+                    <input type="hidden" name="tipo_vehiculo" value="<?= htmlspecialchars($tipovehiculo) ?>">
                     <input type="hidden" name="param3" value="<?= htmlspecialchars($tipovehiculo) ?>">
                     <input type="hidden" name="formato_encuesta" id="formato_encuesta" value="<?= $usarNuevoFormato ? 'nuevo' : 'legado' ?>">
-                    <?php if (!empty($casoPrueba)): ?>
-                    <input type="hidden" name="caso_prueba" value="<?= htmlspecialchars($casoPrueba) ?>">
-                    <?php endif; ?>
 
                     <div id="contenedor1" style="display:flex;">
                         <div id="primero" style="width: 100%; float:left;">
@@ -258,7 +170,15 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
 
                                 <!-- ==================== NUEVO FORMATO: SOLO SECCIONES BASADAS EN ROL (SIN COVID, SIN FATIGA) ==================== -->
                                 <?php if ($usarNuevoFormato): ?>
-                                    
+
+                                    <?php
+                                    // Extraer valores existentes de la encuesta JSON para precargar el formulario
+                                    $valoresEncuesta = [];
+                                    if ($registroExistente && !empty($registroExistente['preencuesta'])) {
+                                        $valoresEncuesta = json_decode($registroExistente['preencuesta'], true) ?? [];
+                                    }
+                                    ?>
+
                                     <!-- SECCIÓN ADMINISTRATIVO (solo roles administrativos) -->
                                     <?php if ($mostrarSecciones['administrativo'] ?? false): ?>
                                         <tr class="tittle3 section-header administrativo">
@@ -268,7 +188,8 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             PreoperacionalNuevaEncuestaViewHelper::getPreguntasAdministrativo(),
                                             $color,
                                             '',
-                                            'administrativo'
+                                            'administrativo',
+                                            $valoresEncuesta
                                         ) ?>
                                     <?php endif; ?>
 
@@ -281,7 +202,8 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             PreoperacionalNuevaEncuestaViewHelper::getPreguntasConductor(),
                                             $color,
                                             '',
-                                            'conductor'
+                                            'conductor',
+                                            $valoresEncuesta
                                         ) ?>
                                     <?php endif; ?>
 
@@ -294,7 +216,8 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             PreoperacionalNuevaEncuestaViewHelper::getPreguntasVehiculoPropio(),
                                             $color,
                                             '',
-                                            'vehiculo-propio'
+                                            'vehiculo-propio',
+                                            $valoresEncuesta
                                         ) ?>
                                     <?php endif; ?>
 
@@ -307,7 +230,8 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             PreoperacionalNuevaEncuestaViewHelper::getPreguntasAuxiliarCarga(),
                                             $color,
                                             '',
-                                            'auxiliar-carga'
+                                            'auxiliar-carga',
+                                            $valoresEncuesta
                                         ) ?>
                                     <?php endif; ?>
 
@@ -342,19 +266,19 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             </tr>
                                         <?php endif; ?>
 
-                                        <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($color, 'preoperacional-carro') ?>
+                                        <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($color, 'preoperacional-carro', $valoresEncuesta) ?>
                                         
                                         <!-- Kilometraje actual con imagen -->
                                         <tr bgcolor='$color' class='text' id='klmactual'>
-                                            <td colspan='4'>KILOMETRAJE ACTUAL: <input name='param12' id='param12'
+                                            <td colspan='4'>KILOMETRAJE ACTUAL: <input name='kilometraje' id='kilometraje'
                                                     value='<?= htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? NULL) ?>'
                                                     style='width:395px' class='form-control'></td>
                                         </tr>
                                         <tr bgcolor='$color'>
-                                            <td colspan='4'>Imagen Kilometraje: <input type="file" name="param30"
+                                            <td colspan='4'>Imagen Kilometraje: <input type="file" name="imagen_kilometraje"
                                                     class="form-control">
                                                 <?php if (!empty($registroExistente['pre_img_kilo'])): ?>
-                                                    <br><a href="<?= htmlspecialchars($registroExistente['pre_img_kilo']) ?>"
+                                                    <br><a href="<?= htmlspecialchars(rutaAbsolutaAUrl($registroExistente['pre_img_kilo'])) ?>"
                                                         target="_blank">Ver imagen actual</a>
                                                 <?php endif; ?>
                                             </td>
@@ -365,7 +289,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             <td colspan="4">OBSERVACIONES/ CONDICIONES REPORTADAS</td>
                                         </tr>
                                         <tr bgcolor='$color' class='text' id='observacionesc'>
-                                            <td colspan='4'><textarea name='param7' id='param7' style='width:395px'
+                                            <td colspan='4'><textarea name='observaciones' id='observaciones' style='width:395px'
                                                     class='form-control'><?= htmlspecialchars($registroExistente['pre_obsevaciones'] ?? '') ?></textarea>
                                             </td>
                                         </tr>
@@ -373,7 +297,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             <td colspan="4">ACCIÓN CORRECTIVA</td>
                                         </tr>
                                         <tr bgcolor='$color' class='text' id='accioncorrectiva'>
-                                            <td colspan='4'><textarea name='param8' id='param8' style='width:395px'
+                                            <td colspan='4'><textarea name='accion_correctiva' id='accion_correctiva' style='width:395px'
                                                     class='form-control'><?= htmlspecialchars($registroExistente['pre_correctiva'] ?? '') ?></textarea>
                                             </td>
                                         </tr>
@@ -381,7 +305,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             <td colspan="4">RESPONSABLE</td>
                                         </tr>
                                         <tr bgcolor='$color' class='text' id='responsable'>
-                                            <td colspan='4'><input name='param9' id='param9'
+                                            <td colspan='4'><input name='responsable' id='responsable'
                                                     value='<?= htmlspecialchars($registroExistente['pre_responsable'] ?? '') ?>'
                                                     style='width:395px' class='form-control'></td>
                                         </tr>
@@ -418,19 +342,19 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             </tr>
                                         <?php endif; ?>
 
-                                        <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($color, 'preoperacional-moto') ?>
+                                        <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($color, 'preoperacional-moto', $valoresEncuesta) ?>
                                         
                                         <!-- Kilometraje actual con imagen -->
                                         <tr bgcolor='$color' class='text' id='klmactual'>
-                                            <td colspan='4'>KILOMETRAJE ACTUAL: <input name='param12' id='param12'
+                                            <td colspan='4'>KILOMETRAJE ACTUAL: <input name='kilometraje' id='kilometraje'
                                                     value='<?= htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? NULL) ?>'
                                                     style='width:395px' class='form-control'></td>
                                         </tr>
                                         <tr bgcolor='$color'>
-                                            <td colspan='4'>Imagen Kilometraje: <input type="file" name="param30"
+                                            <td colspan='4'>Imagen Kilometraje: <input type="file" name="imagen_kilometraje"
                                                     class="form-control">
                                                 <?php if (!empty($registroExistente['pre_img_kilo'])): ?>
-                                                    <br><a href="<?= htmlspecialchars($registroExistente['pre_img_kilo']) ?>"
+                                                    <br><a href="<?= htmlspecialchars(rutaAbsolutaAUrl($registroExistente['pre_img_kilo'])) ?>"
                                                         target="_blank">Ver imagen actual</a>
                                                 <?php endif; ?>
                                             </td>
@@ -441,7 +365,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             <td colspan="4">OBSERVACIONES/ CONDICIONES REPORTADAS</td>
                                         </tr>
                                         <tr bgcolor='$color' class='text' id='observacionesc'>
-                                            <td colspan='4'><textarea name='param7' id='param7' style='width:395px'
+                                            <td colspan='4'><textarea name='observaciones' id='observaciones' style='width:395px'
                                                     class='form-control'><?= htmlspecialchars($registroExistente['pre_obsevaciones'] ?? '') ?></textarea>
                                             </td>
                                         </tr>
@@ -449,7 +373,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             <td colspan="4">ACCIÓN CORRECTIVA</td>
                                         </tr>
                                         <tr bgcolor='$color' class='text' id='accioncorrectiva'>
-                                            <td colspan='4'><textarea name='param8' id='param8' style='width:395px'
+                                            <td colspan='4'><textarea name='accion_correctiva' id='accion_correctiva' style='width:395px'
                                                     class='form-control'><?= htmlspecialchars($registroExistente['pre_correctiva'] ?? '') ?></textarea>
                                             </td>
                                         </tr>
@@ -457,7 +381,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             <td colspan="4">RESPONSABLE</td>
                                         </tr>
                                         <tr bgcolor='$color' class='text' id='responsable'>
-                                            <td colspan='4'><input name='param9' id='param9'
+                                            <td colspan='4'><input name='responsable' id='responsable'
                                                     value='<?= htmlspecialchars($registroExistente['pre_responsable'] ?? '') ?>'
                                                     style='width:395px' class='form-control'></td>
                                         </tr>
@@ -469,7 +393,24 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                     </tr>
 
                                     <!-- FIRMA A TRAZO (solo nuevos formularios) -->
-                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderSeccionFirma() ?>
+                                    <?php if ($esValidacion && !empty($firmaDataUri)): ?>
+                                        <tr bgcolor="#074F91" class="tittle3">
+                                            <td colspan="4">FIRMA DEL RESPONSABLE</td>
+                                        </tr>
+                                        <tr class='signature-row'>
+                                            <td colspan='4'>
+                                                <div class='signature-container'>
+                                                    <img src="<?= $firmaDataUri ?>" alt="Firma del responsable"
+                                                         style="max-width:400px; max-height:200px; border:2px solid #074F91; border-radius:4px; background-color:#fff; display:block;">
+                                                    <small class="text-muted d-block mt-2">
+                                                        <i class='fas fa-lock'></i> Firma del operario registrada
+                                                    </small>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?= PreoperacionalNuevaEncuestaViewHelper::renderSeccionFirma() ?>
+                                    <?php endif; ?>
 
                                     <!-- VALIDACIÓN (solo si es modo validación) -->
                                     <?php if ($esValidacion): ?>
@@ -477,8 +418,14 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                             <td colspan="4" align="center">VALIDA PREOPERACIONAL</td>
                                         </tr>
                                         <tr bgcolor='$color' class='text' id='validapreopera'>
-                                            <td colspan='4'><textarea name='param10' id='param10' style='width:395px'
+                                            <td colspan='4'>
+                                                <strong>Descripción de la validación:</strong>
+                                                <textarea name='desc_validacion' id='desc_validacion' style='width:395px'
                                                     class='form-control'><?= htmlspecialchars($registroExistente['pre_descvalidada'] ?? '') ?></textarea>
+                                                <br>
+                                                <strong>Observaciones adicionales:</strong>
+                                                <textarea name='observaciones_validacion' id='observaciones_validacion' style='width:395px'
+                                                    class='form-control' placeholder="Observaciones para la validación del preoperacional"></textarea>
                                             </td>
                                         </tr>
                                     <?php endif; ?>
@@ -493,9 +440,47 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                     if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                                         $valoresEncuesta = json_decode($registroExistente['preencuesta'], true) ?? [];
                                     }
+
+                                    // En modo validación, detectar qué secciones legacy tienen datos para mostrar solo lo relevante
+                                    $mostrarCovid = true;
+                                    $mostrarVehiculo = true;
+                                    $mostrarFatiga = true;
+                                    $mostrarImplementos = true;
+                                    if ($esValidacion && !empty($valoresEncuesta)) {
+                                        $keysEncuesta = array_keys($valoresEncuesta);
+                                        $mostrarCovid = (bool) array_intersect(
+                                            ['covid191','covid192','covid193','covid194','covid195','covid196','covid197','covid198','covid199'],
+                                            $keysEncuesta
+                                        );
+                                        $mostrarVehiculo = (bool) array_intersect(
+                                            ['llantas1','llantas2','llantas3','llantas4','llantas5','llantas6',
+                                             'transmision1','transmision2','Luces1','Luces2','Luces3',
+                                             'fugas1','fugas2','fugas3','fugas4','fugas5','fugas6',
+                                             'mandos1','mandos2','entorno1','entorno2','entorno3',
+                                             'elementos1','elementos2','elementos3','elementos4','elementos5','elementos6',
+                                             'direccionales1','direccionales2','direccionales3','direccionales4',
+                                             'cabina1','cabina2','cabina3','cabina4','cabina5','cabina6','cabina7','cabina8',
+                                             'dispositivos1','dispositivos2','dispositivos3','dispositivos4','dispositivos5',
+                                             'dispositivos6','dispositivos7','dispositivos8','dispositivos9','dispositivos10','dispositivos11',
+                                             'indicadores1','indicadores2','indicadores3',
+                                             'Herramientas1','Herramientas2','Herramientas3','Herramientas4','Herramientas5','Herramientas6','Herramientas7'],
+                                            $keysEncuesta
+                                        );
+                                        $mostrarFatiga = (bool) array_intersect(
+                                            ['elementosp1','elementosp2','elementosp3','elementosp4','elementosp5','elementosp6','elementosp7'],
+                                            $keysEncuesta
+                                        );
+                                        $mostrarImplementos = (bool) array_intersect(
+                                            ['implementos1','implementos2','implementos3','implementos4',
+                                             'implementos10','implementos11','implementos12','implementos13',
+                                             'implementos14','implementos18','implementos19'],
+                                            $keysEncuesta
+                                        );
+                                    }
                                     ?>
 
                                     <!-- BLOQUE COVID-19 -->
+                                    <?php if ($mostrarCovid): ?>
                                     <tr bgcolor="#074F91" class="tittle3">
                                         <td colspan="2" width="4" align="center">TEST DE REPORTE DIARIO DE SINTOMATOLOGIA</td>
                                         <td colspan="1" width="4" align="center">SI</td>
@@ -511,6 +496,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                         <td colspan='4'>Imagen Temperatura: <input type="file" name="param20"
                                                 class="form-control"></td>
                                     </tr>
+                                    <?php endif; ?>
 
                                     <!-- Datos del vehículo -->
                                     <?php if (!empty($datosVehiculo)): ?>
@@ -541,17 +527,19 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                     <?php endif; ?>
 
                                     <!-- PREOPERACIONAL VEHÍCULO (RADIO BUTTONS - SIN CHECKBOXES) -->
-                                    <?php if ($tipovehiculo == 'MOTO'): ?>
+                                    <?php if ($mostrarVehiculo && $tipovehiculo == 'MOTO'): ?>
                                         <?= PreoperacionalEncuestaLegadoViewHelper::renderMotoSections($color, $valoresEncuesta) ?>
-                                    <?php elseif ($tipovehiculo == 'CARRO'): ?>
+                                    <?php elseif ($mostrarVehiculo && $tipovehiculo == 'CARRO'): ?>
                                         <?= PreoperacionalEncuestaLegadoViewHelper::renderCarroSections($color, $valoresEncuesta) ?>
                                     <?php endif; ?>
 
                                     <!-- FATIGA -->
+                                    <?php if ($mostrarFatiga): ?>
                                     <?= PreoperacionalEncuestaLegadoViewHelper::renderFatigaSection($color, $valoresEncuesta) ?>
+                                    <?php endif; ?>
 
                                     <!-- Implementos de trabajo -->
-                                    <?php if (($nivel_acceso == 3 || $param5 == 'valida')): ?>
+                                    <?php if ($mostrarImplementos && ($nivel_acceso == 3 || $param5 == 'valida')): ?>
                                         <?= PreoperacionalEncuestaLegadoViewHelper::renderImplementosTrabajo($color, $registroExistente['pre_limpiomaleta'] ?? null, $valoresEncuesta) ?>
                                     <?php endif; ?>
 
@@ -565,7 +553,7 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
                                         <td colspan='4'>Imagen Kilometraje: <input type="file" name="param30"
                                                 class="form-control">
                                             <?php if (!empty($registroExistente['pre_img_kilo'])): ?>
-                                                <br><a href="<?= htmlspecialchars($registroExistente['pre_img_kilo']) ?>"
+                                                <br><a href="<?= htmlspecialchars(rutaAbsolutaAUrl($registroExistente['pre_img_kilo'])) ?>"
                                                     target="_blank">Ver imagen actual</a>
                                             <?php endif; ?>
                                         </td>
@@ -632,6 +620,12 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
             </div>
         </div>
     </div>
+
+    <!-- Pasar variables de PHP a JavaScript -->
+    <script>
+        var ES_VALIDACION = <?= json_encode($esValidacion) ?>;
+        var URL_REDIRECT = <?= json_encode($esValidacion ? '' : '../../inicio.php?bandera=1') ?>;
+    </script>
 
     <!-- JavaScript del formulario preoperacional -->
     <script src="../assets/js/preoperacional.js?v=<?= filemtime(__DIR__ . '/../../assets/js/preoperacional.js') ?>"></script>
