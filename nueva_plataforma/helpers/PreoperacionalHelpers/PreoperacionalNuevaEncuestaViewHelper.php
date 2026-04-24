@@ -239,7 +239,8 @@ class PreoperacionalNuevaEncuestaViewHelper
      * @return string HTML generado
      */
     public static function renderSeccionPreguntas($titulo, $preguntas, $color = '#EFEFEF',
-                                                    $opciones = null, $requerido = true)
+                                                    $opciones = null, $requerido = true,
+                                                    $valoresExistentes = null)
     {
         if ($opciones === null) {
             $opciones = [
@@ -267,11 +268,12 @@ class PreoperacionalNuevaEncuestaViewHelper
             $html .= "    <td class='question-text'>{$texto}</td>\n";
 
             foreach ($opciones as $opcion) {
+                $checked = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == $opcion['value']) ? 'checked' : '';
                 $html .= "    <td class='option-cell'>\n";
                 $html .= "        <label class='radio-label'>\n";
                 $requiredAttr = $requerido ? 'required' : '';
                 $photoAttr = $requirePhoto ? 'data-photo-required="true"' : '';
-                $html .= "            <input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$requiredAttr} {$photoAttr}>\n";
+                $html .= "            <input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} {$requiredAttr} {$photoAttr}>\n";
                 $html .= "            <span class='radio-text'>{$opcion['label']}</span>\n";
                 $html .= "        </label>\n";
                 $html .= "    </td>\n";
@@ -312,7 +314,7 @@ class PreoperacionalNuevaEncuestaViewHelper
      * @param string $subsectionKey Clave de subsección
      * @return string HTML generado
      */
-    public static function renderSeccionVehiculoCheckboxes($titulo, $preguntas, $color = '#EFEFEF', $sectionType = '', $subsectionKey = '')
+    public static function renderSeccionVehiculoCheckboxes($titulo, $preguntas, $color = '#EFEFEF', $sectionType = '', $subsectionKey = '', $valoresExistentes = null)
     {
         $html = '';
 
@@ -335,10 +337,13 @@ class PreoperacionalNuevaEncuestaViewHelper
             $html .= "<tr class='question-row{$rowClass}{$rowSubclass}' id='{$name}_row'>\n";
             $html .= "    <td class='question-text'>{$texto}</td>\n";
 
+            $checkedSi = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '1') ? 'checked' : '';
+            $checkedNo = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '2') ? 'checked' : '';
+
             // Checkbox SÍ (valor 1)
             $html .= "    <td class='option-cell'>\n";
             $html .= "        <label class='checkbox-label checkbox-si'>\n";
-            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-si-input' value='1' data-name='{$name}' data-binary-group='{$name}'>\n";
+            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-si-input' value='1' data-name='{$name}' data-binary-group='{$name}' {$checkedSi}>\n";
             $html .= "            <span class='checkbox-text'>SÍ</span>\n";
             $html .= "        </label>\n";
             $html .= "    </td>\n";
@@ -346,7 +351,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             // Checkbox NO (valor 2)
             $html .= "    <td class='option-cell'>\n";
             $html .= "        <label class='checkbox-label checkbox-no'>\n";
-            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-no-input' value='2' data-name='{$name}' data-binary-group='{$name}'>\n";
+            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-no-input' value='2' data-name='{$name}' data-binary-group='{$name}' {$checkedNo}>\n";
             $html .= "            <span class='checkbox-text'>NO</span>\n";
             $html .= "        </label>\n";
             $html .= "    </td>\n";
@@ -395,7 +400,7 @@ class PreoperacionalNuevaEncuestaViewHelper
      * @param string $sectionType Tipo de sección para clases CSS
      * @return string HTML generado
      */
-    public static function renderPreguntasPersonales($preguntas, $color = '#EFEFEF', $seccionId = '', $sectionType = '')
+    public static function renderPreguntasPersonales($preguntas, $color = '#EFEFEF', $seccionId = '', $sectionType = '', $valoresExistentes = null)
     {
         $html = '';
 
@@ -416,10 +421,13 @@ class PreoperacionalNuevaEncuestaViewHelper
             $html .= "<tr class='question-row personal-question{$rowClass}' id='{$name}_row'>\n";
             $html .= "    <td class='question-text'>{$texto}</td>\n";
 
+            $checkedSi = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '1') ? 'checked' : '';
+            $checkedNo = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '2') ? 'checked' : '';
+
             // Checkbox SÍ (valor 1)
             $html .= "    <td class='option-cell'>\n";
             $html .= "        <label class='checkbox-label checkbox-si'>\n";
-            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-si-input' value='1' data-name='{$name}' data-binary-group='{$name}'>\n";
+            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-si-input' value='1' data-name='{$name}' data-binary-group='{$name}' {$checkedSi}>\n";
             $html .= "            <span class='checkbox-text'>SÍ</span>\n";
             $html .= "        </label>\n";
             $html .= "    </td>\n";
@@ -427,7 +435,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             // Checkbox NO (valor 2)
             $html .= "    <td class='option-cell'>\n";
             $html .= "        <label class='checkbox-label checkbox-no'>\n";
-            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-no-input' value='2' data-name='{$name}' data-binary-group='{$name}'>\n";
+            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-no-input' value='2' data-name='{$name}' data-binary-group='{$name}' {$checkedNo}>\n";
             $html .= "            <span class='checkbox-text'>NO</span>\n";
             $html .= "        </label>\n";
             $html .= "    </td>\n";
@@ -444,7 +452,7 @@ class PreoperacionalNuevaEncuestaViewHelper
      * @param string $color Color de fondo
      * @return string HTML generado
      */
-    public static function renderVehiculoCarroSections($color = '#EFEFEF', $sectionType = 'preoperacional-carro')
+    public static function renderVehiculoCarroSections($color = '#EFEFEF', $sectionType = 'preoperacional-carro', $valoresExistentes = null)
     {
         $preguntas = self::getPreguntasVehiculoCarro();
         $html = '';
@@ -455,7 +463,8 @@ class PreoperacionalNuevaEncuestaViewHelper
                 $seccion['preguntas'],
                 $color,
                 $sectionType,
-                $key  // Pasar el key de la subsección
+                $key,
+                $valoresExistentes
             );
         }
 
@@ -473,7 +482,7 @@ class PreoperacionalNuevaEncuestaViewHelper
      * @param string $color Color de fondo
      * @return string HTML generado
      */
-    public static function renderVehiculoMotoSections($color = '#EFEFEF', $sectionType = 'preoperacional-moto')
+    public static function renderVehiculoMotoSections($color = '#EFEFEF', $sectionType = 'preoperacional-moto', $valoresExistentes = null)
     {
         $preguntas = self::getPreguntasVehiculoMoto();
         $html = '';
@@ -484,7 +493,8 @@ class PreoperacionalNuevaEncuestaViewHelper
                 $seccion['preguntas'],
                 $color,
                 $sectionType,
-                $key  // Pasar el key de la subsección
+                $key,
+                $valoresExistentes
             );
         }
 
@@ -543,43 +553,6 @@ class PreoperacionalNuevaEncuestaViewHelper
         $html .= "</tr>\n";
 
         return $html;
-    }
-
-    // ==================== DETECCIÓN DE FORMATO ====================
-
-    /**
-     * Detecta el formato de encuesta basado en los datos almacenados
-     *
-     * @param string $dataJson JSON de datos de la encuesta
-     * @return string 'nuevo' o 'legado'
-     */
-    public static function detectarFormato($dataJson)
-    {
-        $data = json_decode($dataJson, true);
-        
-        if (!$data) {
-            return 'legado'; // Por defecto, asumir legado si no hay datos
-        }
-
-        // Verificar si contiene claves del nuevo formato
-        $clavesNuevas = ['admin_', 'conductor_', 'inspec_', 'luces_', 'cabina_', 'seguridad_', 'indicador_', 'moto_personal_', 'moto_llanta_', 'moto_trans_', 'auxiliar_'];
-        foreach ($clavesNuevas as $clave) {
-            foreach (array_keys($data) as $key) {
-                if (strpos($key, $clave) !== false) {
-                    return 'nuevo';
-                }
-            }
-        }
-
-        // Verificar si contiene claves del formato legado
-        $clavesLegado = ['llantas1', 'transmision1', 'Luces1', 'direccionales1', 'cabina1'];
-        foreach ($clavesLegado as $clave) {
-            if (isset($data[$clave])) {
-                return 'legado';
-            }
-        }
-
-        return 'legado'; // Por defecto, asumir legado
     }
 
     // ==================== VALIDACIÓN DE ROLES ====================

@@ -22,29 +22,44 @@ class PreoperacionalService
      */
     public function guardarRegistro($postData, $files)
     {
-        error_log("PreoperacionalService: guardarRegistro - Iniciando guardado");
-        error_log("PreoperacionalService: guardarRegistro - Keys en postData: " . implode(', ', array_keys($postData)));
-        error_log("PreoperacionalService: guardarRegistro - firma_preoperacional presente: " . (isset($postData['firma_preoperacional']) ? 'SI' : 'NO'));
-        if (isset($postData['firma_preoperacional'])) {
-            $firmaVal = $postData['firma_preoperacional'];
-            error_log("PreoperacionalService: guardarRegistro - Longitud firma_preoperacional: " . strlen($firmaVal));
-            error_log("PreoperacionalService: guardarRegistro - Primeros 50 chars firma: " . substr($firmaVal, 0, 50) . "...");
+        // Mapeo retrocompatible: si se envían nombres nuevos del formato actualizado,
+        // se usan directamente; si aún se envían paramX (legado/formato anterior), se migran.
+        $legacyToNew = [
+            'param1'  => 'idvehiculo',
+            'param2'  => 'tipo_vehiculo',
+            'param7'  => 'observaciones',
+            'param8'  => 'accion_correctiva',
+            'param9'  => 'responsable',
+            'param10' => 'desc_validacion',
+            'param11' => 'id_preoperacional',
+            'param12' => 'kilometraje',
+            'param13' => 'observaciones_validacion',
+            'param30' => 'imagen_kilometraje',
+        ];
+        foreach ($legacyToNew as $legacy => $new) {
+            if (!isset($postData[$new]) && isset($postData[$legacy])) {
+                $postData[$new] = $postData[$legacy];
+            }
         }
 
         $estado = $postData['estado'] ?? '';
         $dataJson = $postData['data'] ?? '';
-        $idVehiculo = !empty($postData['param1']) ? (int) $postData['param1'] : null;
-        $tipoVehiculo = $postData['param2'] ?? '';
+        $idVehiculo = !empty($postData['idvehiculo']) ? (int) $postData['idvehiculo'] : null;
+        $tipoVehiculo = $postData['tipo_vehiculo'] ?? '';
         $idUsuario = (int) ($postData['user'] ?? $_SESSION['usuario_id']);
         $fechaHora = date('Y-m-d H:i:s');
-        $observaciones = $postData['param7'] ?? '';
-        $accionCorrectiva = $postData['param8'] ?? '';
-        $responsable = $postData['param9'] ?? '';
-        $temperatura = $postData['param19'] ?? '';
-        $kilometraje = (int) ($postData['param12'] ?? 0);
-        $limpiomaleta = $postData['param21'] ?? '';
-        $descValidada = $postData['param10'] ?? '';
-        $idPre = (int) ($postData['param11'] ?? 0);
+        $observaciones = $postData['observaciones'] ?? '';
+        $accionCorrectiva = $postData['accion_correctiva'] ?? '';
+        $responsable = $postData['responsable'] ?? '';
+        $temperatura = $postData['param19'] ?? ''; // legacy: solo existe en formato legado
+        $kilometraje = (int) ($postData['kilometraje'] ?? 0);
+        $limpiomaleta = $postData['param21'] ?? ''; // legacy: solo existe en formato legado
+        $descValidada = $postData['desc_validacion'] ?? '';
+        $observacionesValidacion = $postData['observaciones_validacion'] ?? '';
+        if (!empty($observacionesValidacion)) {
+            $descValidada .= "\n\nObservaciones: " . $observacionesValidacion;
+        }
+        $idPre = (int) ($postData['id_preoperacional'] ?? 0);
 
         // Procesar imágenes
         $imagenKilo = $this->procesarImagenKilometraje($files);
@@ -52,9 +67,7 @@ class PreoperacionalService
 
         // Procesar firma base64
         $firmaBase64 = $postData['firma_preoperacional'] ?? '';
-        error_log("PreoperacionalService: guardarRegistro - Antes de procesarFirmaBase64, firmaBase64 vacío: " . (empty($firmaBase64) ? 'SI' : 'NO'));
         $firmaProcesada = $this->procesarFirmaBase64($firmaBase64, $idUsuario);
-        error_log("PreoperacionalService: guardarRegistro - firmaProcesada: " . ($firmaProcesada ? 'EXITOSO' : 'FALLIDO'));
 
         if ($idPre > 0) {
             // Actualización (validación)
@@ -119,6 +132,49 @@ class PreoperacionalService
         return $this->model->obtenerUltimoRegistro($idUsuario);
     }
 
+    /**
+     * Obtiene el documento de firma asociado a un preoperacional
+     */
+    public function obtenerDocumentoFirma($idPreoperacional)
+    {
+        return $this->model->obtenerDocumentoFirma($idPreoperacional);
+    }
+
+    // ==================== DETECCIÓN DE FORMATO ====================
+
+    /**
+     * Detecta el formato de encuesta basado en los datos almacenados
+     *
+     * @param string $dataJson JSON de datos de la encuesta
+     * @return string 'nuevo' o 'legado'
+     */
+    public function detectarFormato($dataJson)
+    {
+        $data = json_decode($dataJson, true);
+
+        if (!$data) {
+            return 'legado';
+        }
+
+        $clavesNuevas = ['admin_', 'conductor_', 'inspec_', 'luces_', 'cabina_', 'seguridad_', 'indicador_', 'moto_personal_', 'moto_llanta_', 'moto_trans_', 'auxiliar_'];
+        foreach ($clavesNuevas as $clave) {
+            foreach (array_keys($data) as $key) {
+                if (strpos($key, $clave) !== false) {
+                    return 'nuevo';
+                }
+            }
+        }
+
+        $clavesLegado = ['llantas1', 'transmision1', 'Luces1', 'direccionales1', 'cabina1'];
+        foreach ($clavesLegado as $clave) {
+            if (isset($data[$clave])) {
+                return 'legado';
+            }
+        }
+
+        return 'legado';
+    }
+
     // ==================== MÉTODOS PRIVADOS ====================
 
     /**
@@ -126,23 +182,17 @@ class PreoperacionalService
      */
     private function procesarImagenKilometraje($files)
     {
-        if (isset($files['param30']) && $files['param30']['error'] === UPLOAD_ERR_OK) {
-            $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $files['param30']['name'];
+        // Aceptar tanto el nombre nuevo (imagen_kilometraje) como el legacy (param30)
+        $fileKey = isset($files['imagen_kilometraje']) ? 'imagen_kilometraje' : 'param30';
+        if (isset($files[$fileKey]) && $files[$fileKey]['error'] === UPLOAD_ERR_OK) {
+            $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $files[$fileKey]['name'];
             $rutaBase = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'preoperacional' . DIRECTORY_SEPARATOR;
             $ruta = $rutaBase . $nombreArchivo;
 
-            // Debug: registrar ruta
-            error_log("PreoperacionalService: Intentando mover imagen de kilometraje a: " . $ruta);
-            error_log("PreoperacionalService: tmp_name: " . $files['param30']['tmp_name']);
-            error_log("PreoperacionalService: Directorio existe: " . (is_dir($rutaBase) ? 'SI' : 'NO'));
-            error_log("PreoperacionalService: Directorio escribible: " . (is_writable($rutaBase) ? 'SI' : 'NO'));
-
-            if (move_uploaded_file($files['param30']['tmp_name'], $ruta)) {
-                error_log("PreoperacionalService: Imagen de kilometraje guardada en: " . $ruta);
+            if (move_uploaded_file($files[$fileKey]['tmp_name'], $ruta)) {
                 return $ruta;
             } else {
                 error_log("PreoperacionalService: ERROR al mover imagen de kilometraje");
-                error_log("PreoperacionalService: error_get_last: " . print_r(error_get_last(), true));
             }
         }
         return '';
@@ -182,35 +232,25 @@ class PreoperacionalService
      */
     private function procesarFirmaBase64($firmaBase64, $idUsuario)
     {
-        error_log("PreoperacionalService: procesarFirmaBase64 - Iniciando procesamiento de firma");
-        error_log("PreoperacionalService: procesarFirmaBase64 - ID Usuario: " . $idUsuario);
-        error_log("PreoperacionalService: procesarFirmaBase64 - Longitud firmaBase64: " . strlen($firmaBase64));
-
         if (empty($firmaBase64)) {
-            error_log("PreoperacionalService: procesarFirmaBase64 - firmaBase64 está vacío");
             return false;
         }
 
         // Verificar si comienza con 'data:image' (firma válida de canvas)
         if (strpos($firmaBase64, 'data:image') !== 0) {
-            error_log("PreoperacionalService: procesarFirmaBase64 - No comienza con 'data:image'. Valor: " . substr($firmaBase64, 0, 50) . "...");
             return false;
         }
 
         // Extraer datos base64 (después de la coma)
         $commaPos = strpos($firmaBase64, ',');
         if ($commaPos === false) {
-            error_log("PreoperacionalService: procesarFirmaBase64 - No se encontró coma en datos base64");
             return false;
         }
 
         $base64Data = substr($firmaBase64, $commaPos + 1);
-        error_log("PreoperacionalService: procesarFirmaBase64 - Longitud datos base64: " . strlen($base64Data));
-
         $decodedData = base64_decode($base64Data);
 
         if ($decodedData === false) {
-            error_log("PreoperacionalService: procesarFirmaBase64 - Error al decodificar base64");
             return false;
         }
 
@@ -218,25 +258,16 @@ class PreoperacionalService
         $nombreArchivo = "firma_" . $idUsuario . "_" . date("Y-m-d-H-i-s") . ".png";
         $rutaTemporal = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $nombreArchivo;
 
-        error_log("PreoperacionalService: procesarFirmaBase64 - Ruta temporal: " . $rutaTemporal);
-        error_log("PreoperacionalService: procesarFirmaBase64 - Directorio temporal escribible: " . (is_writable(sys_get_temp_dir()) ? 'SI' : 'NO'));
-
         // Guardar archivo temporal
         $bytesEscritos = file_put_contents($rutaTemporal, $decodedData);
         if ($bytesEscritos !== false) {
-            error_log("PreoperacionalService: procesarFirmaBase64 - Archivo guardado exitosamente. Bytes: " . $bytesEscritos);
-            error_log("PreoperacionalService: procesarFirmaBase64 - Archivo existe: " . (file_exists($rutaTemporal) ? 'SI' : 'NO'));
-            error_log("PreoperacionalService: procesarFirmaBase64 - Tamaño archivo: " . filesize($rutaTemporal));
-
             return [
                 'ruta' => $rutaTemporal,
                 'nombre' => $nombreArchivo
             ];
-        } else {
-            error_log("PreoperacionalService: procesarFirmaBase64 - ERROR al guardar archivo temporal");
-            error_log("PreoperacionalService: procesarFirmaBase64 - error_get_last: " . print_r(error_get_last(), true));
         }
 
+        error_log("PreoperacionalService: Error al guardar archivo temporal de firma");
         return false;
     }
 
@@ -254,7 +285,7 @@ class PreoperacionalService
         $datosActualizar = [
             'prefechavalidacion' => date('Y-m-d H:i:s'),
             'predatosvalidados' => $dataJson,
-            'pre_descvalidada' => $descValidada,
+            'pre_descvalidada' => $_SESSION['usuario_nombre'] . " - " . $descValidada,
             'pre_iduservalida' => $_SESSION['usuario_id'],
             'preestado' => ($estado == 'covid19') ? 'Validado Covid19' : 'Validado',
             'pre_correctiva' => $accionCorrectiva,
@@ -288,7 +319,6 @@ class PreoperacionalService
         $firmaDocId = false;
         if ($firmaProcesada && is_array($firmaProcesada) && isset($firmaProcesada['ruta']) && isset($firmaProcesada['nombre'])) {
             $firmaDocId = $this->model->guardarImagenDesdeRuta($firmaProcesada['ruta'], $firmaProcesada['nombre'], $idPre, 4); // Tipo 4 = firma
-            error_log("PreoperacionalService: actualizarRegistro - ID documento firma: " . ($firmaDocId ? $firmaDocId : 'ERROR'));
         }
 
         // Actualizar JSON con IDs de documentos si existen
@@ -298,7 +328,6 @@ class PreoperacionalService
 
         // Si el JSON fue modificado, actualizar el registro
         if ($jsonModificado !== $dataJson) {
-            error_log("PreoperacionalService: actualizarRegistro - Actualizando JSON con IDs de documentos");
             $datosJsonActualizar = [
                 'predatosvalidados' => $jsonModificado
             ];
@@ -318,9 +347,6 @@ class PreoperacionalService
         $limpiomaleta, $imagenKilo, $estado, $files, $imagenInspeccion,
         $firmaProcesada = false
     ) {
-        error_log("PreoperacionalService: insertarRegistro - Iniciando");
-        error_log("PreoperacionalService: insertarRegistro - dataJson: " . ($dataJson ? substr($dataJson, 0, 200) . "..." : "VACÍO"));
-        error_log("PreoperacionalService: insertarRegistro - firmaProcesada: " . ($firmaProcesada ? "SÍ" : "NO"));
 
         $datosInsert = [
             'prevehiculo' => $idVehiculo,
@@ -347,7 +373,6 @@ class PreoperacionalService
         }
 
         $idInsertado = $this->model->insertarPreoperacional($datosInsert);
-        error_log("PreoperacionalService: insertarRegistro - ID insertado: " . ($idInsertado ? $idInsertado : 'FALLO'));
 
         if ($idInsertado) {
             $idsDocumentos = [];
@@ -358,7 +383,6 @@ class PreoperacionalService
                 $temperaturaDocId = $this->model->guardarImagen($files['param20'], $idInsertado, 2);
                 if ($temperaturaDocId) {
                     $idsDocumentos['temperatura_documento_id'] = $temperaturaDocId;
-                    error_log("PreoperacionalService: insertarRegistro - ID documento temperatura: " . $temperaturaDocId);
                 }
             }
 
@@ -379,7 +403,6 @@ class PreoperacionalService
                 }
                 if ($inspeccionDocId) {
                     $idsDocumentos['inspeccion_documento_id'] = $inspeccionDocId;
-                    error_log("PreoperacionalService: insertarRegistro - ID documento inspección: " . $inspeccionDocId);
                 }
             }
 
@@ -389,13 +412,11 @@ class PreoperacionalService
                 $firmaDocId = $this->model->guardarImagenDesdeRuta($firmaProcesada['ruta'], $firmaProcesada['nombre'], $idInsertado, 4); // Tipo 4 = firma
                 if ($firmaDocId) {
                     $idsDocumentos['firma_documento_id'] = $firmaDocId;
-                    error_log("PreoperacionalService: insertarRegistro - ID documento firma: " . $firmaDocId);
                 }
             }
 
             // Actualizar JSON con IDs de documentos si existen
             if (!empty($idsDocumentos)) {
-                error_log("PreoperacionalService: insertarRegistro - Actualizando JSON con IDs de documentos");
                 $jsonModificado = $this->agregarIdsDocumentosAlJson($dataJson, $idsDocumentos);
 
                 // Actualizar el registro con el JSON modificado
@@ -422,31 +443,21 @@ class PreoperacionalService
      */
     private function agregarIdsDocumentosAlJson(string $dataJson, array $idsDocumentos): string
     {
-        error_log("PreoperacionalService: agregarIdsDocumentosAlJson - Iniciando");
-        error_log("PreoperacionalService: agregarIdsDocumentosAlJson - JSON original: " . substr($dataJson, 0, 200) . "...");
-        error_log("PreoperacionalService: agregarIdsDocumentosAlJson - IDs documentos: " . print_r($idsDocumentos, true));
-
         if (empty($dataJson) || $dataJson === '{}') {
             $dataArray = [];
         } else {
             $dataArray = json_decode($dataJson, true);
             if ($dataArray === null) {
-                error_log("PreoperacionalService: agregarIdsDocumentosAlJson - ERROR: JSON inválido");
                 return $dataJson;
             }
         }
 
-        // Agregar IDs de documentos al array
         foreach ($idsDocumentos as $key => $value) {
             if ($value !== false && $value !== null && $value !== '') {
                 $dataArray[$key] = $value;
-                error_log("PreoperacionalService: agregarIdsDocumentosAlJson - Agregado: $key = $value");
             }
         }
 
-        $jsonModificado = json_encode($dataArray, JSON_UNESCAPED_UNICODE);
-        error_log("PreoperacionalService: agregarIdsDocumentosAlJson - JSON modificado: " . substr($jsonModificado, 0, 200) . "...");
-
-        return $jsonModificado;
+        return json_encode($dataArray, JSON_UNESCAPED_UNICODE);
     }
 }
