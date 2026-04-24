@@ -320,8 +320,12 @@ class PreoperacionalModel
         }
 
         $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $file['name'];
-        $rutaBase = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'preoperacional' . DIRECTORY_SEPARATOR;
+        $rutaBase = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
         $ruta = $rutaBase . $nombreArchivo;
+
+        if (!is_dir($rutaBase)) {
+            mkdir($rutaBase, 0777, true);
+        }
 
         if (move_uploaded_file($file['tmp_name'], $ruta)) {
             $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version)
@@ -361,8 +365,12 @@ class PreoperacionalModel
         }
 
         $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $nombreOriginal;
-        $rutaBase = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'preoperacional' . DIRECTORY_SEPARATOR;
+        $rutaBase = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
         $rutaDestino = $rutaBase . $nombreArchivo;
+
+        if (!is_dir($rutaBase)) {
+            mkdir($rutaBase, 0777, true);
+        }
 
         if (copy($rutaArchivo, $rutaDestino)) {
             $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version)
