@@ -149,13 +149,13 @@
                   <?php endforeach; ?>
                 </select>
               </div>
-              <div class="col-4 col-md-1"><input type="text" id="dir1D" name="dir1D" class="form-control" required></div>
-              <div class="col-2 col-md-1 text-center">#</div>
-              <div class="col-4 col-md-1"><input type="text" id="dir2D" name="dir2D" class="form-control" required></div>
-              <div class="col-2 col-md-1 text-center">-</div>
-              <div class="col-4 col-md-1"><input type="text" id="dir3D" name="dir3D" class="form-control" required></div>
+              <div class="col-4 col-md-1" id="wrapDir1D"><input type="text" id="dir1D" name="dir1D" class="form-control" required></div>
+              <div class="col-2 col-md-1 text-center" id="sepDirHashD">#</div>
+              <div class="col-4 col-md-1" id="wrapDir2D"><input type="text" id="dir2D" name="dir2D" class="form-control" required></div>
+              <div class="col-2 col-md-1 text-center" id="sepDirGuionD">-</div>
+              <div class="col-4 col-md-1" id="wrapDir3D"><input type="text" id="dir3D" name="dir3D" class="form-control" required></div>
 
-              <div class="col-12 col-md-5">
+              <div class="col-12 col-md-5" id="wrapComplementoD">
                 <label>Lugar</label>
                 <select id="param21" name="param21" class="form-select" required>
                   <option value="">Seleccione...</option>
@@ -376,7 +376,7 @@
         <h5 class="modal-title" id="modalFirmaLabel">
           <i class="fas fa-circle-check me-2"></i>Acciones del servicio
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <button type="button" class="btn-close btn-close-white" aria-label="Cerrar"></button>
       </div>
 
       <div class="modal-body">

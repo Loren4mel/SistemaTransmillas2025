@@ -141,7 +141,7 @@ class RecogerModel
         $id = (int)$idservicio;
 
         $sql = "SELECT * FROM firma_clientes 
-                WHERE tipo_firma='Recogida' AND id_guia='$id' 
+                WHERE tipo_firma='Recogida' AND id_guia='$id' AND firma_clientes!=''
                 LIMIT 1";
 
         $res = $conn->query($sql);
@@ -1548,7 +1548,7 @@ class RecogerModel
 
         ];
     }
-    public function guardarFirmaRecogida($idservicio, $firmaBase64)
+    public function guardarFirmaRecogida($idservicio, $firmaBase64, $origenFirma = 'firma')
     {
         $stmtCheck = null;
         $stmtUpdate = null;
@@ -1561,18 +1561,28 @@ class RecogerModel
         file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] === INICIO guardarFirmaRecogida() ===\n", FILE_APPEND);
 
         try {
+            $origenFirma = strtolower((string)$origenFirma);
+            if (!in_array($origenFirma, ['firma', 'sello'], true)) {
+                $origenFirma = 'firma';
+            }
+
             file_put_contents($logFile, "🟡 Paso 1: Recibido idservicio=$idservicio\n", FILE_APPEND);
 
             // 1️⃣ Convertir base64 a imagen (compatible con varios formatos)
-            if (preg_match('/^data:image\/(\w+);base64,/', $firmaBase64, $type)) {
+            if (preg_match('/^data:image\/([a-zA-Z0-9.+-]+);base64,/', $firmaBase64, $type)) {
                 $firmaData = substr($firmaBase64, strpos($firmaBase64, ',') + 1);
                 $type = strtolower($type[1]); // jpg, jpeg, png, webp...
 
                 $firmaData = str_replace(' ', '+', $firmaData);
-                $imagen = base64_decode($firmaData);
+                $imagen = base64_decode($firmaData, true);
 
                 if ($imagen === false) {
                     file_put_contents($logFile, "❌ Error al decodificar base64\n", FILE_APPEND);
+                    return false;
+                }
+
+                if (strlen($imagen) > 9 * 1024 * 1024) {
+                    file_put_contents($logFile, "Imagen demasiado pesada\n", FILE_APPEND);
                     return false;
                 }
 
@@ -1592,6 +1602,25 @@ class RecogerModel
                 return false;
             }
 
+            $infoImagen = @getimagesizefromstring($imagen);
+            if (!$infoImagen || empty($infoImagen['mime'])) {
+                file_put_contents($logFile, "Contenido de imagen invalido\n", FILE_APPEND);
+                return false;
+            }
+
+            $extensionesPorMime = [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/webp' => 'webp',
+            ];
+
+            if (!isset($extensionesPorMime[$infoImagen['mime']])) {
+                file_put_contents($logFile, "MIME no permitido: " . $infoImagen['mime'] . "\n", FILE_APPEND);
+                return false;
+            }
+
+            $extensionArchivo = $extensionesPorMime[$infoImagen['mime']];
+
             // 2️⃣ Crear carpeta si no existe
             $rutaCarpeta = __DIR__ . '/../../firmas_clientes/';
             if (!file_exists($rutaCarpeta)) {
@@ -1602,7 +1631,8 @@ class RecogerModel
             }
 
             // 3️⃣ Guardar archivo
-            $nombreArchivo = 'firma_' . $idservicio . '_' . time() . '.png';
+            $prefijoArchivo = ($origenFirma === 'sello') ? 'sello' : 'firma';
+            $nombreArchivo = $prefijoArchivo . '_' . (int)$idservicio . '_' . time() . '.' . $extensionArchivo;
             $rutaArchivo = $rutaCarpeta . $nombreArchivo;
             $rutaArchivoGuardar = "firmas_clientes/" . $nombreArchivo;
 
@@ -1617,7 +1647,7 @@ class RecogerModel
 
 
             // 🔎 4️⃣ Verificar si ya existe firma para ese servicio y tipo
-            $sqlCheck = "SELECT id FROM firma_clientes WHERE id_guia = ? AND tipo_firma = ? LIMIT 1";
+            $sqlCheck = "SELECT id, firma_clientes FROM firma_clientes WHERE id_guia = ? AND tipo_firma = ? LIMIT 1";
             $stmtCheck = $this->db->prepare($sqlCheck);
             $stmtCheck->bind_param('is', $idservicio, $tipoFirma);
             $stmtCheck->execute();
@@ -1627,15 +1657,16 @@ class RecogerModel
                 // ✏️ YA EXISTE → HACER UPDATE
                 $row = $result->fetch_assoc();
                 $idFirma = $row['id'];
+                $rutaAnterior = $row['firma_clientes'] ?? '';
 
                 file_put_contents($logFile, "🟠 Firma existente encontrada (ID=$idFirma), actualizando...\n", FILE_APPEND);
                 $activoParaFirma=0;
                 $sqlUpdate = "UPDATE firma_clientes 
-                            SET firma_clientes = ?, fecha_registro = ? , activo_para_firmar = ?
+                            SET firma_clientes = ?, fecha_registro = ? , activo_para_firmar = ?, tipo = ?
                             WHERE id = ?";
                 $stmtUpdate = $this->db->prepare($sqlUpdate);
                 
-                $stmtUpdate->bind_param('ssii', $rutaArchivoGuardar, $fechaHoraColombia,$activoParaFirma, $idFirma);
+                $stmtUpdate->bind_param('ssisi', $rutaArchivoGuardar, $fechaHoraColombia,$activoParaFirma, $origenFirma, $idFirma);
 
 
                 if (!$stmtUpdate->execute()) {
@@ -1662,6 +1693,7 @@ class RecogerModel
                 // $this->enviarGuiaWhat( $telefono, 42, $numguia."R");
 
                 file_put_contents($logFile, "✅ Firma actualizada correctamente\n", FILE_APPEND);
+                $this->eliminarArchivoFirmaAnterior($rutaAnterior, $rutaArchivoGuardar, $logFile);
                 return true;
 
             } else {
@@ -1669,11 +1701,11 @@ class RecogerModel
                 $activoParaFirma=0;
                 file_put_contents($logFile, "🟢 No existe firma previa, insertando nueva...\n", FILE_APPEND);
 
-                $sqlInsert = "INSERT INTO firma_clientes (id_guia, tipo_firma, firma_clientes, fecha_registro,activo_para_firmar) 
-                            VALUES (?, ?, ?, ?,?)";
+                $sqlInsert = "INSERT INTO firma_clientes (id_guia, tipo_firma, firma_clientes, fecha_registro, activo_para_firmar, tipo) 
+                            VALUES (?, ?, ?, ?, ?, ?)";
                 $stmtInsert = $this->db->prepare($sqlInsert);
                 
-                $stmtInsert->bind_param('isssi', $idservicio, $tipoFirma, $rutaArchivoGuardar, $fechaHoraColombia,$activoParaFirma);
+                $stmtInsert->bind_param('isssis', $idservicio, $tipoFirma, $rutaArchivoGuardar, $fechaHoraColombia,$activoParaFirma, $origenFirma);
 
 
                 if (!$stmtInsert->execute()) {
@@ -1717,6 +1749,35 @@ class RecogerModel
             file_put_contents($logFile, "=== FIN guardarFirmaRecogida() ===\n\n", FILE_APPEND);
         }
     }
+
+    private function eliminarArchivoFirmaAnterior($rutaAnterior, $rutaNueva, $logFile)
+    {
+        if (empty($rutaAnterior) || $rutaAnterior === $rutaNueva) {
+            return;
+        }
+
+        $rutaAnteriorNormalizada = str_replace('\\', '/', $rutaAnterior);
+        if (strpos($rutaAnteriorNormalizada, 'firmas_clientes/') !== 0) {
+            return;
+        }
+
+        $rutaBase = realpath(__DIR__ . '/../../firmas_clientes/');
+        if (!$rutaBase) {
+            return;
+        }
+
+        $nombreArchivo = basename($rutaAnteriorNormalizada);
+        $rutaCompleta = realpath($rutaBase . DIRECTORY_SEPARATOR . $nombreArchivo);
+
+        if (!$rutaCompleta || strpos($rutaCompleta, $rutaBase) !== 0 || !is_file($rutaCompleta)) {
+            return;
+        }
+
+        if (!@unlink($rutaCompleta)) {
+            file_put_contents($logFile, "No se pudo eliminar archivo anterior: $rutaAnterior\n", FILE_APPEND);
+        }
+    }
+
     public function reEnviarFirmaWhat($telefono, $tipo, $idservi,$link)
     {
         $this->logEntrega("=== enviarAlertaWhat() ===");
@@ -1850,7 +1911,7 @@ class RecogerModel
 
         $sql = "SELECT activo_para_firmar, firma_clientes
                 FROM firma_clientes
-                WHERE tipo_firma='Recogida' AND id_guia='$id'
+                WHERE tipo_firma='Recogida' AND id_guia='$id' AND firma_clientes!=''
                 ORDER BY id DESC
                 LIMIT 1";
 

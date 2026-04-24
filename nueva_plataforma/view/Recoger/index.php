@@ -19,6 +19,7 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
     .mi-header { background:#00458D; color:white; }
     .section-title { background:#01468C; color:#fff; padding:.5rem .75rem; font-weight:600; margin-bottom:1rem; border-radius:.25rem; }
     .readonly-input { background:#f2f2f2; }
+    .error { color:red; font-size:.85rem; display:none; }
   </style>
 </head>
 <body>
@@ -285,6 +286,7 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
           <div class="col-md-6">
             <label class="form-label fw-bold">Nombre completo</label>
             <input type="text" id="param82" name="param82" class="form-control" required/>
+            <p id="errorNombre" class="error">Debe ingresar nombre y apellido.</p>
           </div>
           <div class="col-md-6">
             <label class="form-label fw-bold">Teléfono</label>
@@ -397,11 +399,27 @@ document.getElementById("btnSubirSello").addEventListener("click", function () {
     return;
   }
 
-  const reader = new FileReader();
+  if (!archivo.type || !archivo.type.startsWith("image/")) {
+    Swal.fire("Archivo inválido", "El sello debe ser una imagen.", "warning");
+    return;
+  }
 
-  reader.onload = function (e) {
-    const base64 = e.target.result;
+  if (archivo.size > 25 * 1024 * 1024) {
+    Swal.fire("Imagen muy pesada", "El sello no debe superar 25 MB.", "warning");
+    return;
+  }
 
+  Swal.fire({
+    title: "Guardando sello...",
+    text: "Por favor espera.",
+    allowOutsideClick: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  comprimirImagenSelloRecogida(archivo)
+  .then(function (base64) {
     const fd = new FormData();
     fd.append("accion", "guardarSello");
     fd.append("idservicio", idservicio);
@@ -419,12 +437,45 @@ document.getElementById("btnSubirSello").addEventListener("click", function () {
       }
 
       Swal.fire("Sello guardado", "Proceso finalizado ✔", "success");
-      finalizarProceso();
+      setEstadoFirma("Ya está firmada", "text-success", "fa-check-circle");
     });
-  };
-
-  reader.readAsDataURL(archivo);
+  })
+  .catch(function (err) {
+    console.error(err);
+    Swal.fire("Error", "No se pudo preparar la imagen del sello.", "error");
+  });
 });
+
+function comprimirImagenSelloRecogida(archivo) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+      const img = new Image();
+
+      img.onload = function () {
+        const maxDimension = 1600;
+        const ratio = Math.min(maxDimension / img.width, maxDimension / img.height, 1);
+        const ancho = Math.max(1, Math.round(img.width * ratio));
+        const alto = Math.max(1, Math.round(img.height * ratio));
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = ancho;
+        canvas.height = alto;
+        ctx.drawImage(img, 0, 0, ancho, alto);
+
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(archivo);
+  });
+}
 
 </script>
 </body>

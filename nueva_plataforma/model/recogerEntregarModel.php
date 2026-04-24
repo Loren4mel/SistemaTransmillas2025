@@ -13,11 +13,16 @@ class recogerEntregarModel{
     public function __construct() {
         $this->db = (new Database())->connect();
     }
-    public function guardarFirmaEntrega($idservicio, $firmaBase64)
+    public function guardarFirmaEntrega($idservicio, $firmaBase64, $origenFirma = 'firma')
     {
         date_default_timezone_set('America/Bogota');
         $fechaHoraColombia = date('Y-m-d H:i:s');
         try {
+            $origenFirma = strtolower((string)$origenFirma);
+            if (!in_array($origenFirma, ['firma', 'sello'], true)) {
+                $origenFirma = 'firma';
+            }
+
             // Convertir base64 a imagen
             $firmaData = str_replace('data:image/png;base64,', '', $firmaBase64);
             $firmaData = str_replace(' ', '+', $firmaData);
@@ -32,7 +37,8 @@ class recogerEntregarModel{
             }
 
             // Nombre único para la imagen
-            $nombreArchivo = 'firma_' . $idservicio . '_' . time() . '.png';
+            $prefijoArchivo = ($origenFirma === 'sello') ? 'sello' : 'firma';
+            $nombreArchivo = $prefijoArchivo . '_' . $idservicio . '_' . time() . '.png';
             $rutaArchivo = $rutaCarpeta . $nombreArchivo;
             $rutaArchivoGuardar="firmas_clientes/".$nombreArchivo;
 
@@ -41,8 +47,8 @@ class recogerEntregarModel{
 
 
             // 🔹 Guardar firma del cliente (INSERT seguro con bind_param)
-            $sqlInsert = "INSERT INTO firma_clientes (id_guia, tipo_firma, firma_clientes,fecha_registro )
-                        VALUES (?, ?, ?,?)";
+            $sqlInsert = "INSERT INTO firma_clientes (id_guia, tipo_firma, firma_clientes,fecha_registro,tipo)
+                        VALUES (?, ?, ?,?,?)";
             $stmtInsert = $this->db->prepare($sqlInsert);
 
             // Verificamos que la preparación no falle
@@ -55,7 +61,7 @@ class recogerEntregarModel{
             $tipoFirma = 'Entrega';
 
             // Vinculamos los parámetros: id_guia (int), tipo_firma (string), firma_clientes (string)
-            $stmtInsert->bind_param('isss', $idservicio, $tipoFirma, $rutaArchivoGuardar,$fechaHoraColombia);
+            $stmtInsert->bind_param('issss', $idservicio, $tipoFirma, $rutaArchivoGuardar,$fechaHoraColombia,$origenFirma);
 
 
 
@@ -75,7 +81,7 @@ class recogerEntregarModel{
             return false;
         }
     }
-    public function guardarFirmaRecogida($idservicio, $firmaBase64)
+    public function guardarFirmaRecogida($idservicio, $firmaBase64, $origenFirma = 'firma')
     {
         date_default_timezone_set('America/Bogota');
         $fechaHoraColombia = date('Y-m-d H:i:s');
@@ -83,6 +89,11 @@ class recogerEntregarModel{
         file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] === INICIO guardarFirmaRecogida() ===\n", FILE_APPEND);
 
         try {
+            $origenFirma = strtolower((string)$origenFirma);
+            if (!in_array($origenFirma, ['firma', 'sello'], true)) {
+                $origenFirma = 'firma';
+            }
+
             file_put_contents($logFile, "🟡 Paso 1: Recibido idservicio=$idservicio\n", FILE_APPEND);
 
             // 🔹 1️⃣ Convertir base64 a imagen
@@ -110,7 +121,8 @@ class recogerEntregarModel{
             }
 
             // 🔹 3️⃣ Guardar archivo
-            $nombreArchivo = 'firma_' . $idservicio . '_' . time() . '.png';
+            $prefijoArchivo = ($origenFirma === 'sello') ? 'sello' : 'firma';
+            $nombreArchivo = $prefijoArchivo . '_' . $idservicio . '_' . time() . '.png';
             $rutaArchivo = $rutaCarpeta . $nombreArchivo;
             $rutaArchivoGuardar="firmas_clientes/".$nombreArchivo;
             file_put_contents($logFile, "🟡 Paso 3: Guardando archivo $rutaArchivo\n", FILE_APPEND);
@@ -125,7 +137,7 @@ class recogerEntregarModel{
             file_put_contents($logFile, "✅ Archivo guardado correctamente ($bytesEscritos bytes)\n", FILE_APPEND);
 
             // 🔹 4️⃣ Preparar consulta SQL
-            $sqlInsert = "INSERT INTO firma_clientes (id_guia, tipo_firma, firma_clientes,fecha_registro ) VALUES (?, ?, ?,?)";
+            $sqlInsert = "INSERT INTO firma_clientes (id_guia, tipo_firma, firma_clientes,fecha_registro,tipo) VALUES (?, ?, ?,?,?)";
             $stmtInsert = $this->db->prepare($sqlInsert);
 
             if (!$stmtInsert) {
@@ -136,7 +148,7 @@ class recogerEntregarModel{
             $tipoFirma = 'Recogida';
             file_put_contents($logFile, "🟡 Paso 4: Vinculando parámetros (id=$idservicio, tipo=$tipoFirma, archivo=$rutaArchivo)\n", FILE_APPEND);
 
-            $stmtInsert->bind_param('isss', $idservicio, $tipoFirma, $rutaArchivoGuardar,$fechaHoraColombia);
+            $stmtInsert->bind_param('issss', $idservicio, $tipoFirma, $rutaArchivoGuardar,$fechaHoraColombia,$origenFirma);
 
             // 🔹 5️⃣ Ejecutar consulta
             $resultado = $stmtInsert->execute();

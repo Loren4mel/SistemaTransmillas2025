@@ -180,7 +180,7 @@ class recogerEntregarModel{
 
 
                 // 🔎 Obtener número de guía y teléfono del cliente desde servicios
-                $sqlGuia = "SELECT ser_consecutivo, cli_telefono FROM serviciosdia WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo, cli_telefono,ser_telefonocontacto FROM serviciosdia WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
@@ -195,6 +195,7 @@ class recogerEntregarModel{
                     $row = $resGuia->fetch_assoc();
                     $numguia = $row['ser_consecutivo'];
                     $cli_telefono = $row['cli_telefono'];
+                    $numDestinatario = $row['ser_telefonocontacto'];
                     
                 }
 
@@ -239,12 +240,13 @@ class recogerEntregarModel{
 
                         // Y también al teléfono del cliente si existe y es diferente
                         if (!empty($cli_telefono)) {
-                            $this->enviarAlertaWhat($cli_telefono, 42, $numguia . "R");
+                         $this->enviarAlertaWhat($cli_telefono, 42, $numguia . "R");
                         }
                     }
+                    $this->enviarAlertaWhat($numDestinatario, 42, $numguia . "R");
                 }
                 //ALERTA AL OPERADOR
-                $this->enviarAlertaWhat($oper_telefono, 45, $numguia);
+                // $this->enviarAlertaWhat($oper_telefono, 45, $numguia);
                 file_put_contents($logFile, "✅ Firma insertada correctamente\n", FILE_APPEND);
                 return true;
 
@@ -280,7 +282,7 @@ class recogerEntregarModel{
 
             
                // 🔎 Obtener número de guía y teléfono del cliente desde servicios
-                $sqlGuia = "SELECT ser_consecutivo, cli_telefono FROM serviciosdia WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo, cli_telefono, ser_telefonocontacto FROM serviciosdia WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
@@ -294,6 +296,8 @@ class recogerEntregarModel{
                     $row = $resGuia->fetch_assoc();
                     $numguia = $row['ser_consecutivo'];
                     $cli_telefono = $row['cli_telefono'];
+                    $numDestinatario = $row['ser_telefonocontacto'];
+
                     
                 }
 
@@ -341,9 +345,12 @@ class recogerEntregarModel{
                             $this->enviarAlertaWhat($cli_telefono, 42, $numguia . "R");
                         }
                     }
+
+                    $this->enviarAlertaWhat($numDestinatario, 42, $numguia . "R");
+
                 }
                 //ALERTA AL OPERADOR
-                $this->enviarAlertaWhat($oper_telefono, 45, $numguia);
+                // $this->enviarAlertaWhat($oper_telefono, 45, $numguia);
 
                 file_put_contents($logFile, "✅ Firma insertada correctamente\n", FILE_APPEND);
                 return true;
