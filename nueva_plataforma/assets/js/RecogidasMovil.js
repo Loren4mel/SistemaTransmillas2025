@@ -433,6 +433,7 @@ if (data.cli_direccion) {
 
 
     setValue("param10", dir[0] || "");
+    document.getElementById("param10")?.dispatchEvent(new Event("change"));
     setValue("param21", dir[2] || "");
     setValue("dir_complemento_detalleD", dir[3] || "");
 
@@ -867,7 +868,7 @@ function cerrarCargando() {
   Swal.close();
 }
 
-document.getElementById("btnFinalizar").addEventListener("click", function () {
+document.getElementById("btnFinalizarLegacy")?.addEventListener("click", function () {
 
   // 🔒 cerrar modal
   const modalEl = document.getElementById("modalFirma");
@@ -919,46 +920,47 @@ function setEstadoFirma(texto, clase = "text-warning", icono = "fa-clock") {
   el.innerHTML = `<i class="fas ${icono} me-1"></i> ${texto}`;
 }
 
-function consultarEstadoFirma() {
+async function consultarEstadoFirma(mostrarAlertaSinServicio = true) {
   const idservicio = document.getElementById("idservicio_firma")?.value || "";
   if (!idservicio) {
     setEstadoFirma("No hay servicio para validar", "text-danger", "fa-circle-exclamation");
-    Swal.fire("Sin servicio", "Primero debes guardar la recogida para poder verificar la firma.", "warning");
-    return;
+    if (mostrarAlertaSinServicio) {
+      Swal.fire("Sin servicio", "Primero debes guardar la recogida para poder verificar la firma.", "warning");
+    }
+    return false;
   }
 
-  if (consultaEnCursoFirma) return;
+  if (consultaEnCursoFirma) return false;
 
   consultaEnCursoFirma = true;
 
-  fetch(`../controller/RecogidasMovilController.php?accion=consultarEstadoFirma&id=${encodeURIComponent(idservicio)}`, {
-    method: "GET"
-  })
-    .then(async r => {
-      const raw = await r.text();
-      const limpio = (raw || "").replace(/^\uFEFF/, "").trim();
-
-      if (!r.ok) {
-        throw new Error(`HTTP ${r.status}: ${limpio}`);
-      }
-
-      return JSON.parse(limpio);
-    })
-    .then(resp => {
-      if (resp && resp.ok && resp.firmada === true) {
-        setEstadoFirma("Ya esta firmada", "text-success", "fa-check-circle");
-        return;
-      }
-
-      setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
-    })
-    .catch(err => {
-      console.error("Error consultando estado de firma:", err);
-      setEstadoFirma("No se pudo validar la firma", "text-danger", "fa-circle-exclamation");
-    })
-    .finally(() => {
-      consultaEnCursoFirma = false;
+  try {
+    const r = await fetch(`../controller/RecogidasMovilController.php?accion=consultarEstadoFirma&id=${encodeURIComponent(idservicio)}`, {
+      method: "GET"
     });
+    const raw = await r.text();
+    const limpio = (raw || "").replace(/^\uFEFF/, "").trim();
+
+    if (!r.ok) {
+      throw new Error(`HTTP ${r.status}: ${limpio}`);
+    }
+
+    const resp = JSON.parse(limpio);
+
+    if (resp && resp.ok && resp.firmada === true) {
+      setEstadoFirma("Ya esta firmada", "text-success", "fa-check-circle");
+      return true;
+    }
+
+    setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
+    return false;
+  } catch (err) {
+    console.error("Error consultando estado de firma:", err);
+    setEstadoFirma("No se pudo validar la firma", "text-danger", "fa-circle-exclamation");
+    return false;
+  } finally {
+    consultaEnCursoFirma = false;
+  }
 }
 
 const bloqueFirma = document.getElementById("bloqueFirma");
@@ -1057,7 +1059,30 @@ document.getElementById("btnGuardarSello").addEventListener("click", function ()
 
 //Finalizar 
 
-function finalizarProceso() {
+async function finalizarProceso() {
+  const btnFinalizar = document.getElementById("btnFinalizar");
+  if (btnFinalizar) {
+    btnFinalizar.disabled = true;
+    btnFinalizar.textContent = "Verificando...";
+  }
+
+  setEstadoFirma("Validando firma...", "text-info", "fa-spinner");
+  const firmada = await consultarEstadoFirma(false);
+
+  if (!firmada) {
+    if (btnFinalizar) {
+      btnFinalizar.disabled = false;
+      btnFinalizar.textContent = "Finalizar";
+    }
+
+    Swal.fire({
+      icon: "warning",
+      title: "Firma pendiente",
+      text: "El servicio todavia no esta firmado. Verifica la firma o sube el sello antes de finalizar."
+    });
+    return;
+  }
+
   const modalEl = document.getElementById("modalFirma");
   const modal = bootstrap.Modal.getInstance(modalEl);
   modal.hide();
@@ -1068,12 +1093,16 @@ function finalizarProceso() {
   document.getElementById("nombre_receptor").value = "";
   document.getElementById("telefono_receptor").value = "";
   document.getElementById("imagen_sello").value = "";
+  if (btnFinalizar) {
+    btnFinalizar.disabled = false;
+    btnFinalizar.textContent = "Finalizar";
+  }
   setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
 
   bloqueFirma.classList.add("d-none");
   bloqueSello.classList.add("d-none");
 
-  window.location.href = "https://sistema.transmillas.com";
+  window.location.assign("/inicio.php");
 }
 
 document.getElementById("btnFinalizar").addEventListener("click", finalizarProceso);
@@ -1297,6 +1326,61 @@ document.addEventListener("DOMContentLoaded", function () {
   tipoVia.addEventListener("change", actualizarRequeridos);
 
   // Ejecutar si ya viene preseleccionado
+  actualizarRequeridos();
+
+});
+
+// Para OFICINA TRANSMILLAS en destinatario
+document.addEventListener("DOMContentLoaded", function () {
+
+  const tipoVia = document.getElementById("param10");
+  if (!tipoVia) return;
+  const dir1D = document.getElementById("dir1D");
+  const dir2D = document.getElementById("dir2D");
+  const dir3D = document.getElementById("dir3D");
+  const selectComplemento = document.getElementById("param21");
+  const contenedorComplemento = document.getElementById("camposComplementoD");
+  const campoFinalComplemento = document.getElementById("complementoFinalD");
+
+  const camposDireccion = [dir1D, dir2D, dir3D, selectComplemento];
+  const bloquesOcultables = [
+    document.getElementById("wrapDir1D"),
+    document.getElementById("sepDirHashD"),
+    document.getElementById("wrapDir2D"),
+    document.getElementById("sepDirGuionD"),
+    document.getElementById("wrapDir3D"),
+    document.getElementById("wrapComplementoD"),
+    contenedorComplemento
+  ];
+
+  function limpiarDerivadosComplemento() {
+    if (contenedorComplemento) contenedorComplemento.innerHTML = "";
+    if (campoFinalComplemento) campoFinalComplemento.value = "";
+    if (selectComplemento) selectComplemento.value = "";
+  }
+
+  function actualizarRequeridos() {
+    const valor = tipoVia.value.trim().toUpperCase();
+
+    if (valor === "OFICINA TRANSMILLAS") {
+      camposDireccion.forEach(campo => {
+        if (!campo) return;
+        campo.removeAttribute("required");
+        campo.value = "";
+      });
+
+      limpiarDerivadosComplemento();
+      bloquesOcultables.forEach(bloque => bloque?.classList.add("d-none"));
+    } else {
+      camposDireccion.forEach(campo => {
+        if (campo) campo.setAttribute("required", "required");
+      });
+
+      bloquesOcultables.forEach(bloque => bloque?.classList.remove("d-none"));
+    }
+  }
+
+  tipoVia.addEventListener("change", actualizarRequeridos);
   actualizarRequeridos();
 
 });

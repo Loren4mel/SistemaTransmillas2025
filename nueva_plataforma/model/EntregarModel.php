@@ -28,7 +28,7 @@ class EntregarModel {
         $id = (int)$idservicio;
 
         $sql = "SELECT * FROM firma_clientes 
-                WHERE tipo_firma='Entrega' AND id_guia='$id' 
+                WHERE tipo_firma='Entrega' AND id_guia='$id' AND firma_clientes!=''
                 LIMIT 1";
 
         $res = $this->query($sql);
@@ -139,7 +139,7 @@ class EntregarModel {
         /* ===============================
         CONTEXTO
         =============================== */
-        $id_usuario   = $data["id_usuario"]     ?? 0;
+        $id_usuario   = $data["id_usuario"] ?? ($data["usuario"] ?? 0);
         $id_sedes     = $data["id_sedes"]       ?? 0;
         $id_nombre    = $data["id_nombre"]      ?? "";
         $fechaactual  = $ctx["fechaactual"]    ?? date("Y-m-d");
@@ -343,6 +343,9 @@ class EntregarModel {
         $this->query($sqlSeg);
         $this->logEntrega("Seguimiento actualizado.");
 
+        $this->guardarUbicacionServicio($idservicio, (int)$id_usuario, "ENTREGA", $data);
+        $this->logEntrega("Ubicacion de entrega procesada.");
+
         /* ===============================
         FIRMA
         =============================== */
@@ -388,6 +391,67 @@ class EntregarModel {
         $this->logEntrega("=== FIN guardarEntrega() ===");
 
         return ["ok" => true];
+    }
+
+    private function guardarUbicacionServicio(
+        int $idservicios,
+        int $idusuario,
+        string $tipoEvento,
+        ?array $data = []
+    ): void {
+        try {
+            $data = is_array($data) ? $data : [];
+            $latitud   = isset($data['latitud']) ? (float)$data['latitud'] : 0;
+            $longitud  = isset($data['longitud']) ? (float)$data['longitud'] : 0;
+            $precision = isset($data['precision_gps']) ? (float)$data['precision_gps'] : 0;
+
+            if ($latitud == 0 || $longitud == 0) {
+                $this->logEntrega("GPS no enviado para servicio $idservicios");
+                return;
+            }
+
+            $fecha = date("Y-m-d H:i:s");
+            $tipoEventoEsc = $this->escape($tipoEvento);
+            $fechaEsc = $this->escape($fecha);
+
+            $sqlExiste = "SELECT id
+                          FROM servicios_ubicaciones
+                          WHERE idservicios = '".(int)$idservicios."'
+                            AND tipo_evento = '".$tipoEventoEsc."'
+                          LIMIT 1";
+
+            $resExiste = $this->query($sqlExiste);
+            $registroExistente = $resExiste ? $resExiste->fetch_assoc() : null;
+
+            if ($registroExistente && !empty($registroExistente['id'])) {
+                $sql = "UPDATE servicios_ubicaciones
+                        SET idusuario = '".(int)$idusuario."',
+                            latitud = '".$this->escape((string)$latitud)."',
+                            longitud = '".$this->escape((string)$longitud)."',
+                            precision_metros = '".$this->escape((string)$precision)."',
+                            fecha_registro = '".$fechaEsc."'
+                        WHERE id = '".(int)$registroExistente['id']."'";
+            } else {
+                $sql = "INSERT INTO servicios_ubicaciones (
+                            idservicios, idusuario, tipo_evento,
+                            latitud, longitud, precision_metros, fecha_registro
+                        ) VALUES (
+                            '".(int)$idservicios."',
+                            '".(int)$idusuario."',
+                            '".$tipoEventoEsc."',
+                            '".$this->escape((string)$latitud)."',
+                            '".$this->escape((string)$longitud)."',
+                            '".$this->escape((string)$precision)."',
+                            '".$fechaEsc."'
+                        )";
+            }
+
+            if (!$this->query($sql)) {
+                $this->logEntrega("Error guardando GPS: " . $this->db->error);
+            }
+        } catch (\Throwable $e) {
+            $this->logEntrega("Excepcion GPS: " . $e->getMessage());
+        }
     }
 
 
@@ -526,6 +590,9 @@ public function guardarNoEntregar($data, $files, $ctx = [])
         } else {
             $this->logErrorLocal("SQL SEGUIMIENTO OK");
         }
+
+        $this->guardarUbicacionServicio($idservicio, (int)$id_usuario, "ENTREGA", $data);
+        $this->logErrorLocal("Ubicacion de no entrega procesada.");
 
         // ===============================
         // CONSULTAR WHATSAPP
@@ -890,7 +957,7 @@ public function guardarNoEntregar($data, $files, $ctx = [])
         ];
     }
 
-    public function guardarFirmaEntrega($idservicio, $firmaBase64)
+    public function guardarFirmaEntrega($idservicio, $firmaBase64, $origenFirma = 'firma')
     {
         $stmtCheck = null;
         $stmtUpdate = null;
@@ -901,14 +968,24 @@ public function guardarNoEntregar($data, $files, $ctx = [])
         file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] === INICIO guardarFirmaEntrega() ===\n", FILE_APPEND);
 
         try {
-            if (preg_match('/^data:image\/(\w+);base64,/', $firmaBase64, $type)) {
+            $origenFirma = strtolower((string)$origenFirma);
+            if (!in_array($origenFirma, ['firma', 'sello'], true)) {
+                $origenFirma = 'firma';
+            }
+
+            if (preg_match('/^data:image\/([a-zA-Z0-9.+-]+);base64,/', $firmaBase64, $type)) {
                 $firmaData = substr($firmaBase64, strpos($firmaBase64, ',') + 1);
                 $type = strtolower($type[1]);
                 $firmaData = str_replace(' ', '+', $firmaData);
-                $imagen = base64_decode($firmaData);
+                $imagen = base64_decode($firmaData, true);
 
                 if ($imagen === false) {
                     file_put_contents($logFile, "Error al decodificar base64\n", FILE_APPEND);
+                    return false;
+                }
+
+                if (strlen($imagen) > 9 * 1024 * 1024) {
+                    file_put_contents($logFile, "Imagen demasiado pesada\n", FILE_APPEND);
                     return false;
                 }
 
@@ -921,13 +998,32 @@ public function guardarNoEntregar($data, $files, $ctx = [])
                 return false;
             }
 
+            $infoImagen = @getimagesizefromstring($imagen);
+            if (!$infoImagen || empty($infoImagen['mime'])) {
+                file_put_contents($logFile, "Contenido de imagen invalido\n", FILE_APPEND);
+                return false;
+            }
+
+            $extensionesPorMime = [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/webp' => 'webp',
+            ];
+
+            if (!isset($extensionesPorMime[$infoImagen['mime']])) {
+                file_put_contents($logFile, "MIME no permitido: " . $infoImagen['mime'] . "\n", FILE_APPEND);
+                return false;
+            }
+
+            $extensionArchivo = $extensionesPorMime[$infoImagen['mime']];
             $rutaCarpeta = __DIR__ . '/../../firmas_clientes/';
             if (!file_exists($rutaCarpeta) && !mkdir($rutaCarpeta, 0777, true)) {
                 file_put_contents($logFile, "Error al crear carpeta\n", FILE_APPEND);
                 return false;
             }
 
-            $nombreArchivo = 'firma_' . (int)$idservicio . '_' . time() . '.png';
+            $prefijoArchivo = ($origenFirma === 'sello') ? 'sello' : 'firma';
+            $nombreArchivo = $prefijoArchivo . '_' . (int)$idservicio . '_' . time() . '.' . $extensionArchivo;
             $rutaArchivo = $rutaCarpeta . $nombreArchivo;
             $rutaArchivoGuardar = "firmas_clientes/" . $nombreArchivo;
 
@@ -939,7 +1035,7 @@ public function guardarNoEntregar($data, $files, $ctx = [])
             $tipoFirma = 'Entrega';
             $activoParaFirmar = 0;
 
-            $sqlCheck = "SELECT id FROM firma_clientes WHERE id_guia = ? AND tipo_firma = ? LIMIT 1";
+            $sqlCheck = "SELECT id, firma_clientes FROM firma_clientes WHERE id_guia = ? AND tipo_firma = ? LIMIT 1";
             $stmtCheck = $this->db->prepare($sqlCheck);
             if (!$stmtCheck) {
                 file_put_contents($logFile, "Error preparando SELECT: " . $this->db->error . "\n", FILE_APPEND);
@@ -953,9 +1049,10 @@ public function guardarNoEntregar($data, $files, $ctx = [])
             if ($result && $result->num_rows > 0) {
                 $row = $result->fetch_assoc();
                 $idFirma = (int)$row['id'];
+                $rutaAnterior = $row['firma_clientes'] ?? '';
 
                 $sqlUpdate = "UPDATE firma_clientes
-                              SET firma_clientes = ?, fecha_registro = ?, activo_para_firmar = ?
+                              SET firma_clientes = ?, fecha_registro = ?, activo_para_firmar = ?, tipo = ?
                               WHERE id = ?";
                 $stmtUpdate = $this->db->prepare($sqlUpdate);
                 if (!$stmtUpdate) {
@@ -963,24 +1060,25 @@ public function guardarNoEntregar($data, $files, $ctx = [])
                     return false;
                 }
 
-                $stmtUpdate->bind_param('ssii', $rutaArchivoGuardar, $fechaHoraColombia, $activoParaFirmar, $idFirma);
+                $stmtUpdate->bind_param('ssisi', $rutaArchivoGuardar, $fechaHoraColombia, $activoParaFirmar, $origenFirma, $idFirma);
                 if (!$stmtUpdate->execute()) {
                     file_put_contents($logFile, "Error en UPDATE: " . $stmtUpdate->error . "\n", FILE_APPEND);
                     return false;
                 }
 
+                $this->eliminarArchivoFirmaAnterior($rutaAnterior, $rutaArchivoGuardar, $logFile);
                 return true;
             }
 
-            $sqlInsert = "INSERT INTO firma_clientes (id_guia, tipo_firma, firma_clientes, fecha_registro, activo_para_firmar)
-                          VALUES (?, ?, ?, ?, ?)";
+            $sqlInsert = "INSERT INTO firma_clientes (id_guia, tipo_firma, firma_clientes, fecha_registro, activo_para_firmar, tipo)
+                          VALUES (?, ?, ?, ?, ?, ?)";
             $stmtInsert = $this->db->prepare($sqlInsert);
             if (!$stmtInsert) {
                 file_put_contents($logFile, "Error preparando INSERT: " . $this->db->error . "\n", FILE_APPEND);
                 return false;
             }
 
-            $stmtInsert->bind_param('isssi', $idservicio, $tipoFirma, $rutaArchivoGuardar, $fechaHoraColombia, $activoParaFirmar);
+            $stmtInsert->bind_param('isssis', $idservicio, $tipoFirma, $rutaArchivoGuardar, $fechaHoraColombia, $activoParaFirmar, $origenFirma);
             if (!$stmtInsert->execute()) {
                 file_put_contents($logFile, "Error en INSERT: " . $stmtInsert->error . "\n", FILE_APPEND);
                 return false;
@@ -995,6 +1093,34 @@ public function guardarNoEntregar($data, $files, $ctx = [])
             if ($stmtUpdate instanceof mysqli_stmt) { $stmtUpdate->close(); }
             if ($stmtInsert instanceof mysqli_stmt) { $stmtInsert->close(); }
             file_put_contents($logFile, "=== FIN guardarFirmaEntrega() ===\n\n", FILE_APPEND);
+        }
+    }
+
+    private function eliminarArchivoFirmaAnterior($rutaAnterior, $rutaNueva, $logFile)
+    {
+        if (empty($rutaAnterior) || $rutaAnterior === $rutaNueva) {
+            return;
+        }
+
+        $rutaAnteriorNormalizada = str_replace('\\', '/', $rutaAnterior);
+        if (strpos($rutaAnteriorNormalizada, 'firmas_clientes/') !== 0) {
+            return;
+        }
+
+        $rutaBase = realpath(__DIR__ . '/../../firmas_clientes/');
+        if (!$rutaBase) {
+            return;
+        }
+
+        $nombreArchivo = basename($rutaAnteriorNormalizada);
+        $rutaCompleta = realpath($rutaBase . DIRECTORY_SEPARATOR . $nombreArchivo);
+
+        if (!$rutaCompleta || strpos($rutaCompleta, $rutaBase) !== 0 || !is_file($rutaCompleta)) {
+            return;
+        }
+
+        if (!@unlink($rutaCompleta)) {
+            file_put_contents($logFile, "No se pudo eliminar archivo anterior: $rutaAnterior\n", FILE_APPEND);
         }
     }
 
@@ -1058,7 +1184,7 @@ public function guardarNoEntregar($data, $files, $ctx = [])
 
         $sql = "SELECT activo_para_firmar, firma_clientes
                 FROM firma_clientes
-                WHERE tipo_firma='Entrega' AND id_guia='$id'
+                WHERE tipo_firma='Entrega' AND id_guia='$id' AND firma_clientes!=''
                 ORDER BY id DESC
                 LIMIT 1";
 

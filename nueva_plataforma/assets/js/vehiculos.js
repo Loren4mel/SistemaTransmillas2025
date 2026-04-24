@@ -1,5 +1,5 @@
 
-const urlController = '/controller/VehiculosController.php';
+const urlController = 'VehiculosController.php';
 $(document).ready(function () {
     const tabla = $('#tablaVehiculos').DataTable({
         ajax: {

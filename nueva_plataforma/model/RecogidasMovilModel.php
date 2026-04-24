@@ -104,6 +104,7 @@ class RecogidasMovilModel {
 
     private function logCalculo($mensaje)
     {
+        return;
         $ruta = __DIR__ . "/../logs/log_calculos.txt";
         $fecha = date("[Y-m-d H:i:s] ");
 
@@ -935,23 +936,21 @@ class RecogidasMovilModel {
                     // $this->reEnviarFirmaWhat($this->escape($param93), 44, (int)$idser ,$link);
 
 
-                    // $this->logRecogido("Datos serviciosdia encontrados, preparando envío de WhatsApp...");
-                    // $numguia    = $planilla;
-                    // $telefono   = $this->escape($param93);
-                    // $idservicio = $idser;
+                    $numguia    = $planilla;
+                    $idservicio = $idser;
 
-                    // $resLink  = $this->guardarLinkServicio(
-                    //     $idservicio,
-                    //     "Recogida",
-                    //     $numguia,
-                    //     $this->escape($param26),
-                    //     $this->escape($param27),
-                    //     $param18,
-                    //     $valorsinseguro
-                    // );
-                    // $linkGuia = $resLink['url'] ?? '';
+                    $resLink  = $this->guardarLinkServicio(
+                        $idservicio,
+                        "Recogida",
+                        $numguia,
+                        $this->escape($param26),
+                        $this->escape($param27),
+                        $param18,
+                        $valorsinseguro
+                    );
+                    $linkGuia = $resLink['url'] ?? '';
 
-                    // $this->logRecogido("Link generado: $linkGuia");
+                    $this->logRecogido("Link generado: $linkGuia");
                     // 📸 Procesar imagen del servicio
                     // if (!empty($param91['name'])) {
                     //     $this->encolarProceso('procesar_imagen_servicio', $idser, [
@@ -968,13 +967,7 @@ class RecogidasMovilModel {
                         ]);
                     }
 
-                    // 🔗 Generar link de guía
-                    $this->encolarProceso('generar_link_guia', $idser, [
-                        'peso' => $param26,
-                        'volumen' => $param27,
-                        'seguro' => $param18,
-                        'valor' => $valorsinseguro
-                    ]);
+                    // 🔗 El link de guía ya se inserta en línea para este flujo.
 
                     // 📲 Enviar WhatsApp firma
                     $this->encolarProceso('whatsapp_firma', $idser, [
@@ -1032,6 +1025,7 @@ class RecogidasMovilModel {
     }
 
     public function logRecogido($msg) {
+        return;
         $logFile = __DIR__ . "/logs_recogido.log";
         $fecha = date("Y-m-d H:i:s");
         @file_put_contents($logFile, "[$fecha] $msg\n", FILE_APPEND);
@@ -1137,6 +1131,7 @@ class RecogidasMovilModel {
 //LOGS 
     private function logServicio(string $mensaje, array $contexto = [])
     {
+        return;
         $logDir  = __DIR__ . '/../logs';
         $logFile = $logDir . '/servicios_' . date('Y-m-d') . '.log';
 
@@ -1179,7 +1174,7 @@ class RecogidasMovilModel {
         /* =============================
         BUSCAR SI YA EXISTE REGISTRO
         ============================= */
-        $sqls = "SELECT id FROM imagenguias 
+        $sqls = "SELECT idimagenguias  FROM imagenguias 
                 WHERE ima_idservicio = '$id_param2'
                 AND ima_tipo = '$imprimir'
                 LIMIT 1";
@@ -1187,7 +1182,7 @@ class RecogidasMovilModel {
         $res = $this->db->query($sqls);
 
         if (!$res) {
-            $this->logEntrega("ERROR SQL buscar imagenguias: " . $this->db->error);
+            $this->logEntrega("ERROR SQL buscar imagenguias: ".$sqls . $this->db->error);
         }
 
         $row = ($res ? $res->fetch_row() : null);
@@ -1297,6 +1292,7 @@ class RecogidasMovilModel {
         ];
     }
     public function logEntrega($msg) {
+        return;
         $logFile = __DIR__ . "/logs/logs_WF.log";
         $fecha = date("Y-m-d H:i:s");
         file_put_contents($logFile, "[$fecha] $msg\n", FILE_APPEND);
@@ -1312,7 +1308,7 @@ class RecogidasMovilModel {
         $stmtGuia = null;
         date_default_timezone_set('America/Bogota');
         $fechaHoraColombia = date('Y-m-d H:i:s');
-        $logFile = __DIR__ . '/debug_guardar_firma.log';
+        $logFile = 'php://temp';
         file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] === INICIO guardarFirmaRecogida() ===\n", FILE_APPEND);
 
         try {
@@ -1406,15 +1402,22 @@ class RecogidasMovilModel {
                 $telefono = ($resTel->num_rows > 0) ? $resTel->fetch_assoc()['telefono'] : null;
 
                 // 🔎 Obtener número de guía desde servicios
-                $sqlGuia = "SELECT ser_consecutivo FROM servicios WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo,ser_telefonocontacto FROM servicios WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
                 $resGuia = $stmtGuia->get_result();
-                $numguia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc()['ser_consecutivo'] : null;
+                $rowGuia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc() : null;
+                $numguia = $rowGuia['ser_consecutivo'] ?? null;
+                $numDestinatario = $rowGuia['ser_telefonocontacto'] ?? null;
 
+                if (!empty($telefono) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($telefono, 42, $numguia . "R");
+                }
+                if (!empty($numDestinatario) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($numDestinatario, 42, $numguia . "R");
+                }
 
-                $this->enviarGuiaWhat( $telefono, 42, $numguia."R");
 
                 file_put_contents($logFile, "✅ Firma actualizada correctamente\n", FILE_APPEND);
                 return true;
@@ -1445,13 +1448,22 @@ class RecogidasMovilModel {
                 $telefono = ($resTel->num_rows > 0) ? $resTel->fetch_assoc()['telefono'] : null;
 
                 // 🔎 Obtener número de guía desde servicios
-                $sqlGuia = "SELECT ser_consecutivo FROM servicios WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo,ser_telefonocontacto FROM servicios WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
                 $resGuia = $stmtGuia->get_result();
-                $numguia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc()['ser_consecutivo'] : null;
-                $this->enviarGuiaWhat( $telefono, 42, $numguia."R");
+                $rowGuia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc() : null;
+                $numguia = $rowGuia['ser_consecutivo'] ?? null;
+                $numDestinatario = $rowGuia['ser_telefonocontacto'] ?? null;
+
+                if (!empty($telefono) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($telefono, 42, $numguia . "R");
+                }
+                if (!empty($numDestinatario) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($numDestinatario, 42, $numguia . "R");
+                }
+
                 file_put_contents($logFile, "✅ Firma insertada correctamente\n", FILE_APPEND);
                 return true;
             }

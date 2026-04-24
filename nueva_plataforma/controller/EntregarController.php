@@ -29,6 +29,14 @@ if (isset($_POST['accion']) && $_POST['accion'] === 'guardarSello') {
 
         $firmaBase64 = $_POST['firmaBase64'];
 
+        if (strlen($firmaBase64) > 12 * 1024 * 1024) {
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'La imagen del sello es demasiado pesada'
+            ]);
+            exit;
+        }
+
         if (strpos($firmaBase64, 'data:image') !== 0) {
             echo json_encode([
                 'ok' => false,
@@ -37,7 +45,7 @@ if (isset($_POST['accion']) && $_POST['accion'] === 'guardarSello') {
             exit;
         }
 
-        $guardado = $modelo->guardarFirmaEntrega((int)$_POST['idservicio'], $firmaBase64);
+        $guardado = $modelo->guardarFirmaEntrega((int)$_POST['idservicio'], $firmaBase64, 'sello');
 
         echo json_encode([
             'ok' => (bool)$guardado,
