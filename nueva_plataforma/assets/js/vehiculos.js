@@ -12,11 +12,14 @@ $(document).ready(function () {
             },
             dataSrc: ''
         },
+        order: [[13, 'asc']],
+
         columns: [
             { data: 'veh_tipo' },
             { data: 'veh_marca' },
             { data: 'veh_placa' },
             { data: 'veh_modelo' },
+            { data: 'veh_propiedad' },
             { data: 'usu_nombre' },
             { data: 'veh_fechaseguro' },
             { data: 'veh_fechategnomecanica' },
@@ -101,6 +104,39 @@ $(document).ready(function () {
         ]
     });
 
+    //Filtro dueño según propiedad del vehiculo (modal AGREGAR)
+    const DUENO_EMPRESA = 'pedro trasmillas';
+
+    $('#veh_propiedad').on('change', function () {
+        const clasificacion = $(this).val();
+        const $dueno = $('#veh_dueno');
+        $dueno.val('');
+        $dueno.find('option').each(function () {
+            const $opt = $(this);
+            if ($opt.val() === '') return;
+            if (clasificacion === 'empresa') {
+                $opt.toggle($opt.data('nombre') === DUENO_EMPRESA);
+            } else {
+                $opt.show();
+            }
+        });
+    });
+
+    $('#edit_veh_propiedad').on('change', function () {
+        const clasificacion = $(this).val();
+        const $dueno = $('#edit_veh_dueno');
+        $dueno.val('');
+        $dueno.find('option').each(function () {
+            const $opt = $(this);
+            if ($opt.val() === '') return;
+            if (clasificacion === 'empresa') {
+                $opt.toggle($opt.data('nombre') === DUENO_EMPRESA);
+            } else {
+                $opt.show();
+            }
+        });
+    });
+
     $('#filtrotipodevehiculo, #filtroestado').on('change', function () {
         tabla.ajax.reload();
     });
@@ -131,6 +167,12 @@ $(document).ready(function () {
                 Swal.fire('Error', `El campo "${campo.label}" es obligatorio`, 'error');
                 return;
             }
+        }
+
+        // Validar propiedad del vehículo
+        if ($('select[name="veh_propiedad"]').val() === '') {
+            Swal.fire('Error', 'Debe seleccionar una propiedad (Empresa o Propio)', 'error');
+            return;
         }
 
         // Validacion para dueño
@@ -172,6 +214,9 @@ $(document).ready(function () {
         if (!validarImagen(inputTecno, "Tecnomecánica")) return;
         if (!validarImagen(inputFrente, "Tarjeta Propiedad Frente")) return;
         if (!validarImagen(inputRespaldo, "Tarjeta Propiedad Respaldo")) return;
+
+        //Luego de validaciones, serializamos el equipo de carretera para agregar y editar
+        serializarHerramientas();
 
         const formulario = document.getElementById('formVehiculo');
         let datos = new FormData(formulario);
@@ -290,6 +335,20 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
                 $('#edit_veh_modelo').val(v.veh_modelo);
                 $('#edit_veh_color').val(v.veh_color);
                 $('#edit_veh_tipov').val(v.veh_tipov);
+                $('#edit_veh_propiedad').val(v.veh_propiedad);
+
+                // Cargar herramientas existentes
+                const listaEdit = document.getElementById('listaHerramientasEdit');
+                listaEdit.innerHTML = '';
+                if (v.veh_equipo_carretera) {
+                    try {
+                        const herramientas = JSON.parse(v.veh_equipo_carretera);
+                        herramientas.forEach(h => {
+                            listaEdit.appendChild(crearFilaHerramientaEdit(h.nombre, h.existe));
+                        });
+                    } catch (e) { }
+                }
+
                 $('#edit_veh_dueno').val(v.veh_dueño);
                 $('#edit_veh_fechaseguro').val(v.veh_fechaseguro);
                 $('#edit_veh_fechategnomecanica').val(v.veh_fechategnomecanica);
@@ -345,6 +404,9 @@ function mostrarPreviewEditar(containerId, ruta) {
 $('#btnActualizar').on('click', function (e) {
     e.preventDefault();
 
+    //Luego de validaciones, serializamos el equipo de carretera para editar
+    serializarHerramientasEdit();
+
     const formulario = document.getElementById('formEditarVehiculo');
     const datos = new FormData(formulario);
     datos.append('actualizar_vehiculo', true);
@@ -391,3 +453,162 @@ $('#btnActualizar').on('click', function (e) {
     });
 });
 
+//EQUIPO DE CARRETERA (modal AGREGAR) 
+function crearFilaHerramienta(nombre = '', existe = 'si') {
+    const div = document.createElement('div');
+    div.className = 'd-flex align-items-center gap-2 mb-2';
+    div.innerHTML = `
+        <input type="text" class="form-control form-control-sm herramienta-nombre" 
+               placeholder="Nombre de la herramienta" value="${nombre}" style="flex:2">
+        <select class="form-select form-select-sm herramienta-existe" style="flex:1">
+            <option value="si" ${existe === 'si' ? 'selected' : ''}>✅ Activo</option>
+            <option value="no" ${existe === 'no' ? 'selected' : ''}>❌ Inactivo</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-danger btn-eliminar-herramienta">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    `;
+    div.querySelector('.btn-eliminar-herramienta').addEventListener('click', function () {
+        div.remove();
+    });
+    return div;
+}
+
+document.getElementById('btnAgregarHerramienta').addEventListener('click', function () {
+    document.getElementById('listaHerramientas').appendChild(crearFilaHerramienta());
+});
+
+//EQUIPO DE CARRETERA (modal EDITAR)
+function crearFilaHerramientaEdit(nombre = '', existe = 'si') {
+    const div = document.createElement('div');
+    div.className = 'd-flex align-items-center gap-2 mb-2';
+    div.innerHTML = `
+        <input type="text" class="form-control form-control-sm herramienta-nombre-edit" 
+               placeholder="Nombre de la herramienta" value="${nombre}" style="flex:2">
+        <select class="form-select form-select-sm herramienta-existe-edit" style="flex:1">
+            <option value="si" ${existe === 'si' ? 'selected' : ''}>✅ Activo</option>
+            <option value="no" ${existe === 'no' ? 'selected' : ''}>❌ Inactivo</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-danger btn-eliminar-herramienta-edit">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    `;
+    div.querySelector('.btn-eliminar-herramienta-edit').addEventListener('click', function () {
+        div.remove();
+    });
+    return div;
+}
+
+document.getElementById('btnAgregarHerramientaEdit').addEventListener('click', function () {
+    document.getElementById('listaHerramientasEdit').appendChild(crearFilaHerramientaEdit());
+});
+
+//SERIALIZAR JSON antes de guardar (modal AGREGAR)
+function serializarHerramientas() {
+    const filas = document.querySelectorAll('#listaHerramientas .d-flex');
+    const herramientas = [];
+    filas.forEach(fila => {
+        const nombre = fila.querySelector('.herramienta-nombre').value.trim();
+        const existe = fila.querySelector('.herramienta-existe').value;
+        if (nombre !== '') herramientas.push({ nombre, existe });
+    });
+    document.getElementById('veh_equipo_carretera').value = JSON.stringify(herramientas);
+}
+
+//SERIALIZAR JSON antes de guardar (modal EDITAR) 
+function serializarHerramientasEdit() {
+    const filas = document.querySelectorAll('#listaHerramientasEdit .d-flex');
+    const herramientas = [];
+    filas.forEach(fila => {
+        const nombre = fila.querySelector('.herramienta-nombre-edit').value.trim();
+        const existe = fila.querySelector('.herramienta-existe-edit').value;
+        if (nombre !== '') herramientas.push({ nombre, existe });
+    });
+    document.getElementById('edit_veh_equipo_carretera').value = JSON.stringify(herramientas);
+}
+
+// GUARDAR ENTREGA DE VEHÍCULO
+$('#btnGuardarEntrega').on('click', function () {
+
+    // Validaciones
+    const tipoEntrega = document.getElementById('ent_tipoentrega');
+    const vehiculoSelect = document.getElementById('ent_vehiculo_id');
+    const operadorSelect = document.getElementById('ent_idusuario');
+    const fechaEntrega = $('[name="ent_fechaentrega"]').val();
+    const fechaRegistro = $('[name="ent_fecharegist"]').val();
+
+    if (!tipoEntrega.value) {
+        Swal.fire('Error', 'Debe seleccionar el tipo de entrega', 'error');
+        return;
+    }
+    if (!vehiculoSelect.value) {
+        Swal.fire('Error', 'Debe seleccionar un vehículo', 'error');
+        return;
+    }
+    if (!operadorSelect.value) {
+        Swal.fire('Error', 'Debe seleccionar el conductor que entrega', 'error');
+        return;
+    }
+    if (!fechaEntrega) {
+        Swal.fire('Error', 'Debe ingresar la fecha de entrega', 'error');
+        return;
+    }
+    if (!fechaRegistro) {
+        Swal.fire('Error', 'Debe ingresar la fecha de registro', 'error');
+        return;
+    }
+
+    // Construir texto del vehículo igual a como está en la BD
+    const opcionVehiculo = vehiculoSelect.options[vehiculoSelect.selectedIndex];
+    const textoVehiculo = opcionVehiculo.getAttribute('data-texto');
+
+    const datos = new FormData();
+    datos.append('ent_tipoentrega', tipoEntrega.value);
+    datos.append('guardar_entrega', true);
+    datos.append('ent_vehiculo', textoVehiculo);
+    datos.append('ent_idusuario', operadorSelect.value);
+    datos.append('ent_fechaentrega', fechaEntrega);
+    datos.append('ent_fecharegist', fechaRegistro);
+
+
+    Swal.fire({
+        title: 'Guardando...',
+        text: 'Registrando entrega del vehículo',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    $.ajax({
+        url: urlController,
+        type: 'POST',
+        data: datos,
+        cache: false,
+        contentType: false,
+        processData: false,
+        success: function (res) {
+            Swal.close();
+            try {
+                const response = typeof res === 'object' ? res : JSON.parse(res);
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Entrega registrada!',
+                        text: response.mensaje,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    $('#modalEntregaVehiculo').modal('hide');
+                    document.getElementById('formEntregaVehiculo').reset();
+                } else {
+                    Swal.fire('Error', response.mensaje, 'error');
+                }
+            } catch (e) {
+                Swal.fire('Error', 'Error en la respuesta del servidor', 'error');
+            }
+        },
+        error: function () {
+            Swal.close();
+            Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+        }
+    });
+});

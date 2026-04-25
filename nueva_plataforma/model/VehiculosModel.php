@@ -11,7 +11,7 @@ class VehiculosModel {
     public function obtenerVehiculos($filtroTipovehiculo = '', $filtroEstado = '') {
         $sql = "SELECT `idvehiculos`, `veh_tipo`, `veh_placa`, `veh_marca`, `veh_modelo`, 
         `veh_fechaseguro`, `veh_fechategnomecanica`, `veh_fechamantenimiento`, `veh_kilactual`, 
-        `veh_aceitekil`, `veh_dueño`, `veh_estado`, `veh_chasis`, `veh_tipov`, `veh_cilidraje`, 
+        `veh_aceitekil`, `veh_propiedad`, `veh_dueño`, `veh_estado`, `veh_chasis`, `veh_tipov`, `veh_cilidraje`, 
         `veh_motor`, `veh_color`, `veh_usuve`, `veh_observaciones`, `veh_calkmcambioaceite`, 
         `veh_restankmaceite`, `veh_faltaparacambioaceite`, `veh_kmalcambaceite`, `veh_img_anverso`, `veh_img_reverso`,
 
@@ -63,12 +63,12 @@ class VehiculosModel {
 
     $sql = "INSERT INTO vehiculos (
         veh_tipo, veh_marca, veh_placa, veh_modelo, veh_color,
-        veh_tipov, veh_dueño, veh_fechaseguro, veh_img_soat,
+        veh_tipov, veh_propiedad, veh_dueño, veh_fechaseguro, veh_img_soat,
         veh_fechategnomecanica, veh_img_tecnomecanica, veh_fechamantenimiento,
         veh_kilactual, veh_calkmcambioaceite, veh_chasis, veh_motor,
-        veh_cilidraje, veh_usuve, veh_estado, veh_observaciones,
+        veh_cilidraje, veh_usuve, veh_estado, veh_equipo_carretera, veh_observaciones,
         veh_img_anverso, veh_img_reverso
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = $this->db->prepare($sql);
 
@@ -77,13 +77,14 @@ class VehiculosModel {
     }
 
     $stmt->bind_param(
-        "ssssssisssssssssssssss", 
+        "sssssssissssssssssssssss", 
         $datos['veh_tipo'],
         $datos['veh_marca'],
         $datos['veh_placa'],
         $datos['veh_modelo'],
         $datos['veh_color'],
         $datos['veh_tipov'],
+        $datos['veh_propiedad'],
         $datos['veh_dueno'],
         $datos['veh_fechaseguro'],
         $veh_img_soat,
@@ -97,7 +98,8 @@ class VehiculosModel {
         $datos['veh_cilidraje'],
         $datos['veh_usuve'],
         $datos['veh_estado'],
-        $datos['veh_especificaciones'],
+        $datos['veh_equipo_carretera'],
+        $datos['veh_observaciones'],
         $veh_img_anverso,
         $veh_img_reverso
     );
@@ -212,6 +214,7 @@ public function actualizarVehiculo($datos) {
         veh_modelo             = ?,
         veh_color              = ?,
         veh_tipov              = ?,
+        veh_propiedad          = ?,
         veh_dueño              = ?,
         veh_fechaseguro        = ?,
         veh_fechategnomecanica = ?,
@@ -223,19 +226,21 @@ public function actualizarVehiculo($datos) {
         veh_cilidraje          = ?,
         veh_usuve              = ?,
         veh_estado             = ?,
+        veh_equipo_carretera   = ?,
         veh_observaciones      = ?
         $sqlImgs
         WHERE idvehiculos = $id";
 
     $stmt = $this->db->prepare($sql);
     $stmt->bind_param(
-        "ssssssssssssssssss",
+        "ssssssssssssssssssss",
         $datos['veh_tipo'],
         $datos['veh_marca'],
         $datos['veh_placa'],
         $datos['veh_modelo'],
         $datos['veh_color'],
         $datos['veh_tipov'],
+        $datos['veh_propiedad'],
         $datos['veh_dueno'],
         $datos['veh_fechaseguro'],
         $datos['veh_fechategnomecanica'],
@@ -247,12 +252,113 @@ public function actualizarVehiculo($datos) {
         $datos['veh_cilidraje'],
         $datos['veh_usuve'],
         $datos['veh_estado'],
-        $datos['veh_especificaciones']
+        $datos['veh_equipo_carretera'],
+        $datos['veh_observaciones']
     );
 
     $resultado = $stmt->execute();
     $stmt->close();
     return $resultado;
 }
+
+/*
+public function obtenerUsuariosActivos() {
+    $sql = "SELECT idusuarios, usu_nombre 
+            FROM usuarios 
+            WHERE usu_estado = 1
+            ORDER BY usu_nombre ASC";
+    $result = $this->db->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+}
+*/
+/*
+public function obtenerConductoresActivos() {
+    $sql = "SELECT idhojadevida, 
+                   CONCAT(hoj_nombre, ' ', hoj_apellido) AS conductor_nombre
+            FROM hojadevida 
+            WHERE hoj_estado = 'Activo'
+            ORDER BY hoj_nombre ASC";
+    $result = $this->db->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+}
+    */
+public function obtenerOperadoresActivos() {
+    $sql = "SELECT idusuarios, usu_nombre 
+            FROM usuarios 
+            WHERE usu_estado = 1 
+              AND roles_idroles IN (2, 3)
+            ORDER BY usu_nombre ASC";
+    $result = $this->db->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+public function guardarEntregaVehiculo($datos) {
+
+    //Obtener la cédula del usuario (operador que entrega)
+    $idUsuario = intval($datos['ent_idusuario']);
+    $sqlCedula = "SELECT usu_identificacion FROM usuarios WHERE idusuarios = ? LIMIT 1";
+    $stmtCedula = $this->db->prepare($sqlCedula);
+    $stmtCedula->bind_param("i", $idUsuario);
+    $stmtCedula->execute();
+    $resultCedula = $stmtCedula->get_result();
+    $usuarioData = $resultCedula->fetch_assoc();
+    $stmtCedula->close();
+
+    //Buscar en hojadevida por cédula y que esté Activo
+    $idHojaDeVida = null;
+
+    if ($usuarioData && !empty($usuarioData['usu_identificacion'])) {
+        $cedula = $usuarioData['usu_identificacion'];
+
+        $sqlHoja = "SELECT idhojadevida FROM hojadevida 
+                    WHERE hoj_cedula = ? AND hoj_estado = 'Activo' LIMIT 1";
+        $stmtHoja = $this->db->prepare($sqlHoja);
+        $stmtHoja->bind_param("s", $cedula);
+        $stmtHoja->execute();
+        $resultHoja = $stmtHoja->get_result();
+        $hojaData = $resultHoja->fetch_assoc();
+        $stmtHoja->close();
+
+        if ($hojaData) {
+            $idHojaDeVida = $hojaData['idhojadevida'];
+        }
+    }
+
+    //Guardar la entrega incluyendo ent_idhojadevida
+    $sql = "INSERT INTO entregavehiculo (
+                ent_fechaentrega,
+                ent_vehiculo,
+                ent_userregistra,
+                ent_idusuario,
+                ent_tipoentrega,
+                ent_fecharegistra,
+                ent_idhojadevida
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+    $stmt = $this->db->prepare($sql);
+
+    if (!$stmt) {
+        return ['error' => 'Prepare falló: ' . $this->db->error];
+    }
+
+    $stmt->bind_param(
+        "sssissi",
+        $datos['ent_fechaentrega'],
+        $datos['ent_vehiculo'],
+        $datos['ent_userregistra'],
+        $datos['ent_idusuario'],
+        $datos['ent_tipoentrega'],
+        $datos['ent_fecharegistra'],
+        $idHojaDeVida
+    );
+
+    $resultado = $stmt->execute();
+
+    if (!$resultado) {
+        return ['error' => 'Execute falló: ' . $stmt->error];
+    }
+
+    $stmt->close();
+    return true;
+}
+}
