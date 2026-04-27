@@ -31,37 +31,6 @@ $DB3->conectar();
 	function textoPdf($texto) {
 		return utf8_decode($texto);
 	}
-
-	function colorearQr($archivo, $rojo, $verde, $azul) {
-		if (!function_exists('imagecreatefrompng')) {
-			return;
-		}
-
-		$imagen = imagecreatefrompng($archivo);
-		if (!$imagen) {
-			return;
-		}
-
-		$colorMarca = imagecolorallocate($imagen, $rojo, $verde, $azul);
-		$ancho = imagesx($imagen);
-		$alto = imagesy($imagen);
-
-		for ($x = 0; $x < $ancho; $x++) {
-			for ($y = 0; $y < $alto; $y++) {
-				$rgb = imagecolorat($imagen, $x, $y);
-				$r = ($rgb >> 16) & 0xFF;
-				$g = ($rgb >> 8) & 0xFF;
-				$b = $rgb & 0xFF;
-
-				if ($r < 80 && $g < 80 && $b < 80) {
-					imagesetpixel($imagen, $x, $y, $colorMarca);
-				}
-			}
-		}
-
-		imagepng($imagen, $archivo);
-		imagedestroy($imagen);
-	}
   
   
   $filename = $PNG_TEMP_DIR.'test.png'; 
@@ -188,40 +157,40 @@ $va=0;
 			$data="http://$urlserver/validaenviadaqr.php?guia=".$rw1[2]."&pieza=$b";
 			$filename = $PNG_TEMP_DIR.'test'.md5($data.'|'.$errorCorrectionLevel.'|'.$matrixPointSize).'.png';
 			QRcode::png($data, $filename, $errorCorrectionLevel, $matrixPointSize, 2);   
-			colorearQr($filename, 17, 48, 29);
 
 			$ciudadEtiqueta=substr(strtoupper($rw1[3]), 0, 16);
 			$guiaEtiqueta=strtoupper($rw1[2]);
+			$operarioEtiqueta=substr($operario, 0, 30);
 
 			$pdf->SetFillColor(255, 255, 255);
-			$pdf->Rect(1, 1, 118, 68, 'F');
+			$pdf->Rect(0, 0, 120, 70, 'F');
 
-			$pdf->SetFillColor(17, 48, 29);
-			$pdf->Rect(81, 1, 38, 68, 'F');
-			$pdf->Rect(86, 1, 33, 68, 'F');
+			$pdf->SetFillColor(10, 45, 26);
+			$pdf->Rect(82, 0, 38, 70, 'F');
+			$pdf->Rect(86, 0, 34, 70, 'F');
 
 			$pdf->SetFillColor(255, 255, 255);
-			$pdf->Rect(84, 14, 32, 43, 'F');
+			$pdf->Rect(86, 14, 29, 44, 'F');
 
-			$pdf->SetTextColor(17, 48, 29);
-			$pdf->SetDrawColor(17, 48, 29);
+			$pdf->SetTextColor(10, 45, 26);
+			$pdf->SetDrawColor(10, 45, 26);
 			$pdf->SetLineWidth(0.8);
 
 			$pdf->SetFont('Arial','B',25);
-			$pdf->SetXY(5, 6);
+			$pdf->SetXY(5, 7);
 			$pdf->Cell(65, 12, "TRANSMILLAS", 0, 0, 'L');
 
-			$pdf->Line(5, 22, 24, 22);
+			$pdf->Line(5, 23, 24, 23);
 			$pdf->SetTextColor(0, 0, 0);
-			$pdf->SetFont('Arial','B',8);
-			$pdf->SetXY(29, 18);
-			$pdf->Cell(50, 6, textoPdf($operario), 0, 0, 'L');
+			$pdf->SetFont('Arial','B',6);
+			$pdf->SetXY(29, 19);
+			$pdf->Cell(50, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
 
-			$pdf->SetTextColor(17, 48, 29);
+			$pdf->SetTextColor(10, 45, 26);
 			$pdf->SetFont('Arial','B',9);
 			$pdf->SetXY(5, 27);
 			$pdf->Cell(74, 6, textoPdf("$ciudadEtiqueta | $guiaEtiqueta | $b PIEZA"), 0, 0, 'L');
-			$pdf->Line(58, 31, 77, 31);
+			$pdf->Line(61, 31, 77, 31);
 
 			$pdf->Line(5, 55, 56, 55);
 			$pdf->SetTextColor(0, 0, 0);
@@ -229,7 +198,7 @@ $va=0;
 			$pdf->SetXY(5, 56);
 			$pdf->Cell(60, 7, textoPdf("Recibo a satisfacción"), 0, 0, 'L');
 
-			$pdf->Image($PNG_WEB_DIR.basename($filename),86,17,28,0,'PNG');
+			$pdf->Image($PNG_WEB_DIR.basename($filename),88,17,25,0,'PNG');
 			unlink($filename);
 
 			//$pdf->Cell(100,5, $pdf->Image('../galerias/'.$row['portada'], $pdf->GetX()+40, $pdf->GetY()+3, 30), 1,0,'C');
