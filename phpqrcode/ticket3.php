@@ -223,7 +223,7 @@ $va=0;
 			$pdf->RoundedRect(1.5, 1.5, 117, 67, 3.5, 'D');
 
 			$pdf->SetFillColor(255, 255, 255);
-			$pdf->RoundedRect(83.5, 10, 33, 48, 2.8, 'D');
+			$pdf->RoundedRect(82, 10, 35, 35, 2.8, 'D');
 
 			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetDrawColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
@@ -235,8 +235,8 @@ $va=0;
 
 			$pdf->SetTextColor(0, 0, 0);
 			$pdf->SetFont('Arial','B',7.5);
-			$pdf->SetXY(22, 20);
-			$pdf->Cell(58, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
+			$pdf->SetXY(5, 20);
+			$pdf->Cell(74, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
 
 			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetFont('Arial','B',9);
@@ -249,7 +249,7 @@ $va=0;
 			$pdf->SetXY(5, 59);
 			$pdf->Cell(60, 7, textoPdf("Recibo a satisfacción"), 0, 0, 'L');
 
-			$pdf->Image($PNG_WEB_DIR.basename($filename),87,16,26,0,'PNG');
+			$pdf->Image($PNG_WEB_DIR.basename($filename),84,12,31,0,'PNG');
 			unlink($filename);
 
 			//$pdf->Cell(100,5, $pdf->Image('../galerias/'.$row['portada'], $pdf->GetX()+40, $pdf->GetY()+3, 30), 1,0,'C');
