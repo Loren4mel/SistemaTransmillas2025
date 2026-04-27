@@ -223,33 +223,33 @@ $va=0;
 			$pdf->RoundedRect(1.5, 1.5, 117, 67, 3.5, 'D');
 
 			$pdf->SetFillColor(255, 255, 255);
-			$pdf->RoundedRect(82, 10, 35, 35, 2.8, 'D');
+			$pdf->RoundedRect(82, 8, 35, 35, 2.8, 'D');
 
 			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetDrawColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetLineWidth(0.8);
 
-			$pdf->SetFont('Arial','B',25);
-			$pdf->SetXY(5, 7.5);
+			$pdf->SetFont('Arial','B',28);
+			$pdf->SetXY(5, 6);
 			$pdf->Cell(65, 12, "TRANSMILLAS", 0, 0, 'L');
 
 			$pdf->SetTextColor(0, 0, 0);
-			$pdf->SetFont('Arial','B',7.5);
-			$pdf->SetXY(5, 20);
+			$pdf->SetFont('Arial','B',8.5);
+			$pdf->SetXY(5, 20.5);
 			$pdf->Cell(74, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
 
 			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
-			$pdf->SetFont('Arial','B',9);
-			$pdf->SetXY(5, 28.5);
+			$pdf->SetFont('Arial','B',10.5);
+			$pdf->SetXY(5, 29);
 			$pdf->Cell(74, 6, textoPdf("$ciudadEtiqueta | $guiaEtiqueta | $b PIEZA"), 0, 0, 'L');
 
-			$pdf->Line(5, 58, 56, 58);
+			$pdf->Line(5, 52, 56, 52);
 			$pdf->SetTextColor(0, 0, 0);
-			$pdf->SetFont('Arial','B',10);
-			$pdf->SetXY(5, 59);
+			$pdf->SetFont('Arial','B',11);
+			$pdf->SetXY(5, 53);
 			$pdf->Cell(60, 7, textoPdf("Recibo a satisfacción"), 0, 0, 'L');
 
-			$pdf->Image($PNG_WEB_DIR.basename($filename),84,12,31,0,'PNG');
+			$pdf->Image($PNG_WEB_DIR.basename($filename),84,10,31,0,'PNG');
 			unlink($filename);
 
 			//$pdf->Cell(100,5, $pdf->Image('../galerias/'.$row['portada'], $pdf->GetX()+40, $pdf->GetY()+3, 30), 1,0,'C');
