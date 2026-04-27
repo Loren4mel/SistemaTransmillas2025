@@ -52,6 +52,45 @@ class StickerPDF extends FPDF {
 		$this->_out('h ' . $op);
 	}
 
+	function Ellipse($x, $y, $rx, $ry, $style = 'D') {
+		$op = ($style == 'F') ? 'f' : (($style == 'FD' || $style == 'DF') ? 'B' : 'S');
+		$lx = 4 / 3 * (sqrt(2) - 1) * $rx;
+		$ly = 4 / 3 * (sqrt(2) - 1) * $ry;
+		$k = $this->k;
+		$h = $this->h;
+		$this->_out(sprintf('%.2F %.2F m', ($x + $rx) * $k, ($h - $y) * $k));
+		$this->_Arc($x + $rx, $y - $ly, $x + $lx, $y - $ry, $x, $y - $ry);
+		$this->_Arc($x - $lx, $y - $ry, $x - $rx, $y - $ly, $x - $rx, $y);
+		$this->_Arc($x - $rx, $y + $ly, $x - $lx, $y + $ry, $x, $y + $ry);
+		$this->_Arc($x + $lx, $y + $ry, $x + $rx, $y + $ly, $x + $rx, $y);
+		$this->_out($op);
+	}
+
+	function IconLocation($x, $y) {
+		$this->SetFillColor(0, 0, 0);
+		$this->Ellipse($x + 2.6, $y + 2.6, 2.5, 2.5, 'F');
+		$this->Polygon(array(array($x + 0.6, $y + 4), array($x + 4.6, $y + 4), array($x + 2.6, $y + 8)), 'F');
+		$this->SetFillColor(255, 255, 255);
+		$this->Ellipse($x + 2.6, $y + 2.6, 0.8, 0.8, 'F');
+	}
+
+	function IconBarcode($x, $y) {
+		$this->SetDrawColor(0, 0, 0);
+		$this->SetLineWidth(0.5);
+		$this->RoundedRect($x, $y, 5.8, 5.8, 0.4, 'D');
+		for ($i = 0; $i < 5; $i++) {
+			$xx = $x + 1 + ($i * 0.9);
+			$this->Line($xx, $y + 0.8, $xx, $y + 5);
+		}
+	}
+
+	function IconBox($x, $y) {
+		$this->SetFillColor(0, 0, 0);
+		$this->Polygon(array(array($x + 2.8, $y), array($x + 5.6, $y + 1.5), array($x + 2.8, $y + 3), array($x, $y + 1.5)), 'F');
+		$this->Polygon(array(array($x, $y + 1.8), array($x + 2.5, $y + 3.2), array($x + 2.5, $y + 6.4), array($x, $y + 5)), 'F');
+		$this->Polygon(array(array($x + 3.1, $y + 3.2), array($x + 5.6, $y + 1.8), array($x + 5.6, $y + 5), array($x + 3.1, $y + 6.4)), 'F');
+	}
+
 	function _Arc($x1, $y1, $x2, $y2, $x3, $y3) {
 		$h = $this->h;
 		$this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c ', $x1 * $this->k, ($h - $y1) * $this->k, $x2 * $this->k, ($h - $y2) * $this->k, $x3 * $this->k, ($h - $y3) * $this->k));
@@ -209,9 +248,9 @@ $va=0;
 			$filename = $PNG_TEMP_DIR.'test'.md5($data.'|'.$errorCorrectionLevel.'|'.$matrixPointSize).'.png';
 			QRcode::png($data, $filename, $errorCorrectionLevel, $matrixPointSize, 2);   
 
-			$ciudadEtiqueta=substr(strtoupper($rw1[3]), 0, 16);
+			$ciudadEtiqueta=substr(strtoupper($rw1[3]), 0, 14);
 			$guiaEtiqueta=strtoupper($rw1[2]);
-			$operarioEtiqueta=substr($operario, 0, 42);
+			$operarioEtiqueta=substr($rw2[0], 0, 34);
 
 			$colorOscuro = array(24, 26, 27);
 			$pdf->SetFillColor(255, 255, 255);
@@ -219,37 +258,60 @@ $va=0;
 
 			$pdf->SetFillColor(255, 255, 255);
 			$pdf->SetDrawColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
-			$pdf->SetLineWidth(0.6);
-			$pdf->RoundedRect(1.5, 1.5, 117, 67, 3.5, 'D');
+			$pdf->SetLineWidth(0.8);
+			$pdf->RoundedRect(1.2, 1.2, 117.6, 67.6, 3.5, 'D');
 
 			$pdf->SetFillColor(255, 255, 255);
-			$pdf->RoundedRect(82, 8, 35, 35, 2.8, 'D');
+			$pdf->RoundedRect(82.5, 7, 34, 34, 2, 'D');
 
 			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetDrawColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
-			$pdf->SetLineWidth(0.8);
+			$pdf->SetLineWidth(0.7);
 
-			$pdf->SetFont('Arial','B',28);
+			$pdf->SetFont('Arial','B',25);
 			$pdf->SetXY(5, 6);
 			$pdf->Cell(65, 12, "TRANSMILLAS", 0, 0, 'L');
 
 			$pdf->SetTextColor(0, 0, 0);
-			$pdf->SetFont('Arial','B',8.5);
-			$pdf->SetXY(5, 20.5);
-			$pdf->Cell(74, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
+			$pdf->SetFont('Arial','B',8);
+			$pdf->SetXY(5, 19.5);
+			$pdf->Cell(15, 5, textoPdf("Recogió:"), 0, 0, 'L');
+			$pdf->SetFont('Arial','',8);
+			$pdf->SetXY(20, 19.5);
+			$pdf->Cell(58, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
 
 			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
-			$pdf->SetFont('Arial','B',10.5);
-			$pdf->SetXY(5, 29);
-			$pdf->Cell(74, 6, textoPdf("$ciudadEtiqueta | $guiaEtiqueta | $b PIEZA"), 0, 0, 'L');
+			$pdf->IconLocation(6, 28);
+			$pdf->SetFont('Arial','B',17);
+			$pdf->SetXY(17, 27);
+			$pdf->Cell(60, 8, textoPdf($ciudadEtiqueta), 0, 0, 'L');
 
-			$pdf->Line(5, 52, 56, 52);
+			$pdf->IconBarcode(6, 38);
+			$pdf->SetFont('Arial','B',17);
+			$pdf->SetXY(17, 36.5);
+			$pdf->Cell(60, 8, textoPdf($guiaEtiqueta), 0, 0, 'L');
+
+			$pdf->IconBox(6, 48);
+			$pdf->SetFont('Arial','B',17);
+			$pdf->SetXY(17, 46);
+			$pdf->Cell(60, 8, textoPdf("$b PIEZA"), 0, 0, 'L');
+
+			$pdf->SetLineWidth(0.8);
+			$pdf->Line(5, 55, 115, 55);
 			$pdf->SetTextColor(0, 0, 0);
 			$pdf->SetFont('Arial','B',11);
-			$pdf->SetXY(5, 53);
+			$pdf->SetXY(5, 56);
 			$pdf->Cell(60, 7, textoPdf("Recibo a satisfacción"), 0, 0, 'L');
 
-			$pdf->Image($PNG_WEB_DIR.basename($filename),84,10,31,0,'PNG');
+			$pdf->SetFont('Arial','',6.5);
+			$pdf->SetXY(82.5, 42);
+			$pdf->Cell(34, 4, textoPdf("Escanear para seguimiento"), 0, 0, 'C');
+			$pdf->Line(6, 64, 62, 64);
+			$pdf->SetFont('Arial','',7);
+			$pdf->SetXY(6, 64.5);
+			$pdf->Cell(40, 4, textoPdf("Firma / Nombre"), 0, 0, 'L');
+
+			$pdf->Image($PNG_WEB_DIR.basename($filename),85,9.5,29,0,'PNG');
 			unlink($filename);
 
 			//$pdf->Cell(100,5, $pdf->Image('../galerias/'.$row['portada'], $pdf->GetX()+40, $pdf->GetY()+3, 30), 1,0,'C');
