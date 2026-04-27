@@ -6,7 +6,6 @@ $id_nombre=$_SESSION['usuario_nombre'];
 $nivel_acceso=$_SESSION['usuario_rol'];
 $id_sedes=$_SESSION['usu_idsede'];
 require "../ticket/fpdf/fpdf.php";
-include 'barcode.php';
 $DB = new DB_mssql;
 $DB->conectar();
 $DB1 = new DB_mssql;
@@ -28,6 +27,41 @@ $DB3->conectar();
 	  //ofcourse we need rights to create temp dir
 	  if (!file_exists($PNG_TEMP_DIR))
 	  mkdir($PNG_TEMP_DIR);
+
+	function textoPdf($texto) {
+		return utf8_decode($texto);
+	}
+
+	function colorearQr($archivo, $rojo, $verde, $azul) {
+		if (!function_exists('imagecreatefrompng')) {
+			return;
+		}
+
+		$imagen = imagecreatefrompng($archivo);
+		if (!$imagen) {
+			return;
+		}
+
+		$colorMarca = imagecolorallocate($imagen, $rojo, $verde, $azul);
+		$ancho = imagesx($imagen);
+		$alto = imagesy($imagen);
+
+		for ($x = 0; $x < $ancho; $x++) {
+			for ($y = 0; $y < $alto; $y++) {
+				$rgb = imagecolorat($imagen, $x, $y);
+				$r = ($rgb >> 16) & 0xFF;
+				$g = ($rgb >> 8) & 0xFF;
+				$b = $rgb & 0xFF;
+
+				if ($r < 80 && $g < 80 && $b < 80) {
+					imagesetpixel($imagen, $x, $y, $colorMarca);
+				}
+			}
+		}
+
+		imagepng($imagen, $archivo);
+		imagedestroy($imagen);
+	}
   
   
   $filename = $PNG_TEMP_DIR.'test.png'; 
@@ -146,34 +180,56 @@ $va=0;
 
 	for($b=1;$b<=$rw1[5];$b++){
 		$pdf->AddPage();
-		$pdf->SetAutoPageBreak(true, 10);
-		$y = $pdf->GetY();
+		$pdf->SetAutoPageBreak(false);
 			$rw1[4]=str_replace("&"," ", $rw1[4]);
 
-			//Bold Font for Field Name
-			$pdf->SetFont('Arial','B',25);
-			$pdf->Cell(50, 2, "TRANSMILLAS - $rw1[3]", 0);
-			$pdf->Ln(6);
-			$pdf->SetFont('Arial','B',20);
-			$pdf->Cell(30, 1, "$rw1[3] - $rw1[3]", 0);
-			$pdf->Ln(6);
-			$pdf->SetFont('Arial','B',10);
-			$pdf->Cell(30, 1, $operario, 0);
-
-			$pdf->SetFont('Arial','B',10);
 			$code = $rw1[2]." ".$b;
 			$urlserver=$_SERVER['HTTP_HOST'];
 			$data="http://$urlserver/validaenviadaqr.php?guia=".$rw1[2]."&pieza=$b";
-			
-		//$data=$code;
-			$y = $y+17;
-			$y2 = $y-2;
-			barcode('temp/'.$code.'.png', $code, 60, 'horizontal', 'code128', true);	
-			$pdf->Image('temp/'.$code.'.png',4,$y,60,0,'PNG');
-			unlink('temp/'.$code.'.png');
 			$filename = $PNG_TEMP_DIR.'test'.md5($data.'|'.$errorCorrectionLevel.'|'.$matrixPointSize).'.png';
 			QRcode::png($data, $filename, $errorCorrectionLevel, $matrixPointSize, 2);   
-			$pdf->Image($PNG_WEB_DIR.basename($filename),80,$y2,40,0,'PNG');
+			colorearQr($filename, 17, 48, 29);
+
+			$ciudadEtiqueta=substr(strtoupper($rw1[3]), 0, 16);
+			$guiaEtiqueta=strtoupper($rw1[2]);
+
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->Rect(1, 1, 118, 68, 'F');
+
+			$pdf->SetFillColor(17, 48, 29);
+			$pdf->Rect(81, 1, 38, 68, 'F');
+			$pdf->Rect(86, 1, 33, 68, 'F');
+
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->Rect(84, 14, 32, 43, 'F');
+
+			$pdf->SetTextColor(17, 48, 29);
+			$pdf->SetDrawColor(17, 48, 29);
+			$pdf->SetLineWidth(0.8);
+
+			$pdf->SetFont('Arial','B',25);
+			$pdf->SetXY(5, 6);
+			$pdf->Cell(65, 12, "TRANSMILLAS", 0, 0, 'L');
+
+			$pdf->Line(5, 22, 24, 22);
+			$pdf->SetTextColor(0, 0, 0);
+			$pdf->SetFont('Arial','B',8);
+			$pdf->SetXY(29, 18);
+			$pdf->Cell(50, 6, textoPdf($operario), 0, 0, 'L');
+
+			$pdf->SetTextColor(17, 48, 29);
+			$pdf->SetFont('Arial','B',9);
+			$pdf->SetXY(5, 27);
+			$pdf->Cell(74, 6, textoPdf("$ciudadEtiqueta | $guiaEtiqueta | $b PIEZA"), 0, 0, 'L');
+			$pdf->Line(58, 31, 77, 31);
+
+			$pdf->Line(5, 55, 56, 55);
+			$pdf->SetTextColor(0, 0, 0);
+			$pdf->SetFont('Arial','B',10);
+			$pdf->SetXY(5, 56);
+			$pdf->Cell(60, 7, textoPdf("Recibo a satisfacción"), 0, 0, 'L');
+
+			$pdf->Image($PNG_WEB_DIR.basename($filename),86,17,28,0,'PNG');
 			unlink($filename);
 
 			//$pdf->Cell(100,5, $pdf->Image('../galerias/'.$row['portada'], $pdf->GetX()+40, $pdf->GetY()+3, 30), 1,0,'C');
