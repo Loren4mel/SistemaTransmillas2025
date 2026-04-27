@@ -6,6 +6,57 @@ $id_nombre=$_SESSION['usuario_nombre'];
 $nivel_acceso=$_SESSION['usuario_rol'];
 $id_sedes=$_SESSION['usu_idsede'];
 require "../ticket/fpdf/fpdf.php";
+class StickerPDF extends FPDF {
+	function RoundedRect($x, $y, $w, $h, $r, $style = '') {
+		$k = $this->k;
+		$hp = $this->h;
+		if ($style == 'F') {
+			$op = 'f';
+		} elseif ($style == 'FD' || $style == 'DF') {
+			$op = 'B';
+		} else {
+			$op = 'S';
+		}
+		$myArc = 4 / 3 * (sqrt(2) - 1);
+		$this->_out(sprintf('%.2F %.2F m', ($x + $r) * $k, ($hp - $y) * $k));
+		$xc = $x + $w - $r;
+		$yc = $y + $r;
+		$this->_out(sprintf('%.2F %.2F l', $xc * $k, ($hp - $y) * $k));
+		$this->_Arc($xc + $r * $myArc, $yc - $r, $xc + $r, $yc - $r * $myArc, $xc + $r, $yc);
+		$xc = $x + $w - $r;
+		$yc = $y + $h - $r;
+		$this->_out(sprintf('%.2F %.2F l', ($x + $w) * $k, ($hp - $yc) * $k));
+		$this->_Arc($xc + $r, $yc + $r * $myArc, $xc + $r * $myArc, $yc + $r, $xc, $yc + $r);
+		$xc = $x + $r;
+		$yc = $y + $h - $r;
+		$this->_out(sprintf('%.2F %.2F l', $xc * $k, ($hp - ($y + $h)) * $k));
+		$this->_Arc($xc - $r * $myArc, $yc + $r, $xc - $r, $yc + $r * $myArc, $xc - $r, $yc);
+		$xc = $x + $r;
+		$yc = $y + $r;
+		$this->_out(sprintf('%.2F %.2F l', $x * $k, ($hp - $yc) * $k));
+		$this->_Arc($xc - $r, $yc - $r * $myArc, $xc - $r * $myArc, $yc - $r, $xc, $yc - $r);
+		$this->_out($op);
+	}
+
+	function Polygon($points, $style = 'D') {
+		if (count($points) < 2) {
+			return;
+		}
+		$k = $this->k;
+		$hp = $this->h;
+		$op = ($style == 'F') ? 'f' : (($style == 'FD' || $style == 'DF') ? 'B' : 'S');
+		$this->_out(sprintf('%.2F %.2F m', $points[0][0] * $k, ($hp - $points[0][1]) * $k));
+		for ($i = 1; $i < count($points); $i++) {
+			$this->_out(sprintf('%.2F %.2F l', $points[$i][0] * $k, ($hp - $points[$i][1]) * $k));
+		}
+		$this->_out('h ' . $op);
+	}
+
+	function _Arc($x1, $y1, $x2, $y2, $x3, $y3) {
+		$h = $this->h;
+		$this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c ', $x1 * $this->k, ($h - $y1) * $this->k, $x2 * $this->k, ($h - $y2) * $this->k, $x3 * $this->k, ($h - $y3) * $this->k));
+	}
+}
 $DB = new DB_mssql;
 $DB->conectar();
 $DB1 = new DB_mssql;
@@ -71,7 +122,7 @@ $conde3="";
 $conde5="and ser_fechaasignacion like '$fechaactual%' ";
 if($param4==''){ $param4=0;   } else { $conde3=" and inner_sedes=$param4";   }
 
-$pdf = new FPDF($orientation='L',$unit='mm', array(120,70));
+$pdf = new StickerPDF($orientation='L',$unit='mm', array(120,70));
 //$pdf = new FPDF();
 $errorCorrectionLevel = 'L';
 $Level = 'L';
@@ -162,43 +213,61 @@ $va=0;
 			$guiaEtiqueta=strtoupper($rw1[2]);
 			$operarioEtiqueta=substr($operario, 0, 30);
 
+			$colorOscuro = array(24, 26, 27);
 			$pdf->SetFillColor(255, 255, 255);
 			$pdf->Rect(0, 0, 120, 70, 'F');
 
-			$pdf->SetFillColor(10, 45, 26);
-			$pdf->Rect(82, 0, 38, 70, 'F');
-			$pdf->Rect(86, 0, 34, 70, 'F');
+			$pdf->SetFillColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
+			$pdf->RoundedRect(1.5, 1.5, 117, 67, 3.5, 'F');
+			$pdf->Polygon(array(
+				array(84, 1.5),
+				array(118.5, 1.5),
+				array(118.5, 68.5),
+				array(80, 68.5),
+				array(80, 17),
+				array(86, 1.5)
+			), 'F');
 
 			$pdf->SetFillColor(255, 255, 255);
-			$pdf->Rect(86, 14, 29, 44, 'F');
+			$pdf->RoundedRect(1.5, 1.5, 80, 67, 3.5, 'F');
+			$pdf->Polygon(array(
+				array(81.5, 1.5),
+				array(86, 1.5),
+				array(80, 17),
+				array(80, 64),
+				array(81.5, 64)
+			), 'F');
 
-			$pdf->SetTextColor(10, 45, 26);
-			$pdf->SetDrawColor(10, 45, 26);
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->RoundedRect(84.5, 13.5, 31, 44, 1.8, 'F');
+
+			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
+			$pdf->SetDrawColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetLineWidth(0.8);
 
 			$pdf->SetFont('Arial','B',25);
-			$pdf->SetXY(5, 7);
+			$pdf->SetXY(5, 7.5);
 			$pdf->Cell(65, 12, "TRANSMILLAS", 0, 0, 'L');
 
-			$pdf->Line(5, 23, 24, 23);
+			$pdf->Line(5, 24, 24, 24);
 			$pdf->SetTextColor(0, 0, 0);
 			$pdf->SetFont('Arial','B',6);
-			$pdf->SetXY(29, 19);
+			$pdf->SetXY(29, 20);
 			$pdf->Cell(50, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
 
-			$pdf->SetTextColor(10, 45, 26);
+			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetFont('Arial','B',9);
-			$pdf->SetXY(5, 27);
+			$pdf->SetXY(5, 28.5);
 			$pdf->Cell(74, 6, textoPdf("$ciudadEtiqueta | $guiaEtiqueta | $b PIEZA"), 0, 0, 'L');
-			$pdf->Line(61, 31, 77, 31);
+			$pdf->Line(58, 32.5, 77, 32.5);
 
-			$pdf->Line(5, 55, 56, 55);
+			$pdf->Line(5, 58, 56, 58);
 			$pdf->SetTextColor(0, 0, 0);
 			$pdf->SetFont('Arial','B',10);
-			$pdf->SetXY(5, 56);
+			$pdf->SetXY(5, 59);
 			$pdf->Cell(60, 7, textoPdf("Recibo a satisfacción"), 0, 0, 'L');
 
-			$pdf->Image($PNG_WEB_DIR.basename($filename),88,17,25,0,'PNG');
+			$pdf->Image($PNG_WEB_DIR.basename($filename),87,16,26,0,'PNG');
 			unlink($filename);
 
 			//$pdf->Cell(100,5, $pdf->Image('../galerias/'.$row['portada'], $pdf->GetX()+40, $pdf->GetY()+3, 30), 1,0,'C');
