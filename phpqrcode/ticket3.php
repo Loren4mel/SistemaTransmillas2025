@@ -211,7 +211,7 @@ $va=0;
 
 			$ciudadEtiqueta=substr(strtoupper($rw1[3]), 0, 16);
 			$guiaEtiqueta=strtoupper($rw1[2]);
-			$operarioEtiqueta=substr($operario, 0, 30);
+			$operarioEtiqueta=substr($operario, 0, 42);
 
 			$colorOscuro = array(24, 26, 27);
 			$pdf->SetFillColor(255, 255, 255);
@@ -249,17 +249,15 @@ $va=0;
 			$pdf->SetXY(5, 7.5);
 			$pdf->Cell(65, 12, "TRANSMILLAS", 0, 0, 'L');
 
-			$pdf->Line(5, 24, 24, 24);
 			$pdf->SetTextColor(0, 0, 0);
-			$pdf->SetFont('Arial','B',6);
-			$pdf->SetXY(29, 20);
-			$pdf->Cell(50, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
+			$pdf->SetFont('Arial','B',7.5);
+			$pdf->SetXY(22, 20);
+			$pdf->Cell(58, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
 
 			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetFont('Arial','B',9);
 			$pdf->SetXY(5, 28.5);
 			$pdf->Cell(74, 6, textoPdf("$ciudadEtiqueta | $guiaEtiqueta | $b PIEZA"), 0, 0, 'L');
-			$pdf->Line(58, 32.5, 77, 32.5);
 
 			$pdf->Line(5, 58, 56, 58);
 			$pdf->SetTextColor(0, 0, 0);
