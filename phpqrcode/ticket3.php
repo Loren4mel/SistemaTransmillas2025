@@ -281,34 +281,34 @@ $va=0;
 			$pdf->Cell(58, 5, textoPdf($operarioEtiqueta), 0, 0, 'L');
 
 			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
-			$pdf->IconLocation(6, 28);
-			$pdf->SetFont('Arial','B',17);
-			$pdf->SetXY(17, 27);
+			$pdf->IconLocation(6, 27.5);
+			$pdf->SetFont('Arial','B',14);
+			$pdf->SetXY(16, 27);
 			$pdf->Cell(60, 8, textoPdf($ciudadEtiqueta), 0, 0, 'L');
 
-			$pdf->IconBarcode(6, 38);
-			$pdf->SetFont('Arial','B',17);
-			$pdf->SetXY(17, 36.5);
+			$pdf->IconBarcode(6, 37);
+			$pdf->SetFont('Arial','B',14);
+			$pdf->SetXY(16, 36.5);
 			$pdf->Cell(60, 8, textoPdf($guiaEtiqueta), 0, 0, 'L');
 
-			$pdf->IconBox(6, 48);
-			$pdf->SetFont('Arial','B',17);
-			$pdf->SetXY(17, 46);
+			$pdf->IconBox(6, 46.5);
+			$pdf->SetFont('Arial','B',14);
+			$pdf->SetXY(16, 45.5);
 			$pdf->Cell(60, 8, textoPdf("$b PIEZA"), 0, 0, 'L');
 
 			$pdf->SetLineWidth(0.8);
-			$pdf->Line(5, 55, 115, 55);
+			$pdf->Line(5, 53.5, 115, 53.5);
 			$pdf->SetTextColor(0, 0, 0);
-			$pdf->SetFont('Arial','B',11);
-			$pdf->SetXY(5, 56);
+			$pdf->SetFont('Arial','B',10);
+			$pdf->SetXY(5, 54.5);
 			$pdf->Cell(60, 7, textoPdf("Recibo a satisfacción"), 0, 0, 'L');
 
 			$pdf->SetFont('Arial','',6.5);
 			$pdf->SetXY(82.5, 42);
 			$pdf->Cell(34, 4, textoPdf("Escanear para seguimiento"), 0, 0, 'C');
-			$pdf->Line(6, 64, 62, 64);
+			$pdf->Line(6, 63, 62, 63);
 			$pdf->SetFont('Arial','',7);
-			$pdf->SetXY(6, 64.5);
+			$pdf->SetXY(6, 63.5);
 			$pdf->Cell(40, 4, textoPdf("Firma / Nombre"), 0, 0, 'L');
 
 			$pdf->Image($PNG_WEB_DIR.basename($filename),85,9.5,29,0,'PNG');
