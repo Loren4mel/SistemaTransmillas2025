@@ -14,6 +14,164 @@
         console.error('Error global en Preoperacional JS:', e.message, 'en', e.filename, 'línea', e.lineno);
     });
 
+    // Coordenadas de ubicación obtenidas del navegador
+    var ubicacionCoords = null;
+    var mapaInstancia = null;
+
+    /**
+     * Renderiza un mapa Leaflet ligero en el contenedor indicado
+     * Optimizado para mobile: sin controles de zoom, gestos táctiles nativos
+     */
+    function renderizarMapa(lat, lng, divId, editable) {
+        var div = document.getElementById(divId);
+        if (!div) return null;
+
+        var map = L.map(divId, {
+            center: [lat, lng],
+            zoom: 16,
+            zoomControl: true,
+            attributionControl: true,
+            scrollWheelZoom: editable,
+            dragging: editable,
+            touchZoom: editable,
+            doubleClickZoom: editable,
+            tap: editable
+        });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        var marker = L.marker([lat, lng], {
+            draggable: editable
+        }).addTo(map);
+
+        if (editable) {
+            var popupText = 'Lat: ' + lat.toFixed(6) + '<br>Lng: ' + lng.toFixed(6);
+            marker.bindPopup(popupText).openPopup();
+
+            marker.on('dragend', function() {
+                var pos = marker.getLatLng();
+                ubicacionCoords = { lat: pos.lat, lng: pos.lng };
+                marker.setPopupContent('Lat: ' + pos.lat.toFixed(6) + '<br>Lng: ' + pos.lng.toFixed(6))
+                    .openPopup();
+                // Actualizar el texto de coordenadas debajo del mapa
+                var coordsText = document.querySelector('.ubicacion-coords-text');
+                if (coordsText) {
+                    coordsText.innerHTML = '<i class="fas fa-map-marker-alt"></i>' +
+                        '<strong>Coordenadas:</strong> ' +
+                        pos.lat.toFixed(6) + ', ' + pos.lng.toFixed(6);
+                }
+            });
+        } else {
+            marker.bindPopup('Lat: ' + lat.toFixed(6) + '<br>Lng: ' + lng.toFixed(6)).openPopup();
+        }
+
+        // Corregir tamaño en mobile después del renderizado
+        setTimeout(function() { map.invalidateSize(); }, 200);
+
+        return map;
+    }
+
+    /**
+     * Intenta obtener la ubicación del dispositivo mediante geolocalización
+     * Al obtenerla, renderiza un mapa Leaflet con la posición
+     */
+    function obtenerUbicacion() {
+        var container = document.getElementById('ubicacion_container');
+        if (!container) return Promise.reject(new Error('Contenedor no encontrado'));
+
+        container.innerHTML = '<div class="ubicacion-status ubicacion-cargando">' +
+            '<i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...' +
+            '</div>';
+
+        if (!navigator.geolocation) {
+            container.innerHTML = '<div class="ubicacion-status ubicacion-error">' +
+                '<i class="fas fa-exclamation-triangle"></i> Geolocalización no soportada por el navegador' +
+                '</div>';
+            return Promise.reject(new Error('Geolocalización no soportada'));
+        }
+
+        return new Promise(function(resolve, reject) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    ubicacionCoords = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    // Reemplazar el contenedor con el mapa + texto de coordenadas
+                    container.innerHTML =
+                        '<div id="mapa_ubicacion" class="mapa-ubicacion"></div>' +
+                        '<div class="ubicacion-coords-text">' +
+                            '<i class="fas fa-map-marker-alt"></i>' +
+                            '<strong>Coordenadas:</strong> ' +
+                            ubicacionCoords.lat.toFixed(6) + ', ' + ubicacionCoords.lng.toFixed(6) +
+                        '</div>';
+
+                    mapaInstancia = renderizarMapa(
+                        ubicacionCoords.lat,
+                        ubicacionCoords.lng,
+                        'mapa_ubicacion',
+                        true
+                    );
+
+                    resolve(ubicacionCoords);
+                },
+                function(error) {
+                    var msg;
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            msg = 'Permiso de ubicación denegado. Debe permitir el acceso a la ubicación para continuar.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            msg = 'Ubicación no disponible. Verifique que el GPS esté activado.';
+                            break;
+                        case error.TIMEOUT:
+                            msg = 'Tiempo de espera agotado al obtener la ubicación.';
+                            break;
+                        default:
+                            msg = 'Error al obtener la ubicación.';
+                    }
+                    container.innerHTML = '<div class="ubicacion-status ubicacion-error">' +
+                        '<i class="fas fa-exclamation-triangle"></i> ' + msg +
+                        '</div>';
+                    reject(error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
+        });
+    }
+
+    /**
+     * Valida que se haya obtenido la ubicación antes de guardar
+     * (obligatorio para registrar el preoperacional)
+     */
+    function validarUbicacion() {
+        // En modo validación no se requiere obtener nueva ubicación
+        if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
+            return true;
+        }
+
+        if (!ubicacionCoords) {
+            Swal.fire({
+                title: 'Ubicación requerida',
+                html: 'Debe permitir el acceso a la ubicación GPS para registrar el preoperacional.<br><br>' +
+                      'Si el mensaje de permiso no aparece, verifique la configuración de ubicación de su navegador.',
+                icon: 'warning',
+                confirmButtonText: 'Reintentar'
+            }).then(function() {
+                obtenerUbicacion();
+            });
+            return false;
+        }
+        return true;
+    }
+
     /**
      * Configura la exclusividad para checkboxes binarios (SÍ/NO)
      * Solo un checkbox por grupo puede estar marcado
@@ -294,6 +452,69 @@
     }
 
     /**
+     * Formatea el campo de kilometraje con separadores de miles (puntos)
+     * Solo permite números, los puntos son netamente visuales
+     */
+    function initKilometrajeFormatting() {
+        var kmInputs = ['kilometraje', 'param12'];
+        kmInputs.forEach(function(id) {
+            var input = document.getElementById(id);
+            if (!input) return;
+
+            input.addEventListener('input', function(e) {
+                // Guardar posición del cursor
+                var start = this.selectionStart;
+                var end = this.selectionEnd;
+
+                // Eliminar todo lo que no sea dígito
+                var raw = this.value.replace(/\./g, '').replace(/\D/g, '');
+
+                if (raw.length > 0) {
+                    // Formatear con separadores de miles (formato español: 1.234.567)
+                    var formatted = parseInt(raw, 10).toLocaleString('es-CO');
+                    this.value = formatted;
+
+                    // Ajustar posición del cursor después del formateo
+                    var diff = this.value.length - raw.length;
+                    try {
+                        this.setSelectionRange(start + diff, end + diff);
+                    } catch (e) {}
+                } else {
+                    this.value = '';
+                }
+            });
+        });
+    }
+
+    /**
+     * Valida que el kilometraje tenga un valor numérico válido
+     */
+    function validarKilometraje() {
+        var kmInputs = [
+            { id: 'kilometraje', nombre: 'kilometraje' },
+            { id: 'param12', nombre: 'kilometraje' }
+        ];
+
+        for (var i = 0; i < kmInputs.length; i++) {
+            var input = document.getElementById(kmInputs[i].id);
+            if (!input || input.readOnly) continue;
+
+            var raw = input.value.replace(/\./g, '').trim();
+            if (!raw || parseInt(raw, 10) <= 0) {
+                Swal.fire({
+                    title: 'Kilometraje requerido',
+                    text: 'Debe ingresar el kilometraje actual del vehículo antes de guardar.',
+                    icon: 'warning',
+                    confirmButtonText: 'Aceptar'
+                });
+                input.focus();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Deshabilita todos los campos del formulario en modo validación
      * para evitar modificaciones, excepto el textarea de nota de validación
      */
@@ -339,7 +560,7 @@
 
             var esValidacion = (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION);
 
-            // En modo validación, omitir validaciones de checkboxes, fotos y firma
+            // En modo validación, omitir validaciones de checkboxes, fotos, firma y ubicación
             if (!esValidacion) {
                 // Validar que se hayan respondedido todos los checkboxes binarios
                 if (!validarCheckboxesBinarios()) {
@@ -355,10 +576,41 @@
                 if (!validarFirma()) {
                     return;
                 }
+
+                // Validar kilometraje
+                if (!validarKilometraje()) {
+                    return;
+                }
+
+                // Validar ubicación GPS (obligatorio)
+                if (!validarUbicacion()) {
+                    return;
+                }
             }
 
             if (!asignar()) {
                 return;
+            }
+
+            // Agregar coordenadas de ubicación al JSON de datos
+            if (ubicacionCoords) {
+                var dataField = document.getElementById('data');
+                try {
+                    var dataObj = JSON.parse(dataField.value);
+                    dataObj.ubicacion = ubicacionCoords.lat.toFixed(6) + ',' + ubicacionCoords.lng.toFixed(6);
+                    dataField.value = JSON.stringify(dataObj);
+                } catch (e) {
+                    // Si falla el parseo, el JSON seguirá sin ubicación
+                }
+            }
+
+            // Limpiar separadores de miles (puntos) del kilometraje antes de enviar
+            var kmFields = ['kilometraje', 'param12'];
+            for (var kmIdx = 0; kmIdx < kmFields.length; kmIdx++) {
+                var kmField = document.getElementById(kmFields[kmIdx]);
+                if (kmField) {
+                    kmField.value = kmField.value.replace(/\./g, '');
+                }
             }
 
             var formData = new FormData(this);
@@ -617,14 +869,29 @@
     function init() {
         try {
             initBinaryCheckboxes();
+            initKilometrajeFormatting();
             handleSubmitForm();
             cargarDatosPrecarga();
 
-            // En modo validación: deshabilitar formulario y mostrar firma como imagen
             if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
                 disableFormInValidationMode();
+                // Modo validación: renderizar mapa estático con coordenadas guardadas
+                if (typeof UBICACION_GUARDADA !== 'undefined' && UBICACION_GUARDADA) {
+                    var partes = UBICACION_GUARDADA.split(',');
+                    if (partes.length === 2) {
+                        var lat = parseFloat(partes[0]);
+                        var lng = parseFloat(partes[1]);
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            // Las coordenadas se almacenan para posible referencia
+                            ubicacionCoords = { lat: lat, lng: lng };
+                            renderizarMapa(lat, lng, 'mapa_ubicacion', false);
+                        }
+                    }
+                }
             } else {
                 initSignatureCanvas();
+                // Iniciar detección de ubicación (obligatorio para nuevo registro)
+                obtenerUbicacion();
             }
         } catch (error) {
             console.error('Preoperacional JS: Error durante la inicialización:', error);

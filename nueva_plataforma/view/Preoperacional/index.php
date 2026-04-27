@@ -44,6 +44,9 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- jQuery (para precarga AJAX) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Leaflet (mapa ligero ~42KB, mobile-friendly) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- Estilos personalizados -->
     <link rel="stylesheet" href="../assets/css/preoperacional.css?<?= filemtime(__DIR__ . '/../../assets/css/preoperacional.css') ?>">
     <style>
@@ -144,7 +147,58 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                 </h3>
             </div>
 
-
+            <!-- ==================== BOTONES DE PRUEBA ==================== -->
+            <?php if (!$esCovid && !$esValidacion): ?>
+            <div class="card mt-3 mb-3 shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <strong>🧪 MODO PRUEBA - Cambiar entre casos</strong>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2"><strong>Caso actual:</strong>
+                        <span class="badge bg-primary">
+                            <?php
+                            if (!empty($casoPrueba) && $casoPrueba === 'legado') {
+                                echo 'Formato Legado (' . $tipovehiculo . ')';
+                            } elseif ($mostrarSecciones['administrativo'] ?? false) {
+                                echo 'Administrativo';
+                            } elseif ($mostrarSecciones['conductor'] ?? false) {
+                                echo 'Conductor (Carro)';
+                            } elseif ($mostrarSecciones['auxiliar_carga'] ?? false) {
+                                echo 'Auxiliar de Carga';
+                            } elseif ($mostrarSecciones['vehiculo_propio'] ?? false) {
+                                echo 'Vehículo Propio (Moto)';
+                            } else {
+                                echo 'Por defecto';
+                            }
+                            ?>
+                        </span>
+                    </p>
+                    <div class="btn-group flex-wrap" role="group">
+                        <a href="?caso_prueba=administrativo&tipo_vehiculo=NONE" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-user-tie"></i> Caso 1: Administrativo
+                        </a>
+                        <a href="?caso_prueba=conductor&tipo_vehiculo=CARRO" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-car"></i> Caso 2: Conductor (Carro)
+                        </a>
+                        <a href="?caso_prueba=moto&tipo_vehiculo=MOTO" class="btn btn-outline-warning btn-sm">
+                            <i class="fas fa-motorcycle"></i> Caso 3: Moto Propia
+                        </a>
+                        <a href="?caso_prueba=auxiliar&tipo_vehiculo=NONE" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-box"></i> Caso 4: Auxiliar de Carga
+                        </a>
+                        <a href="?caso_prueba=legado&tipo_vehiculo=CARRO" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-history"></i> Caso 5: Legado Carro
+                        </a>
+                        <a href="?caso_prueba=legado&tipo_vehiculo=MOTO" class="btn btn-outline-dark btn-sm">
+                            <i class="fas fa-motorcycle"></i> Caso 6: Legado Moto
+                        </a>
+                        <a href="?" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-times"></i> Salir modo prueba
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <div class="card-body">
                 <form id="formPreoperacional" enctype="multipart/form-data">
@@ -162,6 +216,9 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                     <input type="hidden" name="tipo_vehiculo" value="<?= htmlspecialchars($tipovehiculo) ?>">
                     <input type="hidden" name="param3" value="<?= htmlspecialchars($tipovehiculo) ?>">
                     <input type="hidden" name="formato_encuesta" id="formato_encuesta" value="<?= $usarNuevoFormato ? 'nuevo' : 'legado' ?>">
+                    <?php if (!empty($casoPrueba)): ?>
+                    <input type="hidden" name="caso_prueba" value="<?= htmlspecialchars($casoPrueba) ?>">
+                    <?php endif; ?>
 
                     <div id="contenedor1" style="display:flex;">
                         <div id="primero" style="width: 100%; float:left;">
@@ -240,29 +297,29 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                         
                                         <!-- Datos del vehículo -->
                                         <?php if (!empty($datosVehiculo)): ?>
-                                            <tr bgcolor="#074F91" class="tittle3">
-                                                <td colspan="1" align="center">PLACA</td>
-                                                <td colspan="1" align="center">MARCA</td>
-                                                <td colspan="1" align="center">MODELO</td>
-                                                <td colspan="1" align="center">KM</td>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>PLACA:</strong> <?= htmlspecialchars($datosVehiculo['veh_placa']) ?></td>
                                             </tr>
-                                            <tr bgcolor='$color' class='text'>
-                                                <td><?= htmlspecialchars($datosVehiculo['veh_placa']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['veh_marca']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['veh_modelo']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['veh_kilactual']) ?></td>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>MARCA:</strong> <?= htmlspecialchars($datosVehiculo['veh_marca']) ?></td>
                                             </tr>
-                                            <tr bgcolor="#074F91" class="tittle3">
-                                                <td colspan="1" align="center">CONDUCTOR</td>
-                                                <td colspan="1" align="center">CEDULA</td>
-                                                <td colspan="1" align="center">LICENCIA</td>
-                                                <td colspan="1" align="center">FECHA VENC</td>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>MODELO:</strong> <?= htmlspecialchars($datosVehiculo['veh_modelo']) ?></td>
                                             </tr>
-                                            <tr bgcolor='$color' class='text'>
-                                                <td><?= htmlspecialchars($datosVehiculo['usu_nombre']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['usu_identificacion']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['usu_licencia']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['usu_fechalicencia']) ?></td>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>KM:</strong> <?= htmlspecialchars($datosVehiculo['veh_kilactual']) ?></td>
+                                            </tr>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>CONDUCTOR:</strong> <?= htmlspecialchars($datosVehiculo['usu_nombre']) ?></td>
+                                            </tr>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>CEDULA:</strong> <?= htmlspecialchars($datosVehiculo['usu_identificacion']) ?></td>
+                                            </tr>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>LICENCIA:</strong> <?= htmlspecialchars($datosVehiculo['usu_licencia']) ?></td>
+                                            </tr>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>FECHA VENC:</strong> <?= htmlspecialchars($datosVehiculo['usu_fechalicencia']) ?></td>
                                             </tr>
                                         <?php endif; ?>
 
@@ -272,7 +329,7 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                         <tr bgcolor='$color' class='text' id='klmactual'>
                                             <td colspan='4'>KILOMETRAJE ACTUAL: <input name='kilometraje' id='kilometraje'
                                                     value='<?= htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? NULL) ?>'
-                                                    style='width:395px' class='form-control'></td>
+                                                    class='form-control' required></td>
                                         </tr>
                                         <tr bgcolor='$color'>
                                             <td colspan='4'>Imagen Kilometraje: <input type="file" name="imagen_kilometraje"
@@ -293,6 +350,7 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                                     class='form-control'><?= htmlspecialchars($registroExistente['pre_obsevaciones'] ?? '') ?></textarea>
                                             </td>
                                         </tr>
+                                    <?php if ($esValidacion): ?>
                                         <tr bgcolor="#074F91" class="tittle3">
                                             <td colspan="4">ACCIÓN CORRECTIVA</td>
                                         </tr>
@@ -310,35 +368,36 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                                     style='width:395px' class='form-control'></td>
                                         </tr>
                                     <?php endif; ?>
+                                    <?php endif; ?>
 
                                     <!-- PREOPERACIONAL MOTO (solo nuevo formato) -->
                                     <?php if ($mostrarSecciones['preoperacional_moto'] ?? false): ?>
                                         
                                         <!-- Datos del vehículo -->
                                         <?php if (!empty($datosVehiculo)): ?>
-                                            <tr bgcolor="#074F91" class="tittle3">
-                                                <td colspan="1" align="center">PLACA</td>
-                                                <td colspan="1" align="center">MARCA</td>
-                                                <td colspan="1" align="center">MODELO</td>
-                                                <td colspan="1" align="center">KM</td>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>PLACA:</strong> <?= htmlspecialchars($datosVehiculo['veh_placa']) ?></td>
                                             </tr>
-                                            <tr bgcolor='$color' class='text'>
-                                                <td><?= htmlspecialchars($datosVehiculo['veh_placa']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['veh_marca']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['veh_modelo']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['veh_kilactual']) ?></td>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>MARCA:</strong> <?= htmlspecialchars($datosVehiculo['veh_marca']) ?></td>
                                             </tr>
-                                            <tr bgcolor="#074F91" class="tittle3">
-                                                <td colspan="1" align="center">CONDUCTOR</td>
-                                                <td colspan="1" align="center">CEDULA</td>
-                                                <td colspan="1" align="center">LICENCIA</td>
-                                                <td colspan="1" align="center">FECHA VENC</td>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>MODELO:</strong> <?= htmlspecialchars($datosVehiculo['veh_modelo']) ?></td>
                                             </tr>
-                                            <tr bgcolor='$color' class='text'>
-                                                <td><?= htmlspecialchars($datosVehiculo['usu_nombre']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['usu_identificacion']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['usu_licencia']) ?></td>
-                                                <td><?= htmlspecialchars($datosVehiculo['usu_fechalicencia']) ?></td>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>KM:</strong> <?= htmlspecialchars($datosVehiculo['veh_kilactual']) ?></td>
+                                            </tr>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>CONDUCTOR:</strong> <?= htmlspecialchars($datosVehiculo['usu_nombre']) ?></td>
+                                            </tr>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>CEDULA:</strong> <?= htmlspecialchars($datosVehiculo['usu_identificacion']) ?></td>
+                                            </tr>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>LICENCIA:</strong> <?= htmlspecialchars($datosVehiculo['usu_licencia']) ?></td>
+                                            </tr>
+                                            <tr class="vehicle-info-row">
+                                                <td colspan="4"><strong>FECHA VENC:</strong> <?= htmlspecialchars($datosVehiculo['usu_fechalicencia']) ?></td>
                                             </tr>
                                         <?php endif; ?>
 
@@ -348,7 +407,7 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                         <tr bgcolor='$color' class='text' id='klmactual'>
                                             <td colspan='4'>KILOMETRAJE ACTUAL: <input name='kilometraje' id='kilometraje'
                                                     value='<?= htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? NULL) ?>'
-                                                    style='width:395px' class='form-control'></td>
+                                                    class='form-control' required></td>
                                         </tr>
                                         <tr bgcolor='$color'>
                                             <td colspan='4'>Imagen Kilometraje: <input type="file" name="imagen_kilometraje"
@@ -369,6 +428,7 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                                     class='form-control'><?= htmlspecialchars($registroExistente['pre_obsevaciones'] ?? '') ?></textarea>
                                             </td>
                                         </tr>
+                                    <?php if ($esValidacion): ?>
                                         <tr bgcolor="#074F91" class="tittle3">
                                             <td colspan="4">ACCIÓN CORRECTIVA</td>
                                         </tr>
@@ -385,6 +445,7 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                                     value='<?= htmlspecialchars($registroExistente['pre_responsable'] ?? '') ?>'
                                                     style='width:395px' class='form-control'></td>
                                         </tr>
+                                    <?php endif; ?>
                                     <?php endif; ?>
 
                                     <!-- COMPROMISO Y DECLARACIÓN -->
@@ -500,29 +561,29 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
 
                                     <!-- Datos del vehículo -->
                                     <?php if (!empty($datosVehiculo)): ?>
-                                        <tr bgcolor="#074F91" class="tittle3">
-                                            <td colspan="1" align="center">PLACA</td>
-                                            <td colspan="1" align="center">MARCA</td>
-                                            <td colspan="1" align="center">MODELO</td>
-                                            <td colspan="1" align="center">KM</td>
+                                        <tr class="vehicle-info-row">
+                                            <td colspan="4"><strong>PLACA:</strong> <?= htmlspecialchars($datosVehiculo['veh_placa']) ?></td>
                                         </tr>
-                                        <tr bgcolor='$color' class='text'>
-                                            <td><?= htmlspecialchars($datosVehiculo['veh_placa']) ?></td>
-                                            <td><?= htmlspecialchars($datosVehiculo['veh_marca']) ?></td>
-                                            <td><?= htmlspecialchars($datosVehiculo['veh_modelo']) ?></td>
-                                            <td><?= htmlspecialchars($datosVehiculo['veh_kilactual']) ?></td>
+                                        <tr class="vehicle-info-row">
+                                            <td colspan="4"><strong>MARCA:</strong> <?= htmlspecialchars($datosVehiculo['veh_marca']) ?></td>
                                         </tr>
-                                        <tr bgcolor="#074F91" class="tittle3">
-                                            <td colspan="1" align="center">CONDUCTOR</td>
-                                            <td colspan="1" align="center">CEDULA</td>
-                                            <td colspan="1" align="center">LICENCIA</td>
-                                            <td colspan="1" align="center">FECHA VENC</td>
+                                        <tr class="vehicle-info-row">
+                                            <td colspan="4"><strong>MODELO:</strong> <?= htmlspecialchars($datosVehiculo['veh_modelo']) ?></td>
                                         </tr>
-                                        <tr bgcolor='$color' class='text'>
-                                            <td><?= htmlspecialchars($datosVehiculo['usu_nombre']) ?></td>
-                                            <td><?= htmlspecialchars($datosVehiculo['usu_identificacion']) ?></td>
-                                            <td><?= htmlspecialchars($datosVehiculo['usu_licencia']) ?></td>
-                                            <td><?= htmlspecialchars($datosVehiculo['usu_fechalicencia']) ?></td>
+                                        <tr class="vehicle-info-row">
+                                            <td colspan="4"><strong>KM:</strong> <?= htmlspecialchars($datosVehiculo['veh_kilactual']) ?></td>
+                                        </tr>
+                                        <tr class="vehicle-info-row">
+                                            <td colspan="4"><strong>CONDUCTOR:</strong> <?= htmlspecialchars($datosVehiculo['usu_nombre']) ?></td>
+                                        </tr>
+                                        <tr class="vehicle-info-row">
+                                            <td colspan="4"><strong>CEDULA:</strong> <?= htmlspecialchars($datosVehiculo['usu_identificacion']) ?></td>
+                                        </tr>
+                                        <tr class="vehicle-info-row">
+                                            <td colspan="4"><strong>LICENCIA:</strong> <?= htmlspecialchars($datosVehiculo['usu_licencia']) ?></td>
+                                        </tr>
+                                        <tr class="vehicle-info-row">
+                                            <td colspan="4"><strong>FECHA VENC:</strong> <?= htmlspecialchars($datosVehiculo['usu_fechalicencia']) ?></td>
                                         </tr>
                                     <?php endif; ?>
 
@@ -547,7 +608,7 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                     <tr bgcolor='$color' class='text' id='klmactual'>
                                         <td colspan='4'>KILOMETRAJE ACTUAL: <input name='param12' id='param12'
                                                 value='<?= htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? NULL) ?>'
-                                                style='width:395px' class='form-control'></td>
+                                                class='form-control' required></td>
                                     </tr>
                                     <tr bgcolor='$color'>
                                         <td colspan='4'>Imagen Kilometraje: <input type="file" name="param30"
@@ -568,6 +629,7 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                                 class='form-control'><?= htmlspecialchars($registroExistente['pre_obsevaciones'] ?? '') ?></textarea>
                                         </td>
                                     </tr>
+                                    <?php if ($esValidacion): ?>
                                     <tr bgcolor="#074F91" class="tittle3">
                                         <td colspan="4">ACCIÓN CORRECTIVA</td>
                                     </tr>
@@ -584,6 +646,7 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                                                 value='<?= htmlspecialchars($registroExistente['pre_responsable'] ?? '') ?>'
                                                 style='width:395px' class='form-control'></td>
                                     </tr>
+                                    <?php endif; ?>
 
                                     <!-- COMPROMISO Y DECLARACIÓN (legado) -->
                                     <tr bgcolor="#878787" class="tittle3">
@@ -613,6 +676,22 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
                         </div>
                     </div>
 
+                    <!-- Ubicación GPS con mapa -->
+                    <?php $ubicacionGuardada = $valoresEncuesta['ubicacion'] ?? null; ?>
+                    <div id="ubicacion_container" class="ubicacion-container">
+                        <?php if ($esValidacion && $ubicacionGuardada): ?>
+                            <div id="mapa_ubicacion" class="mapa-ubicacion"></div>
+                            <div class="ubicacion-coords-text">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <strong>Coordenadas registradas:</strong> <?= htmlspecialchars($ubicacionGuardada) ?>
+                            </div>
+                        <?php else: ?>
+                            <div class="ubicacion-status ubicacion-cargando">
+                                <i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
                     <div class="form-group mt-3">
                         <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
                     </div>
@@ -625,6 +704,7 @@ function rutaAbsolutaAUrl($rutaAbsoluta)
     <script>
         var ES_VALIDACION = <?= json_encode($esValidacion) ?>;
         var URL_REDIRECT = <?= json_encode($esValidacion ? '' : '../../inicio.php?bandera=1') ?>;
+        var UBICACION_GUARDADA = <?= json_encode($ubicacionGuardada) ?>;
     </script>
 
     <!-- JavaScript del formulario preoperacional -->

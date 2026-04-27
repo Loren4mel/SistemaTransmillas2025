@@ -50,7 +50,7 @@ class PreoperacionalService
         $fechaHora = date('Y-m-d H:i:s');
         $observaciones = $postData['observaciones'] ?? '';
         $accionCorrectiva = $postData['accion_correctiva'] ?? '';
-        $responsable = $postData['responsable'] ?? '';
+        $responsable = !empty($postData['responsable']) ? $postData['responsable'] : ($_SESSION['usuario_nombre'] ?? '');
         $temperatura = $postData['param19'] ?? ''; // legacy: solo existe en formato legado
         $kilometraje = (int) ($postData['kilometraje'] ?? 0);
         $limpiomaleta = $postData['param21'] ?? ''; // legacy: solo existe en formato legado
@@ -60,6 +60,19 @@ class PreoperacionalService
             $descValidada .= "\n\nObservaciones: " . $observacionesValidacion;
         }
         $idPre = (int) ($postData['id_preoperacional'] ?? 0);
+
+        // Al actualizar (validación), preservar la ubicación GPS original
+        if ($idPre > 0 && !empty($dataJson)) {
+            $registroOriginal = $this->model->obtenerRegistroPorId($idPre);
+            if ($registroOriginal && !empty($registroOriginal['preencuesta'])) {
+                $originalData = json_decode($registroOriginal['preencuesta'], true);
+                $newData = json_decode($dataJson, true);
+                if (isset($originalData['ubicacion']) && !isset($newData['ubicacion'])) {
+                    $newData['ubicacion'] = $originalData['ubicacion'];
+                    $dataJson = json_encode($newData, JSON_UNESCAPED_UNICODE);
+                }
+            }
+        }
 
         // Procesar imágenes
         $imagenKilo = $this->procesarImagenKilometraje($files);

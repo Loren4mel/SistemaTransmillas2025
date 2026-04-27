@@ -556,6 +556,68 @@
     border-left-color: #9C6C9C !important;
 }
 
+/* ==================== UBICACIÓN GPS CON MAPA ==================== */
+
+.ubicacion-container {
+    margin: 15px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #074F91;
+}
+
+.mapa-ubicacion {
+    width: 100%;
+    height: 250px;
+    background: #e9ecef;
+}
+
+.ubicacion-status {
+    padding: 14px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+}
+
+.ubicacion-status.ubicacion-cargando {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    color: #856404;
+}
+
+.ubicacion-status.ubicacion-error {
+    background: #fce4ec;
+    border-left: 4px solid #f44336;
+    color: #c62828;
+}
+
+.ubicacion-coords-text {
+    padding: 10px 14px;
+    background: #e8f5e9;
+    border-top: 2px solid #074F91;
+    font-size: 13px;
+    color: #2e7d32;
+}
+
+.ubicacion-coords-text i {
+    margin-right: 6px;
+    color: #4caf50;
+}
+
+/* Ajustes Leaflet para mobile */
+.mapa-ubicacion .leaflet-control-zoom {
+    display: none; /* Ocultar controles +/- en móvil (gestos táctiles) */
+}
+
+.mapa-ubicacion .leaflet-control-attribution {
+    font-size: 8px;
+    line-height: 1.1;
+}
+
+@media (min-width: 769px) {
+    .mapa-ubicacion .leaflet-control-zoom {
+        display: block; /* Mostrar controles en escritorio */
+    }
+}
+
 /* ==================== MEDIA QUERIES ==================== */
 
 @media (max-width: 768px) {
@@ -798,5 +860,23 @@
     .signature-canvas {
         width: 100% !important;
         height: 150px !important;
+    }
+
+    /* ==================== VEHICLE DATA RESPONSIVE ==================== */
+
+    /* Vehicle info rows with label: value pairs - each row is self-contained */
+    .vehicle-info-row {
+        display: block;
+        width: 100%;
+    }
+    .vehicle-info-row td {
+        display: block;
+        width: 100% !important;
+        max-width: 100%;
+        box-sizing: border-box;
+        text-align: left;
+        padding: 8px 10px;
+        font-size: 14px;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
     }
 }

@@ -177,6 +177,86 @@ function loadView($service)
         'preoperacional_moto' => ($tipovehiculo === 'MOTO')
     ];
 
+    // ==================== MODO PRUEBA ====================
+    // Sobrescribir secciones según el caso de prueba para validar responsive
+    $casoPrueba = $_GET['caso_prueba'] ?? '';
+    if (!empty($casoPrueba) && !$esValidacion) {
+        $tipovehiculo = strtoupper($_GET['tipo_vehiculo'] ?? $tipovehiculo);
+        switch ($casoPrueba) {
+            case 'administrativo':
+                $mostrarSecciones = [
+                    'administrativo' => true,
+                    'conductor' => false,
+                    'vehiculo_propio' => false,
+                    'auxiliar_carga' => false,
+                    'preoperacional_vehiculo' => false,
+                    'preoperacional_moto' => false
+                ];
+                $formatoEncuesta = 'nuevo';
+                break;
+            case 'conductor':
+                $mostrarSecciones = [
+                    'administrativo' => false,
+                    'conductor' => true,
+                    'vehiculo_propio' => false,
+                    'auxiliar_carga' => false,
+                    'preoperacional_vehiculo' => ($tipovehiculo === 'CARRO'),
+                    'preoperacional_moto' => false
+                ];
+                $formatoEncuesta = 'nuevo';
+                break;
+            case 'moto':
+                $mostrarSecciones = [
+                    'administrativo' => false,
+                    'conductor' => false,
+                    'vehiculo_propio' => true,
+                    'auxiliar_carga' => false,
+                    'preoperacional_vehiculo' => false,
+                    'preoperacional_moto' => ($tipovehiculo === 'MOTO')
+                ];
+                $formatoEncuesta = 'nuevo';
+                break;
+            case 'auxiliar':
+                $mostrarSecciones = [
+                    'administrativo' => false,
+                    'conductor' => false,
+                    'vehiculo_propio' => false,
+                    'auxiliar_carga' => true,
+                    'preoperacional_vehiculo' => false,
+                    'preoperacional_moto' => false
+                ];
+                $formatoEncuesta = 'nuevo';
+                break;
+            case 'legado':
+                $mostrarSecciones = [
+                    'administrativo' => false,
+                    'conductor' => false,
+                    'vehiculo_propio' => false,
+                    'auxiliar_carga' => false,
+                    'preoperacional_vehiculo' => false,
+                    'preoperacional_moto' => false
+                ];
+                $formatoEncuesta = 'legado';
+                break;
+        }
+    }
+
+    // En modo prueba, inyectar datos de vehículo ficticios si no hay datos reales
+    // para poder verificar el comportamiento responsive de la sección de datos del vehículo
+    if (!empty($casoPrueba) && empty($datosVehiculo)) {
+        $datosVehiculo = [
+            'veh_placa' => 'ABC-123',
+            'veh_marca' => 'TOYOTA',
+            'veh_modelo' => '2023',
+            'veh_kilactual' => '85,420',
+            'veh_tipo' => $tipovehiculo,
+            'usu_nombre' => 'JUAN PÉREZ',
+            'usu_identificacion' => '10.123.456',
+            'usu_licencia' => 'Categoría B1',
+            'usu_fechalicencia' => '2026-12-15'
+        ];
+    }
+
     // Limpiar buffer y cargar la vista
     ob_clean();
     include __DIR__ . '/../view/Preoperacional/index.php';
