@@ -298,18 +298,15 @@ $va=0;
 
 			$pdf->SetLineWidth(0.8);
 			$pdf->Line(5, 49.5, 115, 49.5);
-			$pdf->SetTextColor(0, 0, 0);
-			$pdf->SetFont('Arial','B',10);
-			$pdf->SetXY(5, 50.5);
-			$pdf->Cell(60, 7, textoPdf("Recibo a satisfacción"), 0, 0, 'L');
 
 			$pdf->SetFont('Arial','',6.5);
 			$pdf->SetXY(82.5, 42);
 			$pdf->Cell(34, 4, textoPdf("Escanear para seguimiento"), 0, 0, 'C');
 			$pdf->Line(6, 62, 82, 62);
-			$pdf->SetFont('Arial','',7);
+			$pdf->SetTextColor(0, 0, 0);
+			$pdf->SetFont('Arial','B',8);
 			$pdf->SetXY(6, 62.7);
-			$pdf->Cell(40, 4, textoPdf("Firma / Nombre"), 0, 0, 'L');
+			$pdf->Cell(60, 4, textoPdf("Recibo a satisfacción"), 0, 0, 'L');
 
 			$pdf->Image($PNG_WEB_DIR.basename($filename),85,9.5,29,0,'PNG');
 			unlink($filename);
