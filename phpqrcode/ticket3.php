@@ -217,29 +217,13 @@ $va=0;
 			$pdf->SetFillColor(255, 255, 255);
 			$pdf->Rect(0, 0, 120, 70, 'F');
 
-			$pdf->SetFillColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
-			$pdf->RoundedRect(1.5, 1.5, 117, 67, 3.5, 'F');
-			$pdf->Polygon(array(
-				array(84, 1.5),
-				array(118.5, 1.5),
-				array(118.5, 68.5),
-				array(80, 68.5),
-				array(80, 17),
-				array(86, 1.5)
-			), 'F');
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->SetDrawColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
+			$pdf->SetLineWidth(0.6);
+			$pdf->RoundedRect(1.5, 1.5, 117, 67, 3.5, 'D');
 
 			$pdf->SetFillColor(255, 255, 255);
-			$pdf->RoundedRect(1.5, 1.5, 80, 67, 3.5, 'F');
-			$pdf->Polygon(array(
-				array(81.5, 1.5),
-				array(86, 1.5),
-				array(80, 17),
-				array(80, 64),
-				array(81.5, 64)
-			), 'F');
-
-			$pdf->SetFillColor(255, 255, 255);
-			$pdf->RoundedRect(84.5, 13.5, 31, 44, 1.8, 'F');
+			$pdf->RoundedRect(83.5, 10, 33, 48, 2.8, 'D');
 
 			$pdf->SetTextColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetDrawColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
