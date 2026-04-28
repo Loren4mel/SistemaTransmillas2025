@@ -1,214 +1,438 @@
 /**
  * Preoperacional - Estilos personalizados
- *
- * Estilos específicos para el formulario de preoperacional
+ * Diseño de tarjetas con colores pastel semitransparentes
  */
 
-/* Radio buttons y tablas */
-.table td,
-.table th {
-    vertical-align: middle;
+/* ==================== LAYOUT BASE ==================== */
+
+.preop-main-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 15px;
 }
 
-.noti_bubble {
-    float: right;
-    padding: 2px 6px;
-    background-color: red;
-    color: white;
-    font-weight: bold;
-    border-radius: 60px;
-    box-shadow: 1px 1px 3px gray;
-    cursor: pointer;
+.preop-sections-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 }
 
-.btnSaveCovid:disabled {
-    opacity: 0.5;
+/* ==================== TARJETAS (CARDS) ==================== */
+
+.preop-card {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+    background: #fff;
 }
 
-.text {
-    font-size: 14px;
+.preop-card:hover {
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
 }
 
-.tittle3 {
-    color: white;
-    font-weight: bold;
+.preop-card-header {
+    padding: 16px 24px;
+    font-weight: 700;
+    font-size: 16px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 0.3px;
 }
 
-.table-hover tbody tr:hover {
-    background-color: #C8C6F9 !important;
+.preop-card-header i {
+    font-size: 18px;
 }
 
-/* Estilos para filas con observaciones */
-.fila-observaciones {
-    background-color: #f8f9fa;
+.preop-card-body {
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(6px);
 }
 
-/* Estilos para secciones de preguntas */
-.seccion-pregunta {
+/* ==================== QUESTION ITEMS DENTRO DE TARJETAS ==================== */
+
+.question-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 18px;
     margin-bottom: 10px;
+    border-radius: 12px;
+    background: rgba(248, 249, 250, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.seccion-pregunta td {
-    padding: 8px;
+.question-item:last-child {
+    margin-bottom: 0;
 }
 
-/* Estilos para inputs */
-.seccion-pregunta input[type="radio"] {
-    margin: 0 5px;
+.question-item:hover {
+    background: rgba(240, 242, 245, 0.9);
+    border-color: rgba(0, 0, 0, 0.1);
 }
 
-/* Estilos para mensajes de error */
-.error-row {
-    background-color: #e4605e !important;
-}
-
-/* Estilos para compromiso y declaración */
-.compromiso-text {
-    text-align: center;
-    font-weight: bold;
-}
-
-.declaracion-text {
-    background-color: #ff0000;
-    color: white;
-    font-weight: bold;
-}
-
-/* ==================== NUEVO FORMATO DE ENCUESTA ==================== */
-
-/* Header de sección */
-.section-header {
-    background-color: #074F91;
-    color: white;
-    font-weight: bold;
+.question-item .question-text {
+    flex: 1 1 280px;
     font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    line-height: 1.5;
 }
 
-.section-header td {
-    padding: 12px 8px;
+.question-item .question-options {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
 }
 
-/* Fila de pregunta */
-.question-row {
+/* ==================== COLORES PASTEL POR SECCIÓN ==================== */
+
+/* --- ADMINISTRATIVO (azul suave) --- */
+.preop-card.administrativo .preop-card-header {
+    background: linear-gradient(135deg, #5B9EFF, #3D7FEE);
+}
+.preop-card.administrativo .preop-card-body {
+    background: rgba(91, 158, 255, 0.08);
+}
+.preop-card.administrativo .question-item {
+    border-left: 4px solid rgba(61, 127, 238, 0.5);
+}
+
+/* --- CONDUCTOR (verde suave) --- */
+.preop-card.conductor .preop-card-header {
+    background: linear-gradient(135deg, #3DD6B0, #2AB89A);
+}
+.preop-card.conductor .preop-card-body {
+    background: rgba(61, 214, 176, 0.08);
+}
+.preop-card.conductor .question-item {
+    border-left: 4px solid rgba(42, 184, 154, 0.5);
+}
+
+/* --- VEHÍCULO PROPIO / MOTO (ámbar suave) --- */
+.preop-card.vehiculo-propio .preop-card-header {
+    background: linear-gradient(135deg, #FFB84D, #F0A030);
+}
+.preop-card.vehiculo-propio .preop-card-body {
+    background: rgba(255, 184, 77, 0.08);
+}
+.preop-card.vehiculo-propio .question-item {
+    border-left: 4px solid rgba(240, 160, 48, 0.5);
+}
+
+/* --- AUXILIAR DE CARGA (rosa suave) --- */
+.preop-card.auxiliar-carga .preop-card-header {
+    background: linear-gradient(135deg, #F08AAA, #E07090);
+}
+.preop-card.auxiliar-carga .preop-card-body {
+    background: rgba(240, 138, 170, 0.08);
+}
+.preop-card.auxiliar-carga .question-item {
+    border-left: 4px solid rgba(224, 112, 144, 0.5);
+}
+
+/* --- PREOPERACIONAL CARRO (morado/lila suave) --- */
+.preop-card.vehiculo-carro .preop-card-header {
+    background: linear-gradient(135deg, #C4A0D0, #B088C0);
+}
+.preop-card.vehiculo-carro .preop-card-body {
+    background: rgba(196, 160, 208, 0.08);
+}
+.preop-card.vehiculo-carro .question-item {
+    border-left: 4px solid rgba(176, 136, 192, 0.5);
+}
+
+/* --- PREOPERACIONAL MOTO (naranja suave) --- */
+.preop-card.vehiculo-moto .preop-card-header {
+    background: linear-gradient(135deg, #FFB366, #F09840);
+}
+.preop-card.vehiculo-moto .preop-card-body {
+    background: rgba(255, 179, 102, 0.08);
+}
+.preop-card.vehiculo-moto .question-item {
+    border-left: 4px solid rgba(240, 152, 64, 0.5);
+}
+
+/* ==================== COLORES PARA SUBSECCIONES DE VEHÍCULO ==================== */
+
+/* Cada subsección de vehículo tiene su propia tarjeta con color distintivo */
+
+/* --- Inspección Inicial (rojo suave) --- */
+.preop-card.subsection-inspeccion .preop-card-header {
+    background: linear-gradient(135deg, #F09090, #E07070);
+}
+.preop-card.subsection-inspeccion .preop-card-body {
+    background: rgba(240, 144, 144, 0.08);
+}
+.preop-card.subsection-inspeccion .question-item {
+    border-left: 4px solid rgba(224, 112, 112, 0.5);
+}
+
+/* --- Luces (azul claro) --- */
+.preop-card.subsection-luces .preop-card-header {
+    background: linear-gradient(135deg, #7BB8F8, #5A9EE8);
+}
+.preop-card.subsection-luces .preop-card-body {
+    background: rgba(123, 184, 248, 0.08);
+}
+.preop-card.subsection-luces .question-item {
+    border-left: 4px solid rgba(90, 158, 232, 0.5);
+}
+
+/* --- Cabina (ámbar suave) --- */
+.preop-card.subsection-cabina .preop-card-header {
+    background: linear-gradient(135deg, #F0C870, #E0B050);
+}
+.preop-card.subsection-cabina .preop-card-body {
+    background: rgba(240, 200, 112, 0.08);
+}
+.preop-card.subsection-cabina .question-item {
+    border-left: 4px solid rgba(224, 176, 80, 0.5);
+}
+
+/* --- Dispositivos de Seguridad (verde suave) --- */
+.preop-card.subsection-seguridad .preop-card-header {
+    background: linear-gradient(135deg, #70C898, #50B078);
+}
+.preop-card.subsection-seguridad .preop-card-body {
+    background: rgba(112, 200, 152, 0.08);
+}
+.preop-card.subsection-seguridad .question-item {
+    border-left: 4px solid rgba(80, 176, 120, 0.5);
+}
+
+/* --- Indicadores (azul grisáceo) --- */
+.preop-card.subsection-indicadores .preop-card-header {
+    background: linear-gradient(135deg, #90B8D8, #7098C0);
+}
+.preop-card.subsection-indicadores .preop-card-body {
+    background: rgba(144, 184, 216, 0.08);
+}
+.preop-card.subsection-indicadores .question-item {
+    border-left: 4px solid rgba(112, 152, 192, 0.5);
+}
+
+/* --- Llantas (azul suave) --- */
+.preop-card.subsection-llantas .preop-card-header {
+    background: linear-gradient(135deg, #88B8E8, #6898D0);
+}
+.preop-card.subsection-llantas .preop-card-body {
+    background: rgba(136, 184, 232, 0.08);
+}
+.preop-card.subsection-llantas .question-item {
+    border-left: 4px solid rgba(104, 152, 208, 0.5);
+}
+
+/* --- Transmisión (verde menta) --- */
+.preop-card.subsection-transmision .preop-card-header {
+    background: linear-gradient(135deg, #68C8A0, #48B088);
+}
+.preop-card.subsection-transmision .preop-card-body {
+    background: rgba(104, 200, 160, 0.08);
+}
+.preop-card.subsection-transmision .question-item {
+    border-left: 4px solid rgba(72, 176, 136, 0.5);
+}
+
+/* --- Fugas (ámbar/amarillo suave) --- */
+.preop-card.subsection-fugas .preop-card-header {
+    background: linear-gradient(135deg, #E8C860, #D0B040);
+}
+.preop-card.subsection-fugas .preop-card-body {
+    background: rgba(232, 200, 96, 0.08);
+}
+.preop-card.subsection-fugas .question-item {
+    border-left: 4px solid rgba(208, 176, 64, 0.5);
+}
+
+/* --- Mandos (azul suave) --- */
+.preop-card.subsection-mandos .preop-card-header {
+    background: linear-gradient(135deg, #78B0E0, #5890C8);
+}
+.preop-card.subsection-mandos .preop-card-body {
+    background: rgba(120, 176, 224, 0.08);
+}
+.preop-card.subsection-mandos .question-item {
+    border-left: 4px solid rgba(88, 144, 200, 0.5);
+}
+
+/* --- Entorno General (rojo/gris suave) --- */
+.preop-card.subsection-entorno .preop-card-header {
+    background: linear-gradient(135deg, #D89898, #C07878);
+}
+.preop-card.subsection-entorno .preop-card-body {
+    background: rgba(216, 152, 152, 0.08);
+}
+.preop-card.subsection-entorno .question-item {
+    border-left: 4px solid rgba(192, 120, 120, 0.5);
+}
+
+/* --- Elementos de Protección (morado suave) --- */
+.preop-card.subsection-proteccion .preop-card-header {
+    background: linear-gradient(135deg, #C0A8D8, #A888C0);
+}
+.preop-card.subsection-proteccion .preop-card-body {
+    background: rgba(192, 168, 216, 0.08);
+}
+.preop-card.subsection-proteccion .question-item {
+    border-left: 4px solid rgba(168, 136, 192, 0.5);
+}
+
+/* --- Direccionales (legado carro - azul suave) --- */
+.preop-card.subsection-direccionales .preop-card-header {
+    background: linear-gradient(135deg, #80B8F0, #6098D8);
+}
+.preop-card.subsection-direccionales .preop-card-body {
+    background: rgba(128, 184, 240, 0.08);
+}
+.preop-card.subsection-direccionales .question-item {
+    border-left: 4px solid rgba(96, 152, 216, 0.5);
+}
+
+/* --- Herramientas (legado carro - gris azulado) --- */
+.preop-card.subsection-herramientas .preop-card-header {
+    background: linear-gradient(135deg, #98A8C0, #7888A8);
+}
+.preop-card.subsection-herramientas .preop-card-body {
+    background: rgba(152, 168, 192, 0.08);
+}
+.preop-card.subsection-herramientas .question-item {
+    border-left: 4px solid rgba(120, 136, 168, 0.5);
+}
+
+/* ==================== SECCIÓN VEHÍCULO INFO (datos del vehículo) ==================== */
+
+.preop-card.vehicle-info .preop-card-header {
+    background: linear-gradient(135deg, #6C8EB0, #507090);
+}
+.preop-card.vehicle-info .preop-card-body {
+    background: rgba(108, 142, 176, 0.06);
+}
+
+.vehicle-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.vehicle-info-item {
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.vehicle-info-item strong {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6C8EB0;
+    margin-bottom: 4px;
+}
+
+.vehicle-info-item span {
     font-size: 14px;
-    transition: background-color 0.2s ease;
+    font-weight: 600;
+    color: #333;
 }
 
-.question-row:hover {
-    background-color: #C8C6F9 !important;
+/* ==================== CHECKBOX STYLES (SÍ/NO) ==================== */
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+    font-size: 14px;
+    border: 2px solid transparent;
+    background: #fff;
 }
 
-.question-text {
-    padding: 10px 8px;
+.checkbox-label.checkbox-si {
+    border-color: rgba(40, 167, 69, 0.4);
+    color: #1a7a30;
 }
 
-.option-cell {
-    text-align: center;
-    padding: 8px;
+.checkbox-label.checkbox-si:hover {
+    background: rgba(40, 167, 69, 0.1);
+    border-color: rgba(40, 167, 69, 0.7);
 }
+
+.checkbox-label.checkbox-si input[type="checkbox"] {
+    accent-color: #28a745;
+    width: 18px;
+    height: 18px;
+}
+
+.checkbox-label.checkbox-no {
+    border-color: rgba(220, 53, 69, 0.4);
+    color: #a01a24;
+}
+
+.checkbox-label.checkbox-no:hover {
+    background: rgba(220, 53, 69, 0.1);
+    border-color: rgba(220, 53, 69, 0.7);
+}
+
+.checkbox-label.checkbox-no input[type="checkbox"] {
+    accent-color: #dc3545;
+    width: 18px;
+    height: 18px;
+}
+
+/* ==================== RADIO BUTTON STYLES ==================== */
 
 .radio-label {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 10px;
     cursor: pointer;
     margin: 0;
-    padding: 6px 12px;
-    border-radius: 4px;
+    font-weight: 600;
+    font-size: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    background: #fff;
     transition: all 0.2s ease;
 }
 
 .radio-label:hover {
-    background-color: rgba(7, 79, 145, 0.1);
+    background: rgba(7, 79, 145, 0.06);
+    border-color: rgba(7, 79, 145, 0.3);
 }
 
 .radio-label input[type="radio"] {
-    margin-right: 5px;
-    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    accent-color: #074F91;
 }
 
-.radio-text {
-    font-weight: 500;
-}
-
-
-/* Mensaje de advertencia */
-.warning-message {
-    background-color: #868A08;
-    color: white;
-    font-weight: bold;
-    padding: 15px;
-}
-
-.warning-message td {
-    padding: 10px;
-}
-
-
-
-/* Resaltar respuestas incorrectas */
-.question-row.highlight-error {
-    background-color: #e4605e !important;
-}
-
-/* Formato indicador en la UI */
-.format-indicator {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: bold;
-    margin-left: 10px;
-}
-
-.format-indicator.nuevo {
-    background-color: #28a745;
-    color: white;
-}
-
-.format-indicator.legado {
-    background-color: #ffc107;
-    color: #333;
-}
-
-/* ==================== SECCIONES PERSONALES ==================== */
-
-.personal-section {
-    background-color: #074F91;
-    color: white;
-    font-weight: bold;
-    font-size: 15px;
-}
-
-.personal-question {
-    /* background-color ahora se maneja por clases específicas de sección */
-    font-size: 14px;
-}
-
-.personal-question:hover {
-    background-color: #C8C6F9 !important;
-}
-
-/* ==================== FOTO UPLOAD ==================== */
-
-.photo-row {
-    background-color: #FFF3CD !important;
-}
-
-.photo-cell {
-    padding: 15px !important;
-}
+/* ==================== PHOTO UPLOAD ==================== */
 
 .photo-upload-container {
-    background-color: #FFFFFF;
-    border: 2px dashed #FF9800;
-    border-radius: 8px;
-    padding: 15px;
-    margin-top: 10px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 2px dashed rgba(255, 152, 0, 0.5);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 8px;
 }
 
 .photo-label {
     display: block;
-    font-weight: bold;
-    color: #074F91;
+    font-weight: 600;
+    color: #E07000;
     margin-bottom: 10px;
     cursor: pointer;
 }
@@ -220,349 +444,115 @@
 .photo-input {
     width: 100%;
     padding: 8px;
-    border: 1px solid #CCCCCC;
-    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
     margin-bottom: 10px;
 }
 
 .photo-alert {
-    background-color: #F8D7DA;
-    border: 1px solid #F5C6CB;
+    background: rgba(248, 215, 218, 0.7);
+    border: 1px solid rgba(245, 198, 203, 0.8);
     color: #721C24;
-    padding: 10px;
-    border-radius: 4px;
-    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
 }
 
 .photo-alert i {
-    margin-right: 8px;
+    margin-right: 6px;
     color: #DC3545;
 }
 
-/* ==================== CHECKBOX VEHÍCULO ==================== */
+/* ==================== WARNING / DECLARACIÓN ==================== */
 
-/* Checkbox SÍ (OK) - Verde */
-.checkbox-label.checkbox-si {
-    display: inline-block;
-    cursor: pointer;
-    margin: 0;
-    padding: 8px 14px;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-    background-color: #f8f9fa;
-    border: 2px solid #28a745;
+.preop-card.warning-card .preop-card-header {
+    background: linear-gradient(135deg, #E8A020, #C88010);
 }
 
-.checkbox-label.checkbox-si:hover {
-    background-color: #d4edda;
-    border-color: #218838;
+.preop-card.declaration-card .preop-card-header {
+    background: linear-gradient(135deg, #E05050, #C03030);
 }
 
-.checkbox-label.checkbox-si input[type="checkbox"] {
-    margin-right: 6px;
-    cursor: pointer;
-    width: 18px;
-    height: 18px;
+.preop-card.signature-card .preop-card-header {
+    background: linear-gradient(135deg, #074F91, #063D73);
 }
 
-.checkbox-label.checkbox-si input[type="checkbox"]:checked {
-    accent-color: #28a745;
+.preop-card.validation-card .preop-card-header {
+    background: linear-gradient(135deg, #7A7C08, #5A5C00);
 }
 
-.checkbox-label.checkbox-si .checkbox-text {
-    font-weight: 600;
-    color: #155724;
+.preop-card.observations-card .preop-card-header {
+    background: linear-gradient(135deg, #5078A0, #385878);
 }
 
-/* Checkbox NO - Rojo */
-.checkbox-label.checkbox-no {
-    display: inline-block;
-    cursor: pointer;
-    margin: 0;
-    padding: 8px 14px;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-    background-color: #f8f9fa;
-    border: 2px solid #dc3545;
-}
+/* ==================== OBSERVACIONES / CAMPOS DE TEXTO ==================== */
 
-.checkbox-label.checkbox-no:hover {
-    background-color: #f8d7da;
-    border-color: #c82333;
-}
-
-.checkbox-label.checkbox-no input[type="checkbox"] {
-    margin-right: 6px;
-    cursor: pointer;
-    width: 18px;
-    height: 18px;
-}
-
-.checkbox-label.checkbox-no input[type="checkbox"]:checked {
-    accent-color: #dc3545;
-}
-
-.checkbox-label.checkbox-no .checkbox-text {
-    font-weight: 600;
-    color: #721c24;
-}
-
-/* ==================== SECCIONES CON ICONOS ==================== */
-
-.section-header td {
-    padding: 12px 8px;
+.form-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
     font-size: 14px;
+    resize: vertical;
+    background: rgba(255, 255, 255, 0.8);
+    transition: border-color 0.2s ease;
 }
 
-/* ==================== MEJORAS RESPONSIVE Y COLORES PASTEL ==================== */
-
-/* Contenedor responsive para tablas */
-.table-responsive-custom {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    margin-bottom: 1rem;
+.form-textarea:focus {
+    outline: none;
+    border-color: rgba(7, 79, 145, 0.5);
+    box-shadow: 0 0 0 3px rgba(7, 79, 145, 0.1);
 }
 
-/* Colores MUY VIVOS para secciones - Máxima visibilidad */
-.section-header.administrativo,
-.section-header.administrativo td {
-    background-color: #2B7FFF !important;
-    border-left: 5px solid #0055CC !important;
+.form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.8);
+    transition: border-color 0.2s ease;
 }
 
-.section-header.conductor,
-.section-header.conductor td {
-    background-color: #00C896 !important;
-    border-left: 5px solid #009977 !important;
+.form-input:focus {
+    outline: none;
+    border-color: rgba(7, 79, 145, 0.5);
+    box-shadow: 0 0 0 3px rgba(7, 79, 145, 0.1);
 }
 
-.section-header.vehiculo-propio,
-.section-header.vehiculo-propio td {
-    background-color: #FFC107 !important;
-    border-left: 5px solid #D39E00 !important;
+/* ==================== FIRMA ==================== */
+
+.signature-container {
+    padding: 15px;
+    background: rgba(248, 249, 250, 0.7);
+    border-radius: 12px;
+    text-align: center;
 }
 
-.section-header.auxiliar-carga,
-.section-header.auxiliar-carga td {
-    background-color: #FF6B9D !important;
-    border-left: 5px solid #FF3D7A !important;
+.signature-canvas {
+    border: 2px solid rgba(7, 79, 145, 0.5);
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: crosshair;
+    touch-action: none;
+    display: block;
+    margin: 0 auto 10px auto;
+    max-width: 100%;
 }
 
-.section-header.preoperacional-carro,
-.section-header.preoperacional-carro td {
-    background-color: #BA8CBA !important;
-    border-left: 5px solid #9C6C9C !important;
+.signature-controls {
+    margin-top: 10px;
 }
 
-.section-header.preoperacional-moto,
-.section-header.preoperacional-moto td {
-    background-color: #FF9933 !important;
-    border-left: 5px solid #E67A00 !important;
-}
-
-/* Fondo MUY NOTORIO para filas de preguntas según sección */
-.question-row.administrativo,
-.question-row.administrativo td {
-    background-color: #9CC2FF !important;
-    border-left: 3px solid #2B7FFF !important;
-    box-shadow: inset 0 0 10px rgba(43, 127, 255, 0.1);
-}
-
-.question-row.conductor,
-.question-row.conductor td {
-    background-color: #9CE0C8 !important;
-    border-left: 3px solid #00C896 !important;
-    box-shadow: inset 0 0 10px rgba(0, 200, 150, 0.1);
-}
-
-.question-row.vehiculo-propio,
-.question-row.vehiculo-propio td {
-    background-color: #FFDD88 !important;
-    border-left: 3px solid #FFC107 !important;
-    box-shadow: inset 0 0 10px rgba(255, 193, 7, 0.1);
-}
-
-.question-row.auxiliar-carga,
-.question-row.auxiliar-carga td {
-    background-color: #FFB8D0 !important;
-    border-left: 3px solid #FF6B9D !important;
-    box-shadow: inset 0 0 10px rgba(255, 107, 157, 0.1);
-}
-
-.question-row.preoperacional-carro,
-.question-row.preoperacional-carro td {
-    background-color: #D0C0D0 !important;
-    border-left: 3px solid #BA8CBA !important;
-    box-shadow: inset 0 0 10px rgba(186, 140, 186, 0.1);
-}
-
-.question-row.preoperacional-moto,
-.question-row.preoperacional-moto td {
-    background-color: #FFC999 !important;
-    border-left: 3px solid #FF9933 !important;
-    box-shadow: inset 0 0 10px rgba(255, 153, 51, 0.1);
-}
-
-/* Efecto hover mejorado para resaltar */
-.question-row.administrativo:hover,
-.question-row.administrativo:hover td {
-    background-color: #C0DCFF !important;
-}
-
-.question-row.conductor:hover,
-.question-row.conductor:hover td {
-    background-color: #C0F0DC !important;
-}
-
-.question-row.vehiculo-propio:hover,
-.question-row.vehiculo-propio:hover td {
-    background-color: #FFEBB8 !important;
-}
-
-.question-row.auxiliar-carga:hover,
-.question-row.auxiliar-carga:hover td {
-    background-color: #FFD8E0 !important;
-}
-
-.question-row.preoperacional-carro:hover,
-.question-row.preoperacional-carro:hover td {
-    background-color: #E0D0E0 !important;
-}
-
-.question-row.preoperacional-moto:hover,
-.question-row.preoperacional-moto:hover td {
-    background-color: #FFD8B8 !important;
-}
-
-/* ==================== SUBSECCIÓN COLORS FOR VEHICLE PREOPERACIONAL ==================== */
-
-/* MOTO - LLANTAS Y RINES (azul claro) */
-.section-header.preoperacional-moto.subsection-llantas_rines,
-.section-header.preoperacional-moto.subsection-llantas_rines td,
-.question-row.preoperacional-moto.subsection-llantas_rines,
-.question-row.preoperacional-moto.subsection-llantas_rines td {
-    background-color: #E6F0FF !important;
-    border-left-color: #2B7FFF !important;
-}
-
-/* MOTO - TRANSMISION (verde claro) */
-.section-header.preoperacional-moto.subsection-transmision,
-.section-header.preoperacional-moto.subsection-transmision td,
-.question-row.preoperacional-moto.subsection-transmision,
-.question-row.preoperacional-moto.subsection-transmision td {
-    background-color: #E6FFE6 !important;
-    border-left-color: #00C896 !important;
-}
-
-/* MOTO - LUCES Y ESPEJOS (azul claro) */
-.section-header.preoperacional-moto.subsection-luces_espejos,
-.section-header.preoperacional-moto.subsection-luces_espejos td,
-.question-row.preoperacional-moto.subsection-luces_espejos,
-.question-row.preoperacional-moto.subsection-luces_espejos td {
-    background-color: #D6E4FF !important;
-    border-left-color: #2B7FFF !important;
-}
-
-/* MOTO - FUGAS (amarillo claro) */
-.section-header.preoperacional-moto.subsection-fugas,
-.section-header.preoperacional-moto.subsection-fugas td,
-.question-row.preoperacional-moto.subsection-fugas,
-.question-row.preoperacional-moto.subsection-fugas td {
-    background-color: #FFF9E6 !important;
-    border-left-color: #FFC107 !important;
-}
-
-/* MOTO - MANDOS (azul claro) */
-.section-header.preoperacional-moto.subsection-mandos,
-.section-header.preoperacional-moto.subsection-mandos td,
-.question-row.preoperacional-moto.subsection-mandos,
-.question-row.preoperacional-moto.subsection-mandos td {
-    background-color: #E6F0FF !important;
-    border-left-color: #2B7FFF !important;
-}
-
-/* MOTO - ENTORNO GENERAL (rojo claro) */
-.section-header.preoperacional-moto.subsection-entorno_general,
-.section-header.preoperacional-moto.subsection-entorno_general td,
-.question-row.preoperacional-moto.subsection-entorno_general,
-.question-row.preoperacional-moto.subsection-entorno_general td {
-    background-color: #FFE6E6 !important;
-    border-left-color: #FF6B9D !important;
-}
-
-
-
-
-/* CARRO - INSPECCION INICIAL (rojo claro) */
-.section-header.preoperacional-carro.subsection-inspeccion_inicial,
-.section-header.preoperacional-carro.subsection-inspeccion_inicial td,
-.question-row.preoperacional-carro.subsection-inspeccion_inicial,
-.question-row.preoperacional-carro.subsection-inspeccion_inicial td {
-    background-color: #FFE6E6 !important;
-    border-left-color: #FF6B9D !important;
-}
-
-/* CARRO - LLANTAS (azul claro) */
-.section-header.preoperacional-carro.subsection-llantas,
-.section-header.preoperacional-carro.subsection-llantas td,
-.question-row.preoperacional-carro.subsection-llantas,
-.question-row.preoperacional-carro.subsection-llantas td {
-    background-color: #E6F0FF !important;
-    border-left-color: #2B7FFF !important;
-}
-
-/* CARRO - LUCES (azul claro) */
-.section-header.preoperacional-carro.subsection-luces,
-.section-header.preoperacional-carro.subsection-luces td,
-.question-row.preoperacional-carro.subsection-luces,
-.question-row.preoperacional-carro.subsection-luces td {
-    background-color: #D6E4FF !important;
-    border-left-color: #2B7FFF !important;
-}
-
-/* CARRO - CABINA (amarillo claro) */
-.section-header.preoperacional-carro.subsection-cabina,
-.section-header.preoperacional-carro.subsection-cabina td,
-.question-row.preoperacional-carro.subsection-cabina,
-.question-row.preoperacional-carro.subsection-cabina td {
-    background-color: #FFF9E6 !important;
-    border-left-color: #FFC107 !important;
-}
-
-/* CARRO - DISPOSITIVOS DE SEGURIDAD (verde claro) */
-.section-header.preoperacional-carro.subsection-dispositivos_seguridad,
-.section-header.preoperacional-carro.subsection-dispositivos_seguridad td,
-.question-row.preoperacional-carro.subsection-dispositivos_seguridad,
-.question-row.preoperacional-carro.subsection-dispositivos_seguridad td {
-    background-color: #E6FFE6 !important;
-    border-left-color: #00C896 !important;
-}
-
-/* CARRO - INDICADORES (azul claro) */
-.section-header.preoperacional-carro.subsection-indicadores,
-.section-header.preoperacional-carro.subsection-indicadores td,
-.question-row.preoperacional-carro.subsection-indicadores,
-.question-row.preoperacional-carro.subsection-indicadores td {
-    background-color: #E6F0FF !important;
-    border-left-color: #2B7FFF !important;
-}
-
-/* MOTO - ELEMENTOS DE PROTECCIÓN (morado claro) */
-.section-header.preoperacional-moto.subsection-elementos_proteccion,
-.section-header.preoperacional-moto.subsection-elementos_proteccion td,
-.question-row.preoperacional-moto.subsection-elementos_proteccion,
-.question-row.preoperacional-moto.subsection-elementos_proteccion td {
-    background-color: #F0E6FF !important;
-    border-left-color: #9C6C9C !important;
-}
-
-/* ==================== UBICACIÓN GPS CON MAPA ==================== */
+/* ==================== UBICACIÓN GPS ==================== */
 
 .ubicacion-container {
-    margin: 15px 0;
-    border-radius: 8px;
+    margin: 20px 0;
+    border-radius: 14px;
     overflow: hidden;
-    border: 2px solid #074F91;
+    border: 2px solid rgba(7, 79, 145, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 .mapa-ubicacion {
@@ -574,287 +564,157 @@
 .ubicacion-status {
     padding: 14px 16px;
     font-size: 14px;
-    border-radius: 8px;
+    border-radius: 12px;
 }
 
 .ubicacion-status.ubicacion-cargando {
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
+    background: rgba(255, 243, 205, 0.7);
+    border-left: 4px solid rgba(255, 193, 7, 0.6);
     color: #856404;
 }
 
 .ubicacion-status.ubicacion-error {
-    background: #fce4ec;
-    border-left: 4px solid #f44336;
+    background: rgba(252, 228, 236, 0.7);
+    border-left: 4px solid rgba(244, 67, 54, 0.6);
     color: #c62828;
 }
 
 .ubicacion-coords-text {
     padding: 10px 14px;
-    background: #e8f5e9;
-    border-top: 2px solid #074F91;
+    background: rgba(232, 245, 233, 0.7);
+    border-top: 2px solid rgba(7, 79, 145, 0.3);
     font-size: 13px;
     color: #2e7d32;
 }
 
-.ubicacion-coords-text i {
-    margin-right: 6px;
-    color: #4caf50;
+/* ==================== KILOMETRAJE CARD ==================== */
+
+.preop-card.kilometraje-card .preop-card-header {
+    background: linear-gradient(135deg, #6090B8, #487098);
 }
 
-/* Ajustes Leaflet para mobile */
-.mapa-ubicacion .leaflet-control-zoom {
-    display: none; /* Ocultar controles +/- en móvil (gestos táctiles) */
+.preop-card.kilometraje-card .preop-card-body {
+    background: rgba(96, 144, 184, 0.06);
 }
 
-.mapa-ubicacion .leaflet-control-attribution {
-    font-size: 8px;
-    line-height: 1.1;
+/* ==================== FORMAT INDICATOR ==================== */
+
+.format-indicator {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-left: 10px;
 }
 
-@media (min-width: 769px) {
-    .mapa-ubicacion .leaflet-control-zoom {
-        display: block; /* Mostrar controles en escritorio */
-    }
+.format-indicator.nuevo {
+    background: rgba(40, 167, 69, 0.2);
+    color: #1a7a30;
+}
+
+.format-indicator.legado {
+    background: rgba(255, 193, 7, 0.25);
+    color: #7a6200;
+}
+
+/* ==================== MAIN CARD WRAPPER ==================== */
+
+.main-form-card {
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.main-form-card .card-header.mi-header {
+    background: linear-gradient(135deg, #074F91, #053A6E);
+    color: #fff;
+    border-bottom: none;
+    padding: 18px 24px;
+}
+
+.main-form-card .card-body {
+    padding: 24px;
+}
+
+/* ==================== SECTION TITLE ==================== */
+
+.section-group-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #444;
+    margin: 8px 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ==================== COMPROMISO CARD ==================== */
+
+.preop-card.compromiso-card .preop-card-header {
+    background: linear-gradient(135deg, #787878, #585858);
 }
 
 /* ==================== MEDIA QUERIES ==================== */
 
 @media (max-width: 768px) {
-    /* Responsive design original */
-    .table-responsive {
-        font-size: 12px;
+    .preop-main-container {
+        padding: 0 6px;
     }
 
-    .tittle3 {
-        font-size: 12px;
+    .preop-sections-wrapper {
+        gap: 14px;
     }
 
-    /* Responsive para foto upload */
-    .photo-upload-container {
-        padding: 10px;
+    .preop-card-header {
+        padding: 12px 16px;
+        font-size: 14px;
     }
 
-    .photo-alert {
-        font-size: 12px;
+    .preop-card-body {
+        padding: 10px 12px;
     }
 
-    /* Mejoras RESPONSIVE avanzadas para móviles - Compatible con tablas */
-    /* Tabla fluida - se adapta al contenedor sin layout fijo */
-    .table-responsive-custom table {
-        min-width: 0;
+    .question-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+    }
+
+    .question-item .question-text {
+        flex: none;
         width: 100%;
-        table-layout: auto; /* Layout automático para mejor ajuste */
-    }
-
-    /* Forzar box-sizing border-box para todos los elementos dentro de la tabla */
-    .table-responsive-custom * {
-        box-sizing: border-box;
-    }
-
-    /* Hacer que las filas se comporten como bloques */
-    .question-row {
-        display: block;
-        border-bottom: 2px solid #e0e0e0;
-        margin-bottom: 15px;
-        padding: 15px 0;
-        /* El background-color lo manejan las clases específicas de sección */
-        box-sizing: border-box;
-    }
-
-    /* Celdas como bloques completos */
-    .question-row td {
-        display: block;
-        width: 100% !important;
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-
-    /* Texto de pregunta con wordwrap mejorado - padding optimizado */
-    .question-text {
-        display: block;
-        font-weight: 600;
-        padding: 12px 8px; /* Padding horizontal aún más reducido */
-        margin-bottom: 12px;
-        background-color: transparent;
-        border-radius: 8px;
-        border-left: 4px solid #074F91;
-        word-wrap: break-word;
-        overflow-wrap: anywhere; /* Más agresivo que break-word */
-        word-break: break-word; /* Asegura ruptura de palabras largas */
-        hyphens: auto;
-        font-size: 15px; /* Ligeramente más pequeño */
+        font-size: 13px;
         line-height: 1.4;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        box-sizing: border-box;
-        max-width: 100%;
-        overflow: hidden; /* Previene desbordamiento visual */
     }
 
-    /* Celdas de opciones - padding reducido */
-    .option-cell {
-        display: block;
-        text-align: center;
-        padding: 8px 10px; /* Reducido padding horizontal */
-        margin-bottom: 8px;
-        box-sizing: border-box;
+    .question-item .question-options {
+        flex-shrink: 1;
+        width: 100%;
+        justify-content: flex-start;
+        gap: 6px;
     }
 
-    /* Radio buttons como botones grandes táctiles - ancho optimizado */
+    .checkbox-label,
     .radio-label {
-        display: inline-block;
-        width: 47%; /* Reducido para mejor ajuste */
-        max-width: 49%; /* Limitar crecimiento */
-        min-width: 100px; /* Más pequeño para pantallas muy estrechas */
-        padding: 10px 6px; /* Padding reducido */
-        margin: 4px 1.5%; /* Márgenes equilibrados */
-        border-radius: 8px;
-        background-color: white;
-        border: 2px solid #074F91;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        text-align: center;
-        box-sizing: border-box;
+        padding: 8px 14px;
+        font-size: 13px;
     }
 
-    .radio-label:hover {
-        background-color: #e6f0ff;
-        transform: translateY(-2px);
-        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    .vehicle-info-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 6px;
     }
 
-    .radio-label input[type="radio"] {
-        margin-right: 8px;
-        transform: scale(1.2);
-        vertical-align: middle;
-    }
-
-    .radio-text {
-        font-size: 15px;
-        vertical-align: middle;
-    }
-
-    /* Headers de sección responsivos */
-    .section-header td {
-        padding: 15px 8px; /* Reducido padding */
-        font-size: 16px;
-        text-align: center;
-        letter-spacing: 0.3px;
-    }
-
-    /* Asegurar colores de fondo para headers en móvil */
-    .section-header.administrativo,
-    .section-header.administrativo td {
-        background-color: #2B7FFF !important;
-        border-left: 5px solid #0055CC !important;
-    }
-
-    .section-header.conductor,
-    .section-header.conductor td {
-        background-color: #00C896 !important;
-        border-left: 5px solid #009977 !important;
-    }
-
-    .section-header.vehiculo-propio,
-    .section-header.vehiculo-propio td {
-        background-color: #FFC107 !important;
-        border-left: 5px solid #D39E00 !important;
-    }
-
-    .section-header.auxiliar-carga,
-    .section-header.auxiliar-carga td {
-        background-color: #FF6B9D !important;
-        border-left: 5px solid #FF3D7A !important;
-    }
-
-    .section-header.preoperacional-carro,
-    .section-header.preoperacional-carro td {
-        background-color: #BA8CBA !important;
-        border-left: 5px solid #9C6C9C !important;
-    }
-
-    .section-header.preoperacional-moto,
-    .section-header.preoperacional-moto td {
-        background-color: #FF9933 !important;
-        border-left: 5px solid #E67A00 !important;
-    }
-
-    /* Checkboxes para vehículo en móviles - espacio optimizado */
-    .checkbox-label.checkbox-si {
-        display: block;
-        width: 85%; /* Reducido para más espacio lateral */
-        max-width: 280px;
-        margin: 12px auto;
-        padding: 14px;
-        font-size: 16px;
-        min-height: 60px;
-        text-align: center;
-        border-radius: 10px;
-        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-        box-sizing: border-box;
-    }
-
-    .checkbox-label.checkbox-si input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        margin-right: 12px;
-        vertical-align: middle;
-    }
-
-    /* Ajustar contenedor de tabla responsive */
-    .table-responsive-custom {
-        overflow-x: visible; /* No scroll horizontal */
-        margin-bottom: 20px;
-    }
-
-    /* Asegurar que los bordes de color se mantengan */
-    .question-row.administrativo,
-    .question-row.conductor,
-    .question-row.vehiculo-propio,
-    .question-row.auxiliar-carga,
-    .question-row.preoperacional-carro,
-    .question-row.preoperacional-moto {
-        border-left-width: 0; /* El borde ahora está en .question-text */
-    }
-
-    .question-row.administrativo .question-text {
-        border-left-color: #2B7FFF;
-    }
-
-    .question-row.conductor .question-text {
-        border-left-color: #00C896;
-    }
-
-    .question-row.vehiculo-propio .question-text {
-        border-left-color: #FFC107;
-    }
-
-    .question-row.auxiliar-carga .question-text {
-        border-left-color: #FF6B9D;
-    }
-
-    .question-row.preoperacional-carro .question-text {
-        border-left-color: #BA8CBA;
-    }
-
-    .question-row.preoperacional-moto .question-text {
-        border-left-color: #FF9933;
-    }
-
-    /* Mejoras generales de espaciado en móviles */
-    .card-body {
-        padding: 1rem;
-    }
-
-    .card-header.mi-header h3 {
-        font-size: 1.2rem;
-    }
-
-    .tittle3 {
-        font-size: 1rem;
-        padding: 10px !important;
+    .main-form-card .card-body {
+        padding: 12px;
     }
 
     .signature-canvas {
@@ -862,21 +722,102 @@
         height: 150px !important;
     }
 
-    /* ==================== VEHICLE DATA RESPONSIVE ==================== */
+    .section-group-title {
+        font-size: 16px;
+    }
 
-    /* Vehicle info rows with label: value pairs - each row is self-contained */
-    .vehicle-info-row {
-        display: block;
-        width: 100%;
+    .photo-upload-container {
+        padding: 10px;
     }
-    .vehicle-info-row td {
-        display: block;
-        width: 100% !important;
-        max-width: 100%;
-        box-sizing: border-box;
-        text-align: left;
+}
+
+@media (max-width: 480px) {
+    .preop-sections-wrapper {
+        gap: 10px;
+    }
+
+    .preop-card-header {
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+
+    .preop-card-body {
         padding: 8px 10px;
-        font-size: 14px;
-        border-bottom: 1px solid rgba(0,0,0,0.1);
     }
+
+    .question-item {
+        gap: 2px;
+        padding: 8px 10px;
+        margin-bottom: 4px;
+        border-radius: 8px;
+    }
+
+    .question-item .question-text {
+        flex: none;
+        font-size: 12px;
+    }
+
+    .question-item .question-options {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .checkbox-label,
+    .radio-label {
+        padding: 7px 12px;
+        font-size: 12px;
+        border-radius: 8px;
+    }
+
+    .vehicle-info-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+    }
+
+    .vehicle-info-item {
+        padding: 6px 10px;
+    }
+
+    .vehicle-info-item strong {
+        font-size: 10px;
+    }
+
+    .vehicle-info-item span {
+        font-size: 12px;
+    }
+
+    .form-input,
+    .form-textarea {
+        font-size: 13px;
+        padding: 8px 10px;
+    }
+
+    .main-form-card .card-body {
+        padding: 8px;
+    }
+}
+
+/* ==================== UTILIDADES ==================== */
+
+.text {
+    font-size: 14px;
+}
+
+.mt-card {
+    margin-top: 16px;
+}
+
+.mb-card {
+    margin-bottom: 16px;
+}
+
+/* Transiciones suaves */
+.preop-card,
+.question-item,
+.checkbox-label,
+.radio-label,
+.form-input,
+.form-textarea {
+    transition: all 0.25s ease;
 }

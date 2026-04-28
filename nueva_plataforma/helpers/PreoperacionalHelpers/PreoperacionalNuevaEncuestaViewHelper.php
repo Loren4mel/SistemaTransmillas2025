@@ -2,28 +2,14 @@
 /**
  * PreoperacionalNuevaEncuestaViewHelper - Helper para la nueva encuesta de preoperacional
  *
- * Esta clase centraliza la lógica de presentación del NUEVO formato de encuesta
- * que se cargará por defecto al ingresar a la página.
- * 
- * Estructura basada en roles:
- * - Administrativo (Call center, líder de sede, jefe de operación)
- * - Conductor (Carro)
- * - Vehículo propio (Moto)
- * - Auxiliar de carga
- * 
- * El formato legado se mantiene para validación de preoperacionales anteriores.
+ * DISEÑO DE TARJETAS: Cada sección y subsección es una tarjeta independiente
+ * con colores pastel semitransparentes.
  */
 
 class PreoperacionalNuevaEncuestaViewHelper
 {
     // ==================== PREGUNTAS ADMINISTRATIVO ====================
-    
-    /**
-     * Preguntas para personal administrativo (Call center, líder de sede, jefe de operación)
-     * Se valida con rol del usuario, no se presentan a otros tipos de usuarios
-     *
-     * @return array Array de preguntas con [nombre, texto]
-     */
+
     public static function getPreguntasAdministrativo()
     {
         return [
@@ -36,14 +22,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     // ==================== PREGUNTAS CONDUCTOR (CARRO) ====================
-    
-    /**
-     * Preguntas de ingreso personal para cargo conductor (carro)
-     * Validado antes de la carga, no se muestran a personal administrativo
-     * Se responden con SÍ o NO
-     *
-     * @return array Array de preguntas con [nombre, texto]
-     */
+
     public static function getPreguntasConductor()
     {
         return [
@@ -56,31 +35,27 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     // ==================== PREOPERACIONAL VEHÍCULO (CARRO) ====================
-    
-    /**
-     * Preguntas de preoperacional del vehículo (carro)
-     * Chequeo simple de cada pregunta en cada sección
-     *
-     * @return array Array de secciones con sus preguntas
-     */
+
     public static function getPreguntasVehiculoCarro()
     {
         return [
             'inspeccion_inicial' => [
                 'titulo' => '🔍 INSPECCIÓN INICIAL',
+                'subsection_css' => 'subsection-inspeccion',
                 'preguntas' => [
                     ['inspec_1', 'El vehículo retirado del parqueadero se encuentra en óptimas condiciones', 'require_photo' => true]
-                ],
-                'especial' => true
+                ]
             ],
             'luces' => [
                 'titulo' => '💡 LUCES',
+                'subsection_css' => 'subsection-luces',
                 'preguntas' => [
                     ['luces_1', 'Estado de luces (altas, bajas, estacionarias, direccionales) en buen estado']
                 ]
             ],
             'cabina' => [
                 'titulo' => '🚗 CABINA',
+                'subsection_css' => 'subsection-cabina',
                 'preguntas' => [
                     ['cabina_1', 'Espejo central y laterales en buen estado'],
                     ['cabina_2', 'Cojinería en buen estado']
@@ -88,6 +63,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             ],
             'dispositivos_seguridad' => [
                 'titulo' => '🛡️ DISPOSITIVOS DE SEGURIDAD',
+                'subsection_css' => 'subsection-seguridad',
                 'preguntas' => [
                     ['seguridad_1', 'Pito funcionando correctamente'],
                     ['seguridad_2', 'Pito de reversa funcionando'],
@@ -103,6 +79,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             ],
             'indicadores' => [
                 'titulo' => '📊 INDICADORES',
+                'subsection_css' => 'subsection-indicadores',
                 'preguntas' => [
                     ['indicador_1', 'Nivel de aceite adecuado'],
                     ['indicador_2', 'Nivel de agua/refrigerante adecuado'],
@@ -112,6 +89,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             ],
             'llantas' => [
                 'titulo' => '⚙️ LLANTAS',
+                'subsection_css' => 'subsection-llantas',
                 'preguntas' => [
                     ['llanta_1', 'Estado general de llantas (labrado, presión, pernos)'],
                     ['llanta_2', 'Llanta de repuesto en buen estado y con presión adecuada']
@@ -121,14 +99,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     // ==================== PREGUNTAS VEHÍCULO PROPIO (MOTO) ====================
-    
-    /**
-     * Preguntas para personal con vehículo propio (moto)
-     * Exclusivo de usuarios que tengan vehículo propio registrado
-     * Se responden con SÍ o NO
-     *
-     * @return array Array de preguntas con [nombre, texto]
-     */
+
     public static function getPreguntasVehiculoPropio()
     {
         return [
@@ -145,24 +116,20 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     // ==================== PREOPERACIONAL MOTOS ====================
-    
-    /**
-     * Preguntas de preoperacional para motos
-     * Chequeo simple de cada pregunta en cada sección
-     *
-     * @return array Array de secciones con sus preguntas
-     */
+
     public static function getPreguntasVehiculoMoto()
     {
         return [
             'llantas_rines' => [
                 'titulo' => '🛞 LLANTAS Y RINES',
+                'subsection_css' => 'subsection-llantas',
                 'preguntas' => [
                     ['moto_llanta_1', 'Llantas y rines se encuentran en buen estado']
                 ]
             ],
             'transmision' => [
                 'titulo' => '⚙️ TRANSMISIÓN',
+                'subsection_css' => 'subsection-transmision',
                 'preguntas' => [
                     ['moto_trans_1', 'La cadena se encuentra bien lubricada, con la tensión adecuada, y sin ruidos extraños'],
                     ['moto_trans_2', 'Guardacadena presente']
@@ -170,6 +137,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             ],
             'luces_espejos' => [
                 'titulo' => '💡 LUCES Y ESPEJOS',
+                'subsection_css' => 'subsection-luces',
                 'preguntas' => [
                     ['moto_luz_1', 'Estado de las luces (delanteras, traseras, freno, direccionales)'],
                     ['moto_luz_2', 'Estado de los espejos retrovisores'],
@@ -178,12 +146,14 @@ class PreoperacionalNuevaEncuestaViewHelper
             ],
             'fugas' => [
                 'titulo' => '💧 FUGAS',
+                'subsection_css' => 'subsection-fugas',
                 'preguntas' => [
                     ['moto_fuga_1', 'Moto libre de goteos, manchas de aceite y relativos']
                 ]
             ],
             'mandos' => [
                 'titulo' => '🎮 MANDOS',
+                'subsection_css' => 'subsection-mandos',
                 'preguntas' => [
                     ['moto_mando_1', 'El embrague está en buenas condiciones'],
                     ['moto_mando_2', 'Acelerador está en buenas condiciones']
@@ -191,6 +161,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             ],
             'entorno_general' => [
                 'titulo' => '🔧 ENTORNO GENERAL',
+                'subsection_css' => 'subsection-entorno',
                 'preguntas' => [
                     ['moto_entorno_1', 'La moto está en buenas condiciones de limpieza'],
                     ['moto_entorno_2', 'El chasis se encuentra deteriorado'],
@@ -199,6 +170,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             ],
             'elementos_proteccion' => [
                 'titulo' => '🦺 ELEMENTOS DE PROTECCIÓN',
+                'subsection_css' => 'subsection-proteccion',
                 'preguntas' => [
                     ['moto_epp_1', 'Dispone de casco, guantes, gafas, chaleco reflectivo en buen estado']
                 ]
@@ -207,13 +179,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     // ==================== PREGUNTAS AUXILIAR DE CARGA ====================
-    
-    /**
-     * Preguntas para ingreso de personal cargo auxiliar de carga
-     * Misma lógica anterior de los vehículos, preguntas de sí y no
-     *
-     * @return array Array de preguntas con [nombre, texto]
-     */
+
     public static function getPreguntasAuxiliarCarga()
     {
         return [
@@ -226,386 +192,360 @@ class PreoperacionalNuevaEncuestaViewHelper
         ];
     }
 
-    // ==================== RENDERIZADO DE SECCIONES ====================
-    
+    // ==================== RENDERIZADO DE TARJETAS ====================
+
     /**
-     * Genera el HTML para una sección de preguntas con radio buttons
-     *
-     * @param string $titulo Título de la sección
-     * @param array $preguntas Array de preguntas
-     * @param string $color Color de fondo
-     * @param array $opciones Opciones de radio buttons (por defecto SÍ/NO/N/A)
-     * @param bool $requerido Si las preguntas son requeridas
-     * @return string HTML generado
+     * Renderiza una pregunta individual con checkboxes SÍ/NO
      */
-    public static function renderSeccionPreguntas($titulo, $preguntas, $color = '#EFEFEF',
-                                                    $opciones = null, $requerido = true,
-                                                    $valoresExistentes = null)
+    private static function renderQuestionItem($name, $texto, $valoresExistentes = null, $requirePhoto = false)
     {
-        if ($opciones === null) {
-            $opciones = [
-                ['value' => '1', 'label' => 'SÍ'],
-                ['value' => '2', 'label' => 'NO'],
-                ['value' => '3', 'label' => 'N/A']
-            ];
+        $checkedSi = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '1') ? 'checked' : '';
+        $checkedNo = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '2') ? 'checked' : '';
+
+        $html = '<div class="question-item" id="' . $name . '_row">';
+        $html .= '<div class="question-text">' . htmlspecialchars($texto) . '</div>';
+        $html .= '<div class="question-options">';
+        // SÍ
+        $html .= '<label class="checkbox-label checkbox-si">';
+        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-si-input" value="1" data-name="' . $name . '" data-binary-group="' . $name . '" ' . $checkedSi . '>';
+        $html .= '<span class="checkbox-text">SÍ</span>';
+        $html .= '</label>';
+        // NO
+        $html .= '<label class="checkbox-label checkbox-no">';
+        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-no-input" value="2" data-name="' . $name . '" data-binary-group="' . $name . '" ' . $checkedNo . '>';
+        $html .= '<span class="checkbox-text">NO</span>';
+        $html .= '</label>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        // Foto si es requerida
+        if ($requirePhoto) {
+            $html .= '<div class="photo-row" id="' . $name . '_photo_row" style="display:none;">';
+            $html .= '<div class="photo-upload-container">';
+            $html .= '<label class="photo-label"><i class="fas fa-camera"></i> Subir fotografía del problema</label>';
+            $html .= '<input type="file" name="' . $name . '_foto" id="' . $name . '_foto" class="photo-input" accept="image/*" data-trigger="' . $name . '" data-required-photo="true">';
+            $html .= '<div class="photo-alert photo-alert-inspeccion-inicial">';
+            $html .= '<i class="fas fa-exclamation-triangle"></i> <strong>INSPECCIÓN INICIAL REQUERIDA:</strong> El vehículo no se encuentra en óptimas condiciones. Debe subir una fotografía del problema y contactar inmediatamente al personal administrativo antes de continuar.';
+            $html .= '</div></div></div>';
         }
 
-        $html = '';
+        return $html;
+    }
 
-        // Header de la sección
-        $colspan = count($opciones) + 1;
-        $html .= "<tr class=\"section-header\">\n";
-        $html .= "    <td colspan=\"{$colspan}\">{$titulo}</td>\n";
-        $html .= "</tr>\n";
+    /**
+     * Genera tarjeta para preguntas personales (Administrativo, Conductor, Vehículo Propio, Auxiliar)
+     */
+    public static function renderPreguntasPersonales($preguntas, $titulo, $cardClass, $valoresExistentes = null)
+    {
+        $html = '<div class="preop-card ' . $cardClass . '">';
+        $html .= '<div class="preop-card-header">' . $titulo . '</div>';
+        $html .= '<div class="preop-card-body">';
 
-        // Preguntas
+        foreach ($preguntas as $preg) {
+            $name = $preg[0];
+            $texto = $preg[1];
+            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, false);
+        }
+
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    /**
+     * Genera tarjeta para una subsección de vehículo (checkboxes SÍ/NO)
+     */
+    public static function renderSeccionVehiculoCheckboxes($titulo, $preguntas, $subsectionCss, $valoresExistentes = null)
+    {
+        $html = '<div class="preop-card ' . $subsectionCss . '">';
+        $html .= '<div class="preop-card-header">' . $titulo . '</div>';
+        $html .= '<div class="preop-card-body">';
+
         foreach ($preguntas as $preg) {
             $name = $preg[0];
             $texto = $preg[1];
             $requirePhoto = isset($preg['require_photo']) && $preg['require_photo'];
-
-            $html .= "<tr class='question-row' id='{$name}_row'>\n";
-            $html .= "    <td class='question-text'>{$texto}</td>\n";
-
-            foreach ($opciones as $opcion) {
-                $checked = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == $opcion['value']) ? 'checked' : '';
-                $html .= "    <td class='option-cell'>\n";
-                $html .= "        <label class='radio-label'>\n";
-                $requiredAttr = $requerido ? 'required' : '';
-                $photoAttr = $requirePhoto ? 'data-photo-required="true"' : '';
-                $html .= "            <input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} {$requiredAttr} {$photoAttr}>\n";
-                $html .= "            <span class='radio-text'>{$opcion['label']}</span>\n";
-                $html .= "        </label>\n";
-                $html .= "    </td>\n";
-            }
-
-            // Campo de foto si es requerido (para inspección inicial)
-            if ($requirePhoto) {
-                $html .= "<tr class='photo-row' id='{$name}_photo_row' style='display:none;'>\n";
-                $html .= "    <td colspan='{$colspan}' class='photo-cell'>\n";
-                $html .= "        <div class='photo-upload-container'>\n";
-                $html .= "            <label class='photo-label'>\n";
-                $html .= "                <i class='fas fa-camera'></i> Subir fotografía del problema\n";
-                $html .= "            </label>\n";
-                $html .= "            <input type='file' name='{$name}_foto' id='{$name}_foto' class='photo-input' accept='image/*' data-trigger='{$name}'>\n";
-                $html .= "            <div class='photo-alert'>\n";
-                $html .= "                <i class='fas fa-exclamation-triangle'></i> <strong>Atención:</strong> Debe subir una fotografía del problema encontrado y contactar al personal administrativo.\n";
-                $html .= "            </div>\n";
-                $html .= "        </div>\n";
-                $html .= "    </td>\n";
-                $html .= "</tr>\n";
-            }
-
-            $html .= "</tr>\n";
+            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, $requirePhoto);
         }
 
+        $html .= '</div></div>';
         return $html;
     }
 
     /**
-     * Genera el HTML para una sección de preguntas de vehículo con checkboxes binarios (SÍ/NO)
-     * Formato: Dos checkboxes exclusivos (SÍ y NO) por cada pregunta
-     * Las observaciones van al final de la sección
-     *
-     * @param string $titulo Título de la sección
-     * @param array $preguntas Array de preguntas
-     * @param string $color Color de fondo
-     * @param string $sectionType Tipo de sección para clases CSS
-     * @param string $subsectionKey Clave de subsección
-     * @return string HTML generado
+     * Renderiza las secciones de vehículo carro como tarjetas individuales
      */
-    public static function renderSeccionVehiculoCheckboxes($titulo, $preguntas, $color = '#EFEFEF', $sectionType = '', $subsectionKey = '', $valoresExistentes = null)
-    {
-        $html = '';
-
-        // Header de la sección - combinar clase general de sección con subclase específica
-        $sectionClass = !empty($sectionType) ? " {$sectionType}" : '';
-        $subsectionClass = !empty($subsectionKey) ? " subsection-{$subsectionKey}" : '';
-        $html .= "<tr class=\"section-header{$sectionClass}{$subsectionClass}\">\n";
-        $html .= "    <td colspan=\"3\">{$titulo}</td>\n";
-        $html .= "</tr>\n";
-
-        // Preguntas con checkboxes binarios (SÍ y NO)
-        foreach ($preguntas as $preg) {
-            $name = $preg[0];
-            $texto = $preg[1];
-            $requirePhoto = isset($preg['require_photo']) && $preg['require_photo'];
-
-            // Fila principal con pregunta y checkboxes binarios
-            $rowClass = !empty($sectionType) ? " {$sectionType}" : '';
-            $rowSubclass = !empty($subsectionKey) ? " subsection-{$subsectionKey}" : '';
-            $html .= "<tr class='question-row{$rowClass}{$rowSubclass}' id='{$name}_row'>\n";
-            $html .= "    <td class='question-text'>{$texto}</td>\n";
-
-            $checkedSi = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '1') ? 'checked' : '';
-            $checkedNo = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '2') ? 'checked' : '';
-
-            // Checkbox SÍ (valor 1)
-            $html .= "    <td class='option-cell'>\n";
-            $html .= "        <label class='checkbox-label checkbox-si'>\n";
-            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-si-input' value='1' data-name='{$name}' data-binary-group='{$name}' {$checkedSi}>\n";
-            $html .= "            <span class='checkbox-text'>SÍ</span>\n";
-            $html .= "        </label>\n";
-            $html .= "    </td>\n";
-
-            // Checkbox NO (valor 2)
-            $html .= "    <td class='option-cell'>\n";
-            $html .= "        <label class='checkbox-label checkbox-no'>\n";
-            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-no-input' value='2' data-name='{$name}' data-binary-group='{$name}' {$checkedNo}>\n";
-            $html .= "            <span class='checkbox-text'>NO</span>\n";
-            $html .= "        </label>\n";
-            $html .= "    </td>\n";
-
-            $html .= "</tr>\n";
-
-            // Campo de foto si es requerido (para inspección inicial)
-            if ($requirePhoto) {
-                $photoRowClass = !empty($sectionType) ? " {$sectionType}" : '';
-                $photoRowSubclass = !empty($subsectionKey) ? " subsection-{$subsectionKey}" : '';
-
-                // Mensaje personalizado para inspección inicial
-                $alertMessage = "Debe subir una fotografía del problema encontrado y contactar al personal administrativo.";
-                $alertClass = "photo-alert";
-                if ($subsectionKey === 'inspeccion_inicial') {
-                    $alertMessage = "⚠️ <strong>INSPECCIÓN INICIAL REQUERIDA:</strong> El vehículo no se encuentra en óptimas condiciones. Debe subir una fotografía del problema y contactar inmediatamente al personal administrativo antes de continuar.";
-                    $alertClass = "photo-alert photo-alert-inspeccion-inicial";
-                }
-
-                $html .= "<tr class='photo-row{$photoRowClass}{$photoRowSubclass}' id='{$name}_photo_row' style='display:none;'>\n";
-                $html .= "    <td colspan='3' class='photo-cell'>\n";
-                $html .= "        <div class='photo-upload-container'>\n";
-                $html .= "            <label class='photo-label'>\n";
-                $html .= "                <i class='fas fa-camera'></i> Subir fotografía del problema\n";
-                $html .= "            </label>\n";
-                $html .= "            <input type='file' name='{$name}_foto' id='{$name}_foto' class='photo-input' accept='image/*' data-trigger='{$name}' data-required-photo='true'>\n";
-                $html .= "            <div class='{$alertClass}'>\n";
-                $html .= "                <i class='fas fa-exclamation-triangle'></i> {$alertMessage}\n";
-                $html .= "            </div>\n";
-                $html .= "        </div>\n";
-                $html .= "    </td>\n";
-                $html .= "</tr>\n";
-            }
-        }
-
-        return $html;
-    }
-
-    /**
-     * Renderiza preguntas simples con dos checkboxes binarios (SÍ y NO) para preguntas personales
-     * Formato: Dos checkboxes exclusivos (SÍ y NO) por cada pregunta
-     *
-     * @param array $preguntas Array de preguntas
-     * @param string $color Color de fondo
-     * @param string $seccionId ID de la sección (opcional, para encabezado)
-     * @param string $sectionType Tipo de sección para clases CSS
-     * @return string HTML generado
-     */
-    public static function renderPreguntasPersonales($preguntas, $color = '#EFEFEF', $seccionId = '', $sectionType = '', $valoresExistentes = null)
-    {
-        $html = '';
-
-        // Encabezado de sección si se proporciona
-        if (!empty($seccionId)) {
-            $sectionClass = !empty($sectionType) ? " {$sectionType}" : '';
-            $html .= "<tr class=\"section-header personal-section{$sectionClass}\">\n";
-            $html .= "    <td colspan='3'>{$seccionId}</td>\n";
-            $html .= "</tr>\n";
-        }
-
-        // Preguntas con dos checkboxes binarios (SÍ y NO)
-        foreach ($preguntas as $preg) {
-            $name = $preg[0];
-            $texto = $preg[1];
-            $rowClass = !empty($sectionType) ? " {$sectionType}" : '';
-
-            $html .= "<tr class='question-row personal-question{$rowClass}' id='{$name}_row'>\n";
-            $html .= "    <td class='question-text'>{$texto}</td>\n";
-
-            $checkedSi = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '1') ? 'checked' : '';
-            $checkedNo = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '2') ? 'checked' : '';
-
-            // Checkbox SÍ (valor 1)
-            $html .= "    <td class='option-cell'>\n";
-            $html .= "        <label class='checkbox-label checkbox-si'>\n";
-            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-si-input' value='1' data-name='{$name}' data-binary-group='{$name}' {$checkedSi}>\n";
-            $html .= "            <span class='checkbox-text'>SÍ</span>\n";
-            $html .= "        </label>\n";
-            $html .= "    </td>\n";
-
-            // Checkbox NO (valor 2)
-            $html .= "    <td class='option-cell'>\n";
-            $html .= "        <label class='checkbox-label checkbox-no'>\n";
-            $html .= "            <input type='checkbox' name='{$name}' class='obtener checkbox-binary checkbox-no-input' value='2' data-name='{$name}' data-binary-group='{$name}' {$checkedNo}>\n";
-            $html .= "            <span class='checkbox-text'>NO</span>\n";
-            $html .= "        </label>\n";
-            $html .= "    </td>\n";
-
-            $html .= "</tr>\n";
-        }
-
-        return $html;
-    }
-
-    /**
-     * Renderiza las secciones de preguntas para vehículo carro usando checkboxes
-     *
-     * @param string $color Color de fondo
-     * @return string HTML generado
-     */
-    public static function renderVehiculoCarroSections($color = '#EFEFEF', $sectionType = 'preoperacional-carro', $valoresExistentes = null)
+    public static function renderVehiculoCarroSections($valoresExistentes = null)
     {
         $preguntas = self::getPreguntasVehiculoCarro();
         $html = '';
 
         foreach ($preguntas as $key => $seccion) {
+            $subsectionCss = isset($seccion['subsection_css']) ? $seccion['subsection_css'] : 'subsection-' . $key;
             $html .= self::renderSeccionVehiculoCheckboxes(
                 $seccion['titulo'],
                 $seccion['preguntas'],
-                $color,
-                $sectionType,
-                $key,
+                $subsectionCss,
                 $valoresExistentes
             );
         }
 
         // Mensaje de advertencia
-        $html .= '<tr class="warning-message">';
-        $html .= '<td colspan="3">⚠️ Si marca "NO" en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS. Para la inspección inicial, debe subir fotografía y contactar a administrativos.</td>';
-        $html .= '</tr>';
+        $html .= '<div class="preop-card warning-card">';
+        $html .= '<div class="preop-card-header">⚠️ AVISO IMPORTANTE</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<p style="margin:0;font-size:14px;">Si marca <strong>NO</strong> en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS. Para la inspección inicial, debe subir fotografía y contactar a administrativos.</p>';
+        $html .= '</div></div>';
 
         return $html;
     }
 
     /**
-     * Renderiza las secciones de preguntas para vehículo moto usando checkboxes
-     *
-     * @param string $color Color de fondo
-     * @return string HTML generado
+     * Renderiza las secciones de vehículo moto como tarjetas individuales
      */
-    public static function renderVehiculoMotoSections($color = '#EFEFEF', $sectionType = 'preoperacional-moto', $valoresExistentes = null)
+    public static function renderVehiculoMotoSections($valoresExistentes = null)
     {
         $preguntas = self::getPreguntasVehiculoMoto();
         $html = '';
 
         foreach ($preguntas as $key => $seccion) {
+            $subsectionCss = isset($seccion['subsection_css']) ? $seccion['subsection_css'] : 'subsection-' . $key;
             $html .= self::renderSeccionVehiculoCheckboxes(
                 $seccion['titulo'],
                 $seccion['preguntas'],
-                $color,
-                $sectionType,
-                $key,
+                $subsectionCss,
                 $valoresExistentes
             );
         }
 
         // Mensaje de advertencia
-        $html .= '<tr class="warning-message">';
-        $html .= '<td colspan="3">⚠️ Si marca "NO" en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS.</td>';
-        $html .= '</tr>';
+        $html .= '<div class="preop-card warning-card">';
+        $html .= '<div class="preop-card-header">⚠️ AVISO IMPORTANTE</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<p style="margin:0;font-size:14px;">Si marca <strong>NO</strong> en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS.</p>';
+        $html .= '</div></div>';
 
+        return $html;
+    }
+
+    /**
+     * Genera tarjeta de información del vehículo
+     */
+    public static function renderVehicleInfoCard($datosVehiculo)
+    {
+        if (empty($datosVehiculo)) return '';
+
+        $campos = [
+            'PLACA' => $datosVehiculo['veh_placa'] ?? '',
+            'MARCA' => $datosVehiculo['veh_marca'] ?? '',
+            'MODELO' => $datosVehiculo['veh_modelo'] ?? '',
+            'KM' => $datosVehiculo['veh_kilactual'] ?? '',
+            'CONDUCTOR' => $datosVehiculo['usu_nombre'] ?? '',
+            'CÉDULA' => $datosVehiculo['usu_identificacion'] ?? '',
+            'LICENCIA' => $datosVehiculo['usu_licencia'] ?? '',
+            'FECHA VENC.' => $datosVehiculo['usu_fechalicencia'] ?? ''
+        ];
+
+        $html = '<div class="preop-card vehicle-info">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-truck"></i> DATOS DEL VEHÍCULO</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<div class="vehicle-info-grid">';
+
+        foreach ($campos as $label => $valor) {
+            if (!empty($valor)) {
+                $html .= '<div class="vehicle-info-item"><strong>' . $label . '</strong><span>' . htmlspecialchars($valor) . '</span></div>';
+            }
+        }
+
+        $html .= '</div></div></div>';
+        return $html;
+    }
+
+    /**
+     * Genera tarjeta de kilometraje
+     */
+    public static function renderKilometrajeCard($registroExistente, $esValidacion = false)
+    {
+        $disabled = $esValidacion ? 'disabled' : '';
+        $html = '<div class="preop-card kilometraje-card">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-tachometer-alt"></i> KILOMETRAJE ACTUAL</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<div style="margin-bottom:12px;">';
+        $html .= '<input name="kilometraje" id="kilometraje" value="' . htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? '') . '" class="form-input" placeholder="Ingrese kilometraje actual" required ' . $disabled . '>';
+        $html .= '</div>';
+        $html .= '<div>';
+        $html .= '<label style="font-weight:600;font-size:14px;color:#555;">Imagen Kilometraje:</label>';
+        $html .= '<input type="file" name="imagen_kilometraje" class="photo-input" ' . $disabled . '>';
+        if (!empty($registroExistente['pre_img_kilo'])) {
+            $url = self::rutaAbsolutaAUrl($registroExistente['pre_img_kilo']);
+            $html .= '<br><a href="' . htmlspecialchars($url) . '" target="_blank" style="font-size:13px;">Ver imagen actual</a>';
+        }
+        $html .= '</div></div></div>';
+        return $html;
+    }
+
+    /**
+     * Genera tarjeta de observaciones
+     */
+    public static function renderObservacionesCard($registroExistente, $esValidacion = false)
+    {
+        $disabled = $esValidacion ? 'disabled' : '';
+        $html = '<div class="preop-card observations-card">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-clipboard-list"></i> OBSERVACIONES / CONDICIONES REPORTADAS</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<textarea name="observaciones" id="observaciones" class="form-textarea" placeholder="Describa las observaciones o condiciones encontradas..." ' . $disabled . '>' . htmlspecialchars($registroExistente['pre_obsevaciones'] ?? '') . '</textarea>';
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    /**
+     * Genera tarjeta de acción correctiva (solo validación)
+     */
+    public static function renderAccionCorrectivaCard($registroExistente)
+    {
+        $html = '<div class="preop-card observations-card">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-tools"></i> ACCIÓN CORRECTIVA</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<textarea name="accion_correctiva" id="accion_correctiva" class="form-textarea" placeholder="Describa la acción correctiva...">' . htmlspecialchars($registroExistente['pre_correctiva'] ?? '') . '</textarea>';
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    /**
+     * Genera tarjeta de responsable (solo validación)
+     */
+    public static function renderResponsableCard($registroExistente)
+    {
+        $html = '<div class="preop-card observations-card">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-user-check"></i> RESPONSABLE</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<input name="responsable" id="responsable" value="' . htmlspecialchars($registroExistente['pre_responsable'] ?? '') . '" class="form-input" placeholder="Nombre del responsable">';
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    /**
+     * Genera tarjeta de declaración
+     */
+    public static function renderDeclaracionCard()
+    {
+        $html = '<div class="preop-card declaration-card">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-check-circle"></i> DECLARACIÓN</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<p style="margin:0;font-size:14px;font-weight:500;">Declaro que toda la información suministrada en el test anterior es verídica.</p>';
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    /**
+     * Genera tarjeta de compromiso (legado)
+     */
+    public static function renderCompromisoCard()
+    {
+        $html = '<div class="preop-card compromiso-card">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-handshake"></i> COMPROMISO</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<p style="margin:0;font-size:14px;">YO COMO TRABAJADOR DE LA EMPRESA TRANSMILLAS ME COMPROMETO A...</p>';
+        $html .= '</div></div>';
         return $html;
     }
 
     // ==================== FIRMA A TRAZO ====================
 
     /**
-     * Genera el HTML para la sección de firma a trazo (solo formularios nuevos)
-     * Incluye canvas para dibujo con mouse/dedo y campo oculto para guardar la firma
-     *
-     * @param string $nombreCampo Nombre del campo hidden que almacenará la firma en base64
-     * @param bool $requerido Si la firma es obligatoria
-     * @return string HTML generado
+     * Tarjeta de firma con canvas
      */
-    public static function renderSeccionFirma($nombreCampo = 'firma_preoperacional', $requerido = true)
+    public static function renderSeccionFirma($nombreCampo = 'firma_preoperacional')
     {
-        $requiredAttr = $requerido ? 'required' : '';
-        $html = '';
+        $html = '<div class="preop-card signature-card">';
+        $html .= '<div class="preop-card-header">✍️ FIRMA DEL RESPONSABLE</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<div class="signature-container">';
+        $html .= '<canvas id="signatureCanvas" width="400" height="200" class="signature-canvas"></canvas>';
+        $html .= '<div class="signature-controls">';
+        $html .= '<button type="button" class="btn btn-sm btn-outline-danger" id="btnClearSignature">';
+        $html .= '<i class="fas fa-eraser"></i> Limpiar Firma</button>';
+        $html .= '</div>';
+        $html .= '<input type="hidden" name="' . $nombreCampo . '" id="' . $nombreCampo . '" value="" data-signature-field="true">';
+        $html .= '<small class="text-muted d-block mt-2"><i class="fas fa-info-circle"></i> Firme con el mouse o el dedo (en dispositivos táctiles)</small>';
+        $html .= '</div></div></div>';
+        return $html;
+    }
 
-        // Sección de firma con canvas
-        $html .= "<tr bgcolor=\"#074F91\" class=\"tittle3\">\n";
-        $html .= "    <td colspan=\"4\">✍️ FIRMA DEL RESPONSABLE</td>\n";
-        $html .= "</tr>\n";
+    /**
+     * Tarjeta de firma registrada (modo validación)
+     */
+    public static function renderFirmaRegistradaCard($firmaDataUri)
+    {
+        $html = '<div class="preop-card signature-card">';
+        $html .= '<div class="preop-card-header">✍️ FIRMA DEL RESPONSABLE</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<div class="signature-container">';
+        $html .= '<img src="' . $firmaDataUri . '" alt="Firma del responsable" style="max-width:400px; max-height:200px; border:2px solid rgba(7,79,145,0.5); border-radius:8px; background-color:#fff; display:block;">';
+        $html .= '<small class="text-muted d-block mt-2"><i class="fas fa-lock"></i> Firma del operario registrada</small>';
+        $html .= '</div></div></div>';
+        return $html;
+    }
 
-        $html .= "<tr class='signature-row'>\n";
-        $html .= "    <td colspan='4'>\n";
-        $html .= "        <div class='signature-container'>\n";
+    /**
+     * Tarjeta de validación (solo modo validación)
+     */
+    public static function renderValidacionCard($registroExistente, $esNuevoFormato = true)
+    {
+        $html = '<div class="preop-card validation-card">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-clipboard-check"></i> VALIDA PREOPERACIONAL</div>';
+        $html .= '<div class="preop-card-body">';
 
-        // Canvas para la firma
-        $html .= "            <canvas id='signatureCanvas' width='400' height='200' class='signature-canvas'></canvas>\n";
+        $html .= '<div style="margin-bottom:12px;">';
+        $html .= '<label style="font-weight:600;font-size:14px;color:#555;display:block;margin-bottom:4px;">Descripción de la validación:</label>';
+        $html .= '<textarea name="desc_validacion" id="desc_validacion" class="form-textarea" placeholder="Describa la validación...">' . htmlspecialchars($registroExistente['pre_descvalidada'] ?? '') . '</textarea>';
+        $html .= '</div>';
 
-        // Botones de control
-        $html .= "            <div class='signature-controls'>\n";
-        $html .= "                <button type='button' class='btn btn-sm btn-outline-danger' id='btnClearSignature'>\n";
-        $html .= "                    <i class='fas fa-eraser'></i> Limpiar Firma\n";
-        $html .= "                </button>\n";
-        $html .= "            </div>\n";
+        if ($esNuevoFormato) {
+            $html .= '<div>';
+            $html .= '<label style="font-weight:600;font-size:14px;color:#555;display:block;margin-bottom:4px;">Observaciones adicionales:</label>';
+            $html .= '<textarea name="observaciones_validacion" id="observaciones_validacion" class="form-textarea" placeholder="Observaciones para la validación del preoperacional"></textarea>';
+            $html .= '</div>';
+        }
 
-        // Campo oculto para almacenar la firma en base64 (type='hidden' para evitar validación HTML5)
-        $html .= "            <input type='hidden' name='{$nombreCampo}' id='{$nombreCampo}' value='' data-signature-field='true'>\n";
-
-        // Mensaje informativo
-        $html .= "            <small class='text-muted d-block mt-2'>\n";
-        $html .= "                <i class='fas fa-info-circle'></i> Firme con el mouse o el dedo (en dispositivos táctiles)\n";
-        $html .= "            </small>\n";
-
-        $html .= "        </div>\n";
-        $html .= "    </td>\n";
-        $html .= "</tr>\n";
-
+        $html .= '</div></div>';
         return $html;
     }
 
     // ==================== VALIDACIÓN DE ROLES ====================
-    
-    /**
-     * Determina si el usuario debe ver preguntas de administrativo
-     * Roles: Call center, líder de sede, jefe de operación
-     *
-     * @param int $rol ID del rol del usuario
-     * @return bool
-     */
+
     public static function esPersonalAdministrativo($rol)
     {
-        // Ajustar estos IDs según tu base de datos real
-        // Ejemplo: 1=Admin, 2=Call Center, 3=Líder de sede, 4=Jefe de operación
-        $rolesAdministrativos = [1, 2, 3, 4]; // Ajustar según corresponda
+        $rolesAdministrativos = [1, 2, 3, 4];
         return in_array($rol, $rolesAdministrativos);
     }
 
-    /**
-     * Determina si el usuario es conductor de carro
-     *
-     * @param int $rol ID del rol del usuario
-     * @param string $tipoVehiculo Tipo de vehículo
-     * @return bool
-     */
     public static function esConductor($rol, $tipoVehiculo)
     {
-        // Rol de conductor y vehículo tipo CARRO
-        return ($tipoVehiculo === 'CARRO');
+        return $tipoVehiculo === 'CARRO';
     }
 
-    /**
-     * Determina si el usuario tiene vehículo propio (moto)
-     *
-     * @param string $tipoVehiculo Tipo de vehículo
-     * @return bool
-     */
     public static function tieneVehiculoPropio($tipoVehiculo)
     {
-        return ($tipoVehiculo === 'MOTO');
+        return $tipoVehiculo === 'MOTO';
+    }
+
+    public static function esAuxiliarCarga($rol)
+    {
+        $rolAuxiliarCarga = 5;
+        return $rol == $rolAuxiliarCarga;
     }
 
     /**
-     * Determina si el usuario es auxiliar de carga
-     *
-     * @param int $rol ID del rol del usuario
-     * @return bool
+     * Convierte una ruta absoluta del servidor a una URL accesible desde el navegador
      */
-    public static function esAuxiliarCarga($rol)
+    private static function rutaAbsolutaAUrl($rutaAbsoluta)
     {
-        // Ajustar según tu base de datos
-        $rolAuxiliarCarga = 5; // Ejemplo
-        return ($rol == $rolAuxiliarCarga);
+        if (empty($rutaAbsoluta)) return '';
+        $docRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']);
+        $ruta = str_replace('\\', '/', $rutaAbsoluta);
+        if (strpos($ruta, $docRoot) === 0) {
+            return substr($ruta, strlen($docRoot));
+        }
+        return $rutaAbsoluta;
     }
 }

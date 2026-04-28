@@ -241,21 +241,21 @@ function loadView($service)
         }
     }
 
-    // En modo prueba, inyectar datos de vehículo ficticios si no hay datos reales
-    // para poder verificar el comportamiento responsive de la sección de datos del vehículo
-    if (!empty($casoPrueba) && empty($datosVehiculo)) {
-        $datosVehiculo = [
-            'veh_placa' => 'ABC-123',
-            'veh_marca' => 'TOYOTA',
-            'veh_modelo' => '2023',
-            'veh_kilactual' => '85,420',
-            'veh_tipo' => $tipovehiculo,
-            'usu_nombre' => 'JUAN PÉREZ',
-            'usu_identificacion' => '10.123.456',
-            'usu_licencia' => 'Categoría B1',
-            'usu_fechalicencia' => '2026-12-15'
-        ];
-    }
+    // // En modo prueba, inyectar datos de vehículo ficticios si no hay datos reales
+    // // para poder verificar el comportamiento responsive de la sección de datos del vehículo
+    // if (!empty($casoPrueba) && empty($datosVehiculo)) {
+    //     $datosVehiculo = [
+    //         'veh_placa' => 'ABC-123',
+    //         'veh_marca' => 'TOYOTA',
+    //         'veh_modelo' => '2023',
+    //         'veh_kilactual' => '85,420',
+    //         'veh_tipo' => $tipovehiculo,
+    //         'usu_nombre' => 'JUAN PÉREZ',
+    //         'usu_identificacion' => '10.123.456',
+    //         'usu_licencia' => 'Categoría B1',
+    //         'usu_fechalicencia' => '2026-12-15'
+    //     ];
+    // }
 
     // Limpiar buffer y cargar la vista
     ob_clean();
