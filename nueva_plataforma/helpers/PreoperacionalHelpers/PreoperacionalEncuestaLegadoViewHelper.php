@@ -1,18 +1,13 @@
 <?php
 /**
  * PreoperacionalEncuestaLegadoViewHelper - Helper para la vista de preoperacional legado
- * En base a el antiguo formulario de preoperacional, esta clase centraliza la lógica de presentación
- * 
- * Centraliza la lógica de presentación y los datos de las preguntas
- * para mantener la vista limpia y fácil de mantener.
+ * DISEÑO DE TARJETAS: Cada sección es una tarjeta independiente con colores pastel.
  */
 
 class PreoperacionalEncuestaLegadoViewHelper
 {
     /**
      * Obtiene las preguntas COVID-19
-     *
-     * @return array Array de preguntas con [nombre, texto]
      */
     public static function getPreguntasCovid()
     {
@@ -30,16 +25,14 @@ class PreoperacionalEncuestaLegadoViewHelper
     }
 
     /**
-     * Renderiza las preguntas COVID-19 con valores existentes marcados
-     *
-     * @param string $color Color de fondo
-     * @param array|null $valoresExistentes Valores existentes para marcar como checked
-     * @return string HTML generado
+     * Renderiza tarjeta COVID-19
      */
-    public static function renderPreguntasCovid($color = '#EFEFEF', $valoresExistentes = null)
+    public static function renderCovidCard($valoresExistentes = null, $registroExistente = null)
     {
         $preguntas = self::getPreguntasCovid();
-        $html = '';
+        $html = '<div class="preop-card subsection-inspeccion">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-thermometer-half"></i> TEST DE REPORTE DIARIO DE SINTOMATOLOGIA</div>';
+        $html .= '<div class="preop-card-body">';
 
         foreach ($preguntas as $preg) {
             $name = $preg[0];
@@ -47,26 +40,47 @@ class PreoperacionalEncuestaLegadoViewHelper
             $valorExistente = $valoresExistentes[$name] ?? null;
             $claseExtra = in_array($name, ['covid191', 'covid192', 'covid193', 'covid194', 'covid195', 'covid196', 'covid197']) ? 'optionCovid' . substr($name, -1) : '';
 
-            $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>";
-            $html .= "<td colspan='2'>{$texto}</td>";
-            $html .= "<td><input type='radio' name='{$name}' class='obtener {$claseExtra}' value='1' " . ($valorExistente == '1' ? 'checked' : '') . " required></td>";
-            $html .= "<td><input type='radio' name='{$name}' class='obtener' value='2' " . ($valorExistente == '2' ? 'checked' : '') . "></td>";
-            $html .= "</tr>";
+            $html .= '<div class="question-item" id="' . $name . '0">';
+            $html .= '<div class="question-text">' . htmlspecialchars($texto) . '</div>';
+            $html .= '<div class="question-options">';
+            // SI
+            $html .= '<label class="radio-label">';
+            $html .= '<input type="radio" name="' . $name . '" class="obtener ' . $claseExtra . '" value="1" ' . ($valorExistente == '1' ? 'checked' : '') . ' required>';
+            $html .= '<span class="radio-text">SI</span></label>';
+            // NO
+            $html .= '<label class="radio-label">';
+            $html .= '<input type="radio" name="' . $name . '" class="obtener" value="2" ' . ($valorExistente == '2' ? 'checked' : '') . '>';
+            $html .= '<span class="radio-text">NO</span></label>';
+            $html .= '</div></div>';
         }
 
+        // Temperatura
+        $html .= '<div class="question-item" id="temperatura">';
+        $html .= '<div class="question-text">Temperatura:</div>';
+        $html .= '<div style="flex:1;min-width:200px;">';
+        $html .= '<input name="param19" id="param19" value="' . htmlspecialchars($registroExistente['pre_temperatura'] ?? '') . '" class="form-input" placeholder="Ej: 36.5">';
+        $html .= '</div></div>';
+
+        // Imagen temperatura
+        $html .= '<div class="question-item">';
+        $html .= '<div class="question-text">Imagen Temperatura:</div>';
+        $html .= '<div style="flex:1;min-width:200px;">';
+        $html .= '<input type="file" name="param20" class="photo-input">';
+        $html .= '</div></div>';
+
+        $html .= '</div></div>';
         return $html;
     }
 
     /**
      * Obtiene las preguntas para motos
-     * 
-     * @return array Array de secciones con sus preguntas
      */
     public static function getPreguntasMoto()
     {
         return [
             'llantas' => [
-                'titulo' => 'LLANTAS Y RINES',
+                'titulo' => '🛞 LLANTAS Y RINES',
+                'subsection_css' => 'subsection-llantas',
                 'preguntas' => [
                     ['llantas1', 'Tienen rajaduras por un objeto condundecte?'],
                     ['llantas2', 'Tienen grietas finas en los laterales?'],
@@ -77,14 +91,16 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'transmision' => [
-                'titulo' => 'TRANSMISIÓN',
+                'titulo' => '⚙️ TRANSMISIÓN',
+                'subsection_css' => 'subsection-transmision',
                 'preguntas' => [
                     ['transmision1', 'La cadena brilla? (Necesita engrase)'],
                     ['transmision2', 'La cadena esta mal tensionada? (se oye al rodar)']
                 ]
             ],
             'luces' => [
-                'titulo' => 'LUCES Y ESPEJOS',
+                'titulo' => '💡 LUCES Y ESPEJOS',
+                'subsection_css' => 'subsection-luces',
                 'preguntas' => [
                     ['Luces1', 'Funcionan correctamente las Luces de cruce y de frenado?'],
                     ['Luces2', 'Los espejos estan en perfecto estado?'],
@@ -92,7 +108,8 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'fugas' => [
-                'titulo' => 'FUGAS',
+                'titulo' => '💧 FUGAS',
+                'subsection_css' => 'subsection-fugas',
                 'preguntas' => [
                     ['fugas1', 'Fugas en el liquido de suspensión y de frenos?'],
                     ['fugas2', 'Fugas en el sistema de trasmisión (cardán, diferencial)?'],
@@ -103,14 +120,16 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'mandos' => [
-                'titulo' => 'MANDOS (CAMBIOS, FRENOS)',
+                'titulo' => '🎮 MANDOS (CAMBIOS, FRENOS)',
+                'subsection_css' => 'subsection-mandos',
                 'preguntas' => [
                     ['mandos1', 'El embrague esta endurecido?'],
                     ['mandos2', 'El cable de acelerador vuelve del todo a su punto inical?']
                 ]
             ],
             'entorno' => [
-                'titulo' => 'ENTORNO GENERAL',
+                'titulo' => '🔧 ENTORNO GENERAL',
+                'subsection_css' => 'subsection-entorno',
                 'preguntas' => [
                     ['entorno1', 'La moto esta en buenas condiciones de limpieza?'],
                     ['entorno2', 'Esta deteriorado el chasis de la moto? (oxidación, abolladuras, partes faltantes)?'],
@@ -118,7 +137,8 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'elementos' => [
-                'titulo' => 'ELEMENTOS DE PROTECCIÓN',
+                'titulo' => '🦺 ELEMENTOS DE PROTECCIÓN',
+                'subsection_css' => 'subsection-proteccion',
                 'preguntas' => [
                     ['elementos1', 'Se dispone de casco para moto en buen estado?'],
                     ['elementos2', 'Se dispone de guantes para moto?'],
@@ -133,14 +153,13 @@ class PreoperacionalEncuestaLegadoViewHelper
 
     /**
      * Obtiene las preguntas para carros
-     * 
-     * @return array Array de secciones con sus preguntas
      */
     public static function getPreguntasCarro()
     {
         return [
             'direccionales' => [
-                'titulo' => 'DIRECCIONALES',
+                'titulo' => '💡 DIRECCIONALES',
+                'subsection_css' => 'subsection-direccionales',
                 'preguntas' => [
                     ['direccionales1', 'Frontales Plenas altas y/o bajas'],
                     ['direccionales2', 'Direccionales delanteras de parqueo'],
@@ -149,7 +168,8 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'cabina' => [
-                'titulo' => 'CABINA',
+                'titulo' => '🚗 CABINA',
+                'subsection_css' => 'subsection-cabina',
                 'preguntas' => [
                     ['cabina1', 'Espejo central o retrovisor'],
                     ['cabina2', 'Espejos laterales'],
@@ -162,7 +182,8 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'dispositivos' => [
-                'titulo' => 'DISPOSITIVOS DE SEGURIDAD',
+                'titulo' => '🛡️ DISPOSITIVOS DE SEGURIDAD',
+                'subsection_css' => 'subsection-seguridad',
                 'preguntas' => [
                     ['dispositivos1', 'Pito'],
                     ['dispositivos2', 'Pito de reversa'],
@@ -178,7 +199,8 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'indicadores' => [
-                'titulo' => 'INDICADORES',
+                'titulo' => '📊 INDICADORES',
+                'subsection_css' => 'subsection-indicadores',
                 'preguntas' => [
                     ['indicadores1', 'Panel de Indicadores'],
                     ['indicadores2', 'Aceite'],
@@ -186,14 +208,16 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'llantas' => [
-                'titulo' => 'LLANTAS',
+                'titulo' => '⚙️ LLANTAS',
+                'subsection_css' => 'subsection-llantas',
                 'preguntas' => [
                     ['llantas1', 'Estado General de llantas'],
                     ['llantas2', 'Llanta de repuesto']
                 ]
             ],
             'herramientas' => [
-                'titulo' => 'HERRAMIENTAS MINIMAS',
+                'titulo' => '🔧 HERRAMIENTAS MINIMAS',
+                'subsection_css' => 'subsection-herramientas',
                 'preguntas' => [
                     ['Herramientas1', 'Gato'],
                     ['Herramientas2', 'Cruceta'],
@@ -209,8 +233,6 @@ class PreoperacionalEncuestaLegadoViewHelper
 
     /**
      * Obtiene las preguntas de fatiga
-     * 
-     * @return array Array de preguntas con [nombre, texto]
      */
     public static function getPreguntasFatiga()
     {
@@ -227,14 +249,13 @@ class PreoperacionalEncuestaLegadoViewHelper
 
     /**
      * Obtiene las preguntas de implementos de trabajo
-     * 
-     * @return array Array de secciones con sus preguntas
      */
     public static function getImplementosTrabajo()
     {
         return [
             'celular' => [
-                'titulo' => 'CELULAR',
+                'titulo' => '📱 CELULAR',
+                'subsection_css' => 'subsection-mandos',
                 'preguntas' => [
                     ['implementos1', 'Cuenta con celular con acceso a Internet?'],
                     ['implementos2', 'La bateria de su Celular se encuentra Cargada?'],
@@ -243,7 +264,8 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'pesa' => [
-                'titulo' => 'PESA',
+                'titulo' => '⚖️ PESA',
+                'subsection_css' => 'subsection-indicadores',
                 'preguntas' => [
                     ['implementos10', 'Cuenta con Pesa?'],
                     ['implementos11', 'Su Pesa cuenta con Bateria?'],
@@ -252,13 +274,15 @@ class PreoperacionalEncuestaLegadoViewHelper
                 ]
             ],
             'maleta' => [
-                'titulo' => 'MALETA',
+                'titulo' => '🎒 MALETA',
+                'subsection_css' => 'subsection-cabina',
                 'preguntas' => [
                     ['implementos14', 'Cuenta con Maleta?']
                 ]
             ],
             'parafiscales' => [
-                'titulo' => 'PARAFISCALES O COPIA DE AFILIACION DE ARL',
+                'titulo' => '📄 PARAFISCALES O COPIA DE AFILIACION DE ARL',
+                'subsection_css' => 'subsection-seguridad',
                 'preguntas' => [
                     ['implementos18', 'Tiene copia de pago de parafiscales?'],
                     ['implementos19', 'Tiene copia de Afiliacion ARL(Peronal Nuevo)?']
@@ -268,18 +292,9 @@ class PreoperacionalEncuestaLegadoViewHelper
     }
 
     /**
-     * Genera el HTML para una sección de preguntas con radio buttons
-     *
-     * @param string $titulo Título de la sección
-     * @param array $preguntas Array de preguntas
-     * @param string $color Color de fondo
-     * @param array $opciones Opciones de radio buttons (por defecto SI/NO/NA)
-     * @param string $tipoHeader Tipo de header (default o custom)
-     * @param array|null $valoresExistentes Valores existentes para marcar como checked
-     * @return string HTML generado
+     * Renderiza una pregunta individual con radio buttons (SI/NO/NA)
      */
-    public static function renderSeccionPreguntas($titulo, $preguntas, $color = '#EFEFEF',
-                                                    $opciones = null, $tipoHeader = 'default', $valoresExistentes = null)
+    private static function renderRadioQuestionItem($name, $texto, $valoresExistentes = null, $opciones = null)
     {
         if ($opciones === null) {
             $opciones = [
@@ -289,205 +304,182 @@ class PreoperacionalEncuestaLegadoViewHelper
             ];
         }
 
-        $html = '';
+        $valorExistente = $valoresExistentes[$name] ?? null;
 
-        // Header de la sección
-        $colspan = count($opciones) + 1;
-        $html .= "<tr bgcolor=\"#074F91\" class=\"tittle3\">\n";
-        $html .= "    <td colspan=\"{$colspan}\" align=\"center\">{$titulo}</td>\n";
-        $html .= "</tr>\n";
-
-        // Preguntas
-        foreach ($preguntas as $preg) {
-            $name = $preg[0];
-            $texto = $preg[1];
-            $valorExistente = $valoresExistentes[$name] ?? null;
-
-            $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>\n";
-            $html .= "    <td>{$texto}</td>\n";
-
-            foreach ($opciones as $opcion) {
-                $checked = ($valorExistente == $opcion['value']) ? 'checked' : '';
-                $html .= "    <td><input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} required></td>\n";
-            }
-
-            $html .= "</tr>\n";
+        $html = '<div class="question-item" id="' . $name . '0">';
+        $html .= '<div class="question-text">' . htmlspecialchars($texto) . '</div>';
+        $html .= '<div class="question-options">';
+        foreach ($opciones as $opcion) {
+            $checked = ($valorExistente == $opcion['value']) ? 'checked' : '';
+            $html .= '<label class="radio-label">';
+            $html .= '<input type="radio" name="' . $name . '" class="obtener" value="' . $opcion['value'] . '" ' . $checked . ' required>';
+            $html .= '<span class="radio-text">' . $opcion['label'] . '</span></label>';
         }
-
+        $html .= '</div></div>';
         return $html;
     }
 
     /**
-     * Renderiza las secciones de preguntas para moto
-     *
-     * @param string $color Color de fondo
-     * @param array|null $valoresExistentes Valores existentes para marcar como checked
-     * @return string HTML generado
+     * Renderiza tarjeta para una subsección de vehículo (radio buttons)
      */
-    public static function renderMotoSections($color = '#EFEFEF', $valoresExistentes = null)
+    private static function renderSubsectionCard($titulo, $preguntas, $subsectionCss, $valoresExistentes = null, $opciones = null)
+    {
+        $html = '<div class="preop-card ' . $subsectionCss . '">';
+        $html .= '<div class="preop-card-header">' . $titulo . '</div>';
+        $html .= '<div class="preop-card-body">';
+        foreach ($preguntas as $preg) {
+            $html .= self::renderRadioQuestionItem($preg[0], $preg[1], $valoresExistentes, $opciones);
+        }
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    /**
+     * Renderiza las secciones de moto como tarjetas individuales
+     */
+    public static function renderMotoSections($valoresExistentes = null)
     {
         $preguntas = self::getPreguntasMoto();
         $html = '';
 
         foreach ($preguntas as $seccion) {
-            $opciones = [
-                ['value' => '1', 'label' => 'SI'],
-                ['value' => '2', 'label' => 'NO'],
-                ['value' => '3', 'label' => 'N.A']
-            ];
-            $html .= self::renderSeccionPreguntas(
+            $subsectionCss = isset($seccion['subsection_css']) ? $seccion['subsection_css'] : '';
+            $html .= self::renderSubsectionCard(
                 $seccion['titulo'],
                 $seccion['preguntas'],
-                $color,
-                $opciones,
-                'default',
-                $valoresExistentes
+                $subsectionCss,
+                $valoresExistentes,
+                [
+                    ['value' => '1', 'label' => 'SI'],
+                    ['value' => '2', 'label' => 'NO'],
+                    ['value' => '3', 'label' => 'N.A']
+                ]
             );
         }
 
-        // Mensaje de advertencia
-        $html .= '<tr bgcolor="#868A08" class="tittle3"><td colspan="4">SI alguno de estos puntos tiene al menos como respuesta un SI, el trabajador debe de manera inmediata dar aviso de sus condciones al Jefe de operaciones de la empresa TRANSMILLAS EMPRESA DE CARGA Y LOGISTICA.</td></tr>';
+        $html .= '<div class="preop-card warning-card">';
+        $html .= '<div class="preop-card-header">⚠️ AVISO IMPORTANTE</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<p style="margin:0;font-size:14px;">SI alguno de estos puntos tiene al menos como respuesta un SI, el trabajador debe de manera inmediata dar aviso de sus condiciones al Jefe de operaciones de la empresa TRANSMILLAS EMPRESA DE CARGA Y LOGISTICA.</p>';
+        $html .= '</div></div>';
 
         return $html;
     }
 
     /**
-     * Renderiza las secciones de preguntas para carro
-     *
-     * @param string $color Color de fondo
-     * @param array|null $valoresExistentes Valores existentes para marcar como checked
-     * @return string HTML generado
+     * Renderiza las secciones de carro como tarjetas individuales
      */
-    public static function renderCarroSections($color = '#EFEFEF', $valoresExistentes = null)
+    public static function renderCarroSections($valoresExistentes = null)
     {
         $preguntas = self::getPreguntasCarro();
         $html = '';
 
         foreach ($preguntas as $seccion) {
-            $opciones = [
-                ['value' => '1', 'label' => 'B'],
-                ['value' => '2', 'label' => 'M'],
-                ['value' => '3', 'label' => 'N.A']
-            ];
-            $html .= self::renderSeccionPreguntas(
+            $subsectionCss = isset($seccion['subsection_css']) ? $seccion['subsection_css'] : '';
+            $html .= self::renderSubsectionCard(
                 $seccion['titulo'],
                 $seccion['preguntas'],
-                $color,
-                $opciones,
-                'default',
-                $valoresExistentes
+                $subsectionCss,
+                $valoresExistentes,
+                [
+                    ['value' => '1', 'label' => 'B'],
+                    ['value' => '2', 'label' => 'M'],
+                    ['value' => '3', 'label' => 'N.A']
+                ]
             );
         }
 
-        // Mensaje de advertencia
-        $html .= '<tr bgcolor="#868A08" class="tittle3"><td colspan="4">SI alguno de estos puntos tiene al menos como respuesta un SI, el trabajador debe de manera inmediata dar aviso de sus condciones al Jefe de operaciones de la empresa TRANSMILLAS EMPRESA DE CARGA Y LOGISTICA.</td></tr>';
+        $html .= '<div class="preop-card warning-card">';
+        $html .= '<div class="preop-card-header">⚠️ AVISO IMPORTANTE</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<p style="margin:0;font-size:14px;">SI alguno de estos puntos tiene al menos como respuesta un SI, el trabajador debe de manera inmediata dar aviso de sus condiciones al Jefe de operaciones de la empresa TRANSMILLAS EMPRESA DE CARGA Y LOGISTICA.</p>';
+        $html .= '</div></div>';
 
         return $html;
     }
 
     /**
-     * Renderiza la sección de fatiga
-     *
-     * @param string $color Color de fondo
-     * @param array|null $valoresExistentes Valores existentes para marcar como checked
-     * @return string HTML generado
+     * Renderiza tarjeta de fatiga
      */
-    public static function renderFatigaSection($color = '#EFEFEF', $valoresExistentes = null)
+    public static function renderFatigaCard($valoresExistentes = null)
     {
         $preguntas = self::getPreguntasFatiga();
-        $opciones = [
-            ['value' => '1', 'label' => 'SI'],
-            ['value' => '2', 'label' => 'NO']
-        ];
-
-        $html = '<tr bgcolor="#074F91" class="tittle3">';
-        $html .= '<td colspan="2" align="center">CHECK LIST FATIGA</td>';
-        $html .= '<td>SI</td><td>NO</td>';
-        $html .= '</tr>';
+        $html = '<div class="preop-card subsection-entorno">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-bed"></i> CHECK LIST FATIGA</div>';
+        $html .= '<div class="preop-card-body">';
 
         foreach ($preguntas as $preg) {
             $name = $preg[0];
             $texto = $preg[1];
             $valorExistente = $valoresExistentes[$name] ?? null;
 
-            $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>\n";
-            $html .= "    <td colspan='2'>{$texto}</td>\n";
-            foreach ($opciones as $opcion) {
-                $checked = ($valorExistente == $opcion['value']) ? 'checked' : '';
-                $html .= "    <td><input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} required></td>\n";
+            $html .= '<div class="question-item" id="' . $name . '0">';
+            $html .= '<div class="question-text">' . htmlspecialchars($texto) . '</div>';
+            $html .= '<div class="question-options">';
+            // SI
+            $html .= '<label class="radio-label">';
+            $html .= '<input type="radio" name="' . $name . '" class="obtener" value="1" ' . ($valorExistente == '1' ? 'checked' : '') . ' required>';
+            $html .= '<span class="radio-text">SI</span></label>';
+            // NO
+            $html .= '<label class="radio-label">';
+            $html .= '<input type="radio" name="' . $name . '" class="obtener" value="2" ' . ($valorExistente == '2' ? 'checked' : '') . '>';
+            $html .= '<span class="radio-text">NO</span></label>';
+            $html .= '</div></div>';
+        }
+
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    /**
+     * Renderiza tarjetas de implementos de trabajo
+     */
+    public static function renderImplementosCards($valoresExistentes = null, $ultimaLimpieza = null)
+    {
+        $implementos = self::getImplementosTrabajo();
+        $html = '';
+
+        foreach ($implementos as $key => $seccion) {
+            $subsectionCss = isset($seccion['subsection_css']) ? $seccion['subsection_css'] : '';
+
+            $html .= '<div class="preop-card ' . $subsectionCss . '">';
+            $html .= '<div class="preop-card-header">' . $seccion['titulo'] . '</div>';
+            $html .= '<div class="preop-card-body">';
+
+            foreach ($seccion['preguntas'] as $preg) {
+                $name = $preg[0];
+                $texto = $preg[1];
+                $html .= self::renderRadioQuestionItem($name, $texto, $valoresExistentes, [
+                    ['value' => '1', 'label' => 'SI'],
+                    ['value' => '2', 'label' => 'NO']
+                ]);
             }
-            $html .= "</tr>\n";
+
+            // Campo de última limpieza para maleta
+            if ($key === 'maleta' && $ultimaLimpieza !== null) {
+                $html .= '<div class="question-item" id="maleta">';
+                $html .= '<div class="question-text">Ultima vez que desinfecto la maleta:</div>';
+                $html .= '<div style="flex:1;min-width:200px;">';
+                $html .= '<input name="param21" id="param21" value="' . htmlspecialchars($ultimaLimpieza) . '" class="form-input">';
+                $html .= '</div></div>';
+            }
+
+            $html .= '</div></div>';
         }
 
         return $html;
     }
 
     /**
-     * Renderiza la sección de implementos de trabajo
-     *
-     * @param string $color Color de fondo
-     * @param string|null $ultimaLimpieza Valor de última limpieza de maleta
-     * @param array|null $valoresExistentes Valores existentes para marcar como checked
-     * @return string HTML generado
+     * Tarjeta de validación para formato legado
      */
-    public static function renderImplementosTrabajo($color = '#EFEFEF', $ultimaLimpieza = null, $valoresExistentes = null)
+    public static function renderValidacionLegadoCard($registroExistente)
     {
-        $implementos = self::getImplementosTrabajo();
-        $html = '';
-
-        foreach ($implementos as $seccion) {
-            $opciones = [
-                ['value' => '1', 'label' => 'SI'],
-                ['value' => '2', 'label' => 'NO']
-            ];
-
-            // Header especial para maleta con colspan diferente
-            if ($seccion['titulo'] === 'MALETA') {
-                $html .= '<tr bgcolor="#074F91" class="tittle3"><td colspan="2" width="4" align="center">MALETA</td><td colspan="1" width="4" align="center">SI</td><td colspan="1" width="4" align="center">NO</td></tr>';
-
-                foreach ($seccion['preguntas'] as $preg) {
-                    $name = $preg[0];
-                    $texto = $preg[1];
-                    $valorExistente = $valoresExistentes[$name] ?? null;
-
-                    $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>";
-                    $html .= "<td colspan='2'>{$texto}</td>";
-                    foreach ($opciones as $opcion) {
-                        $checked = ($valorExistente == $opcion['value']) ? 'checked' : '';
-                        $html .= "<td><input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} required></td>";
-                    }
-                    $html .= "</tr>";
-                }
-
-                // Campo de última limpieza
-                if ($ultimaLimpieza !== null) {
-                    $html .= "<tr bgcolor='{$color}' class='text' id='maleta'>";
-                    $html .= "<td colspan='4'>Ultima vez que desinfecto la maleta:";
-                    $html .= "<input name='param21' id='param21' value='" . htmlspecialchars($ultimaLimpieza) . "' style='width:395px' class='text'></td></tr>";
-                }
-            } else {
-                $html .= '<tr bgcolor="#074F91" class="tittle3">';
-                $html .= '<td colspan="2" width="4" align="center">' . $seccion['titulo'] . '</td>';
-                $html .= '<td colspan="1" width="4" align="center">SI</td>';
-                $html .= '<td colspan="1" width="4" align="center">NO</td>';
-                $html .= '</tr>';
-
-                foreach ($seccion['preguntas'] as $preg) {
-                    $name = $preg[0];
-                    $texto = $preg[1];
-                    $valorExistente = $valoresExistentes[$name] ?? null;
-
-                    $html .= "<tr bgcolor='{$color}' class='text' id='{$name}0'>";
-                    $html .= "<td colspan='2'>{$texto}</td>";
-                    foreach ($opciones as $opcion) {
-                        $checked = ($valorExistente == $opcion['value']) ? 'checked' : '';
-                        $html .= "<td><input type='radio' name='{$name}' class='obtener' value='{$opcion['value']}' {$checked} required></td>";
-                    }
-                    $html .= "</tr>";
-                }
-            }
-        }
-
+        $html = '<div class="preop-card validation-card">';
+        $html .= '<div class="preop-card-header"><i class="fas fa-clipboard-check"></i> VALIDA PREOPERACIONAL Y COVID 19</div>';
+        $html .= '<div class="preop-card-body">';
+        $html .= '<textarea name="param10" id="param10" class="form-textarea" placeholder="Descripción de la validación...">' . htmlspecialchars($registroExistente['pre_descvalidada'] ?? '') . '</textarea>';
+        $html .= '</div></div>';
         return $html;
     }
 }
