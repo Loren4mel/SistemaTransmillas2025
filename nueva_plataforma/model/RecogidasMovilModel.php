@@ -485,6 +485,17 @@ class RecogidasMovilModel {
 
                     $metodo_pago  = $data['metodo_pago']  ?? '';
 
+                    if (in_array($metodo_pago, ['DV', 'NQ'], true) && (
+                        !$param40
+                        || !isset($param40['tmp_name'])
+                        || !is_uploaded_file($param40['tmp_name'])
+                    )) {
+                        return [
+                            'ok' => false,
+                            'mensaje' => 'Debe adjuntar la imagen de la transaccion para Davivienda o Bancolombia.'
+                        ];
+                    }
+
 
                     
 
@@ -875,6 +886,12 @@ class RecogidasMovilModel {
                         $fotoTrans = "";
                         if ($param40 && isset($param40['tmp_name']) && is_uploaded_file($param40['tmp_name'])) {
                             $fotoTrans = $this->uploadFile($param40, __DIR__ . "/../../img_transacciones/");
+                            if ($fotoTrans === false || $fotoTrans === "") {
+                                return [
+                                    'ok' => false,
+                                    'mensaje' => 'No se pudo guardar la imagen de la transaccion.'
+                                ];
+                            }
                         }
 
                         if ($metodo_pago=="DV") {
@@ -1402,22 +1419,15 @@ class RecogidasMovilModel {
                 $telefono = ($resTel->num_rows > 0) ? $resTel->fetch_assoc()['telefono'] : null;
 
                 // 🔎 Obtener número de guía desde servicios
-                $sqlGuia = "SELECT ser_consecutivo,ser_telefonocontacto FROM servicios WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo FROM servicios WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
                 $resGuia = $stmtGuia->get_result();
-                $rowGuia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc() : null;
-                $numguia = $rowGuia['ser_consecutivo'] ?? null;
-                $numDestinatario = $rowGuia['ser_telefonocontacto'] ?? null;
+                $numguia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc()['ser_consecutivo'] : null;
 
-                if (!empty($telefono) && !empty($numguia)) {
-                    $this->enviarGuiaWhat($telefono, 42, $numguia . "R");
-                }
-                if (!empty($numDestinatario) && !empty($numguia)) {
-                    $this->enviarGuiaWhat($numDestinatario, 42, $numguia . "R");
-                }
 
+                $this->enviarGuiaWhat( $telefono, 42, $numguia."R");
 
                 file_put_contents($logFile, "✅ Firma actualizada correctamente\n", FILE_APPEND);
                 return true;
@@ -1448,22 +1458,13 @@ class RecogidasMovilModel {
                 $telefono = ($resTel->num_rows > 0) ? $resTel->fetch_assoc()['telefono'] : null;
 
                 // 🔎 Obtener número de guía desde servicios
-                $sqlGuia = "SELECT ser_consecutivo,ser_telefonocontacto FROM servicios WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo FROM servicios WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
                 $resGuia = $stmtGuia->get_result();
-                $rowGuia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc() : null;
-                $numguia = $rowGuia['ser_consecutivo'] ?? null;
-                $numDestinatario = $rowGuia['ser_telefonocontacto'] ?? null;
-
-                if (!empty($telefono) && !empty($numguia)) {
-                    $this->enviarGuiaWhat($telefono, 42, $numguia . "R");
-                }
-                if (!empty($numDestinatario) && !empty($numguia)) {
-                    $this->enviarGuiaWhat($numDestinatario, 42, $numguia . "R");
-                }
-
+                $numguia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc()['ser_consecutivo'] : null;
+                $this->enviarGuiaWhat( $telefono, 42, $numguia."R");
                 file_put_contents($logFile, "✅ Firma insertada correctamente\n", FILE_APPEND);
                 return true;
             }

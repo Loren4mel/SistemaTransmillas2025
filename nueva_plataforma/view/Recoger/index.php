@@ -252,6 +252,9 @@ $idServicio = isset($_GET['idServicio']) ? (int)$_GET['idServicio'] : 0;
                 </div>
               </div>
               <input type="file" id="param40" name="param40" class="form-control" accept="image/*" />
+              <div id="ayuda_param40" class="form-text" style="display:none;">
+                Obligatoria para pagos por Davivienda o Bancolombia.
+              </div>
             </div>
           </div>
         </div>

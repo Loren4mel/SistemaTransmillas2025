@@ -10,8 +10,9 @@ class RecogerEnOficinaModel {
     }
 
     public function obtenerCiudadesRemitente($id_sedes,$nivel_acceso) {
+        $cond = "";
         if($nivel_acceso!=1){
-            $cond = " WHERE inner_sedes='$id_sedes' and inner_estados=1";
+            $cond = " WHERE inner_sedes='" . (int)$id_sedes . "' and inner_estados=1";
         }
         
         $sql = "SELECT `idciudades`, `ciu_nombre` FROM `ciudades`  $cond";
@@ -494,6 +495,18 @@ class RecogerEnOficinaModel {
                     $id_param0 = (int)($data['id_param0'] ?? 0);  // idclientesdir destinatario
 
                     $metodo_pago  = $data['metodo_pago']  ?? '';
+
+                    if (in_array($metodo_pago, ['DV', 'NQ'], true) && (
+                        !$param40 ||
+                        !isset($param40['tmp_name']) ||
+                        !is_uploaded_file($param40['tmp_name']) ||
+                        (($param40['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK)
+                    )) {
+                        return [
+                            'ok' => false,
+                            'mensaje' => 'Debe adjuntar la imagen de la transaccion para Davivienda o Bancolombia.'
+                        ];
+                    }
 
 
                     

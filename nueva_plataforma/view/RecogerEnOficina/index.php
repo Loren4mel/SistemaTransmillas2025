@@ -320,7 +320,10 @@ $endpointRecogida = $endpointRecogida ?? '../controller/RecogerEnOficinaControll
 
             <div class="col-12 col-md-6">
                 <label>Imagen transacción</label>
-                <input type="file" id="imagen_transaccion" name="imagen_transaccion" class="form-control">
+                <input type="file" id="imagen_transaccion" name="imagen_transaccion" class="form-control" accept="image/*">
+                <div id="ayuda_imagen_transaccion" class="form-text text-danger d-none">
+                  Obligatoria para pagos por Davivienda o Bancolombia.
+                </div>
             </div>
             </div>
 

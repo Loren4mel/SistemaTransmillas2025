@@ -178,8 +178,25 @@ class EntregarModel {
         } else {
             $tipopago = 0;
             $cuenta = "";
+            $namePago = "";
             $tranf = "";
             $this->logEntrega("Método pago: CONTADO");
+        }
+
+        $requiereImgTransaccion = (
+            in_array((int)$tipopago, [2, 4], true)
+            ||
+            stripos($namePago, "DAVIVIENDA") !== false
+            || stripos($namePago, "BANCOLOMBIA") !== false
+        );
+
+        if ($requiereImgTransaccion && (
+            !isset($files["img_transaccion"])
+            || !is_array($files["img_transaccion"])
+            || ($files["img_transaccion"]["error"] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
+        )) {
+            $this->logEntrega("ERROR: Falta imagen de transaccion para metodo bancario: $namePago");
+            return ["ok" => false, "msg" => "Debe adjuntar la imagen de la transaccion para Davivienda o Bancolombia."];
         }
 
         /* ===============================
@@ -289,6 +306,11 @@ class EntregarModel {
 
                 $imgTrans = $this->guardarImagen($files["img_transaccion"], "./../../img_transacciones/");
 
+                if ($requiereImgTransaccion && $imgTrans === "") {
+                    $this->logEntrega("ERROR: Imagen de transaccion invalida para metodo bancario: $namePago");
+                    return ["ok" => false, "msg" => "La imagen de la transaccion debe ser JPG o PNG."];
+                }
+
                 $this->query("DELETE FROM pagoscuentas WHERE pag_idservicio='$idservicio'");
                 $this->logEntrega("Pagos anteriores eliminados.");
 
@@ -309,6 +331,10 @@ class EntregarModel {
 
             if ($tipopago > 1) {
                 $imgTrans = $this->guardarImagen($files["img_transaccion"], "./../../img_transacciones/");
+                if ($requiereImgTransaccion && $imgTrans === "") {
+                    $this->logEntrega("ERROR: Imagen de transaccion invalida para metodo bancario: $namePago");
+                    return ["ok" => false, "msg" => "La imagen de la transaccion debe ser JPG o PNG."];
+                }
                 $this->logEntrega("Foto de transacción guardada: $imgTrans");
 
                 $this->query("DELETE FROM pagoscuentas WHERE pag_idservicio='$idservicio'");

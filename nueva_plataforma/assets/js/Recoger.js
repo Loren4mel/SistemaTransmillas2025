@@ -61,6 +61,34 @@ function actualizarImagenPagoDesdeMetodo() {
   } else {
     ocultarImagenPago();
   }
+
+  actualizarRequeridoImagenTransaccion();
+}
+
+function metodoPagoRequiereTransaccion() {
+  const select = document.getElementById('param30');
+  if (!select) return false;
+
+  const valor = (select.value || '').toUpperCase();
+  const texto = (select.options[select.selectedIndex]?.text || '').toUpperCase();
+  const idMetodo = valor.split('|')[0];
+
+  return idMetodo === '2' || idMetodo === '4' || texto.includes('DAVIVIENDA') || texto.includes('BANCOLOMBIA') || valor.includes('DAVIVIENDA') || valor.includes('BANCOLOMBIA');
+}
+
+function actualizarRequeridoImagenTransaccion() {
+  const bloqueContado = document.getElementById('bloqueContado');
+  const input = document.getElementById('param40');
+  const ayuda = document.getElementById('ayuda_param40');
+  const requiere = !!bloqueContado && bloqueContado.style.display !== 'none' && metodoPagoRequiereTransaccion();
+
+  if (!input) return requiere;
+
+  input.required = requiere;
+  input.classList.remove('is-invalid');
+  if (ayuda) ayuda.style.display = requiere ? 'block' : 'none';
+
+  return requiere;
 }
 
 function actualizarBloqueContado() {
@@ -75,6 +103,7 @@ function actualizarBloqueContado() {
   } else {
     bloque.style.display = 'none';
     campo.removeAttribute('required');            // deja de ser obligatorio
+    document.getElementById('param40').value = '';
     ocultarImagenPago();
   }
 
@@ -87,6 +116,8 @@ function actualizarBloqueContado() {
   if (tipo !== 1) {
     campo.removeAttribute('required');
   }
+
+  actualizarRequeridoImagenTransaccion();
 }
 
 document.getElementById('param8').addEventListener('change', actualizarBloqueContado);
@@ -503,6 +534,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if (metodoPago) {
     metodoPago.addEventListener('change', actualizarImagenPagoDesdeMetodo);
   }
+
+  const imagenTransaccion = document.getElementById('param40');
+  if (imagenTransaccion) {
+    imagenTransaccion.addEventListener('change', function () {
+      this.classList.remove('is-invalid');
+    });
+  }
 });
 
 // Obtener la hora actual en formato HH:MM
@@ -761,6 +799,18 @@ async function calcularValorAutomatico() {
       if (!validarNombreCompleto()) {
         alert('Verifique el nombre de quien entrega.');
         $('#param82').focus();
+        return;
+      }
+
+      const imagenTransaccion = document.getElementById('param40');
+      if (actualizarRequeridoImagenTransaccion() && (!imagenTransaccion.files || imagenTransaccion.files.length === 0)) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Falta imagen',
+          text: 'Debe adjuntar la imagen de la transaccion para Davivienda o Bancolombia.',
+        });
+        imagenTransaccion.classList.add('is-invalid');
+        imagenTransaccion.focus();
         return;
       }
 

@@ -3,6 +3,11 @@
  require_once "../model/RecogidasMovilModel.php";
 
 $modelo = new RecogidasMovilModel();
+file_put_contents(
+    __DIR__ . 'logs/debug_controller.log',
+    "[" . date('Y-m-d H:i:s') . "] POST=" . json_encode($_POST) . PHP_EOL,
+    FILE_APPEND
+);
 $isAjax = isset($_POST['accion']);
 
 if ($isAjax && ($_POST['accion'] ?? '') === 'guardarRecogida') {
@@ -149,7 +154,7 @@ if ($isAjax && $_POST['accion'] === 'calcularValorTotal') {
     // ===============================
     // LOG DE ARRANQUE
     // ===============================
-    $rutaLog = 'php://temp';
+    $rutaLog = __DIR__ . "/log_calculos.txt";
     $fecha = date("[Y-m-d H:i:s] ");
     file_put_contents($rutaLog, $fecha . "---- INICIO REQUEST calcularValorTotal ----" . PHP_EOL, FILE_APPEND);
     file_put_contents($rutaLog, $fecha . "POST: " . json_encode($_POST) . PHP_EOL, FILE_APPEND);
@@ -419,7 +424,6 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'consultarEstadoFirma') {
 
 function logController(string $mensaje, array $contexto = [])
 {
-    return;
     $logDir  = __DIR__ . 'logs';
     $logFile = $logDir . '/controller_' . date('Y-m-d') . '.log';
 
@@ -443,8 +447,8 @@ if (!$isAjax) {
     $sede               = $session['usu_idsede']     ?? null;
     $acceso             = $session['usuario_rol']    ?? null;
 
+    $ciudadesR = $modelo->obtenerCiudadesRemitente($sede,$acceso);
     $ciudades = $modelo->obtenerCiudades();
-    $ciudadesR = $ciudades;
     
     $direcciones = $modelo->obtenerDirecciones();
     $lugares = $modelo->obtenerLugar();

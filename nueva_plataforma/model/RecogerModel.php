@@ -695,6 +695,21 @@ class RecogerModel
 
         $this->logRecogido("Método de pago parseado: tipopago=$tipopago, cuenta=$cuenta, namepago=$namepago, estadop=$estadop");
 
+        $requiereImgTransaccion = (
+            in_array((int)$tipopago, [2, 4], true)
+            || stripos($namepago, 'DAVIVIENDA') !== false
+            || stripos($namepago, 'BANCOLOMBIA') !== false
+        );
+
+        if ($param8 == 1 && $requiereImgTransaccion && (
+            !isset($FILES['param40'])
+            || !is_array($FILES['param40'])
+            || ($FILES['param40']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
+        )) {
+            $this->logRecogido("ERROR: Falta imagen de transaccion para metodo bancario: $namepago");
+            throw new Exception("Debe adjuntar la imagen de la transaccion para Davivienda o Bancolombia.");
+        }
+
         // =========================
         // Insert en cuentaspromotor
         // =========================
@@ -749,6 +764,10 @@ class RecogerModel
             $img_transaccion = "";
             if (isset($FILES['param40']) && $FILES['param40']['error'] === UPLOAD_ERR_OK) {
                 $img_transaccion = $this->guardarImagen($FILES['param40'], "./../../img_transacciones");
+                if ($requiereImgTransaccion && $img_transaccion === "") {
+                    $this->logRecogido("ERROR: Imagen de transaccion invalida para metodo bancario: $namepago");
+                    throw new Exception("La imagen de la transaccion debe ser JPG o PNG.");
+                }
                 $this->logRecogido("Imagen de transacción guardada: $img_transaccion");
             } else {
                 $this->logRecogido("No llegó imagen de transacción para param40.");

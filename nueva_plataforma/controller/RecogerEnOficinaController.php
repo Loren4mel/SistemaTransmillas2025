@@ -450,8 +450,8 @@ if (!$isAjax) {
     $tituloRecogida = 'Registro de Recogida en Oficina';
     $endpointRecogida = '../controller/RecogerEnOficinaController.php';
 
+    $ciudadesR = $modelo->obtenerCiudadesRemitente($sede, $acceso);
     $ciudades = $modelo->obtenerCiudades();
-    $ciudadesR = $ciudades;
     
     $direcciones = $modelo->obtenerDirecciones();
     $lugares = $modelo->obtenerLugar();

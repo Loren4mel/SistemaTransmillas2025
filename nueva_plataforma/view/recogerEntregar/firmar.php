@@ -240,6 +240,7 @@ document.getElementById('guardarFirma').addEventListener('click', async () => {
   formData.append('accion', accion);
   formData.append('idServicio', idServicio);
   formData.append('firma', dataURL);
+  formData.append('origenFirma', selloBase64 ? 'sello' : 'firma');
 
   try {
     const res = await fetch('/nueva_plataforma/controller/recogerEntregarController.php', { 
