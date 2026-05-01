@@ -199,7 +199,7 @@ class PreoperacionalService
         $fileKey = isset($files['imagen_kilometraje']) ? 'imagen_kilometraje' : 'param30';
         if (isset($files[$fileKey]) && $files[$fileKey]['error'] === UPLOAD_ERR_OK) {
             $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $files[$fileKey]['name'];
-            $rutaBase = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'preoperacional' . DIRECTORY_SEPARATOR;
+            $rutaBase = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
             $ruta = $rutaBase . $nombreArchivo;
 
             if (move_uploaded_file($files[$fileKey]['tmp_name'], $ruta)) {

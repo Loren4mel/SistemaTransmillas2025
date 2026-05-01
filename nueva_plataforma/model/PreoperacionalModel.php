@@ -305,6 +305,15 @@ class PreoperacionalModel
     // ==================== GESTIÓN DE IMÁGENES ====================
 
     /**
+     * Obtiene la ruta base para almacenar imágenes de preoperacional.
+     */
+    private function getUploadPath(): string
+    {
+        return __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..'
+             . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
+    }
+
+    /**
      * Guarda una imagen asociada al preoperacional
      *
      * @param array $file Archivo subido ($_FILES)
@@ -320,7 +329,7 @@ class PreoperacionalModel
         }
 
         $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $file['name'];
-        $rutaBase = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
+        $rutaBase = $this->getUploadPath();
         $ruta = $rutaBase . $nombreArchivo;
 
         if (!is_dir($rutaBase)) {
@@ -365,7 +374,7 @@ class PreoperacionalModel
         }
 
         $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $nombreOriginal;
-        $rutaBase = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
+        $rutaBase = $this->getUploadPath();
         $rutaDestino = $rutaBase . $nombreArchivo;
 
         if (!is_dir($rutaBase)) {
