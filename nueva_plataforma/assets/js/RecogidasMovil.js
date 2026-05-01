@@ -248,6 +248,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!config || !visorImagenPago || !imagenPagoPreview || !tituloImagenPago) {
       ocultarImagenPago();
+      actualizarRequeridoImagenTransaccion();
       return;
     }
 
@@ -255,6 +256,26 @@ document.addEventListener("DOMContentLoaded", function () {
     imagenPagoPreview.src = config.src;
     imagenPagoPreview.alt = config.titulo;
     visorImagenPago.classList.remove("d-none");
+    actualizarRequeridoImagenTransaccion();
+  }
+
+  function metodoPagoRequiereTransaccion() {
+    const valor = metodoPago?.value || "";
+    return valor === "DV" || valor === "NQ";
+  }
+
+  function actualizarRequeridoImagenTransaccion() {
+    const input = document.getElementById("imagen_transaccion");
+    const ayuda = document.getElementById("ayuda_imagen_transaccion");
+    const requiere = !bloqueContado?.classList.contains("d-none") && metodoPagoRequiereTransaccion();
+
+    if (!input) return requiere;
+
+    input.required = requiere;
+    input.classList.remove("is-invalid");
+    ayuda?.classList.toggle("d-none", !requiere);
+
+    return requiere;
   }
 
   function manejarTipoPago() {
@@ -265,12 +286,18 @@ document.addEventListener("DOMContentLoaded", function () {
     bloqueCredito?.classList.add("d-none");
     ocultarImagenPago();
     if (metodoPago) metodoPago.value = "";
+    const imagenTransaccion = document.getElementById("imagen_transaccion");
+    if (imagenTransaccion) imagenTransaccion.value = "";
 
     if (valor === "1") bloqueContado?.classList.remove("d-none");
     if (valor === "2") bloqueCredito?.classList.remove("d-none");
+    actualizarRequeridoImagenTransaccion();
   }
 
   metodoPago?.addEventListener("change", actualizarImagenPago);
+  document.getElementById("imagen_transaccion")?.addEventListener("change", function () {
+    this.classList.remove("is-invalid");
+  });
 
   /* =========================
      AUTOCOMPLETE REMITENTE
@@ -802,6 +829,18 @@ function enviarFormulario() {
     });
     return; // 🚫 NO ENVÍA EL FORMULARIO
   }
+  const imagenTransaccion = document.getElementById("imagen_transaccion");
+  if (actualizarRequeridoImagenTransaccion() && (!imagenTransaccion.files || imagenTransaccion.files.length === 0)) {
+    Swal.fire({
+      icon: "warning",
+      title: "Falta imagen",
+      text: "Debe adjuntar la imagen de la transaccion para Davivienda o Bancolombia."
+    });
+    imagenTransaccion.classList.add("is-invalid");
+    imagenTransaccion.focus();
+    return;
+  }
+
   mostrarCargando("Guardando información...", "No cierres la ventana");
 
   const form = document.getElementById("form1");
@@ -843,6 +882,7 @@ function enviarFormulario() {
 
     setEstadoFirma("Esperando firma...", "text-warning", "fa-clock");
     modal.show();
+
   })
   .catch(err => {
     cerrarCargando();
