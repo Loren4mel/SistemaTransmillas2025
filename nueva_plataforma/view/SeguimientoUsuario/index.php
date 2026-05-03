@@ -81,14 +81,38 @@
         }
 
         .noti_options {
-            position: absolute;
             background-color: white;
             border: 1px solid #ccc;
             border-radius: 5px;
             box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
             padding: 10px;
-            margin-top: 5px;
-            z-index: 1000;
+        }
+
+        .alerta-wrapper {
+            display: inline-block;
+            padding: 8px 10px;
+            margin: -6px -4px;
+            cursor: default;
+        }
+
+        .alerta-dropdown {
+            display: none;
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.25);
+            padding: 10px 14px;
+            left: 0;
+            top: 100%;
+            margin-top: 4px;
+            min-width: 320px;
+            white-space: nowrap;
+        }
+
+        /* Evitar que la celda de la tabla recorte el dropdown */
+        #tablaSeguimiento td {
+            overflow: visible !important;
         }
 
         .warning-dot {

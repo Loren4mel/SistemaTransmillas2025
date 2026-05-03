@@ -1,272 +1,187 @@
 /**
- * Seguimiento de Usuarios - Lógica de la interfaz de seguimiento
+ * Seguimiento de Usuarios - Logica de la interfaz de seguimiento
  *
  * Maneja DataTable, filtros, modales, Select2, y operaciones AJAX
- * Última modificación: 2026-04-20 - Agregado sistema de notificaciones toast
  */
-
 (function () {
     'use strict';
 
     // Variables globales accesibles desde el HTML
-    const dirPage = window.dirPage || window.location.pathname;
-    const hasDeletePermission = window.hasDeletePermission || false;
+    var dirPage = window.dirPage || window.location.pathname;
+    var hasDeletePermission = window.hasDeletePermission || false;
     $.fn.dataTable.ext.errMode = 'none';
 
-    // --- Variables de estado interno ---
-    let tabla; // DataTable instance
-    let refreshTimer; // Timer para auto-refresh
+    // --- Estado interno ---
+    var tabla;
+    var refreshTimer;
 
-    // --- Funciones auxiliares reutilizables ---
-    function mostrarError(mensaje) {
-        Swal.fire({
-            title: 'Error',
-            text: mensaje,
-            icon: 'error',
-            confirmButtonText: 'Aceptar'
-        });
-        console.error(mensaje);
+    // ==================== HELPERS REUTILIZABLES ====================
+
+    /** Select2 defaults — evita 5 copias identicas del mismo config */
+    function getSelect2Defaults(placeholder) {
+        return {
+            placeholder: placeholder || 'Seleccione',
+            allowClear: true,
+            width: '100%',
+            dropdownParent: null, // se asigna por instancia
+            dropdownCssClass: 'select2-large-dropdown',
+            dropdownAutoWidth: true,
+            dropdownCss: { 'max-height': '70vh', 'min-height': '200px', 'overflow': 'hidden' }
+        };
     }
 
-    function mostrarExito(mensaje) {
-        const container = document.getElementById('toastContainer');
-        if (!container) {
-            console.warn('Contenedor de toasts no encontrado');
-            return;
+    /** Inicializa Select2 sobre un <select> con los defaults del proyecto */
+    function initSelect2($select, placeholder) {
+        if (!$select.length) return;
+        if ($select.data('select2')) {
+            $select.select2('destroy');
         }
-        // Asegurar estilos del contenedor
-        container.style.cssText = 'position: fixed !important; top: 20px !important; right: 20px !important; z-index: 99999 !important; max-width: 350px !important; display: block !important;';
+        var opts = getSelect2Defaults(placeholder);
+        opts.dropdownParent = $select.closest('.modal');
+        $select.select2(opts);
+    }
 
-        const toast = document.createElement('div');
+    /** Toast de exito (usa clases CSS, no inline styles) */
+    function mostrarExito(mensaje) {
+        var container = document.getElementById('toastContainer');
+        if (!container) return;
+        container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 99999; max-width: 350px; display: block;';
+
+        var toast = document.createElement('div');
         toast.className = 'toast-notification';
-        toast.style.cssText = 'background-color: #d4edda !important; border-color: #c3e6cb !important; color: #155724 !important; border-radius: 0.25rem !important; padding: 1rem !important; margin-bottom: 1rem !important; display: flex !important; align-items: center !important; justify-content: space-between !important; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15) !important; position: relative !important;';
-        toast.innerHTML = `
-            <div class="toast-notification-content">${mensaje}</div>
-            <button type="button" class="toast-notification-close" aria-label="Cerrar" style="background: none !important; border: none !important; color: #155724 !important; font-size: 1.5rem !important; cursor: pointer !important; line-height: 1 !important; padding: 0 !important; width: 24px !important; height: 24px !important; display: flex !important; align-items: center !important; justify-content: center !important; position: relative !important; z-index: 999999 !important; flex-shrink: 0 !important;">&times;</button>
-        `;
+        toast.innerHTML =
+            '<div class="toast-notification-content">' + mensaje + '</div>' +
+            '<button type="button" class="toast-notification-close" aria-label="Cerrar">&times;</button>';
 
         container.appendChild(toast);
 
-        // Configurar cierre manual
-        const closeBtn = toast.querySelector('.toast-notification-close');
-        closeBtn.addEventListener('click', function(e) {
+        function removeToast() {
+            toast.classList.add('fade-out');
+            setTimeout(function () {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 500);
+        }
+
+        toast.querySelector('.toast-notification-close').addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            toast.classList.add('fade-out');
-            setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.parentNode.removeChild(toast);
-                }
-            }, 500);
+            removeToast();
         });
 
-        // Auto-remover después de 5 segundos
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.classList.add('fade-out');
-                setTimeout(() => {
-                    if (toast.parentNode) {
-                        toast.parentNode.removeChild(toast);
-                    }
-                }, 500);
+        setTimeout(removeToast, 5000);
+    }
+
+    function mostrarError(mensaje) {
+        Swal.fire({ title: 'Error', text: mensaje, icon: 'error', confirmButtonText: 'Aceptar' });
+    }
+
+    /** Carga contenido AJAX en un modal — elimina 4 copias del mismo patron */
+    function cargarModalBody(modalSelector, bodySelector, tipo, extraData, onDone) {
+        $(modalSelector).on('show.bs.modal', function () {
+            $(bodySelector).html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
+            $.get(dirPage, $.extend({ accion: 'form_popup', tipo: tipo }, extraData || {}))
+                .done(function (html) {
+                    $(bodySelector).html(html);
+                    if (onDone) setTimeout(onDone, 50);
+                })
+                .fail(function () {
+                    $(bodySelector).html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
+                });
+        });
+    }
+
+    /** Envio AJAX unificado para formularios (serialize y FormData) */
+    function enviarForm($form, opciones) {
+        var defaults = {
+            url: dirPage,
+            dataType: 'json',
+            onSuccess: function () {}
+        };
+        var opt = $.extend({}, defaults, opciones);
+        var usaFormData = opt.formData === true;
+        var data = usaFormData ? new FormData($form[0]) : $form.serialize();
+
+        $.ajax({
+            url: opt.url,
+            type: 'POST',
+            data: data,
+            processData: !usaFormData,
+            contentType: usaFormData ? false : 'application/x-www-form-urlencoded; charset=UTF-8',
+            dataType: opt.dataType,
+            success: function (res) {
+                if (res.success) {
+                    if (opt.modalId) $(opt.modalId).modal('hide');
+                    if (tabla) tabla.ajax.reload();
+                    if (res.message) mostrarExito(res.message);
+                    if (opt.onSuccess) opt.onSuccess(res);
+                } else {
+                    mostrarError(res.message || 'Error al guardar');
+                }
+            },
+            error: function () {
+                mostrarError('Error de comunicacion con el servidor');
             }
-        }, 5000);
-    }
-
-    function eliminarRegistro(id, accion) {
-        // Verificar que la acción sea borraseguser (por compatibilidad)
-        if (accion !== 'borraseguser') {
-            mostrarError('Acción de eliminación no reconocida');
-            return;
-        }
-        // Obtener detalles para mostrar
-        $.get(dirPage, { accion: 'get_detalles_eliminar', id_combinado: id }, function (detalles) {
-            // Construir mensaje de confirmación
-            let mensaje = '<strong>¿Está seguro de eliminar el siguiente registro?</strong><br><br>';
-            if (detalles.usuario) mensaje += '<b>Operario:</b> ' + detalles.usuario + '<br>';
-            if (detalles.fecha) mensaje += '<b>Fecha:</b> ' + detalles.fecha + '<br>';
-            if (detalles.motivo) mensaje += '<b>Motivo:</b> ' + detalles.motivo + '<br>';
-            mensaje += '<br><small>Esta acción eliminará tanto el registro de seguimiento como el preoperacional asociado.</small>';
-
-            Swal.fire({
-                title: 'Confirmar eliminación',
-                html: mensaje,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Enviar solicitud de eliminación
-                    $.post(dirPage, { accion: 'eliminar_seguimiento', id_combinado: id }, function (res) {
-                        if (res.success) {
-                            // Recargar la tabla
-                            tabla.ajax.reload();
-                            if (res.message) {
-                                mostrarExito(res.message);
-                            }
-                        } else {
-                            mostrarError(res.message || 'Error al eliminar');
-                        }
-                    }, 'json').fail(function () {
-                        mostrarError('Error de comunicación con el servidor');
-                    });
-                }
-            });
-        }).fail(function () {
-            mostrarError('No se pudieron cargar los detalles del registro');
         });
     }
 
-    function cargarOperarios(selectId, sedeId, textoPorDefecto = 'Seleccione') {
+    // ==================== CARGA DE OPERARIOS Y ZONAS ====================
+
+    /** Carga operarios en un <select> (con o sin Select2) */
+    function cargarOperarios(selectId, sedeId, placeholder, useSelect2) {
+        placeholder = placeholder || 'Seleccione';
+        var $select = $(selectId);
+        if (!$select.length) return;
+
         if (!sedeId) {
-            // Si no hay sede, limpiar select
-            $(selectId).html('<option value="">' + textoPorDefecto + '</option>');
+            $select.html('<option value="">' + placeholder + '</option>');
+            if (useSelect2) initSelect2($select, placeholder);
             return;
         }
+
         $.get(dirPage, { accion: 'get_operarios', idsede: sedeId }, function (data) {
-            let options = '<option value="">' + textoPorDefecto + '</option>';
-            data.forEach(op => {
-                options += `<option value="${op.idusuarios}">${op.usu_nombre}</option>`;
-            });
-            $(selectId).html(options);
+            var options = '<option value="">' + placeholder + '</option>';
+            if (Array.isArray(data)) {
+                data.forEach(function (op) {
+                    options += '<option value="' + op.idusuarios + '">' + op.usu_nombre + '</option>';
+                });
+            }
+            $select.html(options);
+            if (useSelect2) initSelect2($select, placeholder);
         }).fail(function () {
             mostrarError('No se pudieron cargar los operarios');
         });
     }
 
-    function cargarZonas(selectId, sedeId) {
+    /** Carga zonas en un <select> (con o sin Select2) */
+    function cargarZonas(selectId, sedeId, placeholder, useSelect2) {
+        placeholder = placeholder || 'Seleccione';
+        var $select = $(selectId);
+        if (!$select.length) return;
+
         if (!sedeId) {
-            $(selectId).html('<option value="">Seleccione</option>');
+            $select.html('<option value="">' + placeholder + '</option>');
+            if (useSelect2) initSelect2($select, placeholder);
             return;
         }
+
         $.get(dirPage, { accion: 'get_zonas', idsede: sedeId }, function (data) {
-            let options = '<option value="">Seleccione</option>';
-            data.forEach(z => {
-                options += `<option value="${z.idzonatrabajo}">${z.zon_nombre}</option>`;
-            });
-            $(selectId).html(options);
+            var options = '<option value="">' + placeholder + '</option>';
+            if (Array.isArray(data)) {
+                data.forEach(function (z) {
+                    options += '<option value="' + z.idzonatrabajo + '">' + z.zon_nombre + '</option>';
+                });
+            }
+            $select.html(options);
+            if (useSelect2) initSelect2($select, placeholder);
         }).fail(function () {
-            mostrarError('No se pudieron cargar las zonas');
+            mostrarError('No se pudieron cargar las zonas de trabajo');
         });
     }
 
-    function guardarForm(formId, modalId, url = dirPage) {
-        let $form = $(formId);
-        let data = $form.serialize();
-        $.post(url, data, function (res) {
-            if (res.success) {
-                $(modalId).modal('hide');
-                tabla.ajax.reload();
-                if (res.message) {
-                    mostrarExito(res.message);
-                }
-            } else {
-                mostrarError(res.message || 'Error al guardar');
-            }
-        }, 'json').fail(function () {
-            mostrarError('Error de comunicación con el servidor');
-        });
-    }
+    // ==================== DATATABLE ====================
 
-    // Función para cargar operarios con Select2
-    function cargarOperariosConSelect2(selector, sede, placeholder = 'Seleccione operario') {
-        let url = sede ? `${dirPage}?accion=get_operarios&idsede=${encodeURIComponent(sede)}` : `${dirPage}?accion=get_all_operarios`;
-
-        $.ajax({
-            url: url,
-            dataType: 'json',
-            success: function (data) {
-                let $select = $(selector);
-                // Limpiar y agregar opción por defecto
-                $select.empty().append('<option value="">' + placeholder + '</option>');
-
-                if (Array.isArray(data)) {
-                    data.forEach(function (op) {
-                        $select.append(`<option value="${op.idusuarios}">${op.usu_nombre}</option>`);
-                    });
-                }
-
-                // Destruir Select2 si ya existe
-                if ($select.data('select2')) {
-                    $select.select2('destroy');
-                }
-
-                // Inicializar Select2
-                $select.select2({
-                    placeholder: placeholder,
-                    allowClear: true,
-                    width: '100%',
-                    dropdownParent: $select.closest('.modal'),
-                    dropdownCssClass: 'select2-large-dropdown',
-                    dropdownAutoWidth: true,
-                    dropdownCss: { 'max-height': '70vh', 'min-height': '200px', 'overflow': 'hidden' }
-                });
-            },
-            error: function (xhr, status, error) {
-                console.error('Error cargando operarios:', status, error);
-                mostrarError('No se pudieron cargar los operarios');
-            }
-        });
-    }
-
-    // Función para cargar zonas con Select2
-    function cargarZonasConSelect2(selector, sedeId, placeholder = 'Seleccione zona') {
-        if (!sedeId) {
-            $(selector).empty().append('<option value="">' + placeholder + '</option>');
-            if ($(selector).data('select2')) {
-                $(selector).select2('destroy');
-            }
-            $(selector).select2({
-                placeholder: placeholder,
-                allowClear: true,
-                width: '100%',
-                dropdownParent: $(selector).closest('.modal'),
-                dropdownCssClass: 'select2-large-dropdown',
-                dropdownAutoWidth: true,
-                dropdownCss: { 'max-height': '70vh', 'min-height': '200px', 'overflow': 'hidden' }
-            });
-            return;
-        }
-
-        $.ajax({
-            url: dirPage,
-            data: { accion: 'get_zonas', idsede: sedeId },
-            dataType: 'json',
-            success: function (data) {
-                let $select = $(selector);
-                $select.empty().append('<option value="">' + placeholder + '</option>');
-                if (Array.isArray(data)) {
-                    data.forEach(z => {
-                        $select.append(`<option value="${z.idzonatrabajo}">${z.zon_nombre}</option>`);
-                    });
-                }
-                // Destruir y reinicializar Select2
-                if ($select.data('select2')) {
-                    $select.select2('destroy');
-                }
-                $select.select2({
-                    placeholder: placeholder,
-                    allowClear: true,
-                    width: '100%',
-                    dropdownParent: $select.closest('.modal'),
-                    dropdownCssClass: 'select2-large-dropdown',
-                    dropdownAutoWidth: true,
-                    dropdownCss: { 'max-height': '70vh', 'min-height': '200px', 'overflow': 'hidden' }
-                });
-            },
-            error: function () {
-                mostrarError('No se pudieron cargar las zonas de trabajo');
-            }
-        });
-    }
-
-    // --- Inicialización DataTable ---
     function initDataTable() {
-        // Definir columnas dinámicamente según permiso de eliminación
-        let columns = [
+        var columns = [
             {
                 data: 'alerta_html',
                 render: function (data, type, row) {
@@ -293,13 +208,12 @@
             { data: 'cambio_aceite_html' }
         ];
 
-        // Agregar columna de eliminar solo si tiene permiso
         if (hasDeletePermission) {
             columns.push({ data: 'eliminar_html' });
         }
 
         tabla = $('#tablaSeguimiento').DataTable({
-            order: [], // sin orden inicial
+            order: [],
             stripeClasses: [],
             processing: true,
             serverSide: true,
@@ -316,12 +230,7 @@
                     d.tipo_contrato = $('#tipo_contrato').val();
                 },
                 error: function (xhr, textStatus, errorThrown) {
-                    console.error('Error AJAX DataTable:', {
-                        status: xhr.status,
-                        textStatus: textStatus,
-                        errorThrown: errorThrown,
-                        responseText: xhr.responseText
-                    });
+                    console.error('Error AJAX DataTable:', { status: xhr.status, textStatus: textStatus, errorThrown: errorThrown, responseText: xhr.responseText });
                     Swal.fire({ title: 'Error', text: 'Error cargando tabla. Revisa consola y logs del servidor.', icon: 'error', confirmButtonText: 'Aceptar' });
                 }
             },
@@ -329,21 +238,17 @@
             columnDefs: [
                 { targets: '_all', className: 'text-center', orderable: false }
             ],
-            createdRow: function (row, data, dataIndex) {
-                // Usar nuevos colores si existen, sino el antiguo row_color
+            createdRow: function (row, data) {
                 var bgColor = data.row_bg_color || data.row_color;
                 var textColor = data.row_text_color;
                 if (bgColor) {
-                    // Aplica el color de fondo a la fila y a todas las celdas
                     $(row).css('background-color', bgColor);
                     $(row).find('td').css('background-color', bgColor);
                 }
-                // Aplicar color de texto si está definido
                 if (textColor) {
                     $(row).css('color', textColor);
                     $(row).find('td').css('color', textColor);
                 } else if (bgColor === '#922B21') {
-                    // Compatibilidad: si el fondo es rojo oscuro antiguo, texto blanco
                     $(row).css('color', 'white');
                     $(row).find('td').css('color', 'white');
                 }
@@ -353,18 +258,16 @@
             fixedHeader: true
         });
 
-        // Auto-refresh cada 10 minutos
         refreshTimer = setInterval(function () {
-            tabla.ajax.reload(null, false); // false para mantener la página actual
+            tabla.ajax.reload(null, false);
         }, 600000);
 
-        // Limpiar timer al salir de la página
         $(window).on('beforeunload', function () {
             clearInterval(refreshTimer);
         });
 
         $('#tablaSeguimiento').on('error.dt', function (e, settings, techNote, message) {
-            console.error('DataTable error.dt:', { techNote, message });
+            console.error('DataTable error.dt:', { techNote: techNote, message: message });
         });
     }
 
@@ -372,22 +275,21 @@
         tabla.ajax.reload();
     }
 
-    // --- Eventos globales (una sola vez) ---
+    // ==================== EVENTOS GLOBALES ====================
+
     function bindEvents() {
-        // Cuando cambia la sede en filtros, actualizar selects de operarios (filtro y modales)
+        // Sede cambia en filtro → actualizar selects de operarios
         $('#sede').on('change', function () {
-            let sede = $(this).val();
-            // Actualizar filtro de operarios
-            cargarOperarios('#operario', sede, 'Todos');
-            // Actualizar selects de modales (si existen en el DOM)
-            cargarOperarios('#ing_operario', sede, 'Seleccione');
-            cargarOperarios('#vac_operario', sede, 'Seleccione');
-            cargarOperarios('#lic_operario', sede, 'Seleccione');
+            var sede = $(this).val();
+            cargarOperarios('#operario', sede, 'Todos', false);
+            cargarOperarios('#ing_operario', sede, 'Seleccione', true);
+            cargarOperarios('#vac_operario', sede, 'Seleccione', true);
+            cargarOperarios('#lic_operario', sede, 'Seleccione', true);
         });
 
-        // Mostrar deuda al seleccionar operario en el filtro
+        // Deuda al seleccionar operario
         $('#operario').on('change', function () {
-            let id = $(this).val();
+            var id = $(this).val();
             if (id) {
                 $.get(dirPage, { accion: 'get_deuda', idoperario: id }, function (res) {
                     $('#miCelda').html('Debe: $ ' + res.deuda).show();
@@ -399,75 +301,32 @@
             }
         });
 
-        // Carga de contenido en modal de ingreso
-        $('#modalIngreso').on('show.bs.modal', function () {
-            $('#ingresoModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
-            $.get(window.location.pathname, { accion: 'form_popup', tipo: 'ingreso_manual' }, function (html) {
-                $('#ingresoModalBody').html(html);
-                // Inicializar Select2 en los campos de operario y zona
-                setTimeout(function () {
-                    let sedeInicial = $('#ing_sede').val();
-                    cargarOperariosConSelect2('#ing_operario', sedeInicial, 'Seleccione operario');
-                    cargarZonasConSelect2('#ing_zona', sedeInicial, 'Seleccione zona');
-                    // Inicializar campo de horas si existe
-                    initHorasFieldPopup();
-                }, 50);
-            }).fail(function () {
-                $('#ingresoModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
-            });
+        // --- Carga de modales principales ---
+        cargarModalBody('#modalIngreso', '#ingresoModalBody', 'ingreso_manual', {}, function () {
+            var sedeInicial = $('#ing_sede').val();
+            cargarOperarios('#ing_operario', sedeInicial, 'Seleccione operario', true);
+            cargarZonas('#ing_zona', sedeInicial, 'Seleccione zona', true);
+            initHorasFieldPopup();
         });
 
-        // Cuando se carga el formulario de ingreso (vía AJAX), delegar eventos
+        cargarModalBody('#modalFestivos', '#festivosModalBody', 'festivos');
+
+        cargarModalBody('#modalVacaciones', '#vacacionesModalBody', 'vacaciones', {}, function () {
+            cargarOperarios('#vac_operario', $('#sede').val(), 'Seleccione operario', true);
+        });
+
+        cargarModalBody('#modalLicencias', '#licenciasModalBody', 'licencias', {}, function () {
+            cargarOperarios('#lic_operario', $('#sede').val(), 'Seleccione operario', true);
+        });
+
+        // Select2 cambia con sede en modal de ingreso manual
         $(document).on('change', '#ing_sede', function () {
-            let sede = $(this).val();
-            cargarOperariosConSelect2('#ing_operario', sede, 'Seleccione operario');
-            cargarZonasConSelect2('#ing_zona', sede, 'Seleccione zona');
+            var sede = $(this).val();
+            cargarOperarios('#ing_operario', sede, 'Seleccione operario', true);
+            cargarZonas('#ing_zona', sede, 'Seleccione zona', true);
         });
 
-        // Carga de operarios en modales de vacaciones y licencias al abrirlos
-
-        // Al abrir modal de festivos
-        $('#modalFestivos').on('show.bs.modal', function () {
-            $('#festivosModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
-            $.get(window.location.pathname, { accion: 'form_popup', tipo: 'festivos' }, function (html) {
-                $('#festivosModalBody').html(html);
-            }).fail(function () {
-                $('#festivosModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
-            });
-        });
-
-        // Al abrir modal de vacaciones
-        $('#modalVacaciones').on('show.bs.modal', function () {
-            $('#vacacionesModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
-            $.get(dirPage, { accion: 'form_popup', tipo: 'vacaciones' })
-                .done(function (html) {
-                    $('#vacacionesModalBody').html(html);
-                    // Pequeño retraso para asegurar que el DOM esté actualizado
-                    setTimeout(function () {
-                        cargarOperariosConSelect2('#vac_operario', $('#sede').val(), 'Seleccione operario');
-                    }, 50);
-                })
-                .fail(function () {
-                    $('#vacacionesModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
-                });
-        });
-
-        // Al abrir modal de licencias
-        $('#modalLicencias').on('show.bs.modal', function () {
-            $('#licenciasModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
-            $.get(dirPage, { accion: 'form_popup', tipo: 'licencias' })
-                .done(function (html) {
-                    $('#licenciasModalBody').html(html);
-                    setTimeout(function () {
-                        cargarOperariosConSelect2('#lic_operario', $('#sede').val(), 'Seleccione operario');
-                    }, 50);
-                })
-                .fail(function () {
-                    $('#licenciasModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
-                });
-        });
-
-        // Al cerrar modales, destruir Select2 solo si existe la instancia
+        // Destruir Select2 al cerrar modales
         $('#modalVacaciones, #modalLicencias, #modalIngreso, #popupModal').on('hidden.bs.modal', function () {
             $(this).find('select').each(function () {
                 if ($(this).data('select2')) {
@@ -476,175 +335,214 @@
             });
         });
 
-        // Manejo del formulario genérico en popup
+        // --- Formularios ---
+        // Formulario de popup generico
         $(document).on('submit', '#popupForm', function (e) {
             e.preventDefault();
-            var formData = new FormData(this);
-            $.ajax({
-                url: window.location.pathname,
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                dataType: 'json',
-                success: function (res) {
-                    if (res.success) {
-                        $('#popupModal').modal('hide');
-                        tabla.ajax.reload();
-                        if (res.message) {
-                            mostrarExito(res.message);
-                        }
-                    } else {
-                        mostrarError(res.message || 'Error al guardar');
-                    }
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    console.error('Error en la respuesta:', textStatus, errorThrown, jqXHR.responseText);
-                    mostrarError('Error de comunicación con el servidor');
-                }
+            enviarForm($(this), { formData: true, modalId: '#popupModal' });
+        });
+
+        // --- Hover: burbujas de notificacion (ARL, etc.) ---
+        $(document).on('mouseenter', '.noti_bubble', function () {
+            var $bubble = $(this);
+            var id = $bubble.data('id');
+            var $dropdown = $('.noti_options[data-id="' + id + '"]');
+            if (!$dropdown.length) return;
+            var rect = $bubble[0].getBoundingClientRect();
+            $dropdown.data('_parentBubble', $bubble).addClass('noti-open');
+            $dropdown.appendTo('body').css({
+                position: 'fixed', left: rect.left, top: rect.bottom,
+                display: 'block', zIndex: 99999
             });
         });
 
-        // Manejo de burbujas de notificación
-        $(document).on('click', '.noti_bubble', function () {
-            var id = $(this).data('id');
-            $('.noti_options[data-id="' + id + '"]').toggle();
+        $(document).on('mouseleave', '.noti_bubble', function (e) {
+            if ($(e.relatedTarget).closest('.noti_options.noti-open').length) return;
+            cerrarNotiDropdown($(this));
         });
 
-        // Forzar altura del dropdown Select2 al abrirse
-        $(document).on('select2:open', function(e) {
-            const dropdown = $('.select2-dropdown.select2-large-dropdown');
-            if (dropdown.length) {
-                // Aplicar estilos directamente para asegurar altura
-                dropdown.css({
-                    'height': '500px',
-                    'max-height': '70vh',
-                    'min-height': '200px',
-                    'overflow': 'hidden'
-                });
-                // Asegurar que los resultados tengan scroll
-                const results = dropdown.find('.select2-results');
-                if (results.length) {
-                    results.css({
-                        'height': 'calc(100% - 40px)',
-                        'overflow-y': 'auto',
-                        'max-height': 'none'
+        $(document).on('mouseleave', '.noti_options.noti-open', function (e) {
+            var $dropdown = $(this);
+            var $bubble = $dropdown.data('_parentBubble');
+            if ($bubble && $.contains($bubble[0], e.relatedTarget)) return;
+            cerrarNotiDropdown($bubble);
+        });
+
+        function cerrarNotiDropdown($bubble) {
+            if (!$bubble || !$bubble.length) return;
+            var id = $bubble.data('id');
+            var $dropdown = $('.noti_options.noti-open[data-id="' + id + '"]');
+            if ($dropdown.length) {
+                $dropdown.removeClass('noti-open').css({ position: '', left: '', top: '', display: 'none', zIndex: '' });
+                $dropdown.insertAfter($bubble);
+            }
+        }
+
+        // --- Hover: dropdown de alertas (documentos vencidos) ---
+        $(document).on('mouseenter', '.alerta-wrapper', function () {
+            var $wrapper = $(this);
+            var $dropdown = $wrapper.find('.alerta-dropdown');
+            if (!$dropdown.length) return;
+            var rect = $wrapper[0].getBoundingClientRect();
+            $dropdown.data('_parentWrapper', $wrapper).addClass('alerta-open');
+            $dropdown.appendTo('body').css({
+                position: 'fixed', left: rect.left, top: rect.bottom,
+                display: 'block', zIndex: 99999
+            });
+            $('.warning-dot').css('animation-play-state', 'paused');
+        });
+
+        $(document).on('mouseleave', '.alerta-wrapper', function (e) {
+            if ($(e.relatedTarget).closest('.alerta-dropdown.alerta-open').length) return;
+            cerrarAlertaDropdown($(this));
+        });
+
+        $(document).on('mouseleave', '.alerta-dropdown.alerta-open', function (e) {
+            var $dropdown = $(this);
+            var $wrapper = $dropdown.data('_parentWrapper');
+            if ($wrapper && $.contains($wrapper[0], e.relatedTarget)) return;
+            cerrarAlertaDropdown($wrapper);
+        });
+
+        function cerrarAlertaDropdown($wrapper) {
+            if (!$wrapper || !$wrapper.length) return;
+            var $dropdown = $('.alerta-dropdown.alerta-open').filter(function () {
+                return $(this).data('_parentWrapper') && $(this).data('_parentWrapper').is($wrapper);
+            });
+            if ($dropdown.length) {
+                $dropdown.removeClass('alerta-open').css({ position: '', left: '', top: '', display: '', zIndex: '' });
+                $dropdown.appendTo($wrapper);
+            }
+            $('.warning-dot').css('animation-play-state', '');
+        }
+    }
+
+    // ==================== FUNCIONES PUBLICAS (window) ====================
+
+    function eliminarRegistro(id, accion) {
+        if (accion !== 'borraseguser') {
+            mostrarError('Accion de eliminacion no reconocida');
+            return;
+        }
+        $.get(dirPage, { accion: 'get_detalles_eliminar', id_combinado: id }, function (detalles) {
+            var mensaje = '<strong>Esta seguro de eliminar el siguiente registro?</strong><br><br>';
+            if (detalles.usuario) mensaje += '<b>Operario:</b> ' + detalles.usuario + '<br>';
+            if (detalles.fecha) mensaje += '<b>Fecha:</b> ' + detalles.fecha + '<br>';
+            if (detalles.motivo) mensaje += '<b>Motivo:</b> ' + detalles.motivo + '<br>';
+            mensaje += '<br><small>Esta accion eliminara tanto el registro de seguimiento como el preoperacional asociado.</small>';
+
+            Swal.fire({
+                title: 'Confirmar eliminacion',
+                html: mensaje,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Si, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    $.post(dirPage, { accion: 'eliminar_seguimiento', id_combinado: id }, function (res) {
+                        if (res.success) {
+                            tabla.ajax.reload();
+                            if (res.message) mostrarExito(res.message);
+                        } else {
+                            mostrarError(res.message || 'Error al eliminar');
+                        }
+                    }, 'json').fail(function () {
+                        mostrarError('Error de comunicacion con el servidor');
                     });
                 }
-            }
+            });
+        }).fail(function () {
+            mostrarError('No se pudieron cargar los detalles del registro');
         });
     }
 
-    // --- Funciones de apertura de modales ----
-    function abrirModalIngreso() {
-        $('#modalIngreso').modal('show');
-    }
-    function abrirModalFestivos() {
-        $('#modalFestivos').modal('show');
-    }
-    function abrirModalVacaciones() {
-        $('#modalVacaciones').modal('show');
-    }
-    function abrirModalLicencias() {
-        $('#modalLicencias').modal('show');
-    }
+    function abrirModalIngreso() { $('#modalIngreso').modal('show'); }
+    function abrirModalFestivos() { $('#modalFestivos').modal('show'); }
+    function abrirModalVacaciones() { $('#modalVacaciones').modal('show'); }
+    function abrirModalLicencias() { $('#modalLicencias').modal('show'); }
 
-    // Funciones de guardado ahora usan la función genérica
     function guardarFestivos() {
-        guardarForm('#formFestivos', '#modalFestivos');
+        var fecha = $('#formFestivos [name="fecha"]').val();
+        if (!fecha) {
+            mostrarError('La fecha es obligatoria');
+            return;
+        }
+        enviarForm($('#formFestivos'), { modalId: '#modalFestivos' });
     }
     function guardarVacaciones() {
-        guardarForm('#formVacaciones', '#modalVacaciones');
+        var ini = $('#formVacaciones [name="fecha_ini"]').val();
+        var fin = $('#formVacaciones [name="fecha_fin"]').val();
+        if (!ini || !fin) {
+            mostrarError('Ambas fechas son obligatorias');
+            return;
+        }
+        if (fin < ini) {
+            mostrarError('La fecha fin no puede ser anterior a la fecha inicio');
+            return;
+        }
+        enviarForm($('#formVacaciones'), { modalId: '#modalVacaciones' });
     }
     function guardarLicencias() {
-        guardarForm('#formLicencias', '#modalLicencias');
+        var ini = $('#formLicencias [name="fecha_ini"]').val();
+        var fin = $('#formLicencias [name="fecha_fin"]').val();
+        if (!ini || !fin) {
+            mostrarError('Ambas fechas son obligatorias');
+            return;
+        }
+        if (fin < ini) {
+            mostrarError('La fecha fin no puede ser anterior a la fecha inicio');
+            return;
+        }
+        enviarForm($('#formLicencias'), { modalId: '#modalLicencias' });
     }
+    function guardarIngreso()    { enviarForm($('#formIngreso'), { formData: true, modalId: '#modalIngreso' }); }
 
-    // Función helper para inicializar campo de horas en popup de ingreso
+    // --- Horas toggle para popup de ingreso ---
     function initHorasFieldPopup() {
-        const $popupForm = $('#popupForm');
+        var $popupForm = $('#popupForm');
         if (!$popupForm.length) return;
-        const $motivo = $popupForm.find('#motivo');
-        const $horasContainer = $popupForm.find('#horas_container');
-        const $horasSelect = $popupForm.find('#horas');
+        var $motivo = $popupForm.find('#motivo');
+        var $horasContainer = $popupForm.find('#horas_container');
+        var $horasSelect = $popupForm.find('#horas');
         if (!$motivo.length || !$horasContainer.length || !$horasSelect.length) return;
 
-        function toggleHorasField(event) {
-            const motivoValue = $motivo.val();
-            const show = motivoValue === 'IngresoHoras';
-            if (show) {
-                $horasContainer.removeClass('d-none');
-                $horasSelect.prop('required', true);
-            } else {
-                $horasContainer.addClass('d-none');
-                $horasSelect.prop('required', false);
-                $horasSelect.val('');
-            }
+        function toggleHorasField() {
+            var show = $motivo.val() === 'IngresoHoras';
+            $horasContainer.toggleClass('d-none', !show);
+            $horasSelect.prop('required', show);
+            if (!show) $horasSelect.val('');
         }
 
-        // Estado inicial
         toggleHorasField();
 
-        // Configurar eventos según presencia de Select2
-        const hasSelect2 = $motivo.data('select2');
-        if (hasSelect2) {
-            $motivo.off('select2:select.horas select2:unselect.horas change.horas');
-            $motivo.on('select2:select.horas', toggleHorasField);
-            $motivo.on('select2:unselect.horas', toggleHorasField);
-            $motivo.on('change.horas', toggleHorasField);
-        } else {
-            $motivo.off('change.horas');
-            $motivo.on('change.horas', toggleHorasField);
-        }
+        $motivo.off('.horasPopup').on('change.horasPopup select2:select.horasPopup select2:unselect.horasPopup', toggleHorasField);
     }
 
-    // Función para abrir popup genérico (sin cambios)
+    // --- Popup generico ---
     function abrirPopup(tipo, id, param) {
         var titulos = {
-            'zona': 'Zona de trabajo',
-            'companero': 'Compañero',
-            'trabaja_con': 'Trabaja con',
-            'hora_almuerzo': 'Hora almuerzo',
-            'retorno_almuerzo': 'Retorno almuerzo',
-            'retorno_oficina': 'Retorno oficina',
-            'festivos': 'Festivos',
-            'vacaciones': 'Vacaciones',
-            'licencias': 'Licencias',
-            'ingreso_manual': 'Ingreso manual',
-            'ingreso': 'Ingreso'
+            'zona': 'Zona de trabajo', 'trabaja_con': 'Trabaja con',
+            'hora_almuerzo': 'Hora almuerzo', 'retorno_almuerzo': 'Retorno almuerzo',
+            'retorno_oficina': 'Retorno oficina', 'festivos': 'Festivos',
+            'vacaciones': 'Vacaciones', 'licencias': 'Licencias',
+            'ingreso_manual': 'Ingreso manual', 'ingreso': 'Ingreso'
         };
-        var titulo = titulos[tipo] || ('Editando: ' + tipo);
-        $('#popupModal .modal-title').text(titulo);
+        $('#popupModal .modal-title').text(titulos[tipo] || ('Editando: ' + tipo));
         $('#popupModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
         $('#popupModal').modal('show');
 
-        $.get(window.location.pathname, {
-            accion: 'form_popup',
-            tipo: tipo,
-            id: id,
-            param: param
-        }, function (html) {
+        $.get(dirPage, { accion: 'form_popup', tipo: tipo, id: id, param: param }, function (html) {
             $('#popupModalBody').html(html);
-            // Inicializar Select2 en selects relevantes después de cargar el HTML
-            setTimeout(function() {
-                // IDs de selects que deben usar Select2
-                var selectIds = ['zona', 'ing_zona', 'ing_operario', 'companero', 'vac_operario', 'lic_operario'];
-                selectIds.forEach(function(id) {
-                    var $select = $('#' + id);
-                    if ($select.length && !$select.data('select2')) {
-                        $select.select2({
-                            placeholder: 'Seleccione',
-                            allowClear: true,
-                            width: '100%',
-                            dropdownParent: $select.closest('.modal'),
-                            dropdownCssClass: 'select2-large-dropdown',
-                            dropdownAutoWidth: true,
-                            dropdownCss: { 'max-height': '70vh', 'min-height': '200px', 'overflow': 'hidden' }
-                        });
+            setTimeout(function () {
+                $('#popupModalBody').find('select').each(function () {
+                    var $sel = $(this);
+                    if (!$sel.data('select2') && $sel.is('select')) {
+                        initSelect2($sel, 'Seleccione');
                     }
                 });
-
-                // Inicializar campo de horas si existe
                 initHorasFieldPopup();
             }, 100);
         }).fail(function (jqXHR, textStatus, errorThrown) {
@@ -653,39 +551,10 @@
         });
     }
 
-    // Función guardarIngreso (específica porque usa FormData)
-    function guardarIngreso() {
-        let formData = new FormData(document.getElementById('formIngreso'));
-        $.ajax({
-            url: dirPage,
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            dataType: 'json',
-            success: function (res) {
-                if (res.success) {
-                    $('#modalIngreso').modal('hide');
-                    tabla.ajax.reload();
-                    if (res.message) {
-                        mostrarExito(res.message);
-                    }
-                } else {
-                    mostrarError(res.message || 'Error al guardar');
-                }
-            },
-            error: function () {
-                Swal.fire({ title: 'Error', text: 'Error en la petición', icon: 'error', confirmButtonText: 'Aceptar' });
-            }
-        });
-    }
-
-    // Función para ver documentos (preoperacional, validación, etc.)
     function verDocumento(url) {
         window.open(url, '_blank');
     }
 
-    // Función para abrir ventana de validación preoperacional y recargar tabla al cerrar
     function abrirValidacionPreoperacional(url) {
         var ventana = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes');
         var timer = setInterval(function () {
@@ -696,13 +565,14 @@
         }, 500);
     }
 
-    // --- Inicialización principal ---
+    // ==================== INICIALIZACION ====================
+
     function init() {
         initDataTable();
         bindEvents();
     }
 
-    // Exponer funciones globales necesarias para el HTML
+    // Exponer funciones globales
     window.eliminarRegistro = eliminarRegistro;
     window.recargarTabla = recargarTabla;
     window.abrirModalIngreso = abrirModalIngreso;
@@ -717,11 +587,9 @@
     window.verDocumento = verDocumento;
     window.abrirValidacionPreoperacional = abrirValidacionPreoperacional;
 
-    // Ejecutar cuando el DOM esté listo
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-
 })();
