@@ -78,6 +78,20 @@ class PreoperacionalService
         $imagenKilo = $this->procesarImagenKilometraje($files);
         $imagenInspeccion = $this->procesarImagenInspeccionInicial($files, $dataJson);
 
+        // Validar que la imagen de kilometraje sea obligatoria
+        if (empty($imagenKilo)) {
+            // Si es actualización, verificar si ya existe imagen previa
+            if ($idPre > 0) {
+                $registroExistente = $this->model->obtenerRegistroPorId($idPre);
+                if ($registroExistente && empty($registroExistente['pre_img_kilo'])) {
+                    return ['success' => false, 'message' => 'Debe subir una foto del kilometraje del vehículo.'];
+                }
+            } else {
+                // Nuevo registro: imagen obligatoria
+                return ['success' => false, 'message' => 'Debe subir una foto del kilometraje del vehículo.'];
+            }
+        }
+
         // Procesar firma base64
         $firmaBase64 = $postData['firma_preoperacional'] ?? '';
         $firmaProcesada = $this->procesarFirmaBase64($firmaBase64, $idUsuario);

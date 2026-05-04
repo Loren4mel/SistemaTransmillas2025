@@ -821,3 +821,48 @@
 .form-textarea {
     transition: all 0.25s ease;
 }
+
+/* ==================== WARNINGS DE CONDUCTOR ==================== */
+
+/* Banner de bloqueo a nivel de sección (conductor / vehiculo-propio) */
+.driver-block-banner {
+    background: #fdf2f2;
+    border: 2px solid #dc3545;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    color: #721c24;
+    font-size: 14px;
+    line-height: 1.6;
+    animation: fadeInWarning 0.3s ease;
+}
+
+.driver-block-banner i {
+    font-size: 18px;
+    margin-right: 6px;
+    color: #dc3545;
+}
+
+/* Warning individual debajo de cada pregunta con respuesta negativa */
+.driver-warning {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-left: 5px solid #e67e22;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 6px 0 12px 0;
+    color: #856404;
+    font-size: 13px;
+    line-height: 1.5;
+    animation: fadeInWarning 0.3s ease;
+}
+
+.driver-warning i {
+    color: #e67e22;
+    margin-right: 4px;
+}
+
+@keyframes fadeInWarning {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

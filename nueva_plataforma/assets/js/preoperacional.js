@@ -469,6 +469,174 @@
     }
 
     /**
+     * Valida que se haya subido una imagen/foto del kilometraje
+     */
+    function validarImagenKilometraje() {
+        var fileInput = document.querySelector('input[name="imagen_kilometraje"]');
+        if (!fileInput || fileInput.disabled) return true;
+
+        // Si ya existe imagen previa guardada en el servidor, permitir continuar sin nueva subida
+        var preImgKilo = document.getElementById('pre_img_kilo_existente');
+        if (preImgKilo && preImgKilo.value === '1') return true;
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            Swal.fire({
+                title: 'Imagen de kilometraje requerida',
+                text: 'Debe subir una foto del kilometraje del vehículo antes de guardar.',
+                icon: 'warning',
+                confirmButtonText: 'Aceptar'
+            });
+            fileInput.focus();
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Determina si un checkbox de conductor tiene respuesta negativa
+     * (contraria a la esperada)
+     */
+    function isRespuestaNegativaConductor(checkbox) {
+        var expected = checkbox.getAttribute('data-expected');
+        if (!expected) return false; // No es pregunta de conductor
+        return checkbox.checked && checkbox.value !== expected;
+    }
+
+    /**
+     * Actualiza la visibilidad del warning para una pregunta específica
+     */
+    function actualizarWarningConductor(checkboxName) {
+        var warningEl = document.getElementById(checkboxName + '_warning');
+        if (!warningEl) return;
+
+        // Buscar el checkbox marcado en este grupo
+        var checkboxes = document.querySelectorAll('.checkbox-binary[data-binary-group="' + checkboxName + '"]');
+        var hayNegativa = false;
+        for (var i = 0; i < checkboxes.length; i++) {
+            if (isRespuestaNegativaConductor(checkboxes[i])) {
+                hayNegativa = true;
+                break;
+            }
+        }
+
+        warningEl.style.display = hayNegativa ? '' : 'none';
+    }
+
+    /**
+     * Actualiza el banner de bloqueo de una sección de conductor
+     */
+    function actualizarBannerConductor(sectionClass) {
+        var banner = document.getElementById(sectionClass + '_block_banner');
+        if (!banner) return;
+
+        // Buscar todas las preguntas con data-expected en esta sección
+        var sectionCard = document.querySelector('.preop-card.' + sectionClass);
+        if (!sectionCard) return;
+
+        var checkboxes = sectionCard.querySelectorAll('.checkbox-binary[data-expected]');
+        var hayNegativa = false;
+        for (var i = 0; i < checkboxes.length; i++) {
+            if (isRespuestaNegativaConductor(checkboxes[i])) {
+                hayNegativa = true;
+                break;
+            }
+        }
+
+        banner.style.display = hayNegativa ? '' : 'none';
+    }
+
+    /**
+     * Actualiza todos los warnings y banners de conductor
+     */
+    function actualizarTodosWarningsConductor() {
+        var secciones = ['conductor', 'vehiculo-propio'];
+        for (var s = 0; s < secciones.length; s++) {
+            actualizarBannerConductor(secciones[s]);
+        }
+
+        // Actualizar warnings individuales
+        var checkboxes = document.querySelectorAll('.checkbox-binary[data-expected]');
+        var procesados = {};
+        for (var i = 0; i < checkboxes.length; i++) {
+            var name = checkboxes[i].getAttribute('data-name');
+            if (!procesados[name]) {
+                procesados[name] = true;
+                actualizarWarningConductor(name);
+            }
+        }
+    }
+
+    /**
+     * Valida que no haya respuestas negativas en preguntas del conductor
+     * Retorna true si todo OK, false si hay respuestas que bloquean
+     */
+    function validarRespuestasConductor() {
+        var checkboxes = document.querySelectorAll('.checkbox-binary[data-expected]');
+        var preguntasNegativas = [];
+
+        var procesados = {};
+        for (var i = 0; i < checkboxes.length; i++) {
+            var checkbox = checkboxes[i];
+            var name = checkbox.getAttribute('data-name');
+            if (procesados[name]) continue;
+            procesados[name] = true;
+
+            if (isRespuestaNegativaConductor(checkbox)) {
+                var questionRow = document.getElementById(name + '_row');
+                var questionText = name;
+                if (questionRow) {
+                    var questionTextElem = questionRow.querySelector('.question-text');
+                    if (questionTextElem) {
+                        questionText = questionTextElem.textContent.trim();
+                    }
+                }
+                preguntasNegativas.push(questionText);
+            }
+        }
+
+        if (preguntasNegativas.length > 0) {
+            var errorHtml = '<strong>No se puede realizar el preoperacional si presenta complicaciones.</strong><br><br>';
+            errorHtml += '<em>Por favor, comuníquese con el jefe de operaciones / oficina.</em><br><br>';
+            errorHtml += '<strong>Preguntas con respuesta negativa:</strong><br>';
+            for (var k = 0; k < preguntasNegativas.length; k++) {
+                errorHtml += '• ' + preguntasNegativas[k] + '<br>';
+            }
+
+            Swal.fire({
+                title: 'Preoperacional bloqueado',
+                html: errorHtml,
+                icon: 'error',
+                confirmButtonText: 'Aceptar'
+            });
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Configura listeners para actualizar warnings de conductor en tiempo real
+     */
+    function initDriverWarnings() {
+        // Precarga: mostrar warnings que apliquen al cargar la página
+        actualizarTodosWarningsConductor();
+
+        // Escuchar cambios en checkboxes con data-expected
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('checkbox-binary') && e.target.getAttribute('data-expected')) {
+                var name = e.target.getAttribute('data-name');
+                actualizarWarningConductor(name);
+
+                // Actualizar banner de la sección correspondiente
+                var secciones = ['conductor', 'vehiculo-propio'];
+                for (var s = 0; s < secciones.length; s++) {
+                    actualizarBannerConductor(secciones[s]);
+                }
+            }
+        });
+    }
+
+    /**
      * Deshabilita todos los campos del formulario en modo validación
      * para evitar modificaciones, excepto el textarea de nota de validación
      */
@@ -516,6 +684,11 @@
 
             // En modo validación, omitir validaciones de checkboxes, fotos, firma y ubicación
             if (!esValidacion) {
+                // Validar respuestas negativas del conductor (bloquea el preoperacional)
+                if (!validarRespuestasConductor()) {
+                    return;
+                }
+
                 // Validar que se hayan respondedido todos los checkboxes binarios
                 if (!validarCheckboxesBinarios()) {
                     return;
@@ -533,6 +706,11 @@
 
                 // Validar kilometraje
                 if (!validarKilometraje()) {
+                    return;
+                }
+
+                // Validar imagen de kilometraje
+                if (!validarImagenKilometraje()) {
                     return;
                 }
 
@@ -676,6 +854,8 @@
                         }
                     }
                 }
+                // Actualizar warnings de conductor tras precarga
+                actualizarTodosWarningsConductor();
             }
         });
     }
@@ -817,6 +997,7 @@
         try {
             initBinaryCheckboxes();
             initKilometrajeFormatting();
+            initDriverWarnings();
             handleSubmitForm();
             cargarDatosPrecarga();
 
