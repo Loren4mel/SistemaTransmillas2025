@@ -1,8 +1,9 @@
 <?php
 /**
  * ErrorHandler - Manejador centralizado de errores y excepciones
- * 
- * Proporciona manejo uniforme de errores para aplicaciones web y AJAX
+ *
+ * Proporciona manejo uniforme de errores para aplicaciones web y AJAX.
+ * En producción, registra los detalles internos y devuelve mensajes genéricos al cliente.
  */
 
 class ErrorHandler
@@ -14,7 +15,7 @@ class ErrorHandler
      */
     public static function setup()
     {
-        ini_set('display_errors', 1);
+        ini_set('display_errors', 0);
         error_reporting(E_ALL);
         mysqli_report(MYSQLI_REPORT_ERROR);
 
@@ -24,7 +25,8 @@ class ErrorHandler
     }
 
     /**
-     * Maneja errores capturados
+     * Maneja errores capturados. Los registra internamente y en el log,
+     * pero nunca los muestra al cliente.
      */
     public static function handleError($errno, $errstr, $errfile, $errline)
     {
@@ -34,46 +36,52 @@ class ErrorHandler
             'file' => $errfile,
             'line' => $errline
         ];
+        error_log("Error PHP [$errno]: $errstr en $errfile:$errline");
         return true;
     }
 
     /**
-     * Maneja excepciones no capturadas
+     * Maneja excepciones no capturadas.
+     * Registra el detalle completo internamente, pero devuelve un mensaje genérico al cliente.
      */
     public static function handleException($exception)
     {
-        error_log("Excepcion no capturada: " . $exception->getMessage());
-        
+        error_log("Excepcion no capturada: " . $exception->getMessage() . "\n" . $exception->getTraceAsString());
+
         if (self::isAjaxRequest()) {
             self::sendJsonResponse([
-                'error' => $exception->getMessage(), 
-                'trace' => $exception->getTraceAsString()
+                'success' => false,
+                'message' => 'Error interno del servidor'
             ], 500);
         } else {
-            echo "<h1>Error</h1><pre>" . $exception->getMessage() . "\n" . $exception->getTraceAsString() . "</pre>";
+            if (ob_get_level()) ob_clean();
+            http_response_code(500);
+            echo "<h1>Error interno</h1><p>Ha ocurrido un error inesperado. Contacte al administrador.</p>";
         }
         exit;
     }
 
     /**
-     * Maneja errores fatales
+     * Maneja errores fatales.
+     * Registra el detalle completo internamente, pero devuelve un mensaje genérico al cliente.
      */
     public static function handleFatalError()
     {
         $error = error_get_last();
         if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-            error_log("Error fatal: " . $error['message']);
-            
+            error_log("Error fatal: " . $error['message'] . " en " . $error['file'] . ":" . $error['line']);
+
             if (self::isAjaxRequest()) {
-                ob_clean();
+                if (ob_get_level()) ob_clean();
                 header('Content-Type: application/json');
                 echo json_encode([
-                    'fatal_error' => $error['message'], 
-                    'file' => $error['file'], 
-                    'line' => $error['line']
+                    'success' => false,
+                    'message' => 'Error interno del servidor'
                 ]);
             } else {
-                echo "<h1>Error fatal</h1><pre>" . $error['message'] . " en " . $error['file'] . ":" . $error['line'] . "</pre>";
+                if (ob_get_level()) ob_clean();
+                http_response_code(500);
+                echo "<h1>Error interno</h1><p>Ha ocurrido un error inesperado. Contacte al administrador.</p>";
             }
             exit;
         }
@@ -93,7 +101,7 @@ class ErrorHandler
     }
 
     /**
-     * Obtiene errores capturados
+     * Obtiene errores capturados (para logging interno)
      */
     public static function getCapturedErrors()
     {
@@ -105,7 +113,7 @@ class ErrorHandler
      */
     private static function isAjaxRequest()
     {
-        return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+        return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
                strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
     }
 }

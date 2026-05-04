@@ -16,20 +16,6 @@ require_once __DIR__ . '/../../helpers/PreoperacionalHelpers/PreoperacionalNueva
 
 $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
 
-/**
- * Convierte una ruta absoluta del servidor a una URL accesible desde el navegador
- */
-function rutaAbsolutaAUrl($rutaAbsoluta)
-{
-    if (empty($rutaAbsoluta)) return '';
-    $docRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']);
-    $ruta = str_replace('\\', '/', $rutaAbsoluta);
-    if (strpos($ruta, $docRoot) === 0) {
-        return substr($ruta, strlen($docRoot));
-    }
-    return $rutaAbsoluta;
-}
-
 // Extraer valores existentes de la encuesta JSON para precargar el formulario
 $valoresEncuesta = [];
 if ($registroExistente && !empty($registroExistente['preencuesta'])) {
@@ -106,23 +92,6 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
             color: #fff;
         }
 
-        /* Grupo de botones de prueba */
-        .test-mode-card {
-            background: rgba(255, 243, 205, 0.6);
-            backdrop-filter: blur(6px);
-            border: 1px solid rgba(255, 193, 7, 0.3);
-            border-radius: 14px;
-            padding: 18px 20px;
-            margin-bottom: 20px;
-        }
-
-        .test-mode-card .btn-group .btn {
-            border-radius: 8px;
-            margin: 3px;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
         /* Modo validación: controles deshabilitados sin opacidad */
         #formPreoperacional .obtener:disabled,
         #formPreoperacional input:disabled,
@@ -159,57 +128,6 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                     </h3>
                 </div>
 
-                <!-- ==================== BOTONES DE PRUEBA ==================== -->
-                <?php if (!$esCovid && !$esValidacion): ?>
-                <div style="padding: 16px 24px 0 24px;">
-                    <div class="test-mode-card">
-                        <strong>🧪 MODO PRUEBA - Cambiar entre casos</strong>
-                        <p class="mb-2 mt-1"><strong>Caso actual:</strong>
-                            <span class="badge bg-primary">
-                                <?php
-                                if (!empty($casoPrueba) && $casoPrueba === 'legado') {
-                                    echo 'Formato Legado (' . $tipovehiculo . ')';
-                                } elseif ($mostrarSecciones['administrativo'] ?? false) {
-                                    echo 'Administrativo';
-                                } elseif ($mostrarSecciones['conductor'] ?? false) {
-                                    echo 'Conductor (Carro)';
-                                } elseif ($mostrarSecciones['auxiliar_carga'] ?? false) {
-                                    echo 'Auxiliar de Carga';
-                                } elseif ($mostrarSecciones['vehiculo_propio'] ?? false) {
-                                    echo 'Vehículo Propio (Moto)';
-                                } else {
-                                    echo 'Por defecto';
-                                }
-                                ?>
-                            </span>
-                        </p>
-                        <div class="btn-group flex-wrap" role="group">
-                            <a href="?caso_prueba=administrativo&tipo_vehiculo=NONE" class="btn btn-outline-primary btn-sm">
-                                <i class="fas fa-user-tie"></i> Caso 1: Administrativo
-                            </a>
-                            <a href="?caso_prueba=conductor&tipo_vehiculo=CARRO" class="btn btn-outline-success btn-sm">
-                                <i class="fas fa-car"></i> Caso 2: Conductor (Carro)
-                            </a>
-                            <a href="?caso_prueba=moto&tipo_vehiculo=MOTO" class="btn btn-outline-warning btn-sm">
-                                <i class="fas fa-motorcycle"></i> Caso 3: Moto Propia
-                            </a>
-                            <a href="?caso_prueba=auxiliar&tipo_vehiculo=NONE" class="btn btn-outline-info btn-sm">
-                                <i class="fas fa-box"></i> Caso 4: Auxiliar de Carga
-                            </a>
-                            <a href="?caso_prueba=legado&tipo_vehiculo=CARRO" class="btn btn-outline-secondary btn-sm">
-                                <i class="fas fa-history"></i> Caso 5: Legado Carro
-                            </a>
-                            <a href="?caso_prueba=legado&tipo_vehiculo=MOTO" class="btn btn-outline-dark btn-sm">
-                                <i class="fas fa-motorcycle"></i> Caso 6: Legado Moto
-                            </a>
-                            <a href="?" class="btn btn-outline-danger btn-sm">
-                                <i class="fas fa-times"></i> Salir modo prueba
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <?php endif; ?>
-
                 <div class="card-body">
                     <form id="formPreoperacional" enctype="multipart/form-data">
                         <!-- Campos ocultos -->
@@ -226,10 +144,6 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                         <input type="hidden" name="tipo_vehiculo" value="<?= htmlspecialchars($tipovehiculo) ?>">
                         <input type="hidden" name="param3" value="<?= htmlspecialchars($tipovehiculo) ?>">
                         <input type="hidden" name="formato_encuesta" id="formato_encuesta" value="<?= $usarNuevoFormato ? 'nuevo' : 'legado' ?>">
-                        <?php if (!empty($casoPrueba)): ?>
-                        <input type="hidden" name="caso_prueba" value="<?= htmlspecialchars($casoPrueba) ?>">
-                        <?php endif; ?>
-
                         <!-- ==================== CONTENEDOR DE TARJETAS ==================== -->
                         <div class="preop-sections-wrapper">
 

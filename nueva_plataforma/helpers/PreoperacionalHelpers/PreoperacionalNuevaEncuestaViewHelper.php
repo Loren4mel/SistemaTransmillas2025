@@ -519,7 +519,7 @@ class PreoperacionalNuevaEncuestaViewHelper
         return in_array($rol, $rolesAdministrativos);
     }
 
-    public static function esConductor($rol, $tipoVehiculo)
+    public static function esConductor($tipoVehiculo)
     {
         return $tipoVehiculo === 'CARRO';
     }

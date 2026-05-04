@@ -9,11 +9,6 @@
 (function () {
     'use strict';
 
-    // Capturar errores globales
-    window.addEventListener('error', function(e) {
-        console.error('Error global en Preoperacional JS:', e.message, 'en', e.filename, 'línea', e.lineno);
-    });
-
     // Coordenadas de ubicación obtenidas del navegador
     var ubicacionCoords = null;
     var mapaInstancia = null;
@@ -259,12 +254,6 @@
                     conver = conver + '"' + checkboxName + '":' + '"' + value + '",';
                 }
             }
-            // Para checkboxes de vehículo SÍ (OK) - checkbox único
-            else if (input.type === 'checkbox' && input.classList.contains('checkbox-ok')) {
-                var checkboxName = input.getAttribute('data-name');
-                var value = input.checked ? '1' : '0'; // 1 = SÍ (OK), 0 = NO (no OK)
-                conver = conver + '"' + checkboxName + '":' + '"' + value + '",';
-            }
             else if (input.type === 'radio' && input.checked) {
                 // Radio buttons tradicionales
                 conver = conver + '"' + input.name + '":' + '"' + input.value + '",';
@@ -311,31 +300,6 @@
                             }
                             errores.push('Debe subir una fotografía para: "' + questionText + '"');
                         }
-                    }
-                }
-            }
-        }
-
-        // 2. Validar checkboxes de vehículo único (SÍ/NO) - cuando no está marcado
-        var vehicleCheckboxes = document.querySelectorAll('.checkbox-ok:not(.checkbox-binary)');
-        for (var j = 0; j < vehicleCheckboxes.length; j++) {
-            var checkbox = vehicleCheckboxes[j];
-            var checkboxName = checkbox.getAttribute('data-name');
-            var isChecked = checkbox.checked;
-            var fileInput = document.getElementById(checkboxName + '_foto');
-            if (fileInput) {
-                var photoRow = document.getElementById(checkboxName + '_photo_row');
-                if (!isChecked && photoRow && photoRow.style.display !== 'none') {
-                    if (!fileInput.files || fileInput.files.length === 0) {
-                        var questionRow = document.getElementById(checkboxName + '_row');
-                        var questionText = checkboxName;
-                        if (questionRow) {
-                            var questionTextElem = questionRow.querySelector('.question-text');
-                            if (questionTextElem) {
-                                questionText = questionTextElem.textContent.trim();
-                            }
-                        }
-                        errores.push('Debe subir una fotografía para: "' + questionText + '"');
                     }
                 }
             }
@@ -456,12 +420,9 @@
      * Solo permite números, los puntos son netamente visuales
      */
     function initKilometrajeFormatting() {
-        var kmInputs = ['kilometraje', 'param12'];
-        kmInputs.forEach(function(id) {
-            var input = document.getElementById(id);
-            if (!input) return;
-
-            input.addEventListener('input', function(e) {
+        var kmInput = document.getElementById('kilometraje');
+        if (kmInput) {
+            kmInput.addEventListener('input', function(e) {
                 // Guardar posición del cursor
                 var start = this.selectionStart;
                 var end = this.selectionEnd;
@@ -483,33 +444,26 @@
                     this.value = '';
                 }
             });
-        });
+        }
     }
 
     /**
      * Valida que el kilometraje tenga un valor numérico válido
      */
     function validarKilometraje() {
-        var kmInputs = [
-            { id: 'kilometraje', nombre: 'kilometraje' },
-            { id: 'param12', nombre: 'kilometraje' }
-        ];
+        var input = document.getElementById('kilometraje');
+        if (!input || input.readOnly) return true;
 
-        for (var i = 0; i < kmInputs.length; i++) {
-            var input = document.getElementById(kmInputs[i].id);
-            if (!input || input.readOnly) continue;
-
-            var raw = input.value.replace(/\./g, '').trim();
-            if (!raw || parseInt(raw, 10) <= 0) {
-                Swal.fire({
-                    title: 'Kilometraje requerido',
-                    text: 'Debe ingresar el kilometraje actual del vehículo antes de guardar.',
-                    icon: 'warning',
-                    confirmButtonText: 'Aceptar'
-                });
-                input.focus();
-                return false;
-            }
+        var raw = input.value.replace(/\./g, '').trim();
+        if (!raw || parseInt(raw, 10) <= 0) {
+            Swal.fire({
+                title: 'Kilometraje requerido',
+                text: 'Debe ingresar el kilometraje actual del vehículo antes de guardar.',
+                icon: 'warning',
+                confirmButtonText: 'Aceptar'
+            });
+            input.focus();
+            return false;
         }
         return true;
     }
@@ -605,12 +559,9 @@
             }
 
             // Limpiar separadores de miles (puntos) del kilometraje antes de enviar
-            var kmFields = ['kilometraje', 'param12'];
-            for (var kmIdx = 0; kmIdx < kmFields.length; kmIdx++) {
-                var kmField = document.getElementById(kmFields[kmIdx]);
-                if (kmField) {
-                    kmField.value = kmField.value.replace(/\./g, '');
-                }
+            var kmField = document.getElementById('kilometraje');
+            if (kmField) {
+                kmField.value = kmField.value.replace(/\./g, '');
             }
 
             var formData = new FormData(this);
@@ -659,9 +610,6 @@
                             icon: 'error',
                             confirmButtonText: 'Aceptar'
                         });
-                        if (data.debug_errors) {
-                            console.warn(data.debug_errors);
-                        }
                     }
                 })
                 .catch(function (error) {
@@ -676,7 +624,6 @@
                         icon: 'error',
                         confirmButtonText: 'Aceptar'
                     });
-                    console.error(error);
                 });
         });
     }
@@ -894,7 +841,7 @@
                 obtenerUbicacion();
             }
         } catch (error) {
-            console.error('Preoperacional JS: Error durante la inicialización:', error);
+            // Error silencioso en producción
         }
     }
 
