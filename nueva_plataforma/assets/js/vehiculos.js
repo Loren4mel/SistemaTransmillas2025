@@ -105,37 +105,62 @@ $(document).ready(function () {
     });
 
     //Filtro dueño según propiedad del vehiculo (modal AGREGAR)
-    const DUENO_EMPRESA = 'pedro trasmillas';
 
     $('#veh_propiedad').on('change', function () {
         const clasificacion = $(this).val();
         const $dueno = $('#veh_dueno');
-        $dueno.val('');
-        $dueno.find('option').each(function () {
-            const $opt = $(this);
-            if ($opt.val() === '') return;
-            if (clasificacion === 'empresa') {
-                $opt.toggle($opt.data('nombre') === DUENO_EMPRESA);
-            } else {
-                $opt.show();
-            }
-        });
+        const $wrapper = $('#wrapper_dueno_agregar');
+
+        if (clasificacion === 'empresa') {
+            $wrapper.hide();
+            $dueno.removeAttr('required');
+            $dueno.val(14); // ID fijo para Pedro Trasmillas
+        } else {
+            $wrapper.show();
+            $dueno.attr('required', 'required');
+            $dueno.val('');
+        }
     });
+    /*
+    $dueno.val('');
+    $dueno.find('option').each(function () {
+        const $opt = $(this);
+        if ($opt.val() === '') return;
+        if (clasificacion === 'empresa') {
+            $opt.toggle($opt.data('nombre') === DUENO_EMPRESA);
+        } else {
+            $opt.show();
+        }
+    });
+    */
 
     $('#edit_veh_propiedad').on('change', function () {
         const clasificacion = $(this).val();
         const $dueno = $('#edit_veh_dueno');
-        $dueno.val('');
-        $dueno.find('option').each(function () {
-            const $opt = $(this);
-            if ($opt.val() === '') return;
-            if (clasificacion === 'empresa') {
-                $opt.toggle($opt.data('nombre') === DUENO_EMPRESA);
-            } else {
-                $opt.show();
-            }
-        });
+        const $wrapper = $('#wrapper_dueno_editar');
+
+        if (clasificacion === 'empresa') {
+            $wrapper.hide();
+            $dueno.removeAttr('required');
+            $dueno.val(14); // ← Pedro Trasmillas
+        } else {
+            $wrapper.show();
+            $dueno.val('');
+        }
     });
+
+    /*
+    $dueno.val('');
+    $dueno.find('option').each(function () {
+        const $opt = $(this);
+        if ($opt.val() === '') return;
+        if (clasificacion === 'empresa') {
+            $opt.toggle($opt.data('nombre') === DUENO_EMPRESA);
+        } else {
+            $opt.show();
+        }
+    });
+    */
 
     $('#filtrotipodevehiculo, #filtroestado').on('change', function () {
         tabla.ajax.reload();
@@ -169,7 +194,7 @@ $(document).ready(function () {
             }
         }
 
-        // Validar propiedad del vehículo
+        /*Validar propiedad del vehículo
         if ($('select[name="veh_propiedad"]').val() === '') {
             Swal.fire('Error', 'Debe seleccionar una propiedad (Empresa o Propio)', 'error');
             return;
@@ -180,6 +205,7 @@ $(document).ready(function () {
             Swal.fire("Error", "Debe seleccionar un dueño para el vehículo", "error");
             return;
         }
+        */
 
         // Validar Estado
         if ($('select[name="veh_estado"]').val() === '') {
@@ -335,7 +361,8 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
                 $('#edit_veh_modelo').val(v.veh_modelo);
                 $('#edit_veh_color').val(v.veh_color);
                 $('#edit_veh_tipov').val(v.veh_tipov);
-                $('#edit_veh_propiedad').val(v.veh_propiedad);
+                $('#edit_veh_propiedad').val(v.veh_propiedad).trigger('change');
+
 
                 // Cargar herramientas existentes
                 const listaEdit = document.getElementById('listaHerramientasEdit');
@@ -367,6 +394,9 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
                 mostrarPreviewEditar('preview_tecnomecanica', v.veh_img_tecnomecanica);
                 mostrarPreviewEditar('preview_anverso', v.veh_img_anverso);
                 mostrarPreviewEditar('preview_reverso', v.veh_img_reverso);
+                mostrarPreviewEditar('preview_actual_frente', v.veh_img_actual_frente);
+                mostrarPreviewEditar('preview_actual_trasera', v.veh_img_actual_trasera);
+
 
                 $('#modalEditarVehiculo').modal('show');
 
@@ -527,6 +557,101 @@ function serializarHerramientasEdit() {
     document.getElementById('edit_veh_equipo_carretera').value = JSON.stringify(herramientas);
 }
 
+//EQUIPO DE CARRETERA (modal ENTREGA VEHICULO) 
+// ✅ REEMPLAZA con esto:
+function crearFilaHerramientaEntrega(nombre = '', existe = 'si') {
+    const div = document.createElement('div');
+    div.className = 'd-flex align-items-center gap-2 mb-2';
+    div.innerHTML = `
+        <input type="text" class="form-control form-control-sm herramienta-nombre-entrega"
+               placeholder="Nombre de la herramienta" value="${nombre}" style="flex:2">
+        <select class="form-select form-select-sm herramienta-existe-entrega" style="flex:1">
+            <option value="si" ${existe === 'si' ? 'selected' : ''}>✅ Activo</option>
+            <option value="no" ${existe === 'no' ? 'selected' : ''}>❌ Inactivo</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-danger btn-eliminar-herramienta-entrega">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    `;
+    div.querySelector('.btn-eliminar-herramienta-entrega').addEventListener('click', function () {
+        div.remove();
+    });
+    return div;
+}
+
+$(document).on('click', '#btnAgregarHerramientaEntrega', function () {
+    document.getElementById('listaHerramientasEntrega').appendChild(crearFilaHerramientaEntrega());
+});
+
+//SERIALIZAR JSON antes de guardar (modal ENTREGA VEHICULO) 
+function serializarHerramientasEntrega() {
+    const filas = document.querySelectorAll('#listaHerramientasEntrega .d-flex');
+    const herramientas = [];
+    filas.forEach(fila => {
+        const nombre = fila.querySelector('.herramienta-nombre-entrega').value.trim();
+        const existe = fila.querySelector('.herramienta-existe-entrega').value;
+        if (nombre !== '') herramientas.push({ nombre, existe });
+    });
+    document.getElementById('ent_equipo_carretera').value = JSON.stringify(herramientas);
+}
+
+// Al seleccionar vehículo → cargar su equipo automáticamente
+$('#ent_vehiculo_id').on('change', function () {
+    const idVehiculo = $(this).val();
+    const lista = document.getElementById('listaHerramientasEntrega');
+    lista.innerHTML = '';
+
+    if (!idVehiculo) return;
+
+    $.ajax({
+        url: urlController,
+        type: 'POST',
+        data: { obtener_equipo_vehiculo: true, id: idVehiculo },
+        success: function (res) {
+            try {
+                const data = typeof res === 'object' ? res : JSON.parse(res);
+                if (data.equipo && data.equipo.length > 0) {
+                    data.equipo.forEach(h => {
+                        lista.appendChild(crearFilaHerramientaEntrega(h.nombre, h.existe));
+                    });
+                }
+            } catch (e) {
+                console.warn('No se pudo cargar el equipo del vehículo', e);
+            }
+        }
+    });
+});
+
+// Cambiar labels según tipo de entrega
+$('#ent_tipoentrega').on('change', function () {
+    const tipo = $(this).val();
+
+    if (tipo === 'inicial') {
+        $('label[for="ent_vehiculo_id"]').closest('.col-md-6')
+            .find('label').first().html('Vehículo / Placa <span class="text-danger">*</span>');
+
+        // Recibido por → ahora es el CONDUCTOR
+        $('#label_recibido').html('Recibido por <span class="text-danger">*</span>');
+        $('#wrapper_recibido_fijo').hide();
+        $('#wrapper_recibido_conductor').show();
+
+        // Entregado → ahora es el USUARIO LOGUEADO
+        $('#label_entregado').text('Entregado por');
+        $('#wrapper_entregado_conductor').hide();
+        $('#wrapper_entregado_fijo').show();
+
+    } else {
+        // Final — estado original
+        $('#label_recibido').text('Recibido por');
+        $('#wrapper_recibido_fijo').show();
+        $('#wrapper_recibido_conductor').hide();
+
+        $('#label_entregado').html('Entregado <span class="text-danger">*</span>');
+        $('#wrapper_entregado_conductor').show();
+        $('#wrapper_entregado_fijo').hide();
+    }
+});
+
 // GUARDAR ENTREGA DE VEHÍCULO
 $('#btnGuardarEntrega').on('click', function () {
 
@@ -536,6 +661,8 @@ $('#btnGuardarEntrega').on('click', function () {
     const operadorSelect = document.getElementById('ent_idusuario');
     const fechaEntrega = $('[name="ent_fechaentrega"]').val();
     const fechaRegistro = $('[name="ent_fecharegist"]').val();
+    const sedeEl = document.getElementById('ent_sede');
+    const sede = sedeEl ? (sedeEl.value || '').trim() : '';
 
     if (!tipoEntrega.value) {
         Swal.fire('Error', 'Debe seleccionar el tipo de entrega', 'error');
@@ -557,6 +684,33 @@ $('#btnGuardarEntrega').on('click', function () {
         Swal.fire('Error', 'Debe ingresar la fecha de registro', 'error');
         return;
     }
+    if (!sede) {
+        Swal.fire('Error', 'Debe ingresar la sede de entrega', 'error');
+        return;
+    }
+
+    // Validar fotos
+    const validarImagen = (input, nombreCampo) => {
+        if (input && input.files.length > 0) {
+            const archivo = input.files[0];
+            const extensiones = /(\.jpg|\.jpeg|\.png)$/i;
+            if (!extensiones.exec(archivo.name)) {
+                Swal.fire("Error", `El archivo en ${nombreCampo} debe ser JPG o PNG`, "error");
+                return false;
+            }
+            if (archivo.size > 5 * 1024 * 1024) {
+                Swal.fire("Error", `La foto de ${nombreCampo} es muy pesada (máx 5MB)`, "error");
+                return false;
+            }
+        }
+        return true;
+    };
+
+    const inputFrente = $('input[name="ent_img_frente"]')[0];
+    const inputTrasera = $('input[name="ent_img_trasera"]')[0];
+
+    if (!validarImagen(inputFrente, "Foto Frente")) return;
+    if (!validarImagen(inputTrasera, "Foto Respaldo")) return;
 
     // Construir texto del vehículo igual a como está en la BD
     const opcionVehiculo = vehiculoSelect.options[vehiculoSelect.selectedIndex];
@@ -569,7 +723,21 @@ $('#btnGuardarEntrega').on('click', function () {
     datos.append('ent_idusuario', operadorSelect.value);
     datos.append('ent_fechaentrega', fechaEntrega);
     datos.append('ent_fecharegist', fechaRegistro);
+    datos.append('ent_sede', sede);
+    datos.append('ent_img_frente', inputFrente.files[0]);
+    datos.append('ent_img_trasera', inputTrasera.files[0]);
+    serializarHerramientasEntrega();
+    datos.append('ent_equipo_carretera', document.getElementById('ent_equipo_carretera').value);
+    datos.append('ent_observaciones', $('[name="ent_observaciones"]').val());
 
+    // Validar y capturar firma
+    if (!firmaEntregaRealizada) {
+        Swal.fire('Error', 'Debe firmar antes de guardar la entrega', 'error');
+        return;
+    }
+    const firmaBase64 = firmaEntregaCanvas.toDataURL('image/png');
+    document.getElementById('ent_firma_base64').value = firmaBase64;
+    datos.append('ent_firma_base64', firmaBase64);
 
     Swal.fire({
         title: 'Guardando...',
@@ -611,4 +779,103 @@ $('#btnGuardarEntrega').on('click', function () {
             Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
         }
     });
+});
+
+//FIRMA DIGITAL (modal ENTREGA) 
+
+let firmaEntregaRealizada = false;
+let firmaEntregaDrawing = false;
+let firmaEntregaCanvas = null;
+let firmaEntregaCtx = null;
+
+function initFirmaEntrega() {
+    firmaEntregaCanvas = document.getElementById('firmaEntregaCanvas');
+    if (!firmaEntregaCtx) {
+        firmaEntregaCtx = firmaEntregaCanvas.getContext('2d');
+    }
+    resizeFirmaEntrega();
+}
+
+function resizeFirmaEntrega() {
+    if (!firmaEntregaCanvas) return;
+    const ratio = window.devicePixelRatio || 1;
+    const rect = firmaEntregaCanvas.getBoundingClientRect();
+    firmaEntregaCanvas.width = rect.width * ratio;
+    firmaEntregaCanvas.height = rect.height * ratio;
+    firmaEntregaCtx.scale(ratio, ratio);
+    firmaEntregaCtx.lineWidth = 2;
+    firmaEntregaCtx.lineCap = 'round';
+    firmaEntregaCtx.strokeStyle = '#000';
+}
+
+function getPosEntrega(e) {
+    const rect = firmaEntregaCanvas.getBoundingClientRect();
+    return e.touches
+        ? { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top }
+        : { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+// Inicializar canvas cuando se abre el modal
+document.getElementById('modalEntregaVehiculo').addEventListener('shown.bs.modal', function () {
+    initFirmaEntrega();
+});
+
+// Dibujar con mouse
+$(document).on('mousedown', '#firmaEntregaCanvas', function (e) {
+    firmaEntregaDrawing = true;
+    firmaEntregaRealizada = true;
+    const pos = getPosEntrega(e.originalEvent);
+    firmaEntregaCtx.beginPath();
+    firmaEntregaCtx.moveTo(pos.x, pos.y);
+});
+
+$(document).on('mousemove', '#firmaEntregaCanvas', function (e) {
+    if (!firmaEntregaDrawing) return;
+    const pos = getPosEntrega(e.originalEvent);
+    firmaEntregaCtx.lineTo(pos.x, pos.y);
+    firmaEntregaCtx.stroke();
+});
+
+$(document).on('mouseup mouseout', '#firmaEntregaCanvas', function () {
+    firmaEntregaDrawing = false;
+});
+
+// Dibujar con touch (móvil)
+document.getElementById('firmaEntregaCanvas').addEventListener('touchstart', function (e) {
+    e.preventDefault();
+    firmaEntregaDrawing = true;
+    firmaEntregaRealizada = true;
+    const pos = getPosEntrega(e);
+    firmaEntregaCtx.beginPath();
+    firmaEntregaCtx.moveTo(pos.x, pos.y);
+}, { passive: false });
+
+document.getElementById('firmaEntregaCanvas').addEventListener('touchmove', function (e) {
+    e.preventDefault();
+    if (!firmaEntregaDrawing) return;
+    const pos = getPosEntrega(e);
+    firmaEntregaCtx.lineTo(pos.x, pos.y);
+    firmaEntregaCtx.stroke();
+}, { passive: false });
+
+document.getElementById('firmaEntregaCanvas').addEventListener('touchend', function () {
+    firmaEntregaDrawing = false;
+});
+
+// Botón limpiar
+$(document).on('click', '#btnLimpiarFirmaEntrega', function () {
+    if (firmaEntregaCtx && firmaEntregaCanvas) {
+        firmaEntregaCtx.clearRect(0, 0, firmaEntregaCanvas.width, firmaEntregaCanvas.height);
+    }
+    firmaEntregaRealizada = false;
+    document.getElementById('ent_firma_base64').value = '';
+});
+
+// Limpiar firma al cerrar el modal
+document.getElementById('modalEntregaVehiculo').addEventListener('hidden.bs.modal', function () {
+    if (firmaEntregaCtx && firmaEntregaCanvas) {
+        firmaEntregaCtx.clearRect(0, 0, firmaEntregaCanvas.width, firmaEntregaCanvas.height);
+    }
+    firmaEntregaRealizada = false;
+    firmaEntregaDrawing = false;
 });
