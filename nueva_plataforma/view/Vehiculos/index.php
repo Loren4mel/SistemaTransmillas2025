@@ -154,20 +154,18 @@
     
                         <div class="col-md-12 mb-3">
                             <label class="form-label fw-bold text-secondary">Propiedad Vehiculo 
-                                <span class="text-danger">*</span>
                             </label>
-                            <select name="veh_propiedad" id="veh_propiedad" class="form-control" required>
+                            <select name="veh_propiedad" id="veh_propiedad" class="form-control">
                                  <option value="">Seleccionar...</option>
                                  <option value="empresa">Empresa</option>
                                  <option value="propio">Propio</option>
                             </select>
                         </div>
 
-                        <div class="col-md-12 mb-3">
+                        <div class="col-md-12 mb-3" id="wrapper_dueno_agregar">
                             <label class="form-label fw-bold text-secondary">Dueño 
-                                <span class="text-danger">*</span>
                             </label>
-                            <select name="veh_dueno" id="veh_dueno" class="form-control" required>
+                            <select name="veh_dueno" id="veh_dueno" class="form-control">
                                  <option value="">Seleccionar...</option>
                                     <?php foreach ($Dueños as $dueño): ?>
                                  <option value="<?= $dueño['iddueños'] ?>" 
@@ -260,6 +258,20 @@
                             </select>
                         </div>
 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Frente) 
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="file" name="veh_img_actual_frente" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Respaldo) 
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="file" name="veh_img_actual_trasera" class="form-control" required>
+                        </div>
+
                         <!-- SECCIÓN EQUIPO DE CARRETERA -->
                         <div class="col-md-12 mb-3">
                         <div class="d-flex align-items-center justify-content-between px-3 py-2 rounded"
@@ -299,7 +311,6 @@
                             <input type="file" name="veh_img_reverso" class="form-control" required>
                         </div>
                     </div>
-
                 </form>
             </div>
 
@@ -362,15 +373,15 @@
                         </div>
 
                         <div class="col-md-12 mb-3">
-                            <label class="form-label fw-bold text-secondary">Propiedad Vehículo *</label>
-                            <select name="veh_propiedad" id="edit_veh_propiedad" class="form-control" required>
+                            <label class="form-label fw-bold text-secondary">Propiedad Vehículo </label>
+                            <select name="veh_propiedad" id="edit_veh_propiedad" class="form-control">
                                <option value="">Seleccionar...</option>
                                <option value="empresa">Empresa</option>
                                <option value="propio">Propio</option>
                             </select>
                         </div>
 
-                        <div class="col-md-12 mb-3">
+                        <div class="col-md-12 mb-3" id="wrapper_dueno_editar">
                             <label class="form-label fw-bold text-secondary">Dueño</label>
                             <select name="veh_dueno" id="edit_veh_dueno" class="form-control">
                                 <option value="">Seleccionar...</option>
@@ -448,6 +459,18 @@
                                 <option value="0">Inactivo</option>
                                 <option value="1">Activo</option>
                             </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Frente)</label>
+                            <div id="preview_actual_frente" class="mb-1"></div>   
+                            <input type="file" name="veh_img_actual_frente" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Respaldo)</label>
+                            <div id="preview_actual_trasera" class="mb-1"></div>
+                            <input type="file" name="veh_img_actual_trasera" class="form-control" required>
                         </div>
 
                         <!-- SECCIÓN EQUIPO DE CARRETERA (EDITAR) -->
@@ -546,29 +569,68 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Recibido por</label>
+                            <label id="label_recibido" class="form-label fw-bold text-secondary">Recibido por</label>
+    
+                        <!-- Fijo (usuario logueado) — visible por defecto -->
+                        <div id="wrapper_recibido_fijo">
                             <input type="text" class="form-control bg-light" 
-                             value="<?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Sin sesión') ?>" 
-                             readonly>
+                             value="<?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Sin sesión') ?>" readonly>
                             <small class="text-muted">
-                            <i class="fas fa-info-circle me-1"></i>    
-                            Usuario actualmente logueado</small>
+                                <i class="fas fa-info-circle me-1"></i>Usuario actualmente logueado
+                            </small>
                             <input type="hidden" name="ent_userregistra" 
                              value="<?= htmlspecialchars($_SESSION['usuario_nombre']) ?>">
                         </div>
 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Entregado
-                                <span class="text-danger">*</span></label>
-                            <select class="form-select" id="ent_idusuario" name="ent_idusuario" required>
+                        <!-- Conductor (visible solo en entrega inicial) -->
+                        <div id="wrapper_recibido_conductor" style="display:none;">
+                            <select class="form-select" id="ent_idusuario_recibe" name="ent_idusuario_recibe">
                             <option value="">Seleccionar conductor...</option>
-                                   <?php foreach ($operadoresActivos as $op): ?>
+                                <?php foreach ($operadoresActivos as $op): ?>
                             <option value="<?= $op['idusuarios'] ?>">
-                                   <?= htmlspecialchars($op['usu_nombre']) ?>
+                            <?= htmlspecialchars($op['usu_nombre']) ?>
                             </option>
-                                   <?php endforeach; ?>
+                               <?php endforeach; ?>
                             </select>
                         </div>
+                    </div>
+
+                        <!-- ENTREGADO -->
+                        <div class="col-md-6 mb-3">
+                        <label id="label_entregado" class="form-label fw-bold text-secondary">
+                        Entregado <span class="text-danger">*</span>
+                        </label>
+
+                        <!-- Conductor (visible por defecto — entrega final) -->
+                        <div id="wrapper_entregado_conductor">
+                            <select class="form-select" id="ent_idusuario" name="ent_idusuario">
+                            <option value="">Seleccionar conductor...</option>
+                            <?php foreach ($operadoresActivos as $op): ?>
+                            <option value="<?= $op['idusuarios'] ?>">
+                            <?= htmlspecialchars($op['usu_nombre']) ?>
+                            </option>
+                            <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <!-- Fijo (visible solo en entrega inicial) -->
+                        <div id="wrapper_entregado_fijo" style="display:none;">
+                            <input type="text" class="form-control bg-light" 
+                                value="<?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Sin sesión') ?>" readonly>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>Usuario actualmente logueado
+                            </small>
+                        </div>
+                    </div>
+                    
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Sede
+                                <span class="text-danger">*</span></label>
+                            <select name="ent_sede" id="ent_sede" 
+                                    class="form-control" required>
+                            </select>
+                        </div>
+
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Entrega Vehículo 
@@ -590,11 +652,63 @@
                                    required>
                         </div>
 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Frente) 
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="file" name="ent_img_frente" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Respaldo) 
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="file" name="ent_img_respaldo" class="form-control" required>
+                        </div>
+
+                        <!-- SECCIÓN EQUIPO DE CARRETERA -->
+                        <div class="col-md-12 mb-3">
+                        <div class="d-flex align-items-center justify-content-between px-3 py-2 rounded"
+                             style="background-color: #1a3a5c;">
+                            <span class="text-white fw-bold">
+                                <i class="fas fa-toolbox me-2"></i> Equipo de Prevención y Seguridad Vial
+                            </span>
+                            <button type="button" class="btn btn-sm btn-light" id="btnAgregarHerramientaEntrega">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
+                        </div>
+
+                        <div id="listaHerramientasEntrega" class="mt-2">
+                        </div>
+
+                        <!-- Campo oculto donde se guarda el JSON -->
+                        <input type="hidden" name="ent_equipo_carretera" id="ent_equipo_carretera">
+                        </div>
+
                         <div class="col-md-12 mb-3">
                             <label class="form-label fw-bold text-secondary">Observaciones</label>
                             <textarea class="form-control" name="ent_observaciones"
                                       rows="3"
                                       placeholder="Detalles adicionales sobre la entrega..."></textarea>
+                        </div>
+
+                        <!-- FIRMA DIGITAL -->
+                        <div class="col-md-12 mb-3">
+                        <div class="d-flex align-items-center justify-content-between px-3 py-2 rounded"
+                             style="background-color: #1a3a5c;">
+                            <span class="text-white fw-bold">
+                            <i class="fas fa-signature me-2"></i> Firma del Conductor
+                            </span>
+                        <button type="button" class="btn btn-sm btn-light" id="btnLimpiarFirmaEntrega">
+                            <i class="fas fa-eraser"></i> Limpiar
+                        </button>
+                        </div>
+                            <small class="text-muted ms-1">Firme dentro del recuadro para confirmar la entrega.</small>
+                            <canvas id="firmaEntregaCanvas" 
+                                    style="border: 2px dashed #bfc9d4; border-radius: 6px; width: 100%; 
+                                    height: 200px; background: #fff; cursor: crosshair; touch-action: none; display:block;">
+                            </canvas>
+                        <input type="hidden" id="ent_firma_base64" name="ent_firma_base64">
                         </div>
 
                     </div>
