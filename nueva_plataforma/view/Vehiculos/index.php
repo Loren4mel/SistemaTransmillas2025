@@ -22,6 +22,11 @@
         <button class="btn btn-sm btn-light border">Volver</button>
 
         <div class="d-flex gap-2">
+        <button type="button" class="btn btn-primary" id="btnNuevoComparendo"
+        data-bs-toggle="modal"
+        data-bs-target="#modalAgregarComparendo">
+        <i class="fas fa-plus me-1"></i>Agregar Comparendo
+        </button>    
         <button type="button" class="btn btn-primary" id="btnEntrega" 
                 data-bs-toggle="modal" 
                 data-bs-target="#modalEntregaVehiculo">
@@ -76,14 +81,15 @@
                 <th>Fecha Seguro</th>
                 <th>Fecha Tecnomecánica</th>
                 <th>Fecha Cambio Aceite</th>
-                <th>Km Actual</th>
-                <th>Km Cambio Aceite</th>
+                <th>Kilometraje Actual</th>
+                <th>Km Al Cambio de Aceite</th>
+                <th>Limite Km cambio aceite</th>
                 <th>Tarjeta de Propiedad (Frente)</th>
                 <th>Tarjeta de Propiedad (Respaldo)</th>
+                <th>Comparendos</th>
                 <th>Estado</th>
                 <th>Editar</th>
                 <th>Eliminar</th>
-
             </tr>
           </thead>
           <tbody></tbody>
@@ -177,6 +183,13 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Kilometraje Actual
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" name="veh_kilactual" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Vencimiento Seguro (SOAT)</label>
                             <input type="date" name="veh_fechaseguro" value="<?= date('Y-m-d') ?>" class="form-control">
                         </div>
@@ -206,14 +219,14 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Km Actual 
+                            <label class="form-label fw-bold text-secondary">Kilometraje Actual Al Cambio de Aceite
                                 <span class="text-danger">*</span>
                             </label>
-                            <input type="text" class="form-control" name="veh_kilactual" required>
+                            <input type="text" class="form-control" name="veh_kmactual_cambioaceite" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Intervalo Cambio Aceite km 
+                            <label class="form-label fw-bold text-secondary">Limite Km cambio aceite 
                                 <span class="text-danger">*</span>
                             </label>
                             <input type="text" class="form-control" name="veh_calkmcambioaceite" required>
@@ -247,7 +260,7 @@
                             <input type="text" class="form-control" name="veh_usuve" required>
                         </div>
 
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-12 mb-3">
                             <label class="form-label fw-bold text-secondary">Estado 
                                 <span class="text-danger">*</span>
                             </label>
@@ -393,6 +406,12 @@
                                 <?php endforeach; ?>
                             </select>
                         </div>
+
+                        <!-- NUEVO CAMPO: Kilometraje Actual — después de Dueño -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Kilometraje Actual</label>
+                            <input type="text" class="form-control" name="veh_kilactual" id="edit_veh_kilactual" required>
+                        </div>
  
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Seguro (SOAT)</label>
@@ -401,7 +420,6 @@
  
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto Seguro (SOAT)</label>
-                            <!-- Vista previa de imagen actual -->
                             <div id="preview_soat" class="mb-1"></div>
                             <input type="file" name="veh_img_soat" class="form-control">
                         </div>
@@ -421,14 +439,15 @@
                             <label class="form-label fw-bold text-secondary">📅 Fecha Cambio de Aceite</label>
                             <input type="date" name="veh_fechamantenimiento" id="edit_veh_fechamantenimiento" class="form-control">
                         </div>
- 
+
+                        <!-- RENOMBRADO: Kilometraje Actual Al Cambio de Aceite -->
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Km Actual</label>
-                            <input type="text" class="form-control" name="veh_kilactual" id="edit_veh_kilactual" required>
+                            <label class="form-label fw-bold text-secondary">Kilometraje Actual Al Cambio de Aceite</label>
+                            <input type="text" class="form-control" name="veh_kmactual_cambioaceite" id="edit_veh_kmactual_cambioaceite" required>
                         </div>
  
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Km Cambio Aceite</label>
+                            <label class="form-label fw-bold text-secondary">Limite Km cambio aceite</label>
                             <input type="text" class="form-control" name="veh_calkmcambioaceite" id="edit_veh_calkmcambioaceite" required>
                         </div>
  
@@ -452,7 +471,7 @@
                             <input type="text" class="form-control" name="veh_usuve" id="edit_veh_usuve">
                         </div>
  
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-12 mb-3">
                             <label class="form-label fw-bold text-secondary">Estado</label>
                             <select name="veh_estado" id="edit_veh_estado" class="form-control" required>
                                 <option value="">Seleccionar...</option>
@@ -537,8 +556,8 @@
             <label class="form-label fw-bold text-secondary">
             Tipo de Entrega <span class="text-danger">*</span>
             </label>
-            <select class="form-select" id="ent_tipoentrega" name="ent_tipoentrega" required>
-                <option value="">Seleccionar tipo...</option>
+            <select class="form-control" id="ent_tipoentrega" name="ent_tipoentrega" required>
+                <option value="">Seleccionar...</option>
                 <option value="inicial">Inicial </option>
                 <option value="final">Final </option>
             </select>
@@ -558,7 +577,7 @@
                                 <span class="text-danger">*</span></label>
                             <select name="ent_vehiculo_id" id="ent_vehiculo_id" 
                                     class="form-control" required>
-                                <option value="">Seleccionar vehículo...</option>
+                                <option value="">Seleccionar...</option>
                                 <?php foreach ($Vehiculos as $v): ?>
                                 <option value="<?= $v['idvehiculos'] ?>"
                                     data-texto="<?= $v['veh_tipo'] ?> <?= $v['veh_placa'] ?> <?= $v['veh_marca'] ?> <?= $v['veh_modelo'] ?>">
@@ -571,7 +590,6 @@
                         <div class="col-md-6 mb-3">
                             <label id="label_recibido" class="form-label fw-bold text-secondary">Recibido por</label>
     
-                        <!-- Fijo (usuario logueado) — visible por defecto -->
                         <div id="wrapper_recibido_fijo">
                             <input type="text" class="form-control bg-light" 
                              value="<?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Sin sesión') ?>" readonly>
@@ -582,9 +600,8 @@
                              value="<?= htmlspecialchars($_SESSION['usuario_nombre']) ?>">
                         </div>
 
-                        <!-- Conductor (visible solo en entrega inicial) -->
                         <div id="wrapper_recibido_conductor" style="display:none;">
-                            <select class="form-select" id="ent_idusuario_recibe" name="ent_idusuario_recibe">
+                            <select class="form-control" id="ent_idusuario_recibe" name="ent_idusuario_recibe">
                             <option value="">Seleccionar conductor...</option>
                                 <?php foreach ($operadoresActivos as $op): ?>
                             <option value="<?= $op['idusuarios'] ?>">
@@ -595,15 +612,13 @@
                         </div>
                     </div>
 
-                        <!-- ENTREGADO -->
                         <div class="col-md-6 mb-3">
                         <label id="label_entregado" class="form-label fw-bold text-secondary">
                         Entregado <span class="text-danger">*</span>
                         </label>
 
-                        <!-- Conductor (visible por defecto — entrega final) -->
                         <div id="wrapper_entregado_conductor">
-                            <select class="form-select" id="ent_idusuario" name="ent_idusuario">
+                            <select class="form-control" id="ent_idusuario" name="ent_idusuario">
                             <option value="">Seleccionar conductor...</option>
                             <?php foreach ($operadoresActivos as $op): ?>
                             <option value="<?= $op['idusuarios'] ?>">
@@ -613,7 +628,6 @@
                             </select>
                         </div>
 
-                        <!-- Fijo (visible solo en entrega inicial) -->
                         <div id="wrapper_entregado_fijo" style="display:none;">
                             <input type="text" class="form-control bg-light" 
                                 value="<?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Sin sesión') ?>" readonly>
@@ -623,14 +637,18 @@
                         </div>
                     </div>
                     
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6 mb-3" id="wrapper_sede_agregar">
                             <label class="form-label fw-bold text-secondary">Sede
                                 <span class="text-danger">*</span></label>
-                            <select name="ent_sede" id="ent_sede" 
-                                    class="form-control" required>
-                            </select>
+                            <select name="ent_sede" id="ent_sede" class="form-control" required>
+                                   <option value="">Seleccionar...</option>
+                                   <?php foreach ($Sedes as $sede): ?>
+                                   <option value="<?= $sede['sed_nombre'] ?>">
+                                   <?= htmlspecialchars($sede['sed_nombre']) ?>
+                                   </option>
+                                   <?php endforeach; ?>
+                            </select>   
                         </div>
-
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Entrega Vehículo 
@@ -681,7 +699,6 @@
                         <div id="listaHerramientasEntrega" class="mt-2">
                         </div>
 
-                        <!-- Campo oculto donde se guarda el JSON -->
                         <input type="hidden" name="ent_equipo_carretera" id="ent_equipo_carretera">
                         </div>
 
@@ -727,6 +744,149 @@
     </div>
 </div>
 
+<!-- MODAL AGREGAR COMPARENDO -->
+<div class="modal fade" id="modalAgregarComparendo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title"> Agregar Comparendo</h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formComparendo" enctype="multipart/form-data">
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Operador (Recibido por) <span class="text-danger">*</span>
+                            </label>
+                            <select name="com_operador_id" id="com_operador_id"
+                                    class="form-control" required>
+                                <option value="">Seleccionar...</option>
+                                <?php foreach ($operadoresActivos as $op): ?>
+                                <option value="<?= $op['idusuarios'] ?>">
+                                    <?= htmlspecialchars($op['usu_nombre']) ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Vehículo <span class="text-danger">*</span>
+                            </label>
+                            <select name="com_vehiculo_id" id="com_vehiculo_id"
+                                    class="form-control" required>
+                                <option value="">Seleccionar...</option>
+                                <?php foreach ($Vehiculos as $v):
+                                    if ($v['veh_estado'] != 1) continue; ?>
+                                <option value="<?= $v['idvehiculos'] ?>">
+                                    <?= $v['veh_placa'] ?> — <?= $v['veh_marca'] ?> <?= $v['veh_modelo'] ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Estado del Comparendo <span class="text-danger">*</span>
+                            </label>
+                            <select name="com_estado" id="com_estado"
+                                    class="form-control" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Pagado">Pagado</option>
+                                <option value="Pendiente">Pendiente</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📅 Fecha del Comparendo <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" name="com_fecha" id="com_fecha"
+                                   class="form-control"
+                                   value="<?= date('Y-m-d') ?>" required>
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📷 Foto del Comparendo
+                            </label>
+                            <input type="file" name="com_foto" id="com_foto"
+                                   class="form-control" accept=".jpg,.jpeg,.png">
+                        </div>
+
+                        <div class="col-md-12 mb-2">
+                            <div class="alert alert-info py-2 px-3 mb-0" id="infoHojaVida" style="display:none;">
+                                <i class="fas fa-id-card me-2"></i>
+                                <span id="textoHojaVida"></span>
+                            </div>
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarComparendo">
+                    Guardar 
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- MODAL VER COMPARENDOS DEL VEHÍCULO -->
+<div class="modal fade" id="modalVerComparendos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    Comparendos del Vehículo: <span id="tituloPlacaComparendo"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table id="tablaComparendos"
+                           class="table table-hover table-bordered align-middle text-center">
+                        <thead class="thead-modern">
+                            <tr>
+                                <th>#</th>
+                                <th>Operador</th>
+                                <th>Vehículo</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                                <th>Foto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaComparendos">
+                            <tr>
+                                <td colspan="6" class="text-muted">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
@@ -736,13 +896,8 @@
 <!-- DataTables -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-  <!-- DataTables desde CDN -->
-   
 
 <script src="/SistemaTransmillas2025/nueva_plataforma/assets/js/vehiculos.js"></script>
-
-
-
 
 </body>
 </html>
