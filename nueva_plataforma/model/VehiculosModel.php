@@ -10,14 +10,17 @@ class VehiculosModel {
 
     public function obtenerVehiculos($filtroTipovehiculo = '', $filtroEstado = '') {
     $sql = "SELECT `idvehiculos`, `veh_tipo`, `veh_placa`, `veh_marca`, `veh_modelo`, 
-    `veh_fechaseguro`, `veh_fechategnomecanica`, `veh_fechamantenimiento`, `veh_kilactual`, 
+    `veh_fechaseguro`, `veh_fechategnomecanica`, `veh_fechamantenimiento`, `veh_kilactual`,
+    `veh_kmactual_cambioaceite`,
     `veh_aceitekil`, `veh_propiedad`, `veh_dueño`, `veh_estado`, `veh_chasis`, `veh_tipov`, `veh_cilidraje`, 
     `veh_motor`, `veh_color`, `veh_usuve`, `veh_observaciones`, `veh_calkmcambioaceite`, 
     `veh_restankmaceite`, `veh_faltaparacambioaceite`, `veh_kmalcambaceite`, `veh_img_anverso`, `veh_img_reverso`, 
     `veh_img_actual_frente`, `veh_img_actual_trasera`,
-    usu_nombre
-    FROM `vehiculos` LEFT JOIN usuarios ON veh_dueño = idusuarios
-    WHERE 1=1";
+    IF(idusuarios = 14, 'Transmillas', usu_nombre) AS usu_nombre,
+    (SELECT COUNT(*) FROM comparendos 
+     WHERE com_vehiculo_id = idvehiculos) AS total_comparendos
+     FROM `vehiculos` LEFT JOIN usuarios ON veh_dueño = idusuarios
+     WHERE 1=1";
 
     if ($filtroTipovehiculo !== '') {
         $sql .= " AND veh_tipo = '" . $this->db->real_escape_string($filtroTipovehiculo) . "'";
@@ -42,6 +45,7 @@ class VehiculosModel {
         $stmt->execute();
         $stmt->close();
     }
+
     public function eliminarVehiculo($id) {
         $sql = "DELETE FROM vehiculos WHERE idvehiculos = ?";
         $stmt = $this->db->prepare($sql);
@@ -56,21 +60,22 @@ class VehiculosModel {
         if (empty($datos[$f])) $datos[$f] = null;
     }
 
-    $veh_img_anverso       = $this->guardarImagen($_FILES['veh_img_anverso'],       "uploads/vehiculos");
-    $veh_img_reverso       = $this->guardarImagen($_FILES['veh_img_reverso'],       "uploads/vehiculos");
-    $veh_img_soat          = $this->guardarImagen($_FILES['veh_img_soat'],          "uploads/vehiculos");
-    $veh_img_tecnomecanica = $this->guardarImagen($_FILES['veh_img_tecnomecanica'], "uploads/vehiculos");
-    $veh_img_actual_frente = $this->guardarImagen($_FILES['veh_img_actual_frente'], "uploads/vehiculos");
+    $veh_img_anverso        = $this->guardarImagen($_FILES['veh_img_anverso'],        "uploads/vehiculos");
+    $veh_img_reverso        = $this->guardarImagen($_FILES['veh_img_reverso'],        "uploads/vehiculos");
+    $veh_img_soat           = $this->guardarImagen($_FILES['veh_img_soat'],           "uploads/vehiculos");
+    $veh_img_tecnomecanica  = $this->guardarImagen($_FILES['veh_img_tecnomecanica'],  "uploads/vehiculos");
+    $veh_img_actual_frente  = $this->guardarImagen($_FILES['veh_img_actual_frente'],  "uploads/vehiculos");
     $veh_img_actual_trasera = $this->guardarImagen($_FILES['veh_img_actual_trasera'], "uploads/vehiculos");
 
     $sql = "INSERT INTO vehiculos (
         veh_tipo, veh_marca, veh_placa, veh_modelo, veh_color,
         veh_tipov, veh_propiedad, veh_dueño, veh_fechaseguro, veh_img_soat,
         veh_fechategnomecanica, veh_img_tecnomecanica, veh_fechamantenimiento,
-        veh_kilactual, veh_calkmcambioaceite, veh_chasis, veh_motor,
-        veh_cilidraje, veh_usuve, veh_estado, veh_equipo_carretera, veh_observaciones,
+        veh_kilactual, veh_kmactual_cambioaceite, veh_calkmcambioaceite,
+        veh_chasis, veh_motor, veh_cilidraje, veh_usuve, veh_estado,
+        veh_equipo_carretera, veh_observaciones,
         veh_img_anverso, veh_img_reverso, veh_img_actual_frente, veh_img_actual_trasera
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = $this->db->prepare($sql);
 
@@ -78,8 +83,9 @@ class VehiculosModel {
         return ['error' => 'Prepare falló: ' . $this->db->error];
     }
 
+    // 27 parámetros: i para veh_dueño, s para el resto
     $stmt->bind_param(
-        "sssssssissssssssssssssssss", 
+        "sssssssisssssssssssssssssss",
         $datos['veh_tipo'],
         $datos['veh_marca'],
         $datos['veh_placa'],
@@ -87,13 +93,14 @@ class VehiculosModel {
         $datos['veh_color'],
         $datos['veh_tipov'],
         $datos['veh_propiedad'],
-        $datos['veh_dueno'],
+        $datos['veh_dueno'],             // i
         $datos['veh_fechaseguro'],
         $veh_img_soat,
         $datos['veh_fechategnomecanica'],
         $veh_img_tecnomecanica,
         $datos['veh_fechamantenimiento'],
         $datos['veh_kilactual'],
+        $datos['veh_kmactual_cambioaceite'], // NUEVO
         $datos['veh_calkmcambioaceite'],
         $datos['veh_chasis'],
         $datos['veh_motor'],
@@ -111,7 +118,6 @@ class VehiculosModel {
     $resultado = $stmt->execute();
 
     if (!$resultado) {
-        //TAMBIÉN VER ESTE ERROR
         return ['error' => 'Execute falló: ' . $stmt->error];
     }
 
@@ -121,25 +127,19 @@ class VehiculosModel {
 
 private function guardarImagen(array $file, string $carpetaRelativa)
 {
-    // Validar que exista archivo
     if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
         return "";
     }
 
-    // Ruta ABSOLUTA en el servidor
-    $rutaBase = $_SERVER['DOCUMENT_ROOT'] . "/SistemaTransmillas2025/nueva_plataforma/" . $carpetaRelativa;
-    // Crear carpeta si no existe (CORRECTO)
+    $rutaBase = dirname(__DIR__) . DIRECTORY_SEPARATOR . $carpetaRelativa;
+
     if (!is_dir($rutaBase)) {
         mkdir($rutaBase, 0777, true);
     }
 
-    // Nombre único
-    $nombre = date("Y-m-d-H-i-s") . "-" . basename($file["name"]);
+    $nombre  = date("Y-m-d-H-i-s") . "-" . basename($file["name"]);
+    $destino = $rutaBase . DIRECTORY_SEPARATOR . $nombre;
 
-    // Ruta donde se guarda físicamente
-    $destino = $rutaBase . "/" . $nombre;
-
-    // Validar que sea imagen
     $info = getimagesize($file['tmp_name']);
     if (!$info) return "";
 
@@ -155,29 +155,25 @@ private function guardarImagen(array $file, string $carpetaRelativa)
             return "";
     }
 
-    // Redimensionar si es muy grande
     $maxW = 1280;
     $maxH = 1280;
-    $w = imagesx($imagen);
-    $h = imagesy($imagen);
+    $w    = imagesx($imagen);
+    $h    = imagesy($imagen);
 
     if ($w > $maxW || $h > $maxH) {
         $ratio = min($maxW / $w, $maxH / $h);
-        $nw = (int)($w * $ratio);
-        $nh = (int)($h * $ratio);
-
-        $tmp = imagecreatetruecolor($nw, $nh);
+        $nw    = (int)($w * $ratio);
+        $nh    = (int)($h * $ratio);
+        $tmp   = imagecreatetruecolor($nw, $nh);
         imagecopyresampled($tmp, $imagen, 0, 0, 0, 0, $nw, $nh, $w, $h);
         $imagen = $tmp;
     }
 
-    // Guardar imagen
     imagejpeg($imagen, $destino, 70);
     imagedestroy($imagen);
 
-    //Ruta que usará el navegador
-    return "uploads/vehiculos/" . $nombre;
-}    
+    return $carpetaRelativa . "/" . $nombre;
+}
 
 // Obtener lista de dueños activos para el dropdown
 public function obtenerDueños() {
@@ -189,59 +185,62 @@ public function obtenerDueños() {
     $result = $this->db->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
+
 public function obtenerVehiculoPorId($id) {
-    $id = intval($id);
-    $sql = "SELECT * FROM vehiculos WHERE idvehiculos = $id LIMIT 1";
+    $id    = intval($id);
+    $sql   = "SELECT * FROM vehiculos WHERE idvehiculos = $id LIMIT 1";
     $result = $this->db->query($sql);
     return $result ? $result->fetch_assoc() : null;
 }
 
 public function actualizarVehiculo($datos) {
-    $veh_img_soat          = $this->guardarImagen($_FILES['veh_img_soat'],          "uploads/vehiculos");
-    $veh_img_tecnomecanica = $this->guardarImagen($_FILES['veh_img_tecnomecanica'], "uploads/vehiculos");
-    $veh_img_anverso       = $this->guardarImagen($_FILES['veh_img_anverso'],       "uploads/vehiculos");
-    $veh_img_reverso       = $this->guardarImagen($_FILES['veh_img_reverso'],       "uploads/vehiculos");
+    $veh_img_soat           = $this->guardarImagen($_FILES['veh_img_soat'],           "uploads/vehiculos");
+    $veh_img_tecnomecanica  = $this->guardarImagen($_FILES['veh_img_tecnomecanica'],  "uploads/vehiculos");
+    $veh_img_anverso        = $this->guardarImagen($_FILES['veh_img_anverso'],        "uploads/vehiculos");
+    $veh_img_reverso        = $this->guardarImagen($_FILES['veh_img_reverso'],        "uploads/vehiculos");
     $veh_img_actual_frente  = $this->guardarImagen($_FILES['veh_img_actual_frente'],  "uploads/vehiculos");
     $veh_img_actual_trasera = $this->guardarImagen($_FILES['veh_img_actual_trasera'], "uploads/vehiculos");
 
-    // Solo reemplaza imagen si subieron una nueva
     $sqlImgs = "";
-    if ($veh_img_soat)          $sqlImgs .= ", veh_img_soat = '$veh_img_soat'";
-    if ($veh_img_tecnomecanica) $sqlImgs .= ", veh_img_tecnomecanica = '$veh_img_tecnomecanica'";
-    if ($veh_img_anverso)       $sqlImgs .= ", veh_img_anverso = '$veh_img_anverso'";
-    if ($veh_img_reverso)       $sqlImgs .= ", veh_img_reverso = '$veh_img_reverso'";
+    if ($veh_img_soat)           $sqlImgs .= ", veh_img_soat = '$veh_img_soat'";
+    if ($veh_img_tecnomecanica)  $sqlImgs .= ", veh_img_tecnomecanica = '$veh_img_tecnomecanica'";
+    if ($veh_img_anverso)        $sqlImgs .= ", veh_img_anverso = '$veh_img_anverso'";
+    if ($veh_img_reverso)        $sqlImgs .= ", veh_img_reverso = '$veh_img_reverso'";
     if ($veh_img_actual_frente)  $sqlImgs .= ", veh_img_actual_frente = '$veh_img_actual_frente'";
     if ($veh_img_actual_trasera) $sqlImgs .= ", veh_img_actual_trasera = '$veh_img_actual_trasera'";
 
     $id = intval($datos['veh_id']);
 
     $sql = "UPDATE vehiculos SET
-        veh_tipo               = ?,
-        veh_marca              = ?,
-        veh_placa              = ?,
-        veh_modelo             = ?,
-        veh_color              = ?,
-        veh_tipov              = ?,
-        veh_propiedad          = ?,
-        veh_dueño              = ?,
-        veh_fechaseguro        = ?,
-        veh_fechategnomecanica = ?,
-        veh_fechamantenimiento = ?,
-        veh_kilactual          = ?,
-        veh_calkmcambioaceite  = ?,
-        veh_chasis             = ?,
-        veh_motor              = ?,
-        veh_cilidraje          = ?,
-        veh_usuve              = ?,
-        veh_estado             = ?,
-        veh_equipo_carretera   = ?,
-        veh_observaciones      = ?
+        veh_tipo                  = ?,
+        veh_marca                 = ?,
+        veh_placa                 = ?,
+        veh_modelo                = ?,
+        veh_color                 = ?,
+        veh_tipov                 = ?,
+        veh_propiedad             = ?,
+        veh_dueño                 = ?,
+        veh_fechaseguro           = ?,
+        veh_fechategnomecanica    = ?,
+        veh_fechamantenimiento    = ?,
+        veh_kilactual             = ?,
+        veh_kmactual_cambioaceite = ?,
+        veh_calkmcambioaceite     = ?,
+        veh_chasis                = ?,
+        veh_motor                 = ?,
+        veh_cilidraje             = ?,
+        veh_usuve                 = ?,
+        veh_estado                = ?,
+        veh_equipo_carretera      = ?,
+        veh_observaciones         = ?
         $sqlImgs
         WHERE idvehiculos = $id";
 
     $stmt = $this->db->prepare($sql);
+
+    // 21 parámetros: s para todos
     $stmt->bind_param(
-        "ssssssssssssssssssss",
+        "sssssssssssssssssssss",
         $datos['veh_tipo'],
         $datos['veh_marca'],
         $datos['veh_placa'],
@@ -254,6 +253,7 @@ public function actualizarVehiculo($datos) {
         $datos['veh_fechategnomecanica'],
         $datos['veh_fechamantenimiento'],
         $datos['veh_kilactual'],
+        $datos['veh_kmactual_cambioaceite'], // NUEVO
         $datos['veh_calkmcambioaceite'],
         $datos['veh_chasis'],
         $datos['veh_motor'],
@@ -269,27 +269,6 @@ public function actualizarVehiculo($datos) {
     return $resultado;
 }
 
-/*
-public function obtenerUsuariosActivos() {
-    $sql = "SELECT idusuarios, usu_nombre 
-            FROM usuarios 
-            WHERE usu_estado = 1
-            ORDER BY usu_nombre ASC";
-    $result = $this->db->query($sql);
-    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
-}
-*/
-/*
-public function obtenerConductoresActivos() {
-    $sql = "SELECT idhojadevida, 
-                   CONCAT(hoj_nombre, ' ', hoj_apellido) AS conductor_nombre
-            FROM hojadevida 
-            WHERE hoj_estado = 'Activo'
-            ORDER BY hoj_nombre ASC";
-    $result = $this->db->query($sql);
-    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
-}
-    */
 public function obtenerOperadoresActivos() {
     $sql = "SELECT idusuarios, usu_nombre 
             FROM usuarios 
@@ -302,77 +281,55 @@ public function obtenerOperadoresActivos() {
 
 public function guardarEntregaVehiculo($datos) {
 
-$ent_img_frente  = $this->guardarImagen($_FILES['ent_img_frente'],  "uploads/vehiculos");
-$ent_img_trasera = $this->guardarImagen($_FILES['ent_img_trasera'], "uploads/vehiculos");
+    $ent_img_frente  = $this->guardarImagen($_FILES['ent_img_frente'],  "uploads/vehiculos");
+    $ent_img_trasera = $this->guardarImagen($_FILES['ent_img_trasera'], "uploads/vehiculos");
 
-    //Obtener la cédula del usuario (operador que entrega)
     $idUsuario = intval($datos['ent_idusuario']);
     $sqlCedula = "SELECT usu_identificacion FROM usuarios WHERE idusuarios = ? LIMIT 1";
     $stmtCedula = $this->db->prepare($sqlCedula);
     $stmtCedula->bind_param("i", $idUsuario);
     $stmtCedula->execute();
     $resultCedula = $stmtCedula->get_result();
-    $usuarioData = $resultCedula->fetch_assoc();
+    $usuarioData  = $resultCedula->fetch_assoc();
     $stmtCedula->close();
 
-    //Buscar en hojadevida por cédula y que esté Activo
     $idHojaDeVida = null;
 
     if ($usuarioData && !empty($usuarioData['usu_identificacion'])) {
-        $cedula = $usuarioData['usu_identificacion'];
-
-        $sqlHoja = "SELECT idhojadevida FROM hojadevida 
-                    WHERE hoj_cedula = ? AND hoj_estado = 'Activo' LIMIT 1";
+        $cedula   = $usuarioData['usu_identificacion'];
+        $sqlHoja  = "SELECT idhojadevida FROM hojadevida 
+                     WHERE hoj_cedula = ? AND hoj_estado = 'Activo' LIMIT 1";
         $stmtHoja = $this->db->prepare($sqlHoja);
         $stmtHoja->bind_param("s", $cedula);
         $stmtHoja->execute();
         $resultHoja = $stmtHoja->get_result();
-        $hojaData = $resultHoja->fetch_assoc();
+        $hojaData   = $resultHoja->fetch_assoc();
         $stmtHoja->close();
-
-        if ($hojaData) {
-            $idHojaDeVida = $hojaData['idhojadevida'];
-        }
+        if ($hojaData) $idHojaDeVida = $hojaData['idhojadevida'];
     }
 
-    // Guardar firma base64 como imagen
-$ent_firma_path = '';
-if (!empty($datos['ent_firma_base64'])) {
-    $firmaData = $datos['ent_firma_base64'];
-    $firmaData = str_replace('data:image/png;base64,', '', $firmaData);
-    $firmaData = str_replace(' ', '+', $firmaData);
-    $firmaDecoded = base64_decode($firmaData);
-    
-    $rutaFirmas = $_SERVER['DOCUMENT_ROOT'] . '/SistemaTransmillas2025/nueva_plataforma/uploads/firmas_entrega/';
-    if (!is_dir($rutaFirmas)) mkdir($rutaFirmas, 0777, true);
-    
-    $nombreFirma = 'firma_entrega_' . date('Y-m-d-H-i-s') . '_' . uniqid() . '.png';
-    file_put_contents($rutaFirmas . $nombreFirma, $firmaDecoded);
-    $ent_firma_path = 'uploads/firmas_entrega/' . $nombreFirma;
-}
+    $ent_firma_path = '';
+    if (!empty($datos['ent_firma_base64'])) {
+        $firmaData    = $datos['ent_firma_base64'];
+        $firmaData    = str_replace('data:image/png;base64,', '', $firmaData);
+        $firmaData    = str_replace(' ', '+', $firmaData);
+        $firmaDecoded = base64_decode($firmaData);
+        $rutaFirmas   = $_SERVER['DOCUMENT_ROOT'] . '/SistemaTransmillas2025/nueva_plataforma/uploads/firmas_entrega/';
+        if (!is_dir($rutaFirmas)) mkdir($rutaFirmas, 0777, true);
+        $nombreFirma    = 'firma_entrega_' . date('Y-m-d-H-i-s') . '_' . uniqid() . '.png';
+        file_put_contents($rutaFirmas . $nombreFirma, $firmaDecoded);
+        $ent_firma_path = 'uploads/firmas_entrega/' . $nombreFirma;
+    }
 
-    //Guardar la entrega incluyendo ent_idhojadevida
     $sql = "INSERT INTO entregavehiculo (
-                ent_fechaentrega,
-                ent_vehiculo,
-                ent_userregistra,
-                ent_idusuario,
-                ent_tipoentrega,
-                ent_fecharegistra,
-                ent_idhojadevida,
-                ent_sede,
-                ent_img_frente,
-                ent_img_trasera,
-                ent_equipo_carretera,
-                ent_observaciones,
-                ent_firma 
+                ent_fechaentrega, ent_vehiculo, ent_userregistra, ent_idusuario,
+                ent_tipoentrega, ent_fecharegistra, ent_idhojadevida, ent_sede,
+                ent_img_frente, ent_img_trasera, ent_equipo_carretera,
+                ent_observaciones, ent_firma 
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = $this->db->prepare($sql);
-
-    if (!$stmt) {
-        return ['error' => 'Prepare falló: ' . $this->db->error];
-    }
+    if (!$stmt) return ['error' => 'Prepare falló: ' . $this->db->error];
 
     $stmt->bind_param(
         "sssississssss",
@@ -392,21 +349,17 @@ if (!empty($datos['ent_firma_base64'])) {
     );
 
     $resultado = $stmt->execute();
-
-    if (!$resultado) {
-        return ['error' => 'Execute falló: ' . $stmt->error];
-    }
-
+    if (!$resultado) return ['error' => 'Execute falló: ' . $stmt->error];
     $stmt->close();
     return true;
 }
 
 public function obtenerEquipoVehiculo($id) {
-    $id = intval($id);
-    $sql = "SELECT veh_equipo_carretera FROM vehiculos WHERE idvehiculos = $id LIMIT 1";
+    $id     = intval($id);
+    $sql    = "SELECT veh_equipo_carretera FROM vehiculos WHERE idvehiculos = $id LIMIT 1";
     $result = $this->db->query($sql);
     if ($result) {
-        $row = $result->fetch_assoc();
+        $row    = $result->fetch_assoc();
         $equipo = [];
         if (!empty($row['veh_equipo_carretera'])) {
             $equipo = json_decode($row['veh_equipo_carretera'], true) ?? [];
@@ -414,6 +367,91 @@ public function obtenerEquipoVehiculo($id) {
         return $equipo;
     }
     return [];
-
 }
+
+// MODAL COMPARENDOS
+
+public function guardarComparendo($datos) {
+    $com_foto = '';
+    if (isset($_FILES['com_foto']) && is_uploaded_file($_FILES['com_foto']['tmp_name'])) {
+        $com_foto = $this->guardarImagen($_FILES['com_foto'], 'uploads/comparendos');
+    }
+
+    $idHoja = null;
+    $idOp   = intval($datos['com_operador_id']);
+
+    $sqlC  = "SELECT usu_identificacion FROM usuarios WHERE idusuarios = ? LIMIT 1";
+    $stmtC = $this->db->prepare($sqlC);
+    $stmtC->bind_param("i", $idOp);
+    $stmtC->execute();
+    $rowC = $stmtC->get_result()->fetch_assoc();
+    $stmtC->close();
+
+    if ($rowC && !empty($rowC['usu_identificacion'])) {
+        $cedula = $rowC['usu_identificacion'];
+        $sqlH   = "SELECT idhojadevida FROM hojadevida
+                   WHERE hoj_cedula = ? AND hoj_estado = 'Activo' LIMIT 1";
+        $stmtH  = $this->db->prepare($sqlH);
+        $stmtH->bind_param("s", $cedula);
+        $stmtH->execute();
+        $rowH = $stmtH->get_result()->fetch_assoc();
+        $stmtH->close();
+        if ($rowH) $idHoja = $rowH['idhojadevida'];
+    }
+
+    $sql  = "INSERT INTO comparendos
+             (com_operador_id, com_vehiculo_id, com_estado, com_foto, com_fecha, com_hojadevida_id)
+             VALUES (?, ?, ?, ?, ?, ?)";
+    $stmt = $this->db->prepare($sql);
+    if (!$stmt) return ['error' => $this->db->error];
+
+    $stmt->bind_param(
+        "iisssi",
+        $datos['com_operador_id'],
+        $datos['com_vehiculo_id'],
+        $datos['com_estado'],
+        $com_foto,
+        $datos['com_fecha'],
+        $idHoja
+    );
+
+    $ok = $stmt->execute();
+    if (!$ok) return ['error' => $stmt->error];
+    $stmt->close();
+    return true;
+}
+
+public function obtenerComparendosPorVehiculo($idVehiculo) {
+    $id  = intval($idVehiculo);
+    $sql = "SELECT c.*,
+                   u.usu_nombre AS operador_nombre,
+                   v.veh_placa  AS vehiculo_placa,
+                   v.veh_marca  AS vehiculo_marca,
+                   v.veh_modelo AS vehiculo_modelo
+            FROM comparendos c
+            LEFT JOIN usuarios  u ON c.com_operador_id = u.idusuarios
+            LEFT JOIN vehiculos v ON c.com_vehiculo_id = v.idvehiculos
+            WHERE c.com_vehiculo_id = $id
+            ORDER BY c.com_fecha DESC";
+    $result = $this->db->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+}
+
+public function contarComparendosPorOperador($idOperador) {
+    $id     = intval($idOperador);
+    $sql    = "SELECT COUNT(*) AS total FROM comparendos WHERE com_operador_id = $id";
+    $result = $this->db->query($sql);
+    if ($result) {
+        $row = $result->fetch_assoc();
+        return (int)$row['total'];
+    }
+    return 0;
+}
+
+public function obtenerSedes() {
+    $sql = "SELECT idsedes, sed_nombre FROM sedes ORDER BY sed_nombre ASC";
+    $result = $this->db->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+}
+
 }
