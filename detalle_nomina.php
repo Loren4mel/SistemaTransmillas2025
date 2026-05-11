@@ -232,6 +232,8 @@ $sql="SELECT `idhojadevida`,  `hoj_nombre`, `hoj_apellido`,hoj_cargo, `hoj_tipoc
 				$nombreCompleto=$rw1[1]." ".$rw1[2];
 				echo "<td>".$rw1[1]." ".$rw1[2]."</td>";//Trabajador
 				echo "<td>".$rw1[4]."</td>";//Tipo Contrato
+
+				
 				echo "<td>".$rw1[5]."</td>";//Cedula
 				$valordediastrabajados=0;
 				$sql2="SELECT  `idcargo`, `car_Cargo`, `salario`, `auxilio`, `otros`,car_Recogida,car_ValorRecogida,des_salud,des_pension FROM `cargo`INNER JOIN salarios_cargos on idcargo=id_relCargo  WHERE idcargo='$rw1[3]' and anio='$ano'";

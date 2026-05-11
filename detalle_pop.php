@@ -3140,10 +3140,7 @@ print_r($pagadas);
     $FB->llena_texto("id_param", 1, 13, $DB, "", "", $id_param, 5, 0);
 
     $FB->llena_texto("condicion", 1, 13, $DB, "", "", "1", 5, 0);
-    if ($nivel_acceso==1) {
-        echo '<tr><td><a class="icon-button file-button" href="#" onclick=\'asignarPaquete(); return false;\'>Asignar</a><td></tr>';
 
-    }
 
 } else if ($tabla == "Entregar valor") {
 
@@ -5207,11 +5204,13 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
     $FB->titulo_azul1("Mensajes para clientes",1,0,7); 
     echo'<tr><td class="text"><label >Plantillas</label></td></tr><tr><td class="text"><select class="form-control"  id="chekWhatsapp" name="chekWhatsapp" >
     <option value="">Seleccione....</option>
-    <option value="29">"Transmillas requiere transporte hacia la ciudad de Arauca. Por favor, comunícate al número 3160490959. ¡Gracias!" </option>
+    <option value="29">"Transmillas requiere transporte desde _____ hacia la ciudad de _____. Por favor, comunícate al número 3160490959. ¡Gracias!" </option>
     <option value="30">""Gracias por tu disposición. Por hoy ya contamos con el transporte necesario. Sin embargo, es posible que mañana volvamos a requerir servicio, así que estaremos en contacto. ¡Gracias nuevamente!"" </option>
-    
     </select>
-    </td></td>';
+    </td>
+    <tr><td class="text"><label>Origen</label></td></tr><tr><td class="text"><input class="form-control" type="text" id="ciudadOrigenWhatsapp" name="ciudadOrigenWhatsapp" placeholder="Escribe la ciudad de origen"></td></tr>
+    <tr><td class="text"><label>Destino</label></td></tr><tr><td class="text"><input class="form-control" type="text" id="ciudadDestinoWhatsapp" name="ciudadDestinoWhatsapp" placeholder="Escribe la ciudad de destino"></td></tr>
+    </td>';
    
     if (isset($_GET['ide'])) {
         // Decodifica el parámetro 'ide' de JSON a un array PHP
@@ -5219,11 +5218,6 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
 
         // Verifica que $myArray es realmente un array
         if (is_array($myArray)) {
-            // Imprime la estructura del array para depuración
-            // echo '<pre>';
-            // var_dump($myArray);
-            // echo '</pre>';
-
             // Genera la tabla
              echo '<table border="1">';
              echo '<th>Conductor</th><th>Numero Whatsapp</th>';

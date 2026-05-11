@@ -128,6 +128,22 @@ if (!function_exists('formatearFechaHoraGuia')) {
             justify-content:center;
         }
 
+        .signature-preview-img {
+            max-height: 110px;
+            max-width: 100%;
+            cursor: zoom-in;
+        }
+
+        .signature-preview-img:hover {
+            opacity: .9;
+        }
+
+        .signature-modal-img {
+            max-height: 75vh;
+            max-width: 100%;
+            object-fit: contain;
+        }
+
         .chip-estado {
             font-size: .8rem;
             border-radius: 999px;
@@ -508,7 +524,13 @@ if (!function_exists('formatearFechaHoraGuia')) {
                                     $srcEnt = $firmaEnt['firmaImg'];
                                 // }
                                 ?>
-                                <img src="../../<?= $srcEnt ?>" alt="Firma Entrega" style="max-height:110px; max-width:100%;">
+                                <img
+                                    src="../../<?= htmlspecialchars($srcEnt) ?>"
+                                    alt="Firma Recogida"
+                                    class="signature-preview-img"
+                                    data-firma-preview
+                                    data-firma-title="Firma recogida"
+                                >
                             <?php else: ?>
                                 <span class="text-muted small">Sin registro de firma de Recogida.</span>
                             <?php endif; ?>
@@ -553,7 +575,13 @@ if (!function_exists('formatearFechaHoraGuia')) {
                                     $srcEnt = $firmaEnt['firmaImg'];
                                 // }
                                 ?>
-                                <img src="../../<?= $srcEnt ?>" alt="Firma Entrega" style="max-height:110px; max-width:100%;">
+                                <img
+                                    src="../../<?= htmlspecialchars($srcEnt) ?>"
+                                    alt="Firma Entrega"
+                                    class="signature-preview-img"
+                                    data-firma-preview
+                                    data-firma-title="Firma entrega"
+                                >
                             <?php else: ?>
                                 <span class="text-muted small">Sin registro de firma de entrega.</span>
                             <?php endif; ?>
@@ -605,8 +633,48 @@ if (!function_exists('formatearFechaHoraGuia')) {
 
 </div>
 
+<div class="modal fade" id="modalFirmaPreview" tabindex="-1" aria-labelledby="modalFirmaPreviewLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFirmaPreviewLabel">Firma</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center bg-light">
+                <img src="" alt="Vista ampliada de firma" id="firmaPreviewModalImg" class="signature-modal-img">
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modalElement = document.getElementById('modalFirmaPreview');
+    const modalImage = document.getElementById('firmaPreviewModalImg');
+    const modalTitle = document.getElementById('modalFirmaPreviewLabel');
+
+    if (!modalElement || !modalImage || !modalTitle || typeof bootstrap === 'undefined') {
+        return;
+    }
+
+    const firmaModal = new bootstrap.Modal(modalElement);
+
+    document.querySelectorAll('[data-firma-preview]').forEach(function (image) {
+        image.addEventListener('click', function () {
+            modalImage.src = image.src;
+            modalImage.alt = image.alt || 'Vista ampliada de firma';
+            modalTitle.textContent = image.dataset.firmaTitle || 'Firma';
+            firmaModal.show();
+        });
+    });
+
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        modalImage.src = '';
+    });
+});
+</script>
 
 </body>
 </html>

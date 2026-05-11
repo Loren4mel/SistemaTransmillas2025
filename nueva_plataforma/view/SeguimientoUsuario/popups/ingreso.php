@@ -7,6 +7,7 @@ $motivoSeleccionado = $motivoSeleccionado ?? '';
 $descripcion = $descripcion ?? '';
 $zonaSeleccionada = $zonaSeleccionada ?? 0;
 $pruebaSeleccionada = $pruebaSeleccionada ?? 'No aplica';
+$horasSeleccionada = $horasSeleccionada ?? '';
 ?>
 <form id="popupForm" method="post" enctype="multipart/form-data">
     <input type="hidden" name="accion" value="guardar_ingreso_popup">
@@ -84,6 +85,21 @@ $pruebaSeleccionada = $pruebaSeleccionada ?? 'No aplica';
         </div>
     </div>
 
+    <div class="row mb-3 d-none" id="horas_container">
+        <div class="col-md-6">
+            <label for="horas" class="form-label">Horas</label>
+            <select name="horas" id="horas" class="form-select">
+                <option value="">Seleccione horas</option>
+                <?php for ($i = 1; $i <= 12; $i++): ?>
+                    <option value="<?= $i ?>" <?= ($horasSeleccionada == $i) ? 'selected' : '' ?>><?= $i ?> hora(s)</option>
+                <?php endfor; ?>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <!-- Espacio vacío para alineación -->
+        </div>
+    </div>
+
     <div class="mb-3">
         <label for="descripcion" class="form-label">Descripción</label>
         <textarea name="descripcion" id="descripcion" class="form-control"
@@ -97,3 +113,4 @@ $pruebaSeleccionada = $pruebaSeleccionada ?? 'No aplica';
 
     <button type="submit" class="btn btn-primary">Guardar</button>
 </form>
+<!-- El toggle de horas se maneja en seguimiento.js: initHorasFieldPopup() -->

@@ -1,3 +1,5 @@
+const RECOGIDAS_ENDPOINT = window.RECOGIDAS_ENDPOINT || "../controller/RecogerEnOficinaController.php";
+
 let estructuraCamposDest  = {
     "APARTAMENTO": [
       { label: "NUMERO APARTAMENTO", name: "apartamento_num", type: "number" },
@@ -277,6 +279,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     return requiere;
   }
+  window.actualizarRequeridoImagenTransaccion = actualizarRequeridoImagenTransaccion;
 
   function manejarTipoPago() {
     const valor = tipoPago.value;
@@ -419,10 +422,12 @@ function buscarCliente(tipo, valor) {
   /* =========================
      AUTOCOMPLETE DESTINATARIO
   ========================== */
+  const inputDocumentoDest = document.getElementById("param7");
   const inputTelefonoDest = document.getElementById("param8");
   let timeoutDest = null;
 
 function cargarDestinatario(data) {
+  setValue("param7", data.cli_iddocumento || "");
   setValue("param9", data.cli_nombre || "");
   setValue("param11", data.cli_idciudad || "");
 
@@ -474,17 +479,17 @@ if (data.cli_direccion) {
 }
 
   function limpiarDestinatario() {
-    ["param9","param10","param101","param21","param22","param24","param11","id_param0"]
+    ["param7","param9","param10","param101","param21","param22","param24","param11","id_param0"]
       .forEach(id => setValue(id, ""));
   }
 
-  function buscarDestinatario(valor) {
+  function buscarDestinatario(valor, tipo = "telefono") {
     if (!valor || valor.length < 7) return;
 
     fetch("../../buscarclientesotros.php", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ vlores: valor, tipo: "telefono" })
+      body: new URLSearchParams({ vlores: valor, tipo })
     })
     .then(res => res.json())
     .then(data => {
@@ -503,6 +508,14 @@ if (data.cli_direccion) {
     }, 600);
   }
 
+  function debounceBuscarDestDocumento() {
+    clearTimeout(timeoutDest);
+    timeoutDest = setTimeout(() => {
+      buscarDestinatario(inputDocumentoDest.value.trim(), "documento");
+    }, 600);
+  }
+
+  inputDocumentoDest?.addEventListener("keyup", debounceBuscarDestDocumento);
   inputTelefonoDest?.addEventListener("keyup", debounceBuscarDest);
 
   /* =========================
@@ -516,7 +529,7 @@ function cargarCreditos() {
   const telDes = document.getElementById("param8")?.value?.trim() || "";
   if (!telRem && !telDes) return;
 
-  fetch("../controller/RecogidasMovilController.php", {
+  fetch(RECOGIDAS_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -591,7 +604,7 @@ function consultarTipoServicio(origen, destino, pago, credito) {
 
   respuesta.innerHTML = `<span class="text-muted">Consultando servicios...</span>`;
 
-  fetch("../controller/RecogidasMovilController.php", {
+  fetch(RECOGIDAS_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -713,7 +726,7 @@ async function calcularValorAutomatico() {
   fd.append("tipocliente", tipocliente);
 
   try {
-    const resp = await fetch("../controller/RecogidasMovilController.php", {
+    const resp = await fetch(RECOGIDAS_ENDPOINT, {
       method: "POST",
       body: fd
     });
@@ -830,7 +843,7 @@ function enviarFormulario() {
     return; // 🚫 NO ENVÍA EL FORMULARIO
   }
   const imagenTransaccion = document.getElementById("imagen_transaccion");
-  if (actualizarRequeridoImagenTransaccion() && (!imagenTransaccion.files || imagenTransaccion.files.length === 0)) {
+  if (window.actualizarRequeridoImagenTransaccion?.() && (!imagenTransaccion.files || imagenTransaccion.files.length === 0)) {
     Swal.fire({
       icon: "warning",
       title: "Falta imagen",
@@ -847,7 +860,7 @@ function enviarFormulario() {
   const fd = new FormData(form);
   fd.append("accion", "guardarRecogida");
 
-  fetch("../controller/RecogidasMovilController.php", {
+  fetch(RECOGIDAS_ENDPOINT, {
     method: "POST",
     body: fd
   })
@@ -975,7 +988,7 @@ async function consultarEstadoFirma(mostrarAlertaSinServicio = true) {
   consultaEnCursoFirma = true;
 
   try {
-    const r = await fetch(`../controller/RecogidasMovilController.php?accion=consultarEstadoFirma&id=${encodeURIComponent(idservicio)}`, {
+    const r = await fetch(`${RECOGIDAS_ENDPOINT}?accion=consultarEstadoFirma&id=${encodeURIComponent(idservicio)}`, {
       method: "GET"
     });
     const raw = await r.text();
@@ -1036,7 +1049,7 @@ document.getElementById("btnEnviarFirma").addEventListener("click", function () 
   fd.append("telefono", telefono);
    fd.append("link", link);
 
-  fetch("../controller/RecogidasMovilController.php", {
+  fetch(RECOGIDAS_ENDPOINT, {
     method: "POST",
     body: fd
   })
@@ -1078,7 +1091,7 @@ document.getElementById("btnGuardarSello").addEventListener("click", function ()
     fd.append("idservicio", idservicio);
     fd.append("firmaBase64", base64);
 
-    fetch("../controller/RecogidasMovilController.php", {
+    fetch(RECOGIDAS_ENDPOINT, {
       method: "POST",
       body: fd
     })

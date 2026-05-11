@@ -1,3 +1,8 @@
+<?php
+$esOficina = ($modoRecogida ?? 'movil') === 'oficina';
+$tituloRecogida = $tituloRecogida ?? 'Registro de Recogida';
+$endpointRecogida = $endpointRecogida ?? '../controller/RecogerEnOficinaController.php';
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -27,7 +32,7 @@
         <!-- HEADER -->
     <div class="card-header mi-header d-flex justify-content-between align-items-center px-3 py-2">
       <h5 class="mb-0 d-flex align-items-center gap-2 text-white">
-        <i class="fas fa-truck"></i> Registro de Recogida
+        <i class="fas fa-truck"></i> <?= htmlspecialchars($tituloRecogida) ?>
       </h5>
       <div class="d-flex align-items-center gap-2">
         <button class="btn btn-light btn-icon" data-bs-toggle="modal" data-bs-target="#modalAyuda">
@@ -117,6 +122,13 @@
         <h5 class="text-primary">Destinatario</h5>
 
         <div class="row g-3">
+          <?php if ($esOficina): ?>
+          <div class="col-12 col-md-4">
+            <label>CC / NIT</label>
+            <input type="text" id="param7" name="param7" class="form-control">
+          </div>
+          <?php endif; ?>
+
           <div class="col-12 col-md-4 input-con-spinner">
             <label>Teléfono</label>
             <input type="text" id="param8" name="param8" class="form-control">
@@ -238,6 +250,32 @@
             <label>Volumen</label>
             <input type="number" id="param27" name="param27" class="form-control">
           </div>
+
+          <?php if ($esOficina): ?>
+          <div class="col-12 col-md-3">
+            <label>Estado Paquete (*)</label>
+            <input type="text" id="param31" name="param31" class="form-control" required>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label>Verificado (*)</label>
+            <select id="param32" name="param32" class="form-select" required>
+              <option value="">Seleccione...</option>
+              <option value="SI">SI</option>
+              <option value="NO">NO</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label>Tipo (*)</label>
+            <select id="param33" name="param33" class="form-select" required>
+              <option value="">Seleccione...</option>
+              <?php foreach (($tiposPaqueteOficina ?? []) as $tipo): ?>
+                <option value="<?= htmlspecialchars($tipo['tip_nombre']) ?>"><?= htmlspecialchars($tipo['tip_nombre']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <?php endif; ?>
         </div>
 
         <div class="row g-3 mt-1">
@@ -282,7 +320,10 @@
 
             <div class="col-12 col-md-6">
                 <label>Imagen transacción</label>
-                <input type="file" id="imagen_transaccion" name="imagen_transaccion" class="form-control">
+                <input type="file" id="imagen_transaccion" name="imagen_transaccion" class="form-control" accept="image/*">
+                <div id="ayuda_imagen_transaccion" class="form-text text-danger d-none">
+                  Obligatoria para pagos por Davivienda o Bancolombia.
+                </div>
             </div>
             </div>
 
@@ -493,7 +534,10 @@
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-<script src="../assets/js/RecogidasMovil.js"></script>
+<script>
+  window.RECOGIDAS_ENDPOINT = "<?= htmlspecialchars($endpointRecogida) ?>";
+</script>
+<script src="../assets/js/RecogerEnOficina.js"></script>
 
 </body>
 </html>

@@ -2,7 +2,7 @@
 // require_once "../config/database.php";
 require_once __DIR__ . '/../config/database.php';
 
-class RecogidasMovilModel {
+class RecogerEnOficinaModel {
     private $db;
 
     public function __construct() {
@@ -10,8 +10,9 @@ class RecogidasMovilModel {
     }
 
     public function obtenerCiudadesRemitente($id_sedes,$nivel_acceso) {
+        $cond = "";
         if($nivel_acceso!=1){
-            $cond = " WHERE inner_sedes='$id_sedes' and inner_estados=1";
+            $cond = " WHERE inner_sedes='" . (int)$id_sedes . "' and inner_estados=1";
         }
         
         $sql = "SELECT `idciudades`, `ciu_nombre` FROM `ciudades`  $cond";
@@ -35,7 +36,13 @@ class RecogidasMovilModel {
         $result = $this->db->query($sql);
         return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     }
-    
+
+    public function obtenerTiposPaqueteOficina() {
+        $sql = "SELECT `tip_nombre` FROM `tipo` ORDER BY `tip_nombre`";
+        $result = $this->db->query($sql);
+        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    }
+
     public function obtenerCreditosPorTelefonos($telefonos)
     {
         $sql = "
@@ -442,6 +449,7 @@ class RecogidasMovilModel {
 
 
 
+                    $param7   = $data['param7']   ?? '';   // doc destinatario
                     $param8   = $data['param8']   ?? '';   // tel destinatario
                     $param9   = $data['param9']   ?? '';   // nombre destinatario
                     $param11  = $data['param11']  ?? '';   // ciudad destino
@@ -462,6 +470,9 @@ class RecogidasMovilModel {
                     $param13  = $data['param13']  ?? '';   // contiene
                     $param16  = $data['param16']  ?? '';   // guia (puede venir vacía)
                     $param29  = (int)($data['param29'] ?? 1); // piezas
+                    $param31  = $data['param31']  ?? '';   // estado paquete
+                    $param32  = $data['param32']  ?? '';   // verificado
+                    $param33  = $data['param33']  ?? '';   // tipo
 
                     $param17  = $data['param17']  ?? '0';  // abono
                     $param18  = $data['param18']  ?? '0';  // seguro
@@ -486,9 +497,10 @@ class RecogidasMovilModel {
                     $metodo_pago  = $data['metodo_pago']  ?? '';
 
                     if (in_array($metodo_pago, ['DV', 'NQ'], true) && (
-                        !$param40
-                        || !isset($param40['tmp_name'])
-                        || !is_uploaded_file($param40['tmp_name'])
+                        !$param40 ||
+                        !isset($param40['tmp_name']) ||
+                        !is_uploaded_file($param40['tmp_name']) ||
+                        (($param40['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK)
                     )) {
                         return [
                             'ok' => false,
@@ -629,7 +641,7 @@ class RecogidasMovilModel {
                         if ($valorinser <= 0) {
                             // Inserta cliente "tipo 0"
                             $sqlInsCliD = "INSERT INTO clientes (cli_tipo, cli_iddocumento, cli_email, cli_fecharegistro)
-                                        VALUES (0, '', '', '" . $this->escape($fechatiempo) . "')";
+                                        VALUES (0, '" . $this->escape($param7) . "', '', '" . $this->escape($fechatiempo) . "')";
                             $idcliDest = $this->insert($sqlInsCliD);
 
                             $sqlInsDirD = "INSERT INTO clientesdir (cli_nombre, cli_telefono, cli_idciudad, cli_direccion, cli_idclientes, cli_principal)
@@ -648,7 +660,7 @@ class RecogidasMovilModel {
                             $sqlUpCliD = "UPDATE clientes SET
                                             cli_tipo=0,
                                             cli_fecharegistro='" . $this->escape($fechatiempo) . "',
-                                            cli_iddocumento=''
+                                            cli_iddocumento='" . $this->escape($param7) . "'
                                         WHERE idclientes='" . (int)$valorinser . "'";
                             $this->db->query($sqlUpCliD);
 
@@ -748,13 +760,13 @@ class RecogidasMovilModel {
                         ser_descripcion, ser_verificado, ser_tipopaq, ser_idregistro, ser_devolverreci,
                         ser_fechaasignacion, ser_img_recog
                     ) VALUES (
-                        '', '" . $this->escape($param8) . "', '" . $this->escape($param9) . "', '" . $this->escape($dirDes) . "', '" . $this->escape($param11) . "',
+                        '" . $this->escape($param7) . "', '" . $this->escape($param8) . "', '" . $this->escape($param9) . "', '" . $this->escape($dirDes) . "', '" . $this->escape($param11) . "',
                         '" . $this->escape($param12) . "', '" . $this->escape($param13) . "', '', '" . $this->escape($param15) . "',
                         '" . $this->escape($param16) . "', '" . $this->escape($param17) . "', '" . $this->escape($param18) . "', '" . $this->escape($fechatiempo) . "',
                         '" . $this->escape($param26) . "', '" . $this->escape($param27) . "',
                         '" . (int)$id_usuario . "', '" . (int)$id_usuario . "', '" . $this->escape($valorsinseguro) . "', '" . (int)$estado . "', 0, '" . $this->escape($planilla) . "',
                         0, '" . $this->escape($fechatiempo) . "', '" . $this->escape($param28) . "', 0, '" . (int)$param29 . "',
-                        '', '', '', '" . $this->escape($variableunica) . "', '" . $this->escape($param25) . "',
+                        '" . $this->escape($param31) . "', '" . $this->escape($param32) . "', '" . $this->escape($param33) . "', '" . $this->escape($variableunica) . "', '" . $this->escape($param25) . "',
                         '" . $this->escape($fechatiempo) . "', '" . $this->escape($foto) . "'
                     )";
 
@@ -886,12 +898,6 @@ class RecogidasMovilModel {
                         $fotoTrans = "";
                         if ($param40 && isset($param40['tmp_name']) && is_uploaded_file($param40['tmp_name'])) {
                             $fotoTrans = $this->uploadFile($param40, __DIR__ . "/../../img_transacciones/");
-                            if ($fotoTrans === false || $fotoTrans === "") {
-                                return [
-                                    'ok' => false,
-                                    'mensaje' => 'No se pudo guardar la imagen de la transaccion.'
-                                ];
-                            }
                         }
 
                         if ($metodo_pago=="DV") {
@@ -1419,15 +1425,22 @@ class RecogidasMovilModel {
                 $telefono = ($resTel->num_rows > 0) ? $resTel->fetch_assoc()['telefono'] : null;
 
                 // 🔎 Obtener número de guía desde servicios
-                $sqlGuia = "SELECT ser_consecutivo FROM servicios WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo,ser_telefonocontacto FROM servicios WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
                 $resGuia = $stmtGuia->get_result();
-                $numguia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc()['ser_consecutivo'] : null;
+                $rowGuia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc() : null;
+                $numguia = $rowGuia['ser_consecutivo'] ?? null;
+                $numDestinatario = $rowGuia['ser_telefonocontacto'] ?? null;
 
+                if (!empty($telefono) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($telefono, 42, $numguia . "R");
+                }
+                if (!empty($numDestinatario) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($numDestinatario, 42, $numguia . "R");
+                }
 
-                $this->enviarGuiaWhat( $telefono, 42, $numguia."R");
 
                 file_put_contents($logFile, "✅ Firma actualizada correctamente\n", FILE_APPEND);
                 return true;
@@ -1458,13 +1471,22 @@ class RecogidasMovilModel {
                 $telefono = ($resTel->num_rows > 0) ? $resTel->fetch_assoc()['telefono'] : null;
 
                 // 🔎 Obtener número de guía desde servicios
-                $sqlGuia = "SELECT ser_consecutivo FROM servicios WHERE idservicios = ? LIMIT 1";
+                $sqlGuia = "SELECT ser_consecutivo,ser_telefonocontacto FROM servicios WHERE idservicios = ? LIMIT 1";
                 $stmtGuia = $this->db->prepare($sqlGuia);
                 $stmtGuia->bind_param('i', $idservicio);
                 $stmtGuia->execute();
                 $resGuia = $stmtGuia->get_result();
-                $numguia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc()['ser_consecutivo'] : null;
-                $this->enviarGuiaWhat( $telefono, 42, $numguia."R");
+                $rowGuia = ($resGuia->num_rows > 0) ? $resGuia->fetch_assoc() : null;
+                $numguia = $rowGuia['ser_consecutivo'] ?? null;
+                $numDestinatario = $rowGuia['ser_telefonocontacto'] ?? null;
+
+                if (!empty($telefono) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($telefono, 42, $numguia . "R");
+                }
+                if (!empty($numDestinatario) && !empty($numguia)) {
+                    $this->enviarGuiaWhat($numDestinatario, 42, $numguia . "R");
+                }
+
                 file_put_contents($logFile, "✅ Firma insertada correctamente\n", FILE_APPEND);
                 return true;
             }

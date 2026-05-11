@@ -330,3 +330,189 @@ button.btn-success {
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
+
+  /* AJUSTES VISUALES DEL MODAL POST-GUARDADO */
+  #modalFirma .modal-content {
+    border-radius: 16px;
+    overflow: hidden;
+    border: none;
+    box-shadow: 0 18px 40px rgba(11, 74, 139, 0.18);
+  }
+
+  #modalFirma .modal-header {
+    background: linear-gradient(135deg, #0b4a8b 0%, #0f5ca8 100%);
+    color: #fff;
+    padding: 16px 18px;
+    border-bottom: none;
+  }
+
+  #modalFirma .modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+  }
+
+  #modalFirma .modal-body {
+    background: linear-gradient(180deg, #f8fbff 0%, #f3f6fa 100%);
+    padding: 18px;
+  }
+
+  #modalFirma .modal-footer {
+    background-color: #eef3f8;
+    border-top: 1px solid rgba(11, 74, 139, 0.08);
+    padding: 14px 18px;
+  }
+
+  #modalFirma label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #38516b;
+    margin-bottom: 6px;
+  }
+
+  #modalFirma .form-control {
+    border-radius: 10px;
+    border: 1px solid #d6e0ea;
+    min-height: 44px;
+  }
+
+  #modalFirma .form-control:focus {
+    border-color: #0b4a8b;
+    box-shadow: 0 0 0 0.15rem rgba(11, 74, 139, 0.15);
+  }
+
+  #modalFirma .btn {
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  #modalFirma .btn-outline-primary {
+    border-color: #0b4a8b;
+    color: #0b4a8b;
+    background-color: #fff;
+  }
+
+  #modalFirma .btn-outline-primary:hover,
+  #modalFirma .btn-outline-primary:focus {
+    background-color: #0b4a8b;
+    border-color: #0b4a8b;
+    color: #fff;
+  }
+
+  #modalFirma .btn-outline-secondary {
+    border-color: #b8c6d6;
+    color: #38516b;
+    background-color: #fff;
+  }
+
+  #modalFirma .btn-outline-secondary:hover,
+  #modalFirma .btn-outline-secondary:focus {
+    background-color: #eaf1f8;
+    border-color: #0b4a8b;
+    color: #0b4a8b;
+  }
+
+  #modalFirma .modal-firma-intro {
+    background-color: #eaf3ff;
+    color: #284766;
+    border: 1px solid #cfe0f5;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.45;
+    margin-bottom: 14px;
+  }
+
+  #modalFirma .modal-firma-opciones {
+    margin-bottom: 0 !important;
+  }
+
+  #modalFirma .modal-firma-estado {
+    background-color: #fff;
+    border: 1px dashed #c7d6e6;
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+
+  #modalFirma .modal-firma-panel {
+    background-color: #fff;
+    border: 1px solid #dbe5ef;
+    border-radius: 14px;
+    padding: 14px;
+    margin-top: 14px;
+  }
+
+  #modalFirma .modal-firma-panel hr {
+    margin-top: 0;
+    margin-bottom: 14px;
+    opacity: 0.12;
+  }
+
+  #modalFirma #btnEnviarFirma {
+    background-color: #0b4a8b;
+    border-color: #0b4a8b;
+    color: #fff;
+  }
+
+  #modalFirma #btnEnviarFirma:hover,
+  #modalFirma #btnEnviarFirma:focus {
+    background-color: #083766;
+    border-color: #083766;
+  }
+
+  #modalFirma #btnGuardarSello {
+    background-color: #38516b;
+    border-color: #38516b;
+    color: #fff;
+  }
+
+  #modalFirma #btnGuardarSello:hover,
+  #modalFirma #btnGuardarSello:focus {
+    background-color: #2b4159;
+    border-color: #2b4159;
+  }
+
+  #modalFirma #btnFinalizar {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
+  }
+
+  #modalAyuda .modal-content {
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  #modalAyuda .modal-body.modal-ayuda-body {
+    padding: 0.85rem 0.85rem 1rem;
+  }
+
+  #modalAyuda .modal-ayuda-video {
+    width: min(100%, 960px);
+    aspect-ratio: 16 / 9;
+    background-color: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+  }
+
+  #modalAyuda .modal-ayuda-video iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+  }
+
+  @media (max-width: 576px) {
+    #modalAyuda .modal-body.modal-ayuda-body {
+      padding: 0.75rem;
+    }
+
+    #modalAyuda .modal-ayuda-video {
+      width: 100%;
+      border-radius: 12px;
+    }
+  }

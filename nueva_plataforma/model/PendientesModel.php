@@ -4,6 +4,7 @@ require_once "../config/database.php";
 class PendientesModel
 {
     private mysqli $db;
+    private array $columnasCache = [];
     private string $uploadDir;
     private string $uploadUrlBase = '../uploads/pendientes/';
     private string $uploadFirmaDir;
@@ -111,6 +112,8 @@ class PendientesModel
                 pc.pen_titulo,
                 pc.pen_descripcion,
                 pc.pen_documento,
+                pc.pen_link_documento,
+                pc.pen_modo_firma,
                 pc.pen_fecha_creacion
             FROM pendientes_creados_usuarios pu
             INNER JOIN pendientes_creados pc ON pc.id = pu.pendiente_id
@@ -125,7 +128,10 @@ class PendientesModel
         $resultPersonalizados = $stmtPersonalizados->get_result();
 
         while ($row = $resultPersonalizados->fetch_assoc()) {
-            $requiereFirma = $this->esDocumentoPdfFirmable((string) $row['pen_documento']);
+            $modoFirma = $this->normalizarModoFirma((string) ($row['pen_modo_firma'] ?? 'individual'));
+            $documentoArchivo = $this->obtenerDocumentoArchivoDesdeFila($row);
+            $documentoLink = $this->obtenerDocumentoLinkDesdeFila($row);
+            $requiereFirma = $this->esDocumentoPdfFirmable($documentoArchivo);
             $firmado = trim((string) ($row['pu_firma_ruta'] ?? '')) !== '';
 
             $pendientes[] = [
@@ -137,7 +143,10 @@ class PendientesModel
                 'tipo' => 'personalizado',
                 'concepto' => $row['pen_titulo'],
                 'detalle' => $row['pen_descripcion'] ?? '',
-                'documento' => $row['pen_documento'],
+                'documento' => $documentoArchivo !== '' ? $documentoArchivo : $documentoLink,
+                'documento_archivo' => $documentoArchivo,
+                'documento_link' => $documentoLink,
+                'modo_firma' => $modoFirma,
                 'observacion' => $row['pu_observacion'] ?? '',
                 'documento_abierto' => (int) $row['pu_documento_abierto'],
                 'requiere_firma' => $requiereFirma ? 1 : 0,
@@ -190,6 +199,8 @@ class PendientesModel
                     pc.pen_titulo,
                     pc.pen_descripcion,
                     pc.pen_documento,
+                    pc.pen_link_documento,
+                    pc.pen_modo_firma,
                     pc.pen_fecha_creacion,
                     pc.pen_estado,
                     u.usu_nombre AS creador_nombre
@@ -204,11 +215,16 @@ class PendientesModel
 
         while ($row = $resultPendientes->fetch_assoc()) {
             $pendienteId = (int) $row['id'];
+            $documentoArchivo = $this->obtenerDocumentoArchivoDesdeFila($row);
+            $documentoLink = $this->obtenerDocumentoLinkDesdeFila($row);
             $pendientes[$pendienteId] = [
                 'id' => $pendienteId,
                 'titulo' => $row['pen_titulo'],
                 'descripcion' => $row['pen_descripcion'] ?? '',
-                'documento' => $row['pen_documento'],
+                'documento' => $documentoArchivo !== '' ? $documentoArchivo : $documentoLink,
+                'documento_archivo' => $documentoArchivo,
+                'documento_link' => $documentoLink,
+                'modo_firma' => $this->normalizarModoFirma((string) ($row['pen_modo_firma'] ?? 'individual')),
                 'fecha_creacion' => $row['pen_fecha_creacion'],
                 'creador_nombre' => $row['creador_nombre'] ?? 'Sin nombre',
                 'estado' => (int) $row['pen_estado'],
@@ -339,10 +355,20 @@ class PendientesModel
         $stmtUsuarios->close();
 
         foreach ($pendientes as &$pendiente) {
-            $esUsuarioEspecifico = empty($pendiente['roles_ids']) && count($pendiente['usuarios']) === 1;
+            $esUsuarioEspecifico = empty($pendiente['roles_ids']) && count($pendiente['usuarios']) >= 1;
             $pendiente['modo_asignacion'] = $esUsuarioEspecifico ? 'usuario' : 'filtros';
-            $pendiente['usuario_objetivo_id'] = $esUsuarioEspecifico ? (int) $pendiente['usuarios'][0]['usuario_id'] : 0;
-            $pendiente['usuario_objetivo_nombre'] = $esUsuarioEspecifico ? $pendiente['usuarios'][0]['usuario_nombre'] : '';
+            $pendiente['usuarios_objetivo_ids'] = $esUsuarioEspecifico
+                ? array_values(array_map(static function (array $usuario): int {
+                    return (int) ($usuario['usuario_id'] ?? 0);
+                }, $pendiente['usuarios']))
+                : [];
+            $pendiente['usuarios_objetivo_nombres'] = $esUsuarioEspecifico
+                ? array_values(array_map(static function (array $usuario): string {
+                    return (string) ($usuario['usuario_nombre'] ?? '');
+                }, $pendiente['usuarios']))
+                : [];
+            $pendiente['usuario_objetivo_id'] = $esUsuarioEspecifico ? (int) ($pendiente['usuarios_objetivo_ids'][0] ?? 0) : 0;
+            $pendiente['usuario_objetivo_nombre'] = $esUsuarioEspecifico ? (string) ($pendiente['usuarios_objetivo_nombres'][0] ?? '') : '';
         }
         unset($pendiente);
 
@@ -361,9 +387,9 @@ class PendientesModel
         $titulo = $concepto === 'Otro' ? $tituloPersonalizado : $concepto;
         $descripcion = trim($data['descripcion'] ?? '');
         $linkDocumento = trim($data['documento_link'] ?? '');
-        $tipoDocumento = trim($data['tipo_documento'] ?? '');
         $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
-        $usuarioEspecificoId = (int) ($data['usuario_especifico_id'] ?? 0);
+        $modoFirma = $this->normalizarModoFirma((string) ($data['modo_firma'] ?? 'individual'));
+        $usuariosEspecificosIds = $this->normalizarUsuariosEspecificos($data['usuarios_especificos_ids'] ?? ($data['usuario_especifico_id'] ?? []));
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
 
@@ -377,9 +403,9 @@ class PendientesModel
         }));
 
         if ($modoAsignacion === 'usuario') {
-            $usuarioEspecifico = $this->obtenerUsuarioPorId($usuarioEspecificoId);
-            if ($usuarioEspecifico === null) {
-                return ['success' => false, 'message' => 'Debes seleccionar un usuario valido.'];
+            $usuariosEspecificos = $this->obtenerUsuariosPorIds($usuariosEspecificosIds);
+            if (empty($usuariosEspecificos)) {
+                return ['success' => false, 'message' => 'Debes seleccionar al menos un usuario valido.'];
             }
         } else {
             if (empty($roles)) {
@@ -391,10 +417,18 @@ class PendientesModel
             }
         }
 
-        $rutaDocumento = $this->resolverDocumentoPendiente($tipoDocumento, $linkDocumento, $file, $pendienteActual['pen_documento']);
-        if ($rutaDocumento === null) {
-            return ['success' => false, 'message' => 'Debes definir un documento valido para el pendiente.'];
+        $rutaDocumentoArchivo = $this->resolverArchivoPendiente($file, (string) ($pendienteActual['documento_archivo'] ?? ''));
+        $rutaDocumentoLink = $this->resolverLinkPendiente($linkDocumento);
+        if ($rutaDocumentoLink === null) {
+            return ['success' => false, 'message' => 'El link del documento no es valido.'];
         }
+
+        if ($rutaDocumentoArchivo === '' && $rutaDocumentoLink === '') {
+            return ['success' => false, 'message' => 'Debes definir un archivo, un link o ambos para el pendiente.'];
+        }
+
+        $rutaDocumentoPrincipal = $rutaDocumentoArchivo !== '' ? $rutaDocumentoArchivo : $rutaDocumentoLink;
+        $rutaDocumentoSecundarioLink = $rutaDocumentoArchivo !== '' && $rutaDocumentoLink !== '' ? $rutaDocumentoLink : null;
 
         $this->db->begin_transaction();
 
@@ -402,12 +436,14 @@ class PendientesModel
             $sqlPendiente = "UPDATE pendientes_creados
                 SET pen_titulo = ?,
                     pen_descripcion = ?,
-                    pen_documento = ?
+                    pen_documento = ?,
+                    pen_link_documento = ?,
+                    pen_modo_firma = ?
                 WHERE id = ?
                   AND pen_creado_por = ?";
 
             $stmtPendiente = $this->db->prepare($sqlPendiente);
-            $stmtPendiente->bind_param("sssii", $titulo, $descripcion, $rutaDocumento, $pendienteId, $creadorId);
+            $stmtPendiente->bind_param("sssssii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $pendienteId, $creadorId);
             $stmtPendiente->execute();
             $stmtPendiente->close();
 
@@ -436,8 +472,8 @@ class PendientesModel
             $stmtDeleteUsuarios->close();
 
             if ($modoAsignacion === 'usuario') {
-                $this->insertarUsuariosPendiente($pendienteId, [$usuarioEspecifico]);
-                $usuariosAsignados = [$usuarioEspecifico];
+                $this->insertarUsuariosPendiente($pendienteId, $usuariosEspecificos);
+                $usuariosAsignados = $usuariosEspecificos;
             } else {
                 $this->guardarTiposContratoPendiente($pendienteId, $tiposContrato);
                 $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato);
@@ -483,7 +519,8 @@ class PendientesModel
         $descripcion = trim($data['descripcion'] ?? '');
         $linkDocumento = trim($data['documento_link'] ?? '');
         $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
-        $usuarioEspecificoId = (int) ($data['usuario_especifico_id'] ?? 0);
+        $modoFirma = $this->normalizarModoFirma((string) ($data['modo_firma'] ?? 'individual'));
+        $usuariosEspecificosIds = $this->normalizarUsuariosEspecificos($data['usuarios_especificos_ids'] ?? ($data['usuario_especifico_id'] ?? []));
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
         $tieneArchivo = (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK);
@@ -496,7 +533,8 @@ class PendientesModel
             'roles' => $roles,
             'tipos_contrato' => $tiposContrato,
             'modo_asignacion' => $modoAsignacion,
-            'usuario_especifico_id' => $usuarioEspecificoId,
+            'modo_firma' => $modoFirma,
+            'usuarios_especificos_ids' => $usuariosEspecificosIds,
             'file_error' => $file['error'] ?? null,
             'file_name' => $file['name'] ?? null,
             'link_documento' => $linkDocumento,
@@ -513,10 +551,10 @@ class PendientesModel
         });
 
         if ($modoAsignacion === 'usuario') {
-            $usuarioEspecifico = $this->obtenerUsuarioPorId($usuarioEspecificoId);
-            if ($usuarioEspecifico === null) {
-                $this->log("crearPendiente abortado: usuario especifico invalido", ['usuario_especifico_id' => $usuarioEspecificoId]);
-                return ['success' => false, 'message' => 'Debes seleccionar un usuario valido.'];
+            $usuariosEspecificos = $this->obtenerUsuariosPorIds($usuariosEspecificosIds);
+            if (empty($usuariosEspecificos)) {
+                $this->log("crearPendiente abortado: usuarios especificos invalidos", ['usuarios_especificos_ids' => $usuariosEspecificosIds]);
+                return ['success' => false, 'message' => 'Debes seleccionar al menos un usuario valido.'];
             }
         } else {
             if (empty($roles)) {
@@ -532,12 +570,7 @@ class PendientesModel
 
         if (!$tieneArchivo && !$tieneLink) {
             $this->log("crearPendiente abortado: sin documento");
-            return ['success' => false, 'message' => 'Debes cargar un archivo o escribir un link para el pendiente.'];
-        }
-
-        if ($tieneArchivo && $tieneLink) {
-            $this->log("crearPendiente abortado: archivo y link simultaneos");
-            return ['success' => false, 'message' => 'Debes elegir solo una opcion: archivo o link.'];
+            return ['success' => false, 'message' => 'Debes cargar un archivo, escribir un link o ambas opciones.'];
         }
 
         if ($tieneLink && !$this->esLinkDocumentoValido($linkDocumento)) {
@@ -545,28 +578,30 @@ class PendientesModel
             return ['success' => false, 'message' => 'El link del documento no es valido.'];
         }
 
+        $rutaDocumentoArchivo = '';
         if ($tieneArchivo) {
-            $rutaDocumento = $this->guardarDocumentoPendiente($file);
-            if ($rutaDocumento === null) {
+            $rutaDocumentoArchivo = $this->guardarDocumentoPendiente($file);
+            if ($rutaDocumentoArchivo === null) {
                 $this->log("crearPendiente abortado: no se pudo guardar documento");
                 return ['success' => false, 'message' => 'No fue posible guardar el documento.'];
             }
-        } else {
-            $rutaDocumento = $linkDocumento;
         }
+        $rutaDocumentoLink = $tieneLink ? $linkDocumento : '';
+        $rutaDocumentoPrincipal = $rutaDocumentoArchivo !== '' ? $rutaDocumentoArchivo : $rutaDocumentoLink;
+        $rutaDocumentoSecundarioLink = $rutaDocumentoArchivo !== '' && $rutaDocumentoLink !== '' ? $rutaDocumentoLink : null;
 
         $this->db->begin_transaction();
 
         try {
             $sqlPendiente = "INSERT INTO pendientes_creados
-                (pen_titulo, pen_descripcion, pen_documento, pen_creado_por, pen_fecha_creacion, pen_estado)
-                VALUES (?, ?, ?, ?, NOW(), 1)";
+                (pen_titulo, pen_descripcion, pen_documento, pen_link_documento, pen_modo_firma, pen_creado_por, pen_fecha_creacion, pen_estado)
+                VALUES (?, ?, ?, ?, ?, ?, NOW(), 1)";
 
             $stmtPendiente = $this->db->prepare($sqlPendiente);
             if (!$stmtPendiente) {
                 throw new Exception('Error preparando INSERT pendientes_creados: ' . $this->db->error);
             }
-            $stmtPendiente->bind_param("sssi", $titulo, $descripcion, $rutaDocumento, $creadorId);
+            $stmtPendiente->bind_param("sssssi", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $creadorId);
             $stmtPendiente->execute();
             $pendienteId = (int) $stmtPendiente->insert_id;
             $stmtPendiente->close();
@@ -584,7 +619,7 @@ class PendientesModel
             }
 
             if ($modoAsignacion === 'usuario') {
-                $usuariosAsignados = [$usuarioEspecifico];
+                $usuariosAsignados = $usuariosEspecificos;
             } else {
                 $this->guardarTiposContratoPendiente($pendienteId, $tiposContrato);
                 $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato);
@@ -595,7 +630,8 @@ class PendientesModel
             $this->log("crearPendiente OK", [
                 'pendienteId' => $pendienteId,
                 'usuarios_asignados' => count($usuariosAsignados),
-                'rutaDocumento' => $rutaDocumento,
+                'rutaDocumento' => $rutaDocumentoPrincipal,
+                'rutaDocumentoLink' => $rutaDocumentoLink,
             ]);
 
             return [
@@ -629,15 +665,26 @@ class PendientesModel
 
     public function obtenerPendienteUsuarioParaFirma(int $pendienteUsuarioId, int $idUsuario): ?array
     {
+        $sqlFirmaRuta = $this->columnaExiste('pendientes_creados_usuarios', 'pu_firma_ruta')
+            ? 'pu.pu_firma_ruta'
+            : "'' AS pu_firma_ruta";
+        $sqlFechaFirma = $this->columnaExiste('pendientes_creados_usuarios', 'pu_fecha_firma')
+            ? 'pu.pu_fecha_firma'
+            : 'NULL AS pu_fecha_firma';
+
         $sql = "SELECT
                     pu.id,
                     pu.usuario_id,
                     pu.pu_documento_abierto,
-                    pu.pu_firma_ruta,
-                    pu.pu_fecha_firma,
+                    {$sqlFirmaRuta},
+                    {$sqlFechaFirma},
+                    pu.pu_pdf_firmado_ruta,
+                    pc.id AS pendiente_id,
                     pc.pen_titulo,
                     pc.pen_descripcion,
-                    pc.pen_documento
+                    pc.pen_documento,
+                    pc.pen_link_documento,
+                    pc.pen_modo_firma
                 FROM pendientes_creados_usuarios pu
                 INNER JOIN pendientes_creados pc ON pc.id = pu.pendiente_id
                 WHERE pu.id = ?
@@ -655,19 +702,40 @@ class PendientesModel
             return null;
         }
 
-        $resultado['requiere_firma'] = $this->esDocumentoPdfFirmable((string) ($resultado['pen_documento'] ?? '')) ? 1 : 0;
+        $resultado['pen_modo_firma'] = $this->normalizarModoFirma((string) ($resultado['pen_modo_firma'] ?? 'individual'));
+        $resultado['documento_archivo'] = $this->obtenerDocumentoArchivoDesdeFila($resultado);
+        $resultado['documento_link'] = $this->obtenerDocumentoLinkDesdeFila($resultado);
+        $resultado['requiere_firma'] = $this->esDocumentoPdfFirmable((string) ($resultado['documento_archivo'] ?? '')) ? 1 : 0;
+        $resultado['documento_para_firma'] = $resultado['documento_archivo'];
+        if (
+            $resultado['pen_modo_firma'] === 'multiple' &&
+            !empty($resultado['pu_pdf_firmado_ruta']) &&
+            $this->esDocumentoInterno((string) $resultado['pu_pdf_firmado_ruta'])
+        ) {
+            $resultado['documento_para_firma'] = $resultado['pu_pdf_firmado_ruta'];
+        }
+        $resultado['firmas_registradas'] = $this->contarFirmasPendiente((int) ($resultado['pendiente_id'] ?? 0));
 
         return $resultado;
     }
 
     public function guardarFirmaPendiente(int $pendienteUsuarioId, int $idUsuario, string $firmaBase64): array
     {
+        if (
+            !$this->columnaExiste('pendientes_creados_usuarios', 'pu_firma_ruta') ||
+            !$this->columnaExiste('pendientes_creados_usuarios', 'pu_fecha_firma') ||
+            !$this->columnaExiste('pendientes_creados_usuarios', 'pu_pdf_firmado_ruta') ||
+            !$this->columnaExiste('pendientes_creados_usuarios', 'pu_fecha_pdf_firmado')
+        ) {
+            return ['success' => false, 'message' => 'La base de datos de produccion aun no tiene la estructura de firma actualizada.'];
+        }
+
         $pendiente = $this->obtenerPendienteUsuarioParaFirma($pendienteUsuarioId, $idUsuario);
         if ($pendiente === null) {
             return ['success' => false, 'message' => 'El pendiente no existe para este usuario.'];
         }
 
-        $documento = (string) ($pendiente['pen_documento'] ?? '');
+        $documento = (string) ($pendiente['documento_archivo'] ?? '');
         if (!$this->esDocumentoPdfFirmable($documento)) {
             return ['success' => false, 'message' => 'Solo se pueden firmar archivos PDF internos.'];
         }
@@ -677,40 +745,94 @@ class PendientesModel
             return ['success' => false, 'message' => 'No fue posible guardar la firma del pendiente.'];
         }
 
-        $rutaPdfFirmado = $this->generarPdfFirmadoPendiente($pendiente, $rutaFirma, $pendienteUsuarioId, $idUsuario);
-        if ($rutaPdfFirmado === null) {
-            return ['success' => false, 'message' => 'No fue posible generar el PDF firmado del pendiente.'];
+        $modoFirma = $this->normalizarModoFirma((string) ($pendiente['pen_modo_firma'] ?? 'individual'));
+
+        $this->db->begin_transaction();
+
+        try {
+            $sqlFirma = "UPDATE pendientes_creados_usuarios
+                    SET pu_firma_ruta = ?,
+                        pu_fecha_firma = NOW(),
+                        pu_confirmacion = 'Si',
+                        pu_observacion = '',
+                        pu_fecha_confirmacion = NOW(),
+                        pu_documento_abierto = 1,
+                        pu_fecha_documento_abierto = NOW()
+                    WHERE id = ?
+                      AND usuario_id = ?";
+
+            $stmtFirma = $this->db->prepare($sqlFirma);
+            $stmtFirma->bind_param("sii", $rutaFirma, $pendienteUsuarioId, $idUsuario);
+            $stmtFirma->execute();
+            $stmtFirma->close();
+
+            if ($modoFirma === 'multiple') {
+                $rutaPdfFirmado = $this->generarPdfFirmadoPendienteMultiple((int) ($pendiente['pendiente_id'] ?? 0));
+                if ($rutaPdfFirmado === null) {
+                    throw new Exception('No fue posible generar el PDF firmado multiple.');
+                }
+
+                $sqlPdf = "UPDATE pendientes_creados_usuarios
+                           SET pu_pdf_firmado_ruta = ?,
+                               pu_fecha_pdf_firmado = NOW()
+                           WHERE pendiente_id = ?";
+                $stmtPdf = $this->db->prepare($sqlPdf);
+                $pendienteId = (int) ($pendiente['pendiente_id'] ?? 0);
+                $stmtPdf->bind_param("si", $rutaPdfFirmado, $pendienteId);
+                $stmtPdf->execute();
+                $stmtPdf->close();
+            } else {
+                $rutaPdfFirmado = $this->generarPdfFirmadoPendiente($pendiente, $rutaFirma, $pendienteUsuarioId, $idUsuario);
+                if ($rutaPdfFirmado === null) {
+                    throw new Exception('No fue posible generar el PDF firmado individual.');
+                }
+
+                $sqlPdf = "UPDATE pendientes_creados_usuarios
+                           SET pu_pdf_firmado_ruta = ?,
+                               pu_fecha_pdf_firmado = NOW()
+                           WHERE id = ?
+                             AND usuario_id = ?";
+                $stmtPdf = $this->db->prepare($sqlPdf);
+                $stmtPdf->bind_param("sii", $rutaPdfFirmado, $pendienteUsuarioId, $idUsuario);
+                $stmtPdf->execute();
+                $stmtPdf->close();
+            }
+
+            $this->db->commit();
+        } catch (Throwable $e) {
+            $this->db->rollback();
+            $this->log('guardarFirmaPendiente error', [
+                'pendienteUsuarioId' => $pendienteUsuarioId,
+                'idUsuario' => $idUsuario,
+                'error' => $e->getMessage(),
+            ]);
+            return ['success' => false, 'message' => 'No fue posible guardar la firma del pendiente.'];
         }
 
-        $sql = "UPDATE pendientes_creados_usuarios
-                SET pu_firma_ruta = ?,
-                    pu_pdf_firmado_ruta = ?,
-                    pu_fecha_firma = NOW(),
-                    pu_fecha_pdf_firmado = NOW(),
-                    pu_documento_abierto = 1,
-                    pu_fecha_documento_abierto = NOW()
-                WHERE id = ?
-                  AND usuario_id = ?";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("ssii", $rutaFirma, $rutaPdfFirmado, $pendienteUsuarioId, $idUsuario);
-        $stmt->execute();
-        $ok = $stmt->affected_rows > 0 || $this->pendienteYaFirmado($pendienteUsuarioId, $idUsuario);
-        $stmt->close();
+        $ok = $this->pendienteYaFirmado($pendienteUsuarioId, $idUsuario);
 
         return [
             'success' => $ok,
             'message' => $ok
-                ? 'Firma guardada correctamente.'
+                ? ($modoFirma === 'multiple'
+                    ? 'Firma guardada, documento multiple actualizado y pendiente validado correctamente.'
+                    : 'Firma guardada y pendiente validado correctamente.')
                 : 'No fue posible guardar la firma del pendiente.',
             'firma_ruta' => $rutaFirma,
             'pdf_firmado_ruta' => $rutaPdfFirmado,
+            'modo_firma' => $modoFirma,
+            'firmas_registradas' => $this->contarFirmasPendiente((int) ($pendiente['pendiente_id'] ?? 0)),
+            'auto_confirmado' => true,
         ];
     }
 
     public function confirmarPendientePersonalizado(int $pendienteUsuarioId, int $idUsuario, string $confirmacion, string $observacion): array
     {
-        $sqlValida = "SELECT pu_documento_abierto, pu_firma_ruta
+        $sqlFirmaRutaValida = $this->columnaExiste('pendientes_creados_usuarios', 'pu_firma_ruta')
+            ? 'pu_firma_ruta'
+            : "'' AS pu_firma_ruta";
+
+        $sqlValida = "SELECT pu_documento_abierto, {$sqlFirmaRutaValida}
                       FROM pendientes_creados_usuarios
                       WHERE id = ?
                         AND usuario_id = ?
@@ -836,6 +958,8 @@ class PendientesModel
             pen_titulo VARCHAR(255) NOT NULL,
             pen_descripcion TEXT NULL,
             pen_documento VARCHAR(255) NOT NULL,
+            pen_link_documento VARCHAR(255) NULL,
+            pen_modo_firma VARCHAR(20) NOT NULL DEFAULT 'individual',
             pen_creado_por INT NOT NULL,
             pen_fecha_creacion DATETIME NOT NULL,
             pen_estado TINYINT(1) NOT NULL DEFAULT 1
@@ -873,6 +997,16 @@ class PendientesModel
         $this->db->query($sqlRoles);
         $this->db->query($sqlTiposContrato);
         $this->db->query($sqlUsuarios);
+        $this->agregarColumnaSiNoExiste(
+            'pendientes_creados',
+            'pen_link_documento',
+            "ALTER TABLE pendientes_creados ADD COLUMN pen_link_documento VARCHAR(255) NULL AFTER pen_documento"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'pendientes_creados',
+            'pen_modo_firma',
+            "ALTER TABLE pendientes_creados ADD COLUMN pen_modo_firma VARCHAR(20) NOT NULL DEFAULT 'individual' AFTER pen_documento"
+        );
         $this->agregarColumnaSiNoExiste(
             'pendientes_creados_usuarios',
             'pu_firma_ruta',
@@ -935,6 +1069,41 @@ class PendientesModel
         return $resultado ?: null;
     }
 
+    private function obtenerUsuariosPorIds(array $usuariosIds): array
+    {
+        if (empty($usuariosIds)) {
+            return [];
+        }
+
+        $marcadores = implode(',', array_fill(0, count($usuariosIds), '?'));
+        $tipos = str_repeat('i', count($usuariosIds));
+        $sql = "SELECT idusuarios, roles_idroles, usu_nombre, usu_tipocontrato
+                FROM usuarios
+                WHERE usu_estado = 1
+                  AND idusuarios IN ($marcadores)";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param($tipos, ...$usuariosIds);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
+        $usuariosPorId = [];
+
+        while ($fila = $resultado->fetch_assoc()) {
+            $usuariosPorId[(int) $fila['idusuarios']] = $fila;
+        }
+
+        $stmt->close();
+
+        $usuarios = [];
+        foreach ($usuariosIds as $usuarioId) {
+            if (isset($usuariosPorId[$usuarioId])) {
+                $usuarios[] = $usuariosPorId[$usuarioId];
+            }
+        }
+
+        return $usuarios;
+    }
+
     private function insertarUsuariosPendiente(int $pendienteId, array $usuarios): void
     {
         $stmtUsuario = $this->db->prepare("INSERT INTO pendientes_creados_usuarios
@@ -986,7 +1155,7 @@ class PendientesModel
 
     private function obtenerPendientePorId(int $pendienteId, int $creadorId): ?array
     {
-        $sql = "SELECT id, pen_documento
+        $sql = "SELECT id, pen_documento, pen_link_documento
                 FROM pendientes_creados
                 WHERE id = ?
                   AND pen_creado_por = ?
@@ -999,7 +1168,14 @@ class PendientesModel
         $resultado = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
-        return $resultado ?: null;
+        if (!$resultado) {
+            return null;
+        }
+
+        $resultado['documento_archivo'] = $this->obtenerDocumentoArchivoDesdeFila($resultado);
+        $resultado['documento_link'] = $this->obtenerDocumentoLinkDesdeFila($resultado);
+
+        return $resultado;
     }
 
     private function eliminarUsuariosFueraDeRoles(int $pendienteId, array $roles): void
@@ -1060,6 +1236,19 @@ class PendientesModel
         }));
     }
 
+    private function normalizarUsuariosEspecificos($usuariosIds): array
+    {
+        if (!is_array($usuariosIds)) {
+            $usuariosIds = [$usuariosIds];
+        }
+
+        $usuariosIds = array_values(array_unique(array_map('intval', $usuariosIds)));
+
+        return array_values(array_filter($usuariosIds, static function (int $usuarioId): bool {
+            return $usuarioId > 0;
+        }));
+    }
+
     private function obtenerTipoContratoUsuario(int $idUsuario): string
     {
         $sql = "SELECT usu_tipocontrato FROM usuarios WHERE idusuarios = ? LIMIT 1";
@@ -1072,23 +1261,26 @@ class PendientesModel
         return (string) ($resultado['usu_tipocontrato'] ?? '');
     }
 
-    private function resolverDocumentoPendiente(string $tipoDocumento, string $linkDocumento, array $file, string $documentoActual): ?string
+    private function resolverArchivoPendiente(array $file, string $documentoActual): string
     {
-        if ($tipoDocumento === 'link') {
-            return $this->esLinkDocumentoValido($linkDocumento) ? $linkDocumento : null;
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            return (string) ($this->guardarDocumentoPendiente($file) ?? '');
         }
 
-        if ($tipoDocumento === 'archivo') {
-            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-                return $this->guardarDocumentoPendiente($file);
-            }
-
-            if ($documentoActual !== '' && $this->esDocumentoInterno($documentoActual)) {
-                return $documentoActual;
-            }
+        if ($documentoActual !== '' && $this->esDocumentoInterno($documentoActual)) {
+            return $documentoActual;
         }
 
-        return null;
+        return '';
+    }
+
+    private function resolverLinkPendiente(string $linkDocumento): ?string
+    {
+        if ($linkDocumento === '') {
+            return '';
+        }
+
+        return $this->esLinkDocumentoValido($linkDocumento) ? $linkDocumento : null;
     }
 
     private function guardarDocumentoPendiente(array $file): ?string
@@ -1135,6 +1327,27 @@ class PendientesModel
         return $ruta !== '' && strpos($ruta, $this->uploadUrlBase) === 0;
     }
 
+    private function obtenerDocumentoArchivoDesdeFila(array $fila): string
+    {
+        $documento = trim((string) ($fila['pen_documento'] ?? ''));
+        return $this->esDocumentoInterno($documento) ? $documento : '';
+    }
+
+    private function obtenerDocumentoLinkDesdeFila(array $fila): string
+    {
+        $linkSecundario = trim((string) ($fila['pen_link_documento'] ?? ''));
+        if ($linkSecundario !== '') {
+            return $linkSecundario;
+        }
+
+        $documentoPrincipal = trim((string) ($fila['pen_documento'] ?? ''));
+        if ($documentoPrincipal !== '' && !$this->esDocumentoInterno($documentoPrincipal) && $this->esLinkDocumentoValido($documentoPrincipal)) {
+            return $documentoPrincipal;
+        }
+
+        return '';
+    }
+
     private function esDocumentoPdfFirmable(string $ruta): bool
     {
         if (!$this->esDocumentoInterno($ruta)) {
@@ -1143,6 +1356,11 @@ class PendientesModel
 
         $path = (string) (parse_url($ruta, PHP_URL_PATH) ?? $ruta);
         return strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf';
+    }
+
+    private function normalizarModoFirma(string $modoFirma): string
+    {
+        return strtolower(trim($modoFirma)) === 'multiple' ? 'multiple' : 'individual';
     }
 
     private function guardarImagenFirmaPendiente(int $pendienteUsuarioId, string $firmaBase64): ?string
@@ -1174,19 +1392,57 @@ class PendientesModel
 
     private function generarPdfFirmadoPendiente(array $pendiente, string $rutaFirmaRelativa, int $pendienteUsuarioId, int $idUsuario): ?string
     {
-        $rutaDocumentoOriginal = $this->obtenerRutaAbsolutaDesdeRelativa((string) ($pendiente['pen_documento'] ?? ''));
-        $rutaFirma = $this->obtenerRutaAbsolutaDesdeRelativa($rutaFirmaRelativa);
+        $usuario = $this->obtenerUsuarioPorId($idUsuario);
+        $nombreUsuario = trim((string) ($usuario['usu_nombre'] ?? ('Usuario ' . $idUsuario)));
+        $firmas = [[
+            'usuario_nombre' => $nombreUsuario,
+            'firma_ruta' => $rutaFirmaRelativa,
+            'fecha_firma' => date('Y-m-d H:i:s'),
+            'pendiente_usuario_id' => $pendienteUsuarioId,
+        ]];
 
-        if ($rutaDocumentoOriginal === null || $rutaFirma === null || !is_file($rutaDocumentoOriginal) || !is_file($rutaFirma)) {
-            $this->log('generarPdfFirmadoPendiente rutas invalidas', [
-                'documento' => $pendiente['pen_documento'] ?? '',
-                'firma' => $rutaFirmaRelativa,
-            ]);
+        return $this->generarPdfFirmadoPendienteConFirmas(
+            $pendiente,
+            $firmas,
+            'Este documento fue revisado y firmado dentro del sistema por el usuario asignado.',
+            'individual',
+            'pendiente_firmado_' . $pendienteUsuarioId
+        );
+    }
+
+    private function generarPdfFirmadoPendienteMultiple(int $pendienteId): ?string
+    {
+        $pendiente = $this->obtenerPendienteBaseParaPdf($pendienteId);
+        if ($pendiente === null) {
+            $this->log('generarPdfFirmadoPendienteMultiple pendiente no encontrado', ['pendienteId' => $pendienteId]);
             return null;
         }
 
-        $usuario = $this->obtenerUsuarioPorId($idUsuario);
-        $nombreUsuario = trim((string) ($usuario['usu_nombre'] ?? ('Usuario ' . $idUsuario)));
+        $firmas = $this->obtenerFirmasRegistradasPendiente($pendienteId);
+        if (empty($firmas)) {
+            $this->log('generarPdfFirmadoPendienteMultiple sin firmas', ['pendienteId' => $pendienteId]);
+            return null;
+        }
+
+        return $this->generarPdfFirmadoPendienteConFirmas(
+            $pendiente,
+            $firmas,
+            'Este documento fue revisado y firmado dentro del sistema por varios usuarios asignados. En las paginas siguientes se listan las firmas registradas hasta el momento.',
+            'multiple',
+            'pendiente_multiple_' . $pendienteId
+        );
+    }
+
+    private function generarPdfFirmadoPendienteConFirmas(array $pendiente, array $firmas, string $descripcionConstancia, string $modoFirma, string $prefijoArchivo): ?string
+    {
+        $rutaDocumentoOriginal = $this->obtenerRutaAbsolutaDesdeRelativa((string) ($pendiente['pen_documento'] ?? ''));
+        if ($rutaDocumentoOriginal === null || !is_file($rutaDocumentoOriginal)) {
+            $this->log('generarPdfFirmadoPendienteConFirmas documento invalido', [
+                'documento' => $pendiente['pen_documento'] ?? '',
+                'modo_firma' => $modoFirma,
+            ]);
+            return null;
+        }
 
         $this->cargarLibreriasPdf();
 
@@ -1210,7 +1466,7 @@ class PendientesModel
             $pdf->Ln(4);
 
             $pdf->SetFont('Arial', '', 11);
-            $pdf->MultiCell(0, 8, utf8_decode('Este documento fue revisado y firmado dentro del sistema por el usuario asignado.'));
+            $pdf->MultiCell(0, 8, utf8_decode($descripcionConstancia));
             $pdf->Ln(3);
 
             $pdf->SetFont('Arial', 'B', 11);
@@ -1224,38 +1480,67 @@ class PendientesModel
             $pdf->MultiCell(0, 8, utf8_decode((string) ($pendiente['pen_descripcion'] ?? 'Sin descripcion')));
 
             $pdf->SetFont('Arial', 'B', 11);
-            $pdf->Cell(48, 8, utf8_decode('Firmado por:'), 0, 0);
+            $pdf->Cell(48, 8, utf8_decode('Modo de firma:'), 0, 0);
             $pdf->SetFont('Arial', '', 11);
-            $pdf->Cell(0, 8, utf8_decode($nombreUsuario), 0, 1);
+            $pdf->Cell(0, 8, utf8_decode($modoFirma === 'multiple' ? 'Multiple' : 'Individual'), 0, 1);
 
             $pdf->SetFont('Arial', 'B', 11);
-            $pdf->Cell(48, 8, utf8_decode('Fecha de firma:'), 0, 0);
+            $pdf->Cell(48, 8, utf8_decode('Firmas registradas:'), 0, 0);
             $pdf->SetFont('Arial', '', 11);
-            $pdf->Cell(0, 8, date('Y-m-d H:i:s'), 0, 1);
+            $pdf->Cell(0, 8, (string) count($firmas), 0, 1);
 
-            $pdf->SetFont('Arial', 'B', 11);
-            $pdf->Cell(48, 8, utf8_decode('Id asignacion:'), 0, 0);
-            $pdf->SetFont('Arial', '', 11);
-            $pdf->Cell(0, 8, (string) $pendienteUsuarioId, 0, 1);
+            foreach ($firmas as $indice => $firma) {
+                if ($indice === 0) {
+                    $pdf->Ln(8);
+                } else {
+                    $pdf->AddPage('P', 'A4');
+                    $pdf->SetAutoPageBreak(true, 18);
+                    $pdf->SetMargins(18, 18, 18);
+                }
 
-            $pdf->Ln(10);
-            $pdf->SetFont('Arial', 'B', 12);
-            $pdf->Cell(0, 8, utf8_decode('Firma capturada'), 0, 1);
-            $pdf->Ln(4);
-            $pdf->Image($rutaFirma, 28, $pdf->GetY(), 150, 55, 'PNG');
+                $rutaFirma = $this->obtenerRutaAbsolutaDesdeRelativa((string) ($firma['firma_ruta'] ?? ''));
+                if ($rutaFirma === null || !is_file($rutaFirma)) {
+                    continue;
+                }
 
-            $nombreArchivo = 'pendiente_firmado_' . $pendienteUsuarioId . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.pdf';
+                $pdf->SetFont('Arial', 'B', 12);
+                $pdf->Cell(0, 8, utf8_decode('Firma ' . ($indice + 1)), 0, 1);
+                $pdf->Ln(2);
+
+                $pdf->SetFont('Arial', 'B', 11);
+                $pdf->Cell(48, 8, utf8_decode('Usuario:'), 0, 0);
+                $pdf->SetFont('Arial', '', 11);
+                $pdf->Cell(0, 8, utf8_decode((string) ($firma['usuario_nombre'] ?? 'Sin nombre')), 0, 1);
+
+                $pdf->SetFont('Arial', 'B', 11);
+                $pdf->Cell(48, 8, utf8_decode('Fecha de firma:'), 0, 0);
+                $pdf->SetFont('Arial', '', 11);
+                $pdf->Cell(0, 8, (string) ($firma['fecha_firma'] ?? ''), 0, 1);
+
+                $pdf->SetFont('Arial', 'B', 11);
+                $pdf->Cell(48, 8, utf8_decode('Id asignacion:'), 0, 0);
+                $pdf->SetFont('Arial', '', 11);
+                $pdf->Cell(0, 8, (string) ($firma['pendiente_usuario_id'] ?? ''), 0, 1);
+
+                $pdf->Ln(10);
+                $pdf->SetFont('Arial', 'B', 12);
+                $pdf->Cell(0, 8, utf8_decode('Firma capturada'), 0, 1);
+                $pdf->Ln(4);
+                $pdf->Image($rutaFirma, 28, $pdf->GetY(), 150, 55, 'PNG');
+            }
+
+            $nombreArchivo = $prefijoArchivo . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.pdf';
             $destino = $this->uploadPdfFirmadoDir . DIRECTORY_SEPARATOR . $nombreArchivo;
             $pdf->Output('F', $destino);
 
             if (!is_file($destino)) {
-                $this->log('generarPdfFirmadoPendiente no genero archivo', ['destino' => $destino]);
+                $this->log('generarPdfFirmadoPendienteConFirmas no genero archivo', ['destino' => $destino]);
                 return null;
             }
 
             return $this->uploadPdfFirmadoUrlBase . $nombreArchivo;
         } catch (\Throwable $e) {
-            $this->log('generarPdfFirmadoPendiente error', ['error' => $e->getMessage()]);
+            $this->log('generarPdfFirmadoPendienteConFirmas error', ['error' => $e->getMessage(), 'modo_firma' => $modoFirma]);
             return null;
         }
     }
@@ -1297,6 +1582,75 @@ class PendientesModel
 
         $normalizada = str_replace(['../', '/'], ['', DIRECTORY_SEPARATOR], $ruta);
         return dirname(__DIR__) . DIRECTORY_SEPARATOR . $normalizada;
+    }
+
+    private function obtenerPendienteBaseParaPdf(int $pendienteId): ?array
+    {
+        $sql = "SELECT id, pen_titulo, pen_descripcion, pen_documento, pen_link_documento, pen_modo_firma
+                FROM pendientes_creados
+                WHERE id = ?
+                  AND pen_estado = 1
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $pendienteId);
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$resultado) {
+            return null;
+        }
+
+        $resultado['documento_archivo'] = $this->obtenerDocumentoArchivoDesdeFila($resultado);
+        $resultado['documento_link'] = $this->obtenerDocumentoLinkDesdeFila($resultado);
+        $resultado['pen_documento'] = $resultado['documento_archivo'] !== '' ? $resultado['documento_archivo'] : $resultado['documento_link'];
+        $resultado['pen_modo_firma'] = $this->normalizarModoFirma((string) ($resultado['pen_modo_firma'] ?? 'individual'));
+        return $resultado;
+    }
+
+    private function obtenerFirmasRegistradasPendiente(int $pendienteId): array
+    {
+        $sql = "SELECT pu.id AS pendiente_usuario_id,
+                       pu.pu_firma_ruta AS firma_ruta,
+                       pu.pu_fecha_firma AS fecha_firma,
+                       u.usu_nombre AS usuario_nombre
+                FROM pendientes_creados_usuarios pu
+                INNER JOIN usuarios u ON u.idusuarios = pu.usuario_id
+                WHERE pu.pendiente_id = ?
+                  AND pu.pu_firma_ruta IS NOT NULL
+                  AND pu.pu_firma_ruta <> ''
+                ORDER BY pu.pu_fecha_firma ASC, pu.id ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $pendienteId);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
+        $firmas = $resultado ? $resultado->fetch_all(MYSQLI_ASSOC) : [];
+        $stmt->close();
+
+        return $firmas;
+    }
+
+    private function contarFirmasPendiente(int $pendienteId): int
+    {
+        if ($pendienteId <= 0) {
+            return 0;
+        }
+
+        $sql = "SELECT COUNT(*) AS total
+                FROM pendientes_creados_usuarios
+                WHERE pendiente_id = ?
+                  AND pu_firma_ruta IS NOT NULL
+                  AND pu_firma_ruta <> ''";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $pendienteId);
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return (int) ($resultado['total'] ?? 0);
     }
 
     private function log(string $mensaje, array $contexto = []): void
@@ -1362,6 +1716,36 @@ class PendientesModel
         if ((int) ($resultado['total'] ?? 0) === 0) {
             $this->db->query($sqlAlter);
         }
+    }
+
+    private function columnaExiste(string $tabla, string $columna): bool
+    {
+        $clave = $tabla . '.' . $columna;
+        if (array_key_exists($clave, $this->columnasCache)) {
+            return $this->columnasCache[$clave];
+        }
+
+        $sql = "SELECT COUNT(*) AS total
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?
+                  AND COLUMN_NAME = ?";
+
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            $this->columnasCache[$clave] = false;
+            return false;
+        }
+
+        $stmt->bind_param("ss", $tabla, $columna);
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        $existe = (int) ($resultado['total'] ?? 0) > 0;
+        $this->columnasCache[$clave] = $existe;
+
+        return $existe;
     }
 
     private function mapearConceptoNomina(string $tipo): string

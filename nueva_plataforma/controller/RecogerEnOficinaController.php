@@ -1,13 +1,8 @@
 <?php
  require("../../login_autentica.php"); // ESTE archivo debe tener session_start()
- require_once "../model/RecogidasMovilModel.php";
+ require_once "../model/RecogerEnOficinaModel.php";
 
-$modelo = new RecogidasMovilModel();
-file_put_contents(
-    __DIR__ . 'logs/debug_controller.log',
-    "[" . date('Y-m-d H:i:s') . "] POST=" . json_encode($_POST) . PHP_EOL,
-    FILE_APPEND
-);
+$modelo = new RecogerEnOficinaModel();
 $isAjax = isset($_POST['accion']);
 
 if ($isAjax && ($_POST['accion'] ?? '') === 'guardarRecogida') {
@@ -154,7 +149,7 @@ if ($isAjax && $_POST['accion'] === 'calcularValorTotal') {
     // ===============================
     // LOG DE ARRANQUE
     // ===============================
-    $rutaLog = __DIR__ . "/log_calculos.txt";
+    $rutaLog = 'php://temp';
     $fecha = date("[Y-m-d H:i:s] ");
     file_put_contents($rutaLog, $fecha . "---- INICIO REQUEST calcularValorTotal ----" . PHP_EOL, FILE_APPEND);
     file_put_contents($rutaLog, $fecha . "POST: " . json_encode($_POST) . PHP_EOL, FILE_APPEND);
@@ -307,6 +302,8 @@ if ($isAjax && ($_POST['accion'] ?? '') === 'guardarSello') {
         exit;
     }
 }
+
+
 if ($isAjax && ($_POST['accion'] ?? '') === 'enviarLinkFirma') {
 
     header('Content-Type: application/json');
@@ -424,6 +421,7 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'consultarEstadoFirma') {
 
 function logController(string $mensaje, array $contexto = [])
 {
+    return;
     $logDir  = __DIR__ . 'logs';
     $logFile = $logDir . '/controller_' . date('Y-m-d') . '.log';
 
@@ -447,10 +445,16 @@ if (!$isAjax) {
     $sede               = $session['usu_idsede']     ?? null;
     $acceso             = $session['usuario_rol']    ?? null;
 
-    $ciudadesR = $modelo->obtenerCiudadesRemitente($sede,$acceso);
+    $modoRecogida = 'oficina';
+    $esOficina = true;
+    $tituloRecogida = 'Registro de Recogida en Oficina';
+    $endpointRecogida = '../controller/RecogerEnOficinaController.php';
+
+    $ciudadesR = $modelo->obtenerCiudadesRemitente($sede, $acceso);
     $ciudades = $modelo->obtenerCiudades();
     
     $direcciones = $modelo->obtenerDirecciones();
     $lugares = $modelo->obtenerLugar();
-    include "../view/RecogidasMovil/index.php";
+    $tiposPaqueteOficina = $modelo->obtenerTiposPaqueteOficina();
+    include "../view/RecogerEnOficina/index.php";
 }

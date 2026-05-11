@@ -19,7 +19,7 @@ require("../../login_autentica.php");
 require_once "../model/SeguimientoUsuarioModel.php";
 $modelo = new SeguimientoUsuarioModel();
 
-// ==================== FUNCIONES DE PERMISOS ====================
+// ==================== FUNCIONES DE PERMISOS Y HELPERS ====================
 
 function puedeModificarSeguimiento($idSeguimiento)
 {
@@ -37,6 +37,22 @@ function puedeModificarSeguimiento($idSeguimiento)
     $sedeOperario = $row['usu_idsede'] ?? 0;
     $sedeUsuario = $_SESSION['usu_idsede'] ?? 0;
     return ($sedeOperario == $sedeUsuario);
+}
+
+function verificarPermiso($idSeguimiento, $mensaje = 'Permiso denegado')
+{
+    if (!puedeModificarSeguimiento($idSeguimiento)) {
+        return ['success' => false, 'message' => $mensaje];
+    }
+    return null;
+}
+
+function appendDebugErrors(&$response)
+{
+    $captured_errors = ErrorHandler::getCapturedErrors();
+    if (!empty($captured_errors) && ($_SERVER['SERVER_NAME'] ?? '') === 'localhost') {
+        $response['debug_errors'] = $captured_errors;
+    }
 }
 
 // ==================== PETICIONES AJAX PARA DATATABLE ====================
@@ -71,12 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             "data" => $result
         ];
 
-        // Agregar errores de debug si existen
-        $captured_errors = ErrorHandler::getCapturedErrors();
-        if (!empty($captured_errors) && ($_SERVER['SERVER_NAME'] ?? '') === 'localhost') {
-            $response['debug_errors'] = $captured_errors;
-        }
-
+        appendDebugErrors($response);
         sendJsonResponse($response);
     } catch (Exception $e) {
         error_log("Error en AJAX seguimiento: " . $e->getMessage());
@@ -97,31 +108,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
         $response = ['success' => false, 'message' => 'Acción no válida'];
 
         switch ($accion) {
+
+            // --- Guardar ingreso (unificado: popup, manual, y edición) ---
             case 'guardar_ingreso_popup':
+            case 'guardar_ingreso':
+            case 'guardar_cambio':
                 $idSeguimiento = intval($_POST['id_seguimiento'] ?? 0);
-                $idUsuario = intval($_POST['operario'] ?? 0);
-                $fecha = $_POST['fecha'] ?? date('Y-m-d');
-                $motivo = $_POST['motivo'] ?? '';
-                $descripcion = $_POST['descripcion'] ?? '';
-                $zona = intval($_POST['zona'] ?? 0);
-                $prueba = $_POST['prueba'] ?? 'No aplica';
-                $imagen = $_FILES['imagen'] ?? null;
+                $esActualizacion = ($idSeguimiento > 0);
+
+                if ($esActualizacion) {
+                    $error = verificarPermiso($idSeguimiento);
+                    if ($error) { $response = $error; break; }
+                }
 
                 $data = [
-                    'operario' => $idUsuario,
-                    'fecha' => $fecha,
-                    'motivo' => $motivo,
-                    'descripcion' => $descripcion,
-                    'zona' => $zona,
-                    'prueba' => $prueba
+                    'operario'    => intval($_POST['operario'] ?? 0),
+                    'fecha'       => $_POST['fecha'] ?? date('Y-m-d'),
+                    'motivo'      => $_POST['motivo'] ?? '',
+                    'descripcion' => $_POST['descripcion'] ?? '',
+                    'zona'        => intval($_POST['zona'] ?? 0),
+                    'prueba'      => $_POST['prueba'] ?? 'No aplica',
+                    'horas'       => $_POST['horas'] ?? ''
                 ];
+                $imagen = $_FILES['imagen'] ?? null;
 
-                if ($idSeguimiento > 0) {
-                    if (!puedeModificarSeguimiento($idSeguimiento)) {
-                        $response = ['success' => false, 'message' => 'No tiene permiso para modificar este registro'];
-                        break;
-                    }
-                    $ok = $modelo->actualizarIngreso($idSeguimiento, $data, $imagen, $_SESSION['usuario_id']);
+                if ($esActualizacion) {
+                    $dataActualizar = [
+                        'motivo'      => $data['motivo'],
+                        'descripcion' => $data['descripcion'],
+                        'zona'        => $data['zona'],
+                        'prueba'      => $data['prueba'],
+                        'horas'       => $data['horas']
+                    ];
+                    $ok = $modelo->actualizarIngreso($idSeguimiento, $dataActualizar, $imagen, $_SESSION['usuario_id']);
                 } else {
                     $ok = $modelo->insertarIngreso($data, $imagen, $_SESSION['usuario_id']);
                 }
@@ -129,127 +148,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 $response = ['success' => $ok, 'message' => $ok ? 'Ingreso guardado correctamente' : 'Error al guardar'];
                 break;
 
+            // --- Guardar zona ---
             case 'guardar_zona':
                 $id = intval($_POST['id']);
-                $zona = intval($_POST['zona']);
-                if (!puedeModificarSeguimiento($id)) {
-                    $response = ['success' => false, 'message' => 'Permiso denegado'];
-                    break;
-                }
-                $ok = $modelo->actualizarZona($id, $zona);
+                $error = verificarPermiso($id);
+                if ($error) { $response = $error; break; }
+                $ok = $modelo->actualizarZona($id, intval($_POST['zona']));
                 $response = ['success' => $ok, 'message' => $ok ? 'Zona actualizada' : 'Error'];
                 break;
 
+            // --- Guardar hora almuerzo ---
             case 'guardar_hora_almuerzo':
                 $id = intval($_POST['id']);
-                $hora = $_POST['hora'];
-                if (!puedeModificarSeguimiento($id)) {
-                    $response = ['success' => false, 'message' => 'Permiso denegado'];
-                    break;
-                }
-                $ok = $modelo->actualizarHoraAlmuerzo($id, $hora);
+                $error = verificarPermiso($id);
+                if ($error) { $response = $error; break; }
+                $ok = $modelo->actualizarHoraAlmuerzo($id, $_POST['hora']);
                 $response = ['success' => $ok, 'message' => $ok ? 'Hora guardada' : 'Error'];
                 break;
 
+            // --- Guardar retorno almuerzo ---
             case 'guardar_retorno_almuerzo':
                 $id = intval($_POST['id']);
-                $hora = $_POST['hora'];
-                if (!puedeModificarSeguimiento($id)) {
-                    $response = ['success' => false, 'message' => 'Permiso denegado'];
-                    break;
-                }
-                $ok = $modelo->actualizarRetornoAlmuerzo($id, $hora);
+                $error = verificarPermiso($id);
+                if ($error) { $response = $error; break; }
+                $ok = $modelo->actualizarRetornoAlmuerzo($id, $_POST['hora']);
                 $response = ['success' => $ok, 'message' => $ok ? 'Retorno guardado' : 'Error'];
                 break;
 
+            // --- Guardar retorno oficina ---
             case 'guardar_retorno_oficina':
                 $id = intval($_POST['id']);
-                $hora = $_POST['hora'];
-                if (!puedeModificarSeguimiento($id)) {
-                    $response = ['success' => false, 'message' => 'Permiso denegado'];
-                    break;
-                }
-                $ok = $modelo->actualizarRetornoOficina($id, $hora);
+                $error = verificarPermiso($id);
+                if ($error) { $response = $error; break; }
+                $ok = $modelo->actualizarRetornoOficina($id, $_POST['hora']);
                 $response = ['success' => $ok, 'message' => $ok ? 'Retorno guardado' : 'Error'];
                 break;
 
+            // --- Guardar compañero ---
             case 'guardar_companero':
                 $id = intval($_POST['id']);
-                $companero = intval($_POST['companero']);
-                if (!puedeModificarSeguimiento($id)) {
-                    $response = ['success' => false, 'message' => 'Permiso denegado'];
-                    break;
-                }
-                $ok = $modelo->actualizarCompanero($id, $companero);
+                $error = verificarPermiso($id);
+                if ($error) { $response = $error; break; }
+                $ok = $modelo->actualizarCompanero($id, intval($_POST['companero']));
                 $response = ['success' => $ok, 'message' => $ok ? 'Compañero actualizado' : 'Error'];
                 break;
 
+            // --- Guardar festivos ---
             case 'guardar_festivos':
                 if (!in_array($_SESSION['usuario_rol'] ?? 0, [1, 12])) {
                     $response = ['success' => false, 'message' => 'Acción solo para administradores'];
                     break;
                 }
-                $fecha = $_POST['fecha'];
-                $sede = intval($_POST['sede'] ?? 0);
-                $ok = $modelo->insertarFestivos($fecha, $sede, $_SESSION['usuario_id']);
+                if (empty($_POST['fecha'])) {
+                    $response = ['success' => false, 'message' => 'La fecha es obligatoria'];
+                    break;
+                }
+                $ok = $modelo->insertarFestivos($_POST['fecha'], intval($_POST['sede'] ?? 0), $_SESSION['usuario_id']);
                 $response = ['success' => $ok, 'message' => $ok ? 'Días festivos agregados' : 'Error al agregar festivos'];
                 break;
 
+            // --- Guardar vacaciones ---
             case 'guardar_vacaciones':
-                $data = [
+                $fechaIni = $_POST['fecha_ini'] ?? '';
+                $fechaFin = $_POST['fecha_fin'] ?? '';
+                if (empty($fechaIni) || empty($fechaFin)) {
+                    $response = ['success' => false, 'message' => 'Ambas fechas son obligatorias'];
+                    break;
+                }
+                if ($fechaFin < $fechaIni) {
+                    $response = ['success' => false, 'message' => 'La fecha fin no puede ser anterior a la fecha inicio'];
+                    break;
+                }
+                $ok = $modelo->insertarVacaciones([
                     'operario' => intval($_POST['operario']),
-                    'fecha_ini' => $_POST['fecha_ini'],
-                    'fecha_fin' => $_POST['fecha_fin']
-                ];
-                $ok = $modelo->insertarVacaciones($data, $_SESSION['usuario_id']);
+                    'fecha_ini' => $fechaIni,
+                    'fecha_fin' => $fechaFin
+                ], $_SESSION['usuario_id']);
                 $response = ['success' => $ok, 'message' => $ok ? 'Vacaciones registradas' : 'Error al registrar vacaciones'];
                 break;
 
+            // --- Guardar licencia ---
             case 'guardar_licencia':
-                $data = [
+                $fechaLicIni = $_POST['fecha_ini'] ?? '';
+                $fechaLicFin = $_POST['fecha_fin'] ?? '';
+                if (empty($fechaLicIni) || empty($fechaLicFin)) {
+                    $response = ['success' => false, 'message' => 'Ambas fechas son obligatorias'];
+                    break;
+                }
+                if ($fechaLicFin < $fechaLicIni) {
+                    $response = ['success' => false, 'message' => 'La fecha fin no puede ser anterior a la fecha inicio'];
+                    break;
+                }
+                $ok = $modelo->insertarLicencia([
                     'operario' => intval($_POST['operario']),
-                    'fecha_ini' => $_POST['fecha_ini'],
-                    'fecha_fin' => $_POST['fecha_fin'],
+                    'fecha_ini' => $fechaLicIni,
+                    'fecha_fin' => $fechaLicFin,
                     'motivo' => $_POST['motivo'],
                     'descripcion' => $_POST['descripcion']
-                ];
-                $ok = $modelo->insertarLicencia($data, $_SESSION['usuario_id']);
+                ], $_SESSION['usuario_id']);
                 $response = ['success' => $ok, 'message' => $ok ? 'Licencia registrada' : 'Error al registrar licencia'];
                 break;
 
-            case 'guardar_ingreso':
-                $data = [
-                    'operario' => intval($_POST['operario']),
-                    'sede' => intval($_POST['sede']),
-                    'fecha' => $_POST['fecha'],
-                    'motivo' => $_POST['motivo'],
-                    'descripcion' => $_POST['descripcion'],
-                    'zona' => intval($_POST['zona']),
-                    'prueba' => $_POST['prueba']
-                ];
-                $imagen = $_FILES['imagen'] ?? null;
-                $ok = $modelo->insertarIngreso($data, $imagen, $_SESSION['usuario_id']);
-                $response = ['success' => $ok, 'message' => $ok ? 'Ingreso registrado' : 'Error al registrar ingreso'];
-                break;
-
-            case 'guardar_cambio':
-                $idSeguimiento = intval($_POST['id_seguimiento']);
-                if (!puedeModificarSeguimiento($idSeguimiento)) {
-                    $response = ['success' => false, 'message' => 'Permiso denegado'];
-                    break;
-                }
-                $data = [
-                    'motivo' => $_POST['motivo'],
-                    'descripcion' => $_POST['descripcion'],
-                    'zona' => intval($_POST['zona']),
-                    'prueba' => $_POST['prueba'],
-                    'horas' => $_POST['horas']
-                ];
-                $imagen = $_FILES['imagen'] ?? null;
-                $ok = $modelo->actualizarIngreso($idSeguimiento, $data, $imagen, $_SESSION['usuario_id']);
-                $response = ['success' => $ok, 'message' => $ok ? 'Cambios guardados' : 'Error al guardar cambios'];
-                break;
-
+            // --- Eliminar seguimiento ---
             case 'eliminar_seguimiento':
                 if (!in_array($_SESSION['usuario_rol'] ?? 0, [1, 12])) {
                     $response = ['success' => false, 'message' => 'No tiene permiso para eliminar registros'];
@@ -268,12 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 break;
         }
 
-        // Agregar errores de debug si existen
-        $captured_errors = ErrorHandler::getCapturedErrors();
-        if (!empty($captured_errors) && ($_SERVER['SERVER_NAME'] ?? '') === 'localhost') {
-            $response['debug_errors'] = $captured_errors;
-        }
-
+        appendDebugErrors($response);
         sendJsonResponse($response);
     } catch (Exception $e) {
         error_log("Error en accion POST: " . $e->getMessage());
@@ -288,18 +283,15 @@ if (isset($_GET['accion'])) {
     try {
         switch ($accion) {
             case 'get_operarios':
-                $idsede = intval($_GET['idsede'] ?? 0);
-                sendJsonResponse($modelo->getOperariosPorSede($idsede));
+                sendJsonResponse($modelo->getOperariosPorSede(intval($_GET['idsede'] ?? 0)));
                 break;
 
             case 'get_zonas':
-                $idsede = intval($_GET['idsede'] ?? 0);
-                sendJsonResponse($modelo->getZonasPorSede($idsede));
+                sendJsonResponse($modelo->getZonasPorSede(intval($_GET['idsede'] ?? 0)));
                 break;
 
             case 'get_deuda':
-                $idoperario = intval($_GET['idoperario'] ?? 0);
-                sendJsonResponse(['deuda' => $modelo->getDeudaOperario($idoperario)]);
+                sendJsonResponse(['deuda' => $modelo->getDeudaOperario(intval($_GET['idoperario'] ?? 0))]);
                 break;
 
             case 'get_all_operarios':
@@ -310,29 +302,32 @@ if (isset($_GET['accion'])) {
                 if (!in_array($_SESSION['usuario_rol'] ?? 0, [1, 12])) {
                     sendJsonResponse(['error' => 'No tiene permiso'], 403);
                 }
-                $idCombinado = $_GET['id_combinado'] ?? '';
-                sendJsonResponse($modelo->getDetallesParaEliminar($idCombinado));
+                sendJsonResponse($modelo->getDetallesParaEliminar($_GET['id_combinado'] ?? ''));
                 break;
 
             case 'ver_documento':
                 $id = intval($_GET['id'] ?? 0);
-                $sql = "SELECT doc_ruta FROM documentos WHERE iddocumentos = ?";
-                $stmt = $modelo->getDB()->prepare($sql);
-                $stmt->bind_param("i", $id);
-                $stmt->execute();
-                $row = $stmt->get_result()->fetch_assoc();
-                if ($row && file_exists($row['doc_ruta'])) {
-                    header('Content-Type: ' . mime_content_type($row['doc_ruta']));
-                    header('Content-Disposition: inline; filename="' . basename($row['doc_ruta']) . '"');
-                    readfile($row['doc_ruta']);
-                    exit;
+                $ruta = $modelo->getRutaDocumento($id);
+                if ($ruta) {
+                    $projectRoot = realpath(__DIR__ . '/../../');
+                    $candidates = [$ruta];
+                    if ($projectRoot) {
+                        $candidates[] = $projectRoot . DIRECTORY_SEPARATOR . ltrim($ruta, '/\\');
+                    }
+                    foreach ($candidates as $filePath) {
+                        if (file_exists($filePath)) {
+                            header('Content-Type: ' . mime_content_type($filePath));
+                            header('Content-Disposition: inline; filename="' . basename($filePath) . '"');
+                            readfile($filePath);
+                            exit;
+                        }
+                    }
                 }
                 http_response_code(404);
                 echo "Archivo no encontrado";
                 exit;
 
             case 'form_popup':
-                error_log('form_popup triggered, tipo: ' . ($_GET['tipo'] ?? 'none'));
                 $tipo = $_GET['tipo'] ?? '';
                 $id = intval($_GET['id'] ?? 0);
                 $param = $_GET['param'] ?? '';
@@ -345,7 +340,7 @@ if (isset($_GET['accion'])) {
                 $data = [];
                 switch ($tipo) {
                     case 'ingreso_manual':
-                        $motivos = $modelo->getMotivosIngreso('ingreso');
+                        $motivos = $modelo->getMotivosIngreso();
                         $sedes = $modelo->getSedes();
                         $zonas = $modelo->getZonasPorSede($sedePredeterminada);
                         $idUsuario = 0;
@@ -356,13 +351,14 @@ if (isset($_GET['accion'])) {
                         $descripcion = '';
                         $zonaSeleccionada = 0;
                         $pruebaSeleccionada = 'No aplica';
+                        $horasSeleccionada = '';
                         $usuario = null;
                         ob_clean();
                         include "../view/SeguimientoUsuario/popups/ingreso.php";
                         exit;
 
                     case 'ingreso':
-                        $motivos = $modelo->getMotivosIngreso('ingreso');
+                        $motivos = $modelo->getMotivosIngreso();
                         $sedePredeterminada = $_SESSION['usu_idsede'] ?? 0;
                         $idUsuario = 0;
                         $idSeguimiento = 0;
@@ -374,6 +370,7 @@ if (isset($_GET['accion'])) {
                         $usuario = null;
                         $sedeUsuario = 0;
                         $sedeNombre = '';
+                        $horasSeleccionada = '';
 
                         if ($id > 0) {
                             $seguimiento = $modelo->getSeguimientoById($id);
@@ -385,6 +382,7 @@ if (isset($_GET['accion'])) {
                                 $descripcion = $seguimiento['seg_descr'];
                                 $zonaSeleccionada = $seguimiento['seg_idzona'];
                                 $pruebaSeleccionada = $seguimiento['seg_alcohol'];
+                                $horasSeleccionada = $seguimiento['seg_horas_trabajadas'] ?? '';
                                 $usuario = $modelo->getOperarioById($idUsuario);
                                 $sedeUsuario = $usuario['usu_idsede'] ?? 0;
                             } else {
@@ -427,8 +425,7 @@ if (isset($_GET['accion'])) {
                         if ($id > 0) {
                             $seguimiento = $modelo->getSeguimientoById($id);
                             if ($seguimiento) {
-                                $id_usuario = $seguimiento['seg_idusuario'];
-                                $id_sede_usuario = $modelo->getSedeByUsuario($id_usuario);
+                                $id_sede_usuario = $modelo->getSedeByUsuario($seguimiento['seg_idusuario']);
                                 $zona_seleccionada = $seguimiento['seg_idzona'] ?? 0;
                             }
                         }
@@ -444,38 +441,39 @@ if (isset($_GET['accion'])) {
                     case 'retorno_oficina':
                         $data['id'] = $id;
                         $data['fecha'] = $param;
-                        $hora_actual = '';
+                        $hora_actual = date('H:i');
                         if ($id > 0) {
                             $seguimiento = $modelo->getSeguimientoById($id);
                             if ($seguimiento) {
-                                switch ($tipo) {
-                                    case 'hora_almuerzo':
-                                        $hora_actual = $seguimiento['seg_horaalmuerzo'] ?? '';
-                                        break;
-                                    case 'retorno_almuerzo':
-                                        $hora_actual = $seguimiento['seg_horaregreso'] ?? '';
-                                        break;
-                                    case 'retorno_oficina':
-                                        $hora_actual = $seguimiento['seg_horaoficina'] ?? '';
-                                        break;
+                                $campos = [
+                                    'hora_almuerzo' => 'seg_horaalmuerzo',
+                                    'retorno_almuerzo' => 'seg_horaregreso',
+                                    'retorno_oficina' => 'seg_horaoficina'
+                                ];
+                                $dbValue = $seguimiento[$campos[$tipo]] ?? '';
+                                if ($dbValue !== '' && $dbValue !== null) {
+                                    $hora_actual = $dbValue;
                                 }
                             }
                         }
                         $data['hora_actual'] = $hora_actual;
                         break;
 
-                    case 'companero':
                     case 'trabaja_con':
                         $data['id'] = $id;
                         $data['param'] = $param;
-                        $data['operarios'] = $modelo->getTodosOperarios();
+                        $idsede = 0;
                         $companeroActual = 0;
                         if ($id > 0) {
                             $seguimiento = $modelo->getSeguimientoById($id);
-                            if ($seguimiento && !empty($seguimiento['seg_compañero'])) {
-                                $companeroActual = intval($seguimiento['seg_compañero']);
+                            if ($seguimiento) {
+                                $idsede = $modelo->getSedeByUsuario($seguimiento['seg_idusuario']);
+                                if (!empty($seguimiento['seg_compañero'])) {
+                                    $companeroActual = intval($seguimiento['seg_compañero']);
+                                }
                             }
                         }
+                        $data['operarios'] = $idsede > 0 ? $modelo->getOperariosPorSede($idsede) : $modelo->getTodosOperarios();
                         $data['companero_seleccionado'] = $companeroActual;
                         break;
 
@@ -484,7 +482,6 @@ if (isset($_GET['accion'])) {
                         break;
 
                     case 'vacaciones':
-                        // No se necesitan datos adicionales
                         break;
 
                     case 'licencias':

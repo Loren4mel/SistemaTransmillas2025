@@ -204,6 +204,22 @@ class SeguimientoUsuarioModel
         return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     }
 
+    /**
+     * Obtiene la ruta de un documento por ID (movido desde el controlador).
+     *
+     * @param int $id
+     * @return string|null
+     */
+    public function getRutaDocumento(int $id): ?string
+    {
+        $sql = "SELECT doc_ruta FROM documentos WHERE iddocumentos = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        return ($row && !empty($row['doc_ruta'])) ? $row['doc_ruta'] : null;
+    }
+
     // ==================== DATATABLE SERVER-SIDE (OPTIMIZADO) ====================
 
     /**
@@ -258,23 +274,17 @@ class SeguimientoUsuarioModel
     // ==================== MÉTODOS PRIVADOS PARA DATATABLE ====================
 
     /**
-     * Total filtrado cuando NO hay filtro de motivo.
+     * Construye la cláusula WHERE común para filtros (sede, operario, tipo_contrato, search).
+     * Usa el alias "u" para la tabla usuarios.
      *
-     * @param array $filtros
-     * @param string $search
-     * @return int
+     * @param string $sql      SQL por referencia — se le añade la cláusula
+     * @param array  $params   Parámetros por referencia
+     * @param string $types    Tipos por referencia
+     * @param array  $filtros  Filtros del request
+     * @param string $search   Búsqueda global
      */
-    private function getTotalFiltradosSinMotivo(array $filtros, string $search): int
+    private function buildFiltroWhere(string &$sql, array &$params, string &$types, array $filtros, string $search): void
     {
-        $fechaInicio = $filtros['fecha_inicio'] ?? date('Y-m-d');
-        $fechaFin = $filtros['fecha_fin'] ?? date('Y-m-d');
-
-        $sql = "SELECT COUNT(DISTINCT u.idusuarios) as total
-                FROM usuarios u
-                WHERE u.usu_estado = 1 AND u.usu_filtro = 1 AND u.roles_idroles != 6";
-        $params = [];
-        $types = "";
-
         if (!empty($filtros['sede']) && $filtros['sede'] > 0) {
             $sql .= " AND u.usu_idsede = ?";
             $params[] = $filtros['sede'];
@@ -297,6 +307,27 @@ class SeguimientoUsuarioModel
             $params[] = $like;
             $types .= "ss";
         }
+    }
+
+    /**
+     * Total filtrado cuando NO hay filtro de motivo.
+     *
+     * @param array $filtros
+     * @param string $search
+     * @return int
+     */
+    private function getTotalFiltradosSinMotivo(array $filtros, string $search): int
+    {
+        $fechaInicio = $filtros['fecha_inicio'] ?? date('Y-m-d');
+        $fechaFin = $filtros['fecha_fin'] ?? date('Y-m-d');
+
+        $sql = "SELECT COUNT(DISTINCT u.idusuarios) as total
+                FROM usuarios u
+                WHERE u.usu_estado = 1 AND u.usu_filtro = 1 AND u.roles_idroles != 6";
+        $params = [];
+        $types = "";
+
+        $this->buildFiltroWhere($sql, $params, $types, $filtros, $search);
 
         $stmt = $this->db->prepare($sql);
         if (!empty($params)) {
@@ -333,28 +364,7 @@ class SeguimientoUsuarioModel
         $params = [$motivo, $fechaInicio, $fechaFin];
         $types = "sss";
 
-        if (!empty($filtros['sede']) && $filtros['sede'] > 0) {
-            $sql .= " AND u.usu_idsede = ?";
-            $params[] = $filtros['sede'];
-            $types .= "i";
-        }
-        if (!empty($filtros['operario']) && $filtros['operario'] > 0) {
-            $sql .= " AND u.idusuarios = ?";
-            $params[] = $filtros['operario'];
-            $types .= "i";
-        }
-        if (!empty($filtros['tipo_contrato'])) {
-            $sql .= " AND u.usu_tipocontrato = ?";
-            $params[] = $filtros['tipo_contrato'];
-            $types .= "s";
-        }
-        if (!empty($search)) {
-            $sql .= " AND (u.usu_nombre LIKE ? OR u.usu_identificacion LIKE ?)";
-            $like = "%$search%";
-            $params[] = $like;
-            $params[] = $like;
-            $types .= "ss";
-        }
+        $this->buildFiltroWhere($sql, $params, $types, $filtros, $search);
 
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param($types, ...$params);
@@ -385,28 +395,7 @@ class SeguimientoUsuarioModel
         $params = [];
         $types = "";
 
-        if (!empty($filtros['sede']) && $filtros['sede'] > 0) {
-            $sqlUsuarios .= " AND u.usu_idsede = ?";
-            $params[] = $filtros['sede'];
-            $types .= "i";
-        }
-        if (!empty($filtros['operario']) && $filtros['operario'] > 0) {
-            $sqlUsuarios .= " AND u.idusuarios = ?";
-            $params[] = $filtros['operario'];
-            $types .= "i";
-        }
-        if (!empty($filtros['tipo_contrato'])) {
-            $sqlUsuarios .= " AND u.usu_tipocontrato = ?";
-            $params[] = $filtros['tipo_contrato'];
-            $types .= "s";
-        }
-        if (!empty($search)) {
-            $sqlUsuarios .= " AND (u.usu_nombre LIKE ? OR u.usu_identificacion LIKE ?)";
-            $like = "%$search%";
-            $params[] = $like;
-            $params[] = $like;
-            $types .= "ss";
-        }
+        $this->buildFiltroWhere($sqlUsuarios, $params, $types, $filtros, $search);
 
         $stmt = $this->db->prepare($sqlUsuarios);
         if (!empty($params)) {
@@ -599,28 +588,7 @@ class SeguimientoUsuarioModel
         $params = [$motivo, $fechaInicio, $fechaFin];
         $types = "sss";
 
-        if (!empty($filtros['sede']) && $filtros['sede'] > 0) {
-            $sql .= " AND u.usu_idsede = ?";
-            $params[] = $filtros['sede'];
-            $types .= "i";
-        }
-        if (!empty($filtros['operario']) && $filtros['operario'] > 0) {
-            $sql .= " AND u.idusuarios = ?";
-            $params[] = $filtros['operario'];
-            $types .= "i";
-        }
-        if (!empty($filtros['tipo_contrato'])) {
-            $sql .= " AND u.usu_tipocontrato = ?";
-            $params[] = $filtros['tipo_contrato'];
-            $types .= "s";
-        }
-        if (!empty($search)) {
-            $sql .= " AND (u.usu_nombre LIKE ? OR u.usu_identificacion LIKE ?)";
-            $like = "%$search%";
-            $params[] = $like;
-            $params[] = $like;
-            $types .= "ss";
-        }
+        $this->buildFiltroWhere($sql, $params, $types, $filtros, $search);
 
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param($types, ...$params);
@@ -782,10 +750,11 @@ class SeguimientoUsuarioModel
         $vehiculo = isset($row['prevehiculo']) && isset($this->vehiculosCache[$row['prevehiculo']])
             ? $this->vehiculosCache[$row['prevehiculo']] : null;
 
-        // Alerta de expiración (licencia y tecnicomecánica)
+        // Alerta de expiración (licencia, tecnicomecánica y seguro)
         $fechaLicencia = $row['usu_fechalicencia'] ?? null;
         $fechaTecno = $vehiculo['veh_fechategnomecanica'] ?? null;
-        $alertaExpiracion = $this->generarAlertaExpiracion($fechaLicencia, $fechaTecno, $fechaActual);
+        $fechaSeguro = $vehiculo['veh_fechaseguro'] ?? null;
+        $alertaExpiracion = $this->generarAlertaExpiracion($fechaLicencia, $fechaTecno, $fechaSeguro, $fechaActual);
         $row['alerta_expiracion'] = $alertaExpiracion;
         $row['alerta_izquierda_html'] = $alertaExpiracion['html'];
 
@@ -935,7 +904,7 @@ class SeguimientoUsuarioModel
         $estado = $row['preestado'];
         if (in_array($estado, ['No aplica', 'descanso', 'vacaciones']))
             return $estado;
-        $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=preencuesta";
+        $url = "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}";
         return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>$estado</a>";
     }
 
@@ -944,7 +913,7 @@ class SeguimientoUsuarioModel
         if (empty($row['idpreoperacinal']))
             return '';
         if (in_array($row['preestado'], ['Validado', 'Validado Covid19'])) {
-            $url = "../../validaoperacional.php?iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}&campo=predatosvalidados";
+            $url = "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}";
             return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>Validado</a>";
         }
         if (in_array($row['preestado'], ['No aplica', 'descanso', 'vacaciones', 'Vacaciones'])) {
@@ -1061,53 +1030,102 @@ class SeguimientoUsuarioModel
         return "{$restantes}km de {$vehiculo['veh_aceitekil']}km";
     }
 
-    private function generarAlertaExpiracion(?string $fechaLicencia, ?string $fechaTecno, string $hoy): array
+    /**
+     * Clasifica un conteo de días restantes en nivel de alerta.
+     * Retorna [color, severity] — severity: 3=expirado, 2=crítico(≤7d), 1=advertencia(≤30d), 0=normal.
+     */
+    private function clasificarDias(int $dias): array
     {
+        if ($dias < 0)      return ['color' => '#F44336', 'severity' => 3];
+        if ($dias <= 7)     return ['color' => '#F44336', 'severity' => 2];
+        if ($dias <= 30)    return ['color' => '#FF9800', 'severity' => 1];
+        return              ['color' => '#555',    'severity' => 0];
+    }
+
+    private function generarAlertaExpiracion(?string $fechaLicencia, ?string $fechaTecno, ?string $fechaSeguro = null, string $hoy = ''): array
+    {
+        if (empty($hoy)) {
+            $hoy = date('Y-m-d');
+        }
         $diasLic = $this->diasHasta($hoy, $fechaLicencia);
         $diasTecno = $this->diasHasta($hoy, $fechaTecno);
-        $dias = null;
-        $tipo = '';
+        $diasSeguro = $this->diasHasta($hoy, $fechaSeguro);
 
-        if ($diasLic !== null && $diasTecno !== null) {
-            if ($diasLic <= $diasTecno) {
-                $dias = $diasLic;
-                $tipo = 'licencia';
+        $nombres = [
+            'licencia' => 'Licencia',
+            'tecno' => 'Tecnicomecánica',
+            'seguro' => 'Seguro'
+        ];
+
+        $fechas = [
+            'licencia' => ['dias' => $diasLic, 'fecha' => $fechaLicencia],
+            'tecno' => ['dias' => $diasTecno, 'fecha' => $fechaTecno],
+            'seguro' => ['dias' => $diasSeguro, 'fecha' => $fechaSeguro],
+        ];
+
+        // Construir dropdown con todos los tipos que tengan fecha
+        $dropdownItems = [];
+        $candidatos = [];
+
+        foreach ($fechas as $tipo => $info) {
+            if ($info['dias'] === null) continue;
+            $d = $info['dias'];
+            $candidatos[$tipo] = $d;
+
+            $clasif = $this->clasificarDias($d);
+            $liStyle = 'color:' . $clasif['color'] . ';' . ($d < 0 ? ' font-weight:bold;' : '');
+
+            if ($d < 0) {
+                $texto = $nombres[$tipo] . ': expirada hace ' . abs($d) . ' días';
+            } elseif ($d <= 7) {
+                $texto = $nombres[$tipo] . ': expira en ' . $d . ' días';
+            } elseif ($d <= 30) {
+                $texto = $nombres[$tipo] . ': expira en ' . $d . ' días';
             } else {
-                $dias = $diasTecno;
-                $tipo = 'tecno';
+                $texto = $nombres[$tipo] . ': ' . $info['fecha'] . ' (' . $d . ' días)';
             }
-        } elseif ($diasLic !== null) {
-            $dias = $diasLic;
-            $tipo = 'licencia';
-        } elseif ($diasTecno !== null) {
-            $dias = $diasTecno;
-            $tipo = 'tecno';
-        } else {
+
+            $dropdownItems[] = "<li style='$liStyle; padding:2px 0;'>" . htmlspecialchars($texto) . "</li>";
+        }
+
+        if (empty($candidatos)) {
             return ['html' => '', 'expired' => false, 'urgency' => 0];
         }
 
+        // El más urgente determina el color del dot
+        $tipo = array_key_first($candidatos);
+        $dias = reset($candidatos);
+        foreach ($candidatos as $tp => $d) {
+            if ($d < $dias) { $dias = $d; $tipo = $tp; }
+        }
+
+        $clasif = $this->clasificarDias($dias);
         $expired = $dias < 0;
-        $urgency = 0;
-        $colorClass = '';
-        $title = '';
+        $nombre = $nombres[$tipo] ?? $tipo;
 
-        if ($expired) {
-            $urgency = 3;
+        $colorClass = '';
+        $tooltip = '';
+        if ($clasif['severity'] >= 3) {
             $colorClass = 'warning-red expired';
-            $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expirada hace ' . abs($dias) . ' días';
-        } elseif ($dias <= 7) {
-            $urgency = 2;
-            $colorClass = 'warning-yellow';
-            $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expira en ' . $dias . ' días';
-        } elseif ($dias <= 30) {
-            $urgency = 1;
+            $tooltip = $nombre . ' expirada hace ' . abs($dias) . ' días';
+        } elseif ($clasif['severity'] >= 2) {
+            $colorClass = 'warning-red';
+            $tooltip = $nombre . ' expira en ' . $dias . ' días';
+        } elseif ($clasif['severity'] >= 1) {
             $colorClass = 'warning-orange';
-            $title = ($tipo === 'licencia' ? 'Licencia' : 'Tecnicomecánica') . ' expira en ' . $dias . ' días';
-        } else {
+            $tooltip = $nombre . ' expira en ' . $dias . ' días';
+        }
+
+        $urgency = $clasif['severity'];
+        if ($urgency === 0) {
             return ['html' => '', 'expired' => false, 'urgency' => 0];
         }
 
-        $html = '<span class="warning-dot ' . $colorClass . '" title="' . htmlspecialchars($title) . '"></span>';
+        $dot = '<span class="warning-dot ' . $colorClass . '" title="' . htmlspecialchars($tooltip) . '"></span>';
+        $dropdown = '<div class="alerta-dropdown"><ul style="list-style:none; margin:0; padding:0;">'
+            . implode('', $dropdownItems) . '</ul></div>';
+        $html = '<div class="alerta-wrapper">' . $dot . $dropdown . '</div>';
+
         return ['html' => $html, 'expired' => $expired, 'urgency' => $urgency, 'dias' => $dias, 'tipo' => $tipo];
     }
 
@@ -1118,6 +1136,29 @@ class SeguimientoUsuarioModel
         $hoyTs = strtotime($hoy);
         $fechaTs = strtotime($fecha);
         return round(($fechaTs - $hoyTs) / 86400);
+    }
+
+    /**
+     * Calcula la fecha de finalización sumando horas a la fecha de ingreso.
+     *
+     * @param string $fechaCompleta Fecha y hora de ingreso (Y-m-d H:i:s)
+     * @param string $motivo Motivo del ingreso
+     * @param int $horas Cantidad de horas (0 si no aplica)
+     * @return string|null Fecha de finalización o NULL si no corresponde
+     */
+    private function calcularFechaFinalizo(string $fechaCompleta, string $motivo, int $horas): ?string
+    {
+        if ($motivo === 'IngresoHoras' && $horas > 0 && !empty($fechaCompleta)) {
+            try {
+                $fecha = new DateTime($fechaCompleta);
+                $fecha->add(new DateInterval('PT' . $horas . 'H'));
+                return $fecha->format('Y-m-d H:i:s');
+            } catch (Exception $e) {
+                error_log("Error calculando fecha finalizo: " . $e->getMessage());
+                return null;
+            }
+        }
+        return null;
     }
 
     // ==================== OPERACIONES CRUD ====================
@@ -1133,20 +1174,24 @@ class SeguimientoUsuarioModel
     public function insertarIngreso(array $data, ?array $imagen, int $idUsuario): bool
     {
         $fechaCompleta = $data['fecha'] . ' ' . date('H:i:s');
-        $sql = "INSERT INTO seguimiento_user 
-                (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_idzona, seg_alcohol, seg_fechaalcohol, seg_iduserregistro)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $horas = isset($data['horas']) && $data['horas'] !== '' ? intval($data['horas']) : 0;
+        $fechaFinalizo = $this->calcularFechaFinalizo($fechaCompleta, $data['motivo'], $horas);
+        $sql = "INSERT INTO seguimiento_user
+                (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_idzona, seg_alcohol, seg_horas_trabajadas, seg_fechaalcohol, seg_iduserregistro, seg_fechafinalizo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param(
-            "isssisss",
+            "isssssisis",
             $data['operario'],
             $fechaCompleta,
             $data['motivo'],
             $data['descripcion'],
             $data['zona'],
             $data['prueba'],
+            $horas,
             $data['fecha'],
-            $idUsuario
+            $idUsuario,
+            $fechaFinalizo
         );
         $ok = $stmt->execute();
         $idSeguimiento = $this->db->insert_id;
@@ -1170,17 +1215,32 @@ class SeguimientoUsuarioModel
      */
     public function actualizarIngreso(int $idSeguimiento, array $data, ?array $imagen, int $idUsuario): bool
     {
-        $sql = "UPDATE seguimiento_user SET 
-                seg_motivo = ?, seg_descr = ?, seg_idzona = ?, seg_alcohol = ?, seg_horas_trabajadas = ?
+        $horas = isset($data['horas']) && $data['horas'] !== '' ? intval($data['horas']) : 0;
+
+        // Obtener la fecha de ingreso actual para calcular fecha final
+        $fechaIngreso = null;
+        $sqlSelect = "SELECT seg_fechaingreso FROM seguimiento_user WHERE idseguimiento_user = ?";
+        $stmtSelect = $this->db->prepare($sqlSelect);
+        $stmtSelect->bind_param("i", $idSeguimiento);
+        $stmtSelect->execute();
+        $result = $stmtSelect->get_result();
+        if ($row = $result->fetch_assoc()) {
+            $fechaIngreso = $row['seg_fechaingreso'];
+        }
+        $fechaFinalizo = $this->calcularFechaFinalizo($fechaIngreso ?? '', $data['motivo'], $horas);
+
+        $sql = "UPDATE seguimiento_user SET
+                seg_motivo = ?, seg_descr = ?, seg_idzona = ?, seg_alcohol = ?, seg_horas_trabajadas = ?, seg_fechafinalizo = ?
                 WHERE idseguimiento_user = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param(
-            "ssissi",
+            "ssisisi",
             $data['motivo'],
             $data['descripcion'],
             $data['zona'],
             $data['prueba'],
-            $data['horas'],
+            $horas,
+            $fechaFinalizo,
             $idSeguimiento
         );
         $ok = $stmt->execute();
@@ -1259,16 +1319,30 @@ class SeguimientoUsuarioModel
      */
     public function actualizarCompanero(int $idSeguimiento, int $companero): bool
     {
-        if ($companero <= 0) {
-            $sql = "UPDATE seguimiento_user SET seg_compañero = NULL WHERE idseguimiento_user = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->bind_param("i", $idSeguimiento);
-        } else {
-            $sql = "UPDATE seguimiento_user SET seg_compañero = ? WHERE idseguimiento_user = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->bind_param("ii", $companero, $idSeguimiento);
-        }
+        $sql = "UPDATE seguimiento_user SET seg_compañero = ? WHERE idseguimiento_user = ?";
+        $stmt = $this->db->prepare($sql);
+        // Se usa "s" para el compañero porque puede ser NULL (no compatible con bind_param "i")
+        $valor = $companero > 0 ? (string) $companero : null;
+        $stmt->bind_param("si", $valor, $idSeguimiento);
         return $stmt->execute();
+    }
+
+    /**
+     * Inserta un registro en seguimiento_user y pre-operacional (operación atómica compartida).
+     */
+    private function insertarSegYPre(int $idOperario, string $fechaStr, string $motivo, string $descripcion, string $estadoPre, int $idUsuario): void
+    {
+        $fechaHora = $fechaStr . ' 00:00:00';
+        $sql1 = "INSERT INTO seguimiento_user (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_alcohol, seg_fechaalcohol, seg_iduserregistro)
+                 VALUES (?, ?, ?, ?, 'No aplica', ?, ?)";
+        $stmt1 = $this->db->prepare($sql1);
+        $stmt1->bind_param("issssi", $idOperario, $fechaHora, $motivo, $descripcion, $fechaStr, $idUsuario);
+        $stmt1->execute();
+
+        $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, ?)";
+        $stmt2 = $this->db->prepare($sql2);
+        $stmt2->bind_param("sis", $fechaHora, $idOperario, $estadoPre);
+        $stmt2->execute();
     }
 
     /**
@@ -1313,17 +1387,7 @@ class SeguimientoUsuarioModel
                 $stmtCheck->execute();
                 $existe = $stmtCheck->get_result()->fetch_assoc();
                 if (!$existe) {
-                    $fechaHora = $fecha . ' 00:00:00';
-                    $sql1 = "INSERT INTO seguimiento_user (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_alcohol, seg_fechaalcohol, seg_iduserregistro)
-                             VALUES (?, ?, 'descanso', 'descanso', 'No aplica', ?, ?)";
-                    $stmt1 = $this->db->prepare($sql1);
-                    $stmt1->bind_param("issi", $iduser, $fechaHora, $fecha, $idUsuario);
-                    $stmt1->execute();
-
-                    $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, 'descanso')";
-                    $stmt2 = $this->db->prepare($sql2);
-                    $stmt2->bind_param("si", $fechaHora, $iduser);
-                    $stmt2->execute();
+                    $this->insertarSegYPre($iduser, $fecha, 'descanso', 'descanso', 'descanso', $idUsuario);
                 }
             }
             $this->db->commit();
@@ -1388,18 +1452,8 @@ class SeguimientoUsuarioModel
                 $stmtCheck->execute();
                 $existe = $stmtCheck->get_result()->fetch_assoc();
 
-                $fechaHora = $fechaStr . ' 00:00:00';
                 if (!$existe) {
-                    $sql1 = "INSERT INTO seguimiento_user (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_alcohol, seg_fechaalcohol, seg_iduserregistro)
-                             VALUES (?, ?, ?, ?, 'No aplica', ?, ?)";
-                    $stmt1 = $this->db->prepare($sql1);
-                    $stmt1->bind_param("issssi", $idOperario, $fechaHora, $motivo, $descripcion, $fechaStr, $idUsuario);
-                    $stmt1->execute();
-
-                    $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, ?)";
-                    $stmt2 = $this->db->prepare($sql2);
-                    $stmt2->bind_param("sis", $fechaHora, $idOperario, $estadoPre);
-                    $stmt2->execute();
+                    $this->insertarSegYPre($idOperario, $fechaStr, $motivo, $descripcion, $estadoPre, $idUsuario);
                 } else {
                     $sqlUp = "UPDATE seguimiento_user SET seg_motivo = ?, seg_descr = ? WHERE idseguimiento_user = ?";
                     $stmtUp = $this->db->prepare($sqlUp);
@@ -1637,42 +1691,44 @@ class SeguimientoUsuarioModel
     }
 
     /**
-     * Genera un enlace para ver un documento.
+     * Obtiene el ID del documento más reciente para un registro (consulta base compartida).
      *
-     * @param string $tabla
      * @param int $idViene
+     * @param string $tabla
      * @param int $version
-     * @param string $texto
-     * @return string
+     * @return int|null
      */
-    private function generarLinkDocumento(string $tabla, int $idViene, int $version, string $texto): string
+    private function getDocumentoId(int $idViene, string $tabla, int $version): ?int
     {
-        $sql = "SELECT iddocumentos FROM documentos 
-                WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ? 
+        $sql = "SELECT iddocumentos FROM documentos
+                WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ?
                 ORDER BY doc_fecha DESC LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("isi", $idViene, $tabla, $version);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
-        if ($row) {
-            $url = "?accion=ver_documento&id=" . $row['iddocumentos'];
+        return $row ? (int) $row['iddocumentos'] : null;
+    }
+
+    /**
+     * Genera un enlace para ver un documento.
+     */
+    private function generarLinkDocumento(string $tabla, int $idViene, int $version, string $texto): string
+    {
+        $id = $this->getDocumentoId($idViene, $tabla, $version);
+        if ($id) {
+            $url = "?accion=ver_documento&id=" . $id;
             return "<a href='#' onclick='window.open(\"$url\", \"_blank\")'><img src='img/icono_documento.png' width='35'> $texto</a>";
         }
         return '';
     }
 
     /**
-     * Obtiene el ID del documento más reciente para un registro.
-     *
-     * @param int|null $idViene
-     * @param string $tabla
-     * @param int $version
-     * @return int|null
+     * Obtiene el ID del documento más reciente que tenga archivo físico (doc_ruta no vacío).
      */
     private function obtenerDocumentoId(?int $idViene, string $tabla, int $version): ?int
     {
-        if (!$idViene)
-            return null;
+        if (!$idViene) return null;
         $sql = "SELECT iddocumentos FROM documentos
                 WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ? AND doc_ruta != ''
                 ORDER BY doc_fecha DESC LIMIT 1";
@@ -1680,7 +1736,7 @@ class SeguimientoUsuarioModel
         $stmt->bind_param("isi", $idViene, $tabla, $version);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
-        return $row['iddocumentos'] ?? null;
+        return $row ? (int) $row['iddocumentos'] : null;
     }
 
     /**
