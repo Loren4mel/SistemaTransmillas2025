@@ -446,11 +446,13 @@ function diasSegundaQuince($year, $month) {
                       //   }
                         while($rw4=mysqli_fetch_row($DB1->Consulta_ID))
                         {
-                          // if ($rw4[0]=="") {
-                              $diassitrabajo=$rw4[0];
-                              // $diassitrabajo=$diassitrabajo+1;
-          
-                          // }
+
+          					if ($rw11[0]==807) {
+                                $rw4[0]=2;
+								
+                            }
+                            $diassitrabajo=$rw4[0];
+
             
                         }
                         
@@ -1082,7 +1084,11 @@ function diasSegundaQuince($year, $month) {
             
                             $diassitrabajo=0;
                         }else{
-                            
+							if ($rw16[0]==770) {
+                                $rw4[0]=9;
+								
+                            }
+
                             
                             if($fin==31 and $param36=='Segunda' or $fin==31 and $param36=='Completo' ){
                                 

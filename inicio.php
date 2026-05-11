@@ -108,6 +108,7 @@ if($nivel_acceso==6){
     <img src='img/loading_gif.gif' alt='Cargando...' />
     
 	</div>
+	<button type='button' class='email-button' onclick='pop_dis16(\"$id_usuario\",\"Archivo Drive\",\"\")' ><i class='fas fa-envelope'></i>Archivo drive</button>
 	<button type='button' class='email-button' onclick='enviarEmail(1, 1, &quot;id_nombre&quot;, &quot;ASC&quot;)' ><i class='fas fa-envelope'></i>Email</button></td></tr>";
 	$FB->llena_texto("", 3, 142, $DB, "BUSCAR", "","", 1, 0);
 	$fechaactual=date($fechaactual.' 01:00:00');

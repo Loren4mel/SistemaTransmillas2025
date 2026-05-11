@@ -1,18 +1,15 @@
+
+
 <?php
-
-
-
-
 require("login_autentica.php"); 
+$id_usuario= $_SESSION['usuario_id'];
 
-// include("layout.php");
 $id_sedes= $_SESSION['usu_idsede'];
 $id_usuario= $_SESSION['usuario_id'];
 $id_nombre=$_SESSION['usuario_nombre'];
 $nivel_acceso=$_SESSION['usuario_rol'];
 $precioinicialkilos=$_SESSION['precioinicial'];
 $estadofactura='recoleccion';
-
 
 ?>
 
@@ -27,4 +24,7 @@ $estadofactura='recoleccion';
   document.getElementById("redirectForm").submit();
 </script>
 
+
+
+<?php
 

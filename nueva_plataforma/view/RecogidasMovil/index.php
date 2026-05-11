@@ -40,7 +40,7 @@
     </div>
 
     <div class="card-body">
-      <form id="form1" name="form1" method="POST" enctype="multipart/form-data">
+      <form id="form1" name="form1" method="POST" enctype="multipart/form-data" novalidate>
 
         <!-- ================= REMITENTE ================= -->
         <h5 class="text-primary">Remitente</h5>
@@ -283,6 +283,9 @@
             <div class="col-12 col-md-6">
                 <label>Imagen transacción</label>
                 <input type="file" id="imagen_transaccion" name="imagen_transaccion" class="form-control">
+                <div id="ayuda_imagen_transaccion" class="form-text d-none">
+                  Obligatoria para pagos por Davivienda o Bancolombia.
+                </div>
             </div>
             </div>
 
@@ -493,7 +496,7 @@
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-<script src="../assets/js/RecogidasMovil.js"></script>
+<script src="../assets/js/RecogidasMovil.js?v=20260430gps4"></script>
 
 </body>
 </html>

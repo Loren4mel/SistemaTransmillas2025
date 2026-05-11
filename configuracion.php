@@ -1,9 +1,9 @@
 <?php 
 require("login_autentica.php");
 include("layout.php"); 
-include("funcion_mensajesnoleidos.php");
+// include("funcion_mensajesnoleidos.php");
 
-$correosNoLeidos = contarMensajesIMAPNoLeidos();
+// $correosNoLeidos = contarMensajesIMAPNoLeidos();
 
 echo "<style>
 .notificacion {
@@ -43,9 +43,9 @@ while($rw_m2=mysqli_fetch_row($DB->Consulta_ID))
 
     $nombreMenu = $rw_m2[0];
 
-    if ($nombreMenu == 'Hoja de Vida Clientes' && $correosNoLeidos > 0) {
-        $nombreMenu .= " <span class='notificacion'>$correosNoLeidos</span>";
-    }
+    // if ($nombreMenu == 'Hoja de Vida Clientes' && $correosNoLeidos > 0) {
+    //     $nombreMenu .= " <span class='notificacion'>$correosNoLeidos</span>";
+    // }
 
     if($i == 0){ echo "</tr><tr>"; }
 

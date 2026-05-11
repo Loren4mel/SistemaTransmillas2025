@@ -212,11 +212,14 @@ try {
     }
 
     $existingFileName = isset($existingFileName) ? $existingFileName : '';
-    $solicitoWhatsApp = isset($_POST['numero']) && trim($_POST['numero']) != '';
+    $numeroWhatsApp = isset($_POST['numero']) ? preg_replace('/\D/', '', $_POST['numero']) : '';
+    if (strlen($numeroWhatsApp) == 10 && substr($numeroWhatsApp, 0, 1) == '3') {
+        $numeroWhatsApp = '57' . $numeroWhatsApp;
+    }
+    $solicitoWhatsApp = strlen($numeroWhatsApp) >= 10;
     if ($solicitoWhatsApp) {
-        $numero = $_POST['numero'];
         $link = 'https://sistema.transmillas.com/' . $existingFileName;
-        $resultado = enviarAlertaWhat($contenido, $numero, '33', $link);
+        $resultado = enviarAlertaWhat($contenido, $numeroWhatsApp, '33', $link);
         if ($resultado['status']) {
             $numWhatsApp++;
         } else {
@@ -245,9 +248,8 @@ try {
                 $uploadedLinks[] = $baseUrl . $name;
 
                 if ($solicitoWhatsApp) {
-                    $numero = $_POST['numero'];
                     $link = 'https://sistema.transmillas.com/' . $existingFileName;
-                    $resultado = enviarAlertaWhat($contenido, $numero, '34', $link);
+                    $resultado = enviarAlertaWhat($contenido, $numeroWhatsApp, '34', $link);
                     if ($resultado['status']) {
                         $numWhatsApp++;
                     } else {

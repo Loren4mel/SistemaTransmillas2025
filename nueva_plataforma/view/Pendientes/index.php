@@ -298,6 +298,9 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                             <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Aceptados', 'value' => (int) $pendienteCreado['total_aceptados']]) ?>
                             <?= component('summary-badge', ['tone' => 'rechazado', 'label' => 'Rechazados', 'value' => (int) $pendienteCreado['total_rechazados']]) ?>
                             <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Pendientes', 'value' => (int) $pendienteCreado['total_pendientes']]) ?>
+                            <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                              <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Formularios', 'value' => (int) $pendienteCreado['total_formularios_respondidos']]) ?>
+                            <?php endif; ?>
                           </div>
                         </div>
                       </div>
@@ -331,6 +334,16 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                           <span class="meta-pendiente">
                             Estado general: <?= (int) $pendienteCreado['estado'] === 1 ? 'Activo' : 'Inactivo' ?>
                           </span>
+                          <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                            <a
+                              class="document-link"
+                              href="FormulariosController.php?accion=respuestas&formulario_id=<?= (int) ($pendienteCreado['formulario_id'] ?? 0) ?>"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <i class="bi bi-ui-checks-grid"></i> Ver respuestas
+                            </a>
+                          <?php endif; ?>
                         </div>
                       </div>
 
@@ -373,6 +386,9 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                               <th>Usuario</th>
                               <th>Rol</th>
                               <th>Documento abierto</th>
+                              <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                                <th>Formulario</th>
+                              <?php endif; ?>
                               <th>PDF firmado</th>
                               <th>Estado</th>
                               <th>Fecha confirmacion</th>
@@ -398,6 +414,18 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                                     <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Estado', 'value' => 'No']) ?>
                                   <?php endif; ?>
                                 </td>
+                                <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                                  <td>
+                                    <?php if ((int) ($usuarioPendiente['formulario_respondido'] ?? 0) === 1): ?>
+                                      <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Estado', 'value' => 'Respondido']) ?>
+                                      <?php if (!empty($usuarioPendiente['formulario_fecha_respuesta'])): ?>
+                                        <div class="meta-pendiente mt-1"><?= htmlspecialchars($usuarioPendiente['formulario_fecha_respuesta']) ?></div>
+                                      <?php endif; ?>
+                                    <?php else: ?>
+                                      <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Estado', 'value' => 'Sin responder']) ?>
+                                    <?php endif; ?>
+                                  </td>
+                                <?php endif; ?>
                                 <td>
                                   <?php if ($usuarioPendiente['pdf_firmado_ruta'] !== ''): ?>
                                     <a

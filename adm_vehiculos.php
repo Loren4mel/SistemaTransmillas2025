@@ -3,6 +3,11 @@ require("login_autentica.php");
 include("layout.php");
 
 $FB->titulo_azul1("Vehiculos",9,0,7);  
+echo "<div style='margin: 10px 0; text-align: right;'>
+		<a href='/nueva_plataforma/controller/VehiculosController.php' class='btn btn-primary' style='color: #fff; text-decoration: none;'>
+			Ir al nuevo modulo de vehiculos
+		</a>
+	</div>";
 $FB->abre_form("form1","","post");
 
 $FB->llena_texto("Tipo Vehiculo:",1,82,$DB,$tipovehiculo,"cambio3(this.value,param2.value,0,\"adm_vehiculos.php\", 1);",$param1,1,0);
