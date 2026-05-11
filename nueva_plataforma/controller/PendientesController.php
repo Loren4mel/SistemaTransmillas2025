@@ -147,6 +147,35 @@ try {
             exit;
         }
 
+        if ($accion === 'eliminar_usuario_pendiente') {
+            header('Content-Type: application/json; charset=utf-8');
+
+            if (!$puedeAdministrarPendientes) {
+                pendientesControllerLog('Eliminar usuario pendiente denegado por rol', ['rolUsuario' => $rolUsuario]);
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Solo el gerente puede modificar usuarios asignados.',
+                ]);
+                exit;
+            }
+
+            $pendienteId = (int) ($_POST['pendiente_id'] ?? 0);
+            $usuarioId = (int) ($_POST['usuario_id'] ?? 0);
+            pendientesControllerLog('POST eliminar_usuario_pendiente', [
+                'pendienteId' => $pendienteId,
+                'usuarioId' => $usuarioId,
+            ]);
+            $resultado = $modelo->eliminarUsuarioPendiente($pendienteId, $usuarioId, $idUsuario);
+            pendientesControllerLog('Resultado eliminar_usuario_pendiente', $resultado);
+            if (!$resultado['success']) {
+                http_response_code(422);
+            }
+
+            echo json_encode($resultado);
+            exit;
+        }
+
         if ($accion === 'gestionar_pendiente') {
             header('Content-Type: application/json; charset=utf-8');
 
