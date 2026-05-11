@@ -90,6 +90,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_entrega'])) {
     exit;
 }
 
+// OBTENER EQUIPO DE UN VEHÍCULO (para modal entrega)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_equipo_vehiculo'])) {
+    $id     = intval($_POST['id']);
+    $equipo = $modelo->obtenerEquipoVehiculo($id);
+    echo json_encode(['equipo' => $equipo]);
+    exit;
+}
+
+// GUARDAR COMPARENDO
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_comparendo'])) {
+    $datos = [
+        'com_operador_id' => intval($_POST['com_operador_id']),
+        'com_vehiculo_id' => intval($_POST['com_vehiculo_id']),
+        'com_estado'      => $_POST['com_estado'],
+        'com_fecha'       => $_POST['com_fecha'],
+    ];
+    $resultado = $modelo->guardarComparendo($datos);
+    if (ob_get_length()) ob_clean();
+    echo json_encode($resultado === true
+        ? ['success' => true,  'mensaje' => 'Comparendo registrado correctamente']
+        : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al guardar']
+    );
+    exit;
+}
+
+// OBTENER COMPARENDOS POR VEHÍCULO
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_comparendos'])) {
+    $id   = intval($_POST['id']);
+    $data = $modelo->obtenerComparendosPorVehiculo($id);
+    echo json_encode($data);
+    exit;
+}
+
+// OBTENER CONTEO DE COMPARENDOS DE UN OPERADOR (info hoja de vida)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_comparendos_operador'])) {
+    $idOperador = intval($_POST['id_operador']);
+    $total      = $modelo->contarComparendosPorOperador($idOperador);
+    echo json_encode(['total' => $total]);
+    exit;
+}
+
 // CARGAR VISTA (GET)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $Dueños      = $modelo->obtenerDueños();
@@ -98,14 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $Usuarios    = $modelo->obtenerUsuariosActivos(); 
     $conductoresActivos = $modelo->obtenerConductoresActivos();
     */
+    $Sedes       = $modelo->obtenerSedes();
     $operadoresActivos = $modelo->obtenerOperadoresActivos();
     include "../view/Vehiculos/index.php";
 }   
-
-// OBTENER EQUIPO DE UN VEHÍCULO (para modal entrega)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_equipo_vehiculo'])) {
-    $id     = intval($_POST['id']);
-    $equipo = $modelo->obtenerEquipoVehiculo($id);
-    echo json_encode(['equipo' => $equipo]);
-    exit;
-}
