@@ -77,6 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_entrega'])) {
         'ent_idusuario'    => intval($_POST['ent_idusuario']),
         'ent_tipoentrega'  => $_POST['ent_tipoentrega'], 
         'ent_fecharegista' => date('Y-m-d'),
+        'ent_sede'         => $_POST['ent_sede'] ?? '', 
+        'ent_equipo_carretera'=> $_POST['ent_equipo_carretera'] ?? '[]',
+        'ent_observaciones'   => $_POST['ent_observaciones'] ?? '',
     ];
 
     $resultado = $modelo->guardarEntregaVehiculo($datos);
@@ -98,3 +101,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $operadoresActivos = $modelo->obtenerOperadoresActivos();
     include "../view/Vehiculos/index.php";
 }   
+
+// OBTENER EQUIPO DE UN VEHÍCULO (para modal entrega)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_equipo_vehiculo'])) {
+    $id     = intval($_POST['id']);
+    $equipo = $modelo->obtenerEquipoVehiculo($id);
+    echo json_encode(['equipo' => $equipo]);
+    exit;
+}
