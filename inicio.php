@@ -500,7 +500,21 @@ if($nivel_acceso==6){
 				$param4='covid19';
 				$campo='preencuesta';
 				$preoperacional='preoperacional';
-				include("preoperacional.php");
+				// if (in_array((int)$nivel_acceso, [1, 2], true)) {
+					$preoperacionalUrl = "nueva_plataforma/controller/PreoperacionalController.php"
+						. "?param4=" . urlencode($param4)
+						. "&param5=nuevo"
+						. "&campo=" . urlencode($campo)
+						. "&preoperacional=" . urlencode($preoperacional)
+						. "&iduser=" . urlencode($id_usuario)
+						. "&fecha=" . urlencode($fechaactual);
+
+					echo "<iframe src='$preoperacionalUrl' style='width:100%; min-height:900px; border:0;' loading='lazy'></iframe>";
+					
+				// }else{
+				// 	include("preoperacional.php");
+				// }
+				
 			
 			}
 
