@@ -360,7 +360,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Genera tarjeta de información del vehículo
      */
-    public static function renderVehicleInfoCard($datosVehiculo)
+    public static function renderVehicleInfoCard($datosVehiculo, $alertasHtml = '')
     {
         if (empty($datosVehiculo)) return '';
 
@@ -370,13 +370,20 @@ class PreoperacionalNuevaEncuestaViewHelper
             'MODELO' => $datosVehiculo['veh_modelo'] ?? '',
             'KM' => $datosVehiculo['veh_kilactual'] ?? '',
             'CONDUCTOR' => $datosVehiculo['usu_nombre'] ?? '',
-            'CÉDULA' => $datosVehiculo['usu_identificacion'] ?? '',
+            'CEDULA' => $datosVehiculo['usu_identificacion'] ?? '',
             'LICENCIA' => $datosVehiculo['usu_licencia'] ?? '',
-            'FECHA VENC.' => $datosVehiculo['usu_fechalicencia'] ?? ''
+            'FECHA VENC. LIC.' => $datosVehiculo['usu_fechalicencia'] ?? '',
+            'SEGURO VENCE' => $datosVehiculo['veh_fechaseguro'] ?? '',
+            'TECNOMECÁNICA VENCE' => $datosVehiculo['veh_fechategnomecanica'] ?? ''
         ];
 
         $html = '<div class="preop-card vehicle-info">';
-        $html .= '<div class="preop-card-header"><i class="fas fa-truck"></i> DATOS DEL VEHÍCULO</div>';
+        $html .= '<div class="preop-card-header">';
+        $html .= '<i class="fas fa-truck"></i> DATOS DEL VEHÍCULO';
+        if (!empty($alertasHtml)) {
+            $html .= '<span class="vehicle-alert-indicator">' . $alertasHtml . '</span>';
+        }
+        $html .= '</div>';
         $html .= '<div class="preop-card-body">';
         $html .= '<div class="vehicle-info-grid">';
 

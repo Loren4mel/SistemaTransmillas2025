@@ -65,8 +65,8 @@ $horasSeleccionada = $horasSeleccionada ?? '';
 
     <div class="row mb-3">
         <div class="col-md-6">
-            <label for="zona" class="form-label">Zona de trabajo</label>
-            <select name="zona" id="ing_zona" class="form-select" required>
+            <label for="zona" class="form-label">Zona de trabajo <small class="text-muted zona-no-requerida" style="display:none;">(no requerida)</small></label>
+            <select name="zona" id="ing_zona" class="form-select">
                 <option value="">Seleccione</option>
                 <?php foreach ($zonas as $z): ?>
                     <option value="<?= $z['idzonatrabajo'] ?>" <?= $z['idzonatrabajo'] == $zonaSeleccionada ? 'selected' : '' ?>>

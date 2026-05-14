@@ -103,6 +103,18 @@ class SeguimientoUsuarioModel
     }
 
     /**
+     * Indica si un motivo de ingreso representa un inicio real de jornada laboral.
+     * Solo 'Ingreso' e 'IngresoHoras' requieren zona asignada.
+     *
+     * @param string $motivo
+     * @return bool
+     */
+    public function isMotivoLaboral(string $motivo): bool
+    {
+        return in_array($motivo, ['Ingreso', 'IngresoHoras', 'Reposicion por falla'], true);
+    }
+
+    /**
      * Obtiene los tipos de contrato disponibles.
      *
      * @return array
@@ -897,6 +909,14 @@ class SeguimientoUsuarioModel
 
     // ==================== GENERADORES DE ENLACES HTML ====================
 
+    private function buildPreoperacionalUrl(array $row): string
+    {
+        $estadoParam = in_array($row['preestado'], ['covid19', 'Validado Covid19'])
+            ? '&param4=covid19'
+            : '&param4=ingresado';
+        return "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}{$estadoParam}&param5=valida";
+    }
+
     private function linkPreoperacional(array $row): string
     {
         if (empty($row['idpreoperacinal']))
@@ -904,7 +924,7 @@ class SeguimientoUsuarioModel
         $estado = $row['preestado'];
         if (in_array($estado, ['No aplica', 'descanso', 'vacaciones']))
             return $estado;
-        $url = "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}";
+        $url = $this->buildPreoperacionalUrl($row);
         return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>$estado</a>";
     }
 
@@ -913,7 +933,7 @@ class SeguimientoUsuarioModel
         if (empty($row['idpreoperacinal']))
             return '';
         if (in_array($row['preestado'], ['Validado', 'Validado Covid19'])) {
-            $url = "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}";
+            $url = $this->buildPreoperacionalUrl($row);
             return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>Validado</a>";
         }
         if (in_array($row['preestado'], ['No aplica', 'descanso', 'vacaciones', 'Vacaciones'])) {
@@ -1176,6 +1196,7 @@ class SeguimientoUsuarioModel
         $fechaCompleta = $data['fecha'] . ' ' . date('H:i:s');
         $horas = isset($data['horas']) && $data['horas'] !== '' ? intval($data['horas']) : 0;
         $fechaFinalizo = $this->calcularFechaFinalizo($fechaCompleta, $data['motivo'], $horas);
+        $zona = $this->isMotivoLaboral($data['motivo']) ? $data['zona'] : null;
         $sql = "INSERT INTO seguimiento_user
                 (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_idzona, seg_alcohol, seg_horas_trabajadas, seg_fechaalcohol, seg_iduserregistro, seg_fechafinalizo)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -1186,7 +1207,7 @@ class SeguimientoUsuarioModel
             $fechaCompleta,
             $data['motivo'],
             $data['descripcion'],
-            $data['zona'],
+            $zona,
             $data['prueba'],
             $horas,
             $data['fecha'],
@@ -1229,6 +1250,8 @@ class SeguimientoUsuarioModel
         }
         $fechaFinalizo = $this->calcularFechaFinalizo($fechaIngreso ?? '', $data['motivo'], $horas);
 
+        $zona = $this->isMotivoLaboral($data['motivo']) ? $data['zona'] : null;
+
         $sql = "UPDATE seguimiento_user SET
                 seg_motivo = ?, seg_descr = ?, seg_idzona = ?, seg_alcohol = ?, seg_horas_trabajadas = ?, seg_fechafinalizo = ?
                 WHERE idseguimiento_user = ?";
@@ -1237,7 +1260,7 @@ class SeguimientoUsuarioModel
             "ssisisi",
             $data['motivo'],
             $data['descripcion'],
-            $data['zona'],
+            $zona,
             $data['prueba'],
             $horas,
             $fechaFinalizo,

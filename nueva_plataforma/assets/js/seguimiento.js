@@ -500,25 +500,57 @@
     }
     function guardarIngreso()    { enviarForm($('#formIngreso'), { formData: true, modalId: '#modalIngreso' }); }
 
-    // --- Horas toggle para popup de ingreso ---
+    /** Motivos que NO representan inicio real de jornada y no requieren zona */
+    var motivosSinZona = [
+        'No trabajo', 'Sancionado', 'Incapacidad', 'Se devolvio',
+        'Positivo Covid', 'Cancelacion contrato', 'Abandono de puesto',
+        'Vacaciones', 'descanso', 'descanso no remunerado',
+        'dia con sancion', 'Festivo en vacaciones'
+    ];
+
+    function motivoRequiereZona(motivo) {
+        return motivosSinZona.indexOf(motivo) === -1;
+    }
+
+    // --- Toggle de horas y zona en popup de ingreso ---
     function initHorasFieldPopup() {
         var $popupForm = $('#popupForm');
         if (!$popupForm.length) return;
         var $motivo = $popupForm.find('#motivo');
         var $horasContainer = $popupForm.find('#horas_container');
         var $horasSelect = $popupForm.find('#horas');
-        if (!$motivo.length || !$horasContainer.length || !$horasSelect.length) return;
+        var $zonaSelect = $popupForm.find('#ing_zona');
+        var $zonaCol = $zonaSelect.closest('.col-md-6');
+        if (!$motivo.length) return;
 
-        function toggleHorasField() {
-            var show = $motivo.val() === 'IngresoHoras';
-            $horasContainer.toggleClass('d-none', !show);
-            $horasSelect.prop('required', show);
-            if (!show) $horasSelect.val('');
+        function toggleFields() {
+            var motivo = $motivo.val();
+            // Horas
+            if ($horasContainer.length && $horasSelect.length) {
+                var showHoras = motivo === 'IngresoHoras';
+                $horasContainer.toggleClass('d-none', !showHoras);
+                $horasSelect.prop('required', showHoras);
+                if (!showHoras) $horasSelect.val('');
+            }
+            // Zona
+            if ($zonaSelect.length) {
+                var requiereZona = motivoRequiereZona(motivo);
+                $zonaSelect.prop('required', requiereZona);
+                var $noRequerida = $popupForm.find('.zona-no-requerida');
+                if (!requiereZona) {
+                    $zonaSelect.val('');
+                    $zonaCol.addClass('text-muted');
+                    if ($noRequerida.length) $noRequerida.show();
+                } else {
+                    $zonaCol.removeClass('text-muted');
+                    if ($noRequerida.length) $noRequerida.hide();
+                }
+            }
         }
 
-        toggleHorasField();
+        toggleFields();
 
-        $motivo.off('.horasPopup').on('change.horasPopup select2:select.horasPopup select2:unselect.horasPopup', toggleHorasField);
+        $motivo.off('.popupFields').on('change.popupFields select2:select.popupFields select2:unselect.popupFields', toggleFields);
     }
 
     // --- Popup generico ---
