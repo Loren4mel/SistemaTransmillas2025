@@ -68,7 +68,7 @@ function handleAjaxRequest($service)
     } catch (Exception $e) {
         error_log("Error en acción POST: " . $e->getMessage());
         ErrorHandler::sendJsonResponse([
-            'success' => false, 
+            'success' => false,
             'message' => 'Error interno: ' . $e->getMessage()
         ], 500);
     }
@@ -116,13 +116,23 @@ function loadView($service)
     $tipovehiculo = strtoupper($datosVehiculo['veh_tipo'] ?? '');
     $nivel_acceso = $_SESSION['usuario_rol'];
 
-    $formatoEncuesta = 'nuevo'; // Por defecto: nuevo formato
+    $formatoEncuesta = 'nuevo';
+
+    // Calcular estado de documentos del vehículo (alertas de expiración)
+    $estadoDocumentos = !empty($datosVehiculo) ? $service->getEstadoDocumentosVehiculo($datosVehiculo) : ['alertas' => [], 'expired' => false, 'max_severity' => 0, 'bloquear' => false];
+    $alertasVehiculoHtml = $service->generarHtmlAlertasVehiculo($estadoDocumentos);
+    $mostrarAlertaVencidos = $estadoDocumentos['expired'] && !$esValidacion;
 
     // Buscar registro existente si aplica
     $registroExistente = null;
 
     if ($param4 == 'ingresado' || $param4 == 'covid19') {
         $registroExistente = $service->obtenerRegistroPorFecha($iduser, $fecha);
+    }
+
+    // Si estamos en modo legado, buscar el registro más reciente si no hay para la fecha
+    if ($formatoEncuesta === 'legado' && $registroExistente === null) {
+        $registroExistente = $service->obtenerUltimoRegistro($iduser);
     }
 
     if ($preoperacional == 'validarpreoperacional' && isset($_GET['idpre'])) {
@@ -132,6 +142,28 @@ function loadView($service)
         if ($registroExistente && !empty($registroExistente['preencuesta'])) {
             $formatoEncuesta = $service->detectarFormato($registroExistente['preencuesta']);
         }
+
+        // Detectar param4 desde el preestado del registro (defensa: si no vino en URL)
+        if ($registroExistente && empty($_GET['param4'])) {
+            if (in_array($registroExistente['preestado'], ['covid19', 'Validado Covid19'])) {
+                $param4 = 'covid19';
+            } elseif (!empty($registroExistente['preestado'])) {
+                $param4 = 'ingresado';
+            }
+        }
+    }
+
+    // Re-evaluar esCovid: param4 pudo ser auto-detectado del registro
+    $esCovid = ($param4 == 'covid19');
+
+    // En modo validación, asegurar param5=valida (necesario para mostrar implementos en legado)
+    if ($esValidacion && empty($param5)) {
+        $param5 = 'valida';
+    }
+
+    // Fallback de tipovehiculo: si no se encontró por query actual, usar el del registro original
+    if (empty($tipovehiculo) && $registroExistente && !empty($registroExistente['pretipovehiculo'])) {
+        $tipovehiculo = strtoupper($registroExistente['pretipovehiculo']);
     }
 
     // En modo validación, cargar la firma del operario como imagen (no editable)
@@ -165,6 +197,15 @@ function loadView($service)
         'preoperacional_vehiculo' => ($tipovehiculo === 'CARRO'),
         'preoperacional_moto' => ($tipovehiculo === 'MOTO')
     ];
+
+    // Fallback: si ningún cuestionario de rol aplica, usar preguntas administrativas por defecto
+    $tieneSeccionPersonal = $mostrarSecciones['administrativo']
+        || $mostrarSecciones['conductor']
+        || $mostrarSecciones['vehiculo_propio']
+        || $mostrarSecciones['auxiliar_carga'];
+    if (!$tieneSeccionPersonal) {
+        $mostrarSecciones['administrativo'] = true;
+    }
 
     // ==================== FIN DE SECCIONES POR ROL ====================
 

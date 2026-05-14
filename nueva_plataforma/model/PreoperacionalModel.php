@@ -33,21 +33,22 @@ class PreoperacionalModel
     public function obtenerDatosVehiculoYUsuario($idUsuario, $idVehiculo = null)
     {
         $sql = "SELECT v.idvehiculos, v.veh_tipo, v.veh_placa, v.veh_marca, v.veh_modelo, v.veh_kilactual,
+                       v.veh_fechaseguro, v.veh_fechategnomecanica,
                        u.usu_nombre, u.usu_identificacion, u.usu_licencia, u.usu_fechalicencia
                 FROM vehiculos v
                 INNER JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos
                 WHERE u.idusuarios = ?";
         $params = [$idUsuario];
         $types = "i";
-        
+
         if ($idVehiculo !== null) {
             $sql .= " AND v.idvehiculos = ?";
             $params[] = $idVehiculo;
             $types .= "i";
         }
-        
+
         $sql .= " LIMIT 1";
-        
+
         return $this->executeQuery($sql, $types, $params);
     }
 

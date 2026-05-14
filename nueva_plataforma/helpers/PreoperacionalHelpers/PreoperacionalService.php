@@ -78,6 +78,21 @@ class PreoperacionalService
         $imagenKilo = $this->procesarImagenKilometraje($files);
         $imagenInspeccion = $this->procesarImagenInspeccionInicial($files, $dataJson);
 
+        // Validar que la imagen de kilometraje sea obligatoria (solo para vehículos CARRO/MOTO)
+        $requiereImagenKilo = in_array(strtoupper($tipoVehiculo), ['CARRO', 'MOTO']);
+        if ($requiereImagenKilo && empty($imagenKilo)) {
+            // Si es actualización, verificar si ya existe imagen previa
+            if ($idPre > 0) {
+                $registroExistente = $this->model->obtenerRegistroPorId($idPre);
+                if ($registroExistente && empty($registroExistente['pre_img_kilo'])) {
+                    return ['success' => false, 'message' => 'Debe subir una foto del kilometraje del vehículo.'];
+                }
+            } else {
+                // Nuevo registro: imagen obligatoria
+                return ['success' => false, 'message' => 'Debe subir una foto del kilometraje del vehículo.'];
+            }
+        }
+
         // Procesar firma base64
         $firmaBase64 = $postData['firma_preoperacional'] ?? '';
         $firmaProcesada = $this->procesarFirmaBase64($firmaBase64, $idUsuario);
@@ -186,6 +201,155 @@ class PreoperacionalService
         }
 
         return 'legado';
+    }
+
+    // ==================== VALIDACIÓN DE DOCUMENTOS DEL VEHÍCULO ====================
+
+    /**
+     * Clasifica días restantes en nivel de alerta.
+     * severity: 3=expirado, 2=crítico(≤7d), 1=advertencia(≤30d), 0=normal.
+     */
+    private function clasificarDias(int $dias): array
+    {
+        if ($dias < 0)      return ['color' => '#F44336', 'severity' => 3];
+        if ($dias <= 7)     return ['color' => '#F44336', 'severity' => 2];
+        if ($dias <= 30)    return ['color' => '#FF9800', 'severity' => 1];
+        return              ['color' => '#555',    'severity' => 0];
+    }
+
+    /**
+     * Calcula los días entre hoy y una fecha dada.
+     */
+    private function diasHasta(string $hoy, ?string $fecha): ?int
+    {
+        if (!$fecha || $fecha === '0000-00-00')
+            return null;
+        $hoyTs = strtotime($hoy);
+        $fechaTs = strtotime($fecha);
+        return (int) round(($fechaTs - $hoyTs) / 86400);
+    }
+
+    /**
+     * Obtiene el estado de los documentos del vehículo (licencia, seguro, tecnicomecánica).
+     * Retorna array con info de alerta y si alguno está expirado.
+     */
+    public function getEstadoDocumentosVehiculo(array $datosVehiculo): array
+    {
+        $hoy = date('Y-m-d');
+
+        $diasLic = $this->diasHasta($hoy, $datosVehiculo['usu_fechalicencia'] ?? null);
+        $diasSeguro = $this->diasHasta($hoy, $datosVehiculo['veh_fechaseguro'] ?? null);
+        $diasTecno = $this->diasHasta($hoy, $datosVehiculo['veh_fechategnomecanica'] ?? null);
+
+        $tipos = [
+            'licencia' => [
+                'nombre' => 'Licencia',
+                'dias' => $diasLic,
+                'fecha' => $datosVehiculo['usu_fechalicencia'] ?? null
+            ],
+            'seguro' => [
+                'nombre' => 'Seguro',
+                'dias' => $diasSeguro,
+                'fecha' => $datosVehiculo['veh_fechaseguro'] ?? null
+            ],
+            'tecno' => [
+                'nombre' => 'Tecnicomecánica',
+                'dias' => $diasTecno,
+                'fecha' => $datosVehiculo['veh_fechategnomecanica'] ?? null
+            ]
+        ];
+
+        $expired = false;
+        $maxSeverity = 0;
+        $alertas = [];
+
+        foreach ($tipos as $key => $info) {
+            if ($info['dias'] === null) continue;
+
+            $clasif = $this->clasificarDias($info['dias']);
+            $clasif['tipo'] = $key;
+            $clasif['nombre'] = $info['nombre'];
+            $clasif['dias'] = $info['dias'];
+            $clasif['fecha'] = $info['fecha'];
+
+            if ($clasif['severity'] > $maxSeverity) {
+                $maxSeverity = $clasif['severity'];
+            }
+            if ($clasif['severity'] >= 3) {
+                $expired = true;
+            }
+
+            $alertas[] = $clasif;
+        }
+
+        return [
+            'alertas' => $alertas,
+            'expired' => $expired,
+            'max_severity' => $maxSeverity,
+            'bloquear' => false
+        ];
+    }
+
+    /**
+     * Genera el HTML de alerta para mostrar en la tarjeta del vehículo.
+     */
+    public function generarHtmlAlertasVehiculo(array $estadoDocumentos): string
+    {
+        $alertas = $estadoDocumentos['alertas'] ?? [];
+        if (empty($alertas))
+            return '';
+
+        $dropdownItems = [];
+        $mostUrgent = null;
+
+        foreach ($alertas as $a) {
+            $d = $a['dias'];
+            $color = $a['color'];
+            $liStyle = 'color:' . $color . ';' . ($d < 0 ? ' font-weight:bold;' : '');
+
+            if ($d < 0) {
+                $texto = $a['nombre'] . ': expirada hace ' . abs($d) . ' días';
+            } elseif ($d <= 7) {
+                $texto = $a['nombre'] . ': expira en ' . $d . ' días';
+            } elseif ($d <= 30) {
+                $texto = $a['nombre'] . ': expira en ' . $d . ' días';
+            } else {
+                $texto = $a['nombre'] . ': ' . $a['fecha'] . ' (' . $d . ' días)';
+            }
+
+            $dropdownItems[] = "<li style='$liStyle; padding:2px 0;'>" . htmlspecialchars($texto) . "</li>";
+
+            if ($mostUrgent === null || $a['severity'] > $mostUrgent['severity']) {
+                $mostUrgent = $a;
+            }
+        }
+
+        if ($mostUrgent === null || $mostUrgent['severity'] === 0) {
+            return '';
+        }
+
+        $severity = $mostUrgent['severity'];
+        $nombre = $mostUrgent['nombre'];
+        $dias = $mostUrgent['dias'];
+
+        $colorClass = '';
+        $tooltip = '';
+        if ($severity >= 3) {
+            $colorClass = 'warning-red expired';
+            $tooltip = $nombre . ' expirada hace ' . abs($dias) . ' días';
+        } elseif ($severity >= 2) {
+            $colorClass = 'warning-red';
+            $tooltip = $nombre . ' expira en ' . $dias . ' días';
+        } elseif ($severity >= 1) {
+            $colorClass = 'warning-orange';
+            $tooltip = $nombre . ' expira en ' . $dias . ' días';
+        }
+
+        $dot = '<span class="warning-dot ' . $colorClass . '" title="' . htmlspecialchars($tooltip) . '"></span>';
+        $dropdown = '<div class="alerta-dropdown"><ul style="list-style:none; margin:0; padding:0;">'
+            . implode('', $dropdownItems) . '</ul></div>';
+
+        return '<div class="alerta-wrapper">' . $dot . $dropdown . '</div>';
     }
 
     // ==================== MÉTODOS PRIVADOS ====================

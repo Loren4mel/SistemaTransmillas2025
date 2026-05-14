@@ -74,7 +74,7 @@
      */
     function obtenerUbicacion() {
         var container = document.getElementById('ubicacion_container');
-        if (!container) return Promise.reject(new Error('Contenedor no encontrado'));
+        if (!container) return Promise.resolve(null); // Legacy format: no location needed
 
         container.innerHTML = '<div class="ubicacion-status ubicacion-cargando">' +
             '<i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...' +
@@ -149,6 +149,11 @@
     function validarUbicacion() {
         // En modo validación no se requiere obtener nueva ubicación
         if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
+            return true;
+        }
+
+        // Legacy format: no location container, no location required
+        if (!document.getElementById('ubicacion_container')) {
             return true;
         }
 
@@ -400,6 +405,13 @@
             return true;
         }
 
+        // Sincronizar canvas -> hidden input antes de validar
+        // (el listener submit del canvas se ejecuta después de esta validación)
+        var canvas = document.getElementById('signatureCanvas');
+        if (canvas && canvas.getAttribute('data-has-signature') === 'true') {
+            firmaInput.value = canvas.toDataURL('image/png');
+        }
+
         var firmaValor = firmaInput.value.trim();
 
         if (!firmaValor) {
@@ -451,21 +463,385 @@
      * Valida que el kilometraje tenga un valor numérico válido
      */
     function validarKilometraje() {
+        // Solo requerido cuando hay sección de vehículo (carro/moto)
+        if (typeof MOSTRAR_SECCION_VEHICULO !== 'undefined' && !MOSTRAR_SECCION_VEHICULO) return true;
         var input = document.getElementById('kilometraje');
         if (!input || input.readOnly) return true;
 
         var raw = input.value.replace(/\./g, '').trim();
         if (!raw || parseInt(raw, 10) <= 0) {
+            resaltarTarjeta(input, 'Debe ingresar el kilometraje actual del vehículo.');
             Swal.fire({
                 title: 'Kilometraje requerido',
                 text: 'Debe ingresar el kilometraje actual del vehículo antes de guardar.',
                 icon: 'warning',
                 confirmButtonText: 'Aceptar'
             });
-            input.focus();
             return false;
         }
         return true;
+    }
+
+    /**
+     * Valida que se haya subido una imagen/foto del kilometraje
+     */
+    /**
+     * Resalta una tarjeta del formulario con animación y muestra mensaje de error
+     */
+    function resaltarTarjeta(elemento, mensaje) {
+        if (!elemento) return;
+        var card = elemento.closest('.preop-card');
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Quitar error previo si existe
+            var prevError = card.querySelector('.card-validation-error');
+            if (prevError) prevError.remove();
+
+            // Mostrar mensaje de error dentro de la tarjeta si hay texto
+            if (mensaje) {
+                var body = card.querySelector('.preop-card-body');
+                if (body) {
+                    var errorEl = document.createElement('div');
+                    errorEl.className = 'card-validation-error';
+                    errorEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + mensaje;
+                    body.insertBefore(errorEl, body.firstChild);
+                }
+            }
+
+            card.classList.add('validation-error-card');
+            setTimeout(function () {
+                card.classList.remove('validation-error-card');
+                var err = card.querySelector('.card-validation-error');
+                if (err) err.remove();
+            }, 4000);
+        } else {
+            elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function validarImagenKilometraje() {
+        // Solo requerido cuando hay sección de vehículo (carro/moto)
+        if (typeof MOSTRAR_SECCION_VEHICULO !== 'undefined' && !MOSTRAR_SECCION_VEHICULO) return true;
+        var fileInput = document.querySelector('input[name="imagen_kilometraje"]');
+        if (!fileInput || fileInput.disabled) return true;
+
+        // Si ya existe imagen previa guardada en el servidor, permitir continuar sin nueva subida
+        var preImgKilo = document.getElementById('pre_img_kilo_existente');
+        if (preImgKilo && preImgKilo.value === '1') return true;
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            resaltarTarjeta(fileInput, 'Debe subir una foto del kilometraje del vehículo.');
+            Swal.fire({
+                title: 'Imagen de kilometraje requerida',
+                text: 'Debe subir una foto del kilometraje del vehículo antes de guardar.',
+                icon: 'warning',
+                confirmButtonText: 'Aceptar'
+            });
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Determina si un checkbox de conductor tiene respuesta negativa
+     * (contraria a la esperada)
+     */
+    function isRespuestaNegativaConductor(checkbox) {
+        var expected = checkbox.getAttribute('data-expected');
+        if (!expected) return false; // No es pregunta de conductor
+        return checkbox.checked && checkbox.value !== expected;
+    }
+
+    /**
+     * Actualiza la visibilidad del warning para una pregunta específica
+     */
+    function actualizarWarningConductor(checkboxName) {
+        var warningEl = document.getElementById(checkboxName + '_warning');
+        if (!warningEl) return;
+
+        // Buscar el checkbox marcado en este grupo
+        var checkboxes = document.querySelectorAll('.checkbox-binary[data-binary-group="' + checkboxName + '"]');
+        var hayNegativa = false;
+        for (var i = 0; i < checkboxes.length; i++) {
+            if (isRespuestaNegativaConductor(checkboxes[i])) {
+                hayNegativa = true;
+                break;
+            }
+        }
+
+        warningEl.style.display = hayNegativa ? '' : 'none';
+    }
+
+    /**
+     * Actualiza el banner de bloqueo de una sección de conductor
+     */
+    function actualizarBannerConductor(sectionClass) {
+        var banner = document.getElementById(sectionClass + '_block_banner');
+        if (!banner) return;
+
+        // Buscar todas las preguntas con data-expected en esta sección
+        var sectionCard = document.querySelector('.preop-card.' + sectionClass);
+        if (!sectionCard) return;
+
+        var checkboxes = sectionCard.querySelectorAll('.checkbox-binary[data-expected]');
+        var hayNegativa = false;
+        for (var i = 0; i < checkboxes.length; i++) {
+            if (isRespuestaNegativaConductor(checkboxes[i])) {
+                hayNegativa = true;
+                break;
+            }
+        }
+
+        banner.style.display = hayNegativa ? '' : 'none';
+    }
+
+    /**
+     * Actualiza todos los warnings y banners de conductor
+     */
+    function actualizarTodosWarningsConductor() {
+        var secciones = ['conductor', 'vehiculo-propio'];
+        for (var s = 0; s < secciones.length; s++) {
+            actualizarBannerConductor(secciones[s]);
+        }
+
+        // Actualizar warnings individuales
+        var checkboxes = document.querySelectorAll('.checkbox-binary[data-expected]');
+        var procesados = {};
+        for (var i = 0; i < checkboxes.length; i++) {
+            var name = checkboxes[i].getAttribute('data-name');
+            if (!procesados[name]) {
+                procesados[name] = true;
+                actualizarWarningConductor(name);
+            }
+        }
+    }
+
+    /**
+     * Valida que no haya respuestas negativas en preguntas del conductor
+     * Retorna true si todo OK, false si hay respuestas que bloquean
+     */
+    function validarRespuestasConductor() {
+        var checkboxes = document.querySelectorAll('.checkbox-binary[data-expected]');
+        var preguntasNegativas = [];
+
+        var procesados = {};
+        for (var i = 0; i < checkboxes.length; i++) {
+            var checkbox = checkboxes[i];
+            var name = checkbox.getAttribute('data-name');
+            if (procesados[name]) continue;
+            procesados[name] = true;
+
+            if (isRespuestaNegativaConductor(checkbox)) {
+                var questionRow = document.getElementById(name + '_row');
+                var questionText = name;
+                if (questionRow) {
+                    var questionTextElem = questionRow.querySelector('.question-text');
+                    if (questionTextElem) {
+                        questionText = questionTextElem.textContent.trim();
+                    }
+                }
+                preguntasNegativas.push(questionText);
+            }
+        }
+
+        if (preguntasNegativas.length > 0) {
+            var errorHtml = '<strong>No se puede realizar el preoperacional si presenta complicaciones.</strong><br><br>';
+            errorHtml += '<em>Por favor, comuníquese con el jefe de operaciones / oficina.</em><br><br>';
+            errorHtml += '<strong>Preguntas con respuesta negativa:</strong><br>';
+            for (var k = 0; k < preguntasNegativas.length; k++) {
+                errorHtml += '• ' + preguntasNegativas[k] + '<br>';
+            }
+
+            Swal.fire({
+                title: 'Preoperacional bloqueado',
+                html: errorHtml,
+                icon: 'error',
+                confirmButtonText: 'Aceptar'
+            });
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Configura listeners para actualizar warnings de conductor en tiempo real
+     */
+    function initDriverWarnings() {
+        // Precarga: mostrar warnings que apliquen al cargar la página
+        actualizarTodosWarningsConductor();
+        actualizarBotonGuardar();
+
+        // Escuchar cambios en checkboxes con data-expected
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('checkbox-binary') && e.target.getAttribute('data-expected')) {
+                var name = e.target.getAttribute('data-name');
+                actualizarWarningConductor(name);
+
+                // Actualizar banner de la sección correspondiente
+                var secciones = ['conductor', 'vehiculo-propio'];
+                for (var s = 0; s < secciones.length; s++) {
+                    actualizarBannerConductor(secciones[s]);
+                }
+
+                // Actualizar estado del botón de guardar
+                actualizarBotonGuardar();
+            }
+        });
+    }
+
+    /**
+     * Verifica si hay respuestas negativas en preguntas del conductor
+     * Retorna true si hay al menos una
+     */
+    function hayRespuestaNegativa() {
+        var checkboxes = document.querySelectorAll('.checkbox-binary[data-expected]');
+        var procesados = {};
+        for (var i = 0; i < checkboxes.length; i++) {
+            var name = checkboxes[i].getAttribute('data-name');
+            if (procesados[name]) continue;
+            procesados[name] = true;
+            if (isRespuestaNegativaConductor(checkboxes[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Verifica si hay documentos del vehículo vencidos
+     */
+    function hayDocumentosVencidos() {
+        var bloquearEl = document.getElementById('vehiculo_bloquear');
+        return bloquearEl && bloquearEl.value === '1';
+    }
+
+    /**
+     * Muestra una alerta grande si hay documentos del vehículo vencidos.
+     * Permite continuar con el guardado después de que el usuario reconozca la advertencia.
+     */
+    async function validarDocumentosVehiculo() {
+        if (hayDocumentosVencidos()) {
+            // Construir lista de alertas para mostrar en el modal
+            var alertasEl = document.getElementById('vehiculo_alertas');
+            var listaAlertas = '';
+            if (alertasEl && alertasEl.value) {
+                try {
+                    var alertas = JSON.parse(alertasEl.value);
+                    for (var i = 0; i < alertas.length; i++) {
+                        var a = alertas[i];
+                        var texto = '';
+                        if (a.dias < 0) {
+                            texto = a.nombre + ': <span style="color:#dc3545;font-weight:bold;">EXPIRADA hace ' + Math.abs(a.dias) + ' días</span>';
+                        } else if (a.dias <= 7) {
+                            texto = a.nombre + ': <span style="color:#dc3545;">expira en ' + a.dias + ' días</span>';
+                        } else if (a.dias <= 30) {
+                            texto = a.nombre + ': <span style="color:#ff9800;">expira en ' + a.dias + ' días</span>';
+                        } else {
+                            texto = a.nombre + ': ' + a.fecha + ' (' + a.dias + ' días)';
+                        }
+                        listaAlertas += '<li style="margin-bottom:6px;">' + texto + '</li>';
+                    }
+                } catch(e) {}
+            }
+
+            await Swal.fire({
+                title: '<span style="font-size:1.4em;">ATENCIÓN: Documentos del vehículo vencidos</span>',
+                html: '<div style="font-size:1.05em; line-height:1.7; text-align:left;">' +
+                    '<p style="margin-bottom:12px;">Se han detectado <strong>documentos vencidos</strong> del vehículo (licencia, seguro o tecnicomecánica).</p>' +
+                    '<p style="margin-bottom:12px;">El preoperacional <strong>se registrará de todos modos</strong>, pero es indispensable que actualice los documentos cuanto antes.</p>' +
+                    (listaAlertas ? '<div style="background:#fffbf0; border:1px solid #ff9800; border-radius:10px; padding:14px 18px; margin:12px 0;">' +
+                        '<strong style="color:#7a5200;">Documentos con alerta:</strong>' +
+                        '<ul style="margin:8px 0 0 0; padding-left:18px; list-style:none;">' + listaAlertas + '</ul></div>' : '') +
+                    '<p style="margin-top:12px; color:#dc3545;"><em>Comuníquese con el jefe de operaciones para actualizar los documentos.</em></p>' +
+                    '</div>',
+                icon: 'warning',
+                confirmButtonText: 'Entendido, continuar de todos modos',
+                confirmButtonColor: '#ff9800',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                width: '42em',
+                customClass: {
+                    title: 'swal-title-large',
+                    popup: 'swal-popup-large'
+                }
+            });
+        }
+    }
+
+    /**
+     * Actualiza el estado del botón de guardar:
+     * - Se deshabilita solo si hay respuestas negativas del conductor.
+     * - Si hay documentos vencidos, se muestra una advertencia debajo del botón pero se permite guardar.
+     */
+    function actualizarBotonGuardar() {
+        var btn = document.getElementById('btnGuardar');
+        if (!btn) return;
+
+        // En modo validación no se bloquea
+        if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
+            btn.disabled = false;
+            btn.title = '';
+            return;
+        }
+
+        var bloquearPorConductor = hayRespuestaNegativa();
+        var alertaVencidos = hayDocumentosVencidos();
+
+        if (bloquearPorConductor) {
+            btn.disabled = true;
+            btn.title = 'No se puede guardar: hay respuestas que impiden realizar el preoperacional';
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+
+            var alertaEl = document.getElementById('btnGuardarAlerta');
+            if (!alertaEl) {
+                alertaEl = document.createElement('div');
+                alertaEl.id = 'btnGuardarAlerta';
+                alertaEl.className = 'btn-guardar-alerta';
+                btn.parentNode.insertBefore(alertaEl, btn.nextSibling);
+            }
+            if (alertaVencidos) {
+                alertaEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' +
+                    'Hay documentos del vehículo vencidos y respuestas que impiden realizar el preoperacional. ' +
+                    'Comuníquese con el jefe de operaciones.';
+            } else {
+                alertaEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' +
+                    'Por favor, comuníquese con el jefe de operaciones / oficina, ' +
+                    'actualmente no se puede realizar el preoperacional si presenta complicaciones.';
+            }
+            alertaEl.style.display = '';
+        } else if (alertaVencidos) {
+            // Documentos vencidos: botón habilitado, pero con advertencia visible
+            btn.disabled = false;
+            btn.title = 'Hay documentos del vehículo vencidos. Puede guardar, pero debe actualizarlos cuanto antes.';
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+
+            var alertaEl = document.getElementById('btnGuardarAlerta');
+            if (!alertaEl) {
+                alertaEl = document.createElement('div');
+                alertaEl.id = 'btnGuardarAlerta';
+                alertaEl.className = 'btn-guardar-alerta btn-guardar-alerta-vencidos';
+                btn.parentNode.insertBefore(alertaEl, btn.nextSibling);
+            }
+            alertaEl.className = 'btn-guardar-alerta btn-guardar-alerta-vencidos';
+            alertaEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' +
+                'Hay documentos del vehículo vencidos. Puede guardar el preoperacional, ' +
+                'pero debe actualizar los documentos cuanto antes.';
+            alertaEl.style.display = '';
+        } else {
+            btn.disabled = false;
+            btn.title = '';
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+
+            var alertaEl = document.getElementById('btnGuardarAlerta');
+            if (alertaEl) {
+                alertaEl.style.display = 'none';
+            }
+        }
     }
 
     /**
@@ -509,13 +885,21 @@
         if (!form) {
             return;
         }
-        form.addEventListener('submit', function (e) {
+        form.addEventListener('submit', async function (e) {
             e.preventDefault();
 
             var esValidacion = (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION);
 
             // En modo validación, omitir validaciones de checkboxes, fotos, firma y ubicación
             if (!esValidacion) {
+                // Mostrar advertencia si hay documentos del vehículo vencidos (permite continuar)
+                await validarDocumentosVehiculo();
+
+                // Validar respuestas negativas del conductor (bloquea el preoperacional)
+                if (!validarRespuestasConductor()) {
+                    return;
+                }
+
                 // Validar que se hayan respondedido todos los checkboxes binarios
                 if (!validarCheckboxesBinarios()) {
                     return;
@@ -533,6 +917,11 @@
 
                 // Validar kilometraje
                 if (!validarKilometraje()) {
+                    return;
+                }
+
+                // Validar imagen de kilometraje
+                if (!validarImagenKilometraje()) {
                     return;
                 }
 
@@ -676,6 +1065,8 @@
                         }
                     }
                 }
+                // Actualizar warnings de conductor tras precarga
+                actualizarTodosWarningsConductor();
             }
         });
     }
@@ -730,6 +1121,7 @@
         function startDrawing(e) {
             isDrawing = true;
             hasSignature = true;
+            canvas.setAttribute('data-has-signature', 'true');
             var coords = getCoordinates(e);
             lastX = coords.x;
             lastY = coords.y;
@@ -766,6 +1158,7 @@
         function clearCanvas() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             hasSignature = false;
+            canvas.removeAttribute('data-has-signature');
             var hiddenInput = document.getElementById('firma_preoperacional');
             if (hiddenInput) {
                 hiddenInput.value = '';
@@ -811,19 +1204,67 @@
     }
 
     /**
+     * Inicializa el dropdown de alertas de documentos del vehículo (hover)
+     */
+    function initAlertasVehiculo() {
+        if (typeof $ === 'undefined') return;
+
+        $(document).on('mouseenter', '.alerta-wrapper', function () {
+            var $wrapper = $(this);
+            var $dropdown = $wrapper.find('.alerta-dropdown');
+            if (!$dropdown.length) return;
+            var rect = $wrapper[0].getBoundingClientRect();
+            $dropdown.data('_parentWrapper', $wrapper).addClass('alerta-open');
+            $dropdown.appendTo('body').css({
+                position: 'fixed', left: rect.left, top: rect.bottom,
+                display: 'block', zIndex: 99999
+            });
+            $('.warning-dot').css('animation-play-state', 'paused');
+        });
+
+        $(document).on('mouseleave', '.alerta-wrapper', function (e) {
+            if ($(e.relatedTarget).closest('.alerta-dropdown.alerta-open').length) return;
+            cerrarAlertaDropdown($(this));
+        });
+
+        $(document).on('mouseleave', '.alerta-dropdown.alerta-open', function (e) {
+            var $dropdown = $(this);
+            var $wrapper = $dropdown.data('_parentWrapper');
+            if ($wrapper && $.contains($wrapper[0], e.relatedTarget)) return;
+            cerrarAlertaDropdown($wrapper);
+        });
+
+        function cerrarAlertaDropdown($wrapper) {
+            if (!$wrapper || !$wrapper.length) return;
+            var $dropdown = $('.alerta-dropdown.alerta-open').filter(function () {
+                return $(this).data('_parentWrapper') && $(this).data('_parentWrapper').is($wrapper);
+            });
+            if ($dropdown.length) {
+                $dropdown.removeClass('alerta-open').css({ position: '', left: '', top: '', display: '', zIndex: '' });
+                $dropdown.appendTo($wrapper);
+            }
+            $('.warning-dot').css('animation-play-state', '');
+        }
+    }
+
+    /**
      * Inicialización cuando el DOM está listo
      */
     function init() {
         try {
             initBinaryCheckboxes();
             initKilometrajeFormatting();
+            initDriverWarnings();
+            initAlertasVehiculo();
             handleSubmitForm();
             cargarDatosPrecarga();
+
+            var esLegado = !document.getElementById('ubicacion_container');
 
             if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
                 disableFormInValidationMode();
                 // Modo validación: renderizar mapa estático con coordenadas guardadas
-                if (typeof UBICACION_GUARDADA !== 'undefined' && UBICACION_GUARDADA) {
+                if (!esLegado && typeof UBICACION_GUARDADA !== 'undefined' && UBICACION_GUARDADA) {
                     var partes = UBICACION_GUARDADA.split(',');
                     if (partes.length === 2) {
                         var lat = parseFloat(partes[0]);
@@ -835,7 +1276,7 @@
                         }
                     }
                 }
-            } else {
+            } else if (!esLegado) {
                 initSignatureCanvas();
                 // Iniciar detección de ubicación (obligatorio para nuevo registro)
                 obtenerUbicacion();

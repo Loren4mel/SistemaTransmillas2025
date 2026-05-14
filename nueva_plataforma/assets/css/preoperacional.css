@@ -821,3 +821,235 @@
 .form-textarea {
     transition: all 0.25s ease;
 }
+
+/* ==================== WARNINGS DE CONDUCTOR ==================== */
+
+/* Banner de bloqueo a nivel de sección (conductor / vehiculo-propio) */
+.driver-block-banner {
+    background: #fdf2f2;
+    border: 2px solid #dc3545;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    color: #721c24;
+    font-size: 14px;
+    line-height: 1.6;
+    animation: fadeInWarning 0.3s ease;
+}
+
+.driver-block-banner i {
+    font-size: 18px;
+    margin-right: 6px;
+    color: #dc3545;
+}
+
+/* Warning individual debajo de cada pregunta con respuesta negativa */
+.driver-warning {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-left: 5px solid #e67e22;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 6px 0 12px 0;
+    color: #856404;
+    font-size: 13px;
+    line-height: 1.5;
+    animation: fadeInWarning 0.3s ease;
+}
+
+.driver-warning i {
+    color: #e67e22;
+    margin-right: 4px;
+}
+
+@keyframes fadeInWarning {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Mensaje de error incrustado en la tarjeta */
+.card-validation-error {
+    background: #fff5f5;
+    border: 1px solid #e53e3e;
+    border-left: 4px solid #e53e3e;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #c53030;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: fadeInWarning 0.3s ease;
+}
+
+.card-validation-error i {
+    color: #e53e3e;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+/* Resaltado de tarjeta con error de validación */
+.preop-card.validation-error-card {
+    animation: cardErrorPulse 0.6s ease-in-out 3;
+    box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.5), 0 6px 24px rgba(220, 53, 69, 0.2) !important;
+}
+
+@keyframes cardErrorPulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.5), 0 6px 24px rgba(220, 53, 69, 0.2) !important; }
+    50% { box-shadow: 0 0 0 8px rgba(220, 53, 69, 0.3), 0 6px 24px rgba(220, 53, 69, 0.1) !important; }
+}
+
+
+/* ==================== ALERTA BOTÓN GUARDAR (RESPUESTAS NEGATIVAS) ==================== */
+
+.btn-guardar-alerta {
+    background: #fdf2f2;
+    border: 1px solid #dc3545;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    color: #721c24;
+    font-size: 13px;
+    text-align: center;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    animation: fadeInWarning 0.3s ease;
+}
+
+.btn-guardar-alerta i {
+    color: #dc3545;
+    margin-right: 4px;
+}
+
+/* Variante para advertencia de documentos vencidos (permite guardar) */
+.btn-guardar-alerta-vencidos {
+    background: #fffbf0;
+    border: 2px solid #ff9800;
+    color: #7a5200;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 16px 20px;
+    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.2);
+}
+
+.btn-guardar-alerta-vencidos i {
+    color: #ff9800;
+    font-size: 16px;
+}
+
+/* ==================== ALERTAS DE DOCUMENTOS DEL VEHÍCULO ==================== */
+
+.alerta-wrapper {
+    display: inline-block;
+    padding: 8px 10px;
+    margin: -6px -4px;
+    cursor: default;
+}
+
+.alerta-dropdown {
+    display: none;
+    position: absolute;
+    background-color: white;
+    min-width: 280px;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.18);
+    border-radius: 8px;
+    padding: 10px 14px;
+    z-index: 1050;
+    margin-top: 6px;
+    margin-left: -8px;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow: visible !important;
+}
+
+.warning-dot {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+    border: 2px solid #333;
+}
+
+.warning-dot:hover {
+    transform: scale(1.3);
+}
+
+.warning-orange {
+    background-color: #FF9800;
+}
+
+.warning-yellow {
+    background-color: #FFEB3B;
+}
+
+.warning-red {
+    background-color: #F44336;
+}
+
+.warning-red.expired {
+    animation: pulseExpired 1.5s infinite;
+}
+
+@keyframes pulseExpired {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(244,67,54,0.6); }
+    50% { box-shadow: 0 0 0 6px rgba(244,67,54,0); }
+}
+
+.vehicle-alert-indicator {
+    margin-left: auto;
+    position: relative;
+}
+
+/* ==================== BANNER DE ADVERTENCIA POR DOCUMENTOS VENCIDOS ==================== */
+
+.vehiculo-vencidos-banner {
+    background: linear-gradient(135deg, #fffbf0 0%, #fff3cd 100%);
+    border: 3px solid #ff9800;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    animation: fadeInWarning 0.4s ease;
+    box-shadow: 0 6px 24px rgba(255, 152, 0, 0.25);
+}
+
+.vehiculo-vencidos-banner .vehiculo-vencidos-icon {
+    flex-shrink: 0;
+    font-size: 40px;
+    color: #ff9800;
+    margin-top: 2px;
+    animation: pulseExpired 2s infinite;
+}
+
+.vehiculo-vencidos-banner .vehiculo-vencidos-content strong {
+    display: block;
+    color: #7a5200;
+    font-size: 20px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.vehiculo-vencidos-banner .vehiculo-vencidos-content p {
+    margin: 0 0 10px;
+    color: #7a5200;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.vehiculo-vencidos-banner .vehiculo-vencidos-alertas {
+    margin-top: 12px;
+    padding: 14px 18px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}

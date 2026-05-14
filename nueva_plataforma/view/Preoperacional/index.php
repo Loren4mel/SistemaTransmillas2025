@@ -109,6 +109,7 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
 </head>
 
 <body>
+
     <div class="container-fluid py-4">
         <div class="preop-main-container">
             <div class="main-form-card">
@@ -119,8 +120,16 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                     </button>
                     <h3 class="mb-0">
                         <i class="fas fa-clipboard-list me-2"></i>
-                        <?= $esCovid ? 'Test COVID-19' : 'Preoperacional de Vehículo' ?>
-                        <?php if (!$esCovid): ?>
+                        <?php
+                        if ($esCovid && !$usarNuevoFormato) {
+                            echo 'Test COVID-19';
+                        } elseif ($usarNuevoFormato && !($mostrarSecciones['preoperacional_vehiculo'] || $mostrarSecciones['preoperacional_moto'])) {
+                            echo 'Preoperacional Transmillas';
+                        } else {
+                            echo 'Preoperacional de Vehículo';
+                        }
+                        ?>
+                        <?php if (!$esCovid || $usarNuevoFormato): ?>
                             <span class="format-indicator <?= $usarNuevoFormato ? 'nuevo' : 'legado' ?>">
                                 <?= $usarNuevoFormato ? 'NUEVO FORMATO' : 'FORMATO LEGADO' ?>
                             </span>
@@ -144,6 +153,24 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                         <input type="hidden" name="tipo_vehiculo" value="<?= htmlspecialchars($tipovehiculo) ?>">
                         <input type="hidden" name="param3" value="<?= htmlspecialchars($tipovehiculo) ?>">
                         <input type="hidden" name="formato_encuesta" id="formato_encuesta" value="<?= $usarNuevoFormato ? 'nuevo' : 'legado' ?>">
+                        <input type="hidden" name="vehiculo_bloquear" id="vehiculo_bloquear" value="<?= $mostrarAlertaVencidos ? '1' : '0' ?>">
+                        <input type="hidden" name="vehiculo_alertas" id="vehiculo_alertas" value="<?= htmlspecialchars(json_encode($estadoDocumentos['alertas'] ?? [])) ?>">
+                        <!-- Banner de advertencia por documentos vencidos -->
+                        <?php if ($mostrarAlertaVencidos): ?>
+                        <div id="vehiculo-vencidos-banner" class="vehiculo-vencidos-banner">
+                            <div class="vehiculo-vencidos-icon">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="vehiculo-vencidos-content">
+                                <strong>ATENCIÓN: Hay documentos del vehículo vencidos</strong>
+                                <p>Se han detectado documentos vencidos (licencia, seguro o tecnicomecánica). El preoperacional puede registrarse, pero <strong>debe actualizar los documentos cuanto antes</strong>. Comuníquese con el jefe de operaciones para registrar los datos actualizados.</p>
+                                <?php if (!empty($alertasVehiculoHtml)): ?>
+                                <div class="vehiculo-vencidos-alertas"><?= $alertasVehiculoHtml ?></div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- ==================== CONTENEDOR DE TARJETAS ==================== -->
                         <div class="preop-sections-wrapper">
 
@@ -194,7 +221,7 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                             <?php if ($mostrarSecciones['preoperacional_vehiculo'] ?? false): ?>
 
                                 <!-- Datos del vehículo -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertasVehiculoHtml) ?>
 
                                 <!-- Subsecciones del vehículo como tarjetas individuales -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($valoresEncuesta) ?>
@@ -215,7 +242,7 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                             <?php if ($mostrarSecciones['preoperacional_moto'] ?? false): ?>
 
                                 <!-- Datos del vehículo -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertasVehiculoHtml) ?>
 
                                 <!-- Subsecciones de la moto como tarjetas individuales -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($valoresEncuesta) ?>
@@ -294,7 +321,7 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                             <?php endif; ?>
 
                             <!-- Datos del vehículo -->
-                            <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo) ?>
+                            <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertasVehiculoHtml) ?>
 
                             <!-- Preoperacional vehículo legado -->
                             <?php if ($mostrarVehiculo && $tipovehiculo == 'MOTO'): ?>
@@ -337,7 +364,8 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
 
                         </div><!-- /preop-sections-wrapper -->
 
-                        <!-- Ubicación GPS con mapa -->
+                        <!-- Ubicación GPS con mapa (solo formato nuevo) -->
+                        <?php if ($usarNuevoFormato): ?>
                         <?php $ubicacionGuardada = $valoresEncuesta['ubicacion'] ?? null; ?>
                         <div id="ubicacion_container" class="ubicacion-container">
                             <?php if ($esValidacion && $ubicacionGuardada): ?>
@@ -352,6 +380,7 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                                 </div>
                             <?php endif; ?>
                         </div>
+                        <?php endif; ?>
 
                         <!-- Botón guardar -->
                         <div class="mt-4">
@@ -368,6 +397,7 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
     <!-- Variables PHP a JavaScript -->
     <script>
         var ES_VALIDACION = <?= json_encode($esValidacion) ?>;
+        var MOSTRAR_SECCION_VEHICULO = <?= json_encode(($mostrarSecciones['preoperacional_vehiculo'] ?? false) || ($mostrarSecciones['preoperacional_moto'] ?? false)) ?>;
         var URL_REDIRECT = <?= json_encode($esValidacion ? '' : '../../inicio.php?bandera=1') ?>;
         var UBICACION_GUARDADA = <?= json_encode($ubicacionGuardada) ?>;
     </script>

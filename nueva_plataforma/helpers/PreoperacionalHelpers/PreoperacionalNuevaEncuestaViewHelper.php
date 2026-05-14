@@ -26,11 +26,11 @@ class PreoperacionalNuevaEncuestaViewHelper
     public static function getPreguntasConductor()
     {
         return [
-            ['conductor_1', '¿Presenta signos de somnolencia o fatiga acumulada?'],
-            ['conductor_2', '¿Reporta fatiga visual o irritación ocular o visión borrosa o dificultad para mantener la apertura ocular?'],
-            ['conductor_3', '¿Presenta disminución en su nivel de alerta o concentración?'],
-            ['conductor_4', '¿Se declara apto física y mentalmente para la tarea?'],
-            ['conductor_5', '¿Se encuentra libre de influencia de sustancias psicoactivas y/o alcohol y/o medicamentos?']
+            ['conductor_1', '¿Presenta signos de somnolencia o fatiga acumulada?', 2],
+            ['conductor_2', '¿Reporta fatiga visual o irritación ocular o visión borrosa o dificultad para mantener la apertura ocular?', 2],
+            ['conductor_3', '¿Presenta disminución en su nivel de alerta o concentración?', 2],
+            ['conductor_4', '¿Se declara apto física y mentalmente para la tarea?', 1],
+            ['conductor_5', '¿Se encuentra libre de influencia de sustancias psicoactivas y/o alcohol y/o medicamentos?', 1]
         ];
     }
 
@@ -103,15 +103,15 @@ class PreoperacionalNuevaEncuestaViewHelper
     public static function getPreguntasVehiculoPropio()
     {
         return [
-            ['moto_personal_1', '¿Presenta signos de somnolencia o fatiga acumulada?'],
-            ['moto_personal_2', '¿Reporta fatiga visual o irritación ocular o visión borrosa o dificultad para mantener la apertura ocular?'],
-            ['moto_personal_3', '¿Presenta disminución en su nivel de alerta o concentración?'],
-            ['moto_personal_4', '¿Se declara apto física y mentalmente para la tarea?'],
-            ['moto_personal_5', '¿Se encuentra libre de influencia de sustancias psicoactivas y/o alcohol y/o medicamentos?'],
-            ['moto_personal_6', '¿Presenta actualmente algún dolor, inflamación o molestia en la zona lumbar?'],
-            ['moto_personal_7', '¿Siente debilidad, hormigueo o dolor en hombros, brazos o muñecas que dificulte el agarre de objetos?'],
-            ['moto_personal_8', '¿Ha tenido alguna lesión o molestia en rodillas o tobillos en las últimas 24 horas?'],
-            ['moto_personal_9', '¿Presenta fatiga inusual, dificultad para respirar o mareos al realizar esfuerzos físicos leves?']
+            ['moto_personal_1', '¿Presenta signos de somnolencia o fatiga acumulada?', 2],
+            ['moto_personal_2', '¿Reporta fatiga visual o irritación ocular o visión borrosa o dificultad para mantener la apertura ocular?', 2],
+            ['moto_personal_3', '¿Presenta disminución en su nivel de alerta o concentración?', 2],
+            ['moto_personal_4', '¿Se declara apto física y mentalmente para la tarea?', 1],
+            ['moto_personal_5', '¿Se encuentra libre de influencia de sustancias psicoactivas y/o alcohol y/o medicamentos?', 1],
+            ['moto_personal_6', '¿Presenta actualmente algún dolor, inflamación o molestia en la zona lumbar?', 2],
+            ['moto_personal_7', '¿Siente debilidad, hormigueo o dolor en hombros, brazos o muñecas que dificulte el agarre de objetos?', 2],
+            ['moto_personal_8', '¿Ha tenido alguna lesión o molestia en rodillas o tobillos en las últimas 24 horas?', 2],
+            ['moto_personal_9', '¿Presenta fatiga inusual, dificultad para respirar o mareos al realizar esfuerzos físicos leves?', 2]
         ];
     }
 
@@ -194,29 +194,47 @@ class PreoperacionalNuevaEncuestaViewHelper
 
     // ==================== RENDERIZADO DE TARJETAS ====================
 
+    // Mensaje de bloqueo para preguntas personales del conductor
+    const MSG_BLOQUEO_CONDUCTOR = 'Por favor, comuníquese con el jefe de operaciones / oficina, actualmente no se puede realizar el preoperacional si presenta complicaciones.';
+
     /**
      * Renderiza una pregunta individual con checkboxes SÍ/NO
      */
-    private static function renderQuestionItem($name, $texto, $valoresExistentes = null, $requirePhoto = false)
+    private static function renderQuestionItem($name, $texto, $valoresExistentes = null, $requirePhoto = false, $expectedAnswer = null)
     {
         $checkedSi = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '1') ? 'checked' : '';
         $checkedNo = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '2') ? 'checked' : '';
+
+        // Determinar si la respuesta precargada es negativa (contraria a la esperada)
+        $respuestaNegativa = false;
+        if ($expectedAnswer !== null && $valoresExistentes !== null && isset($valoresExistentes[$name])) {
+            $respuestaNegativa = ((int)$valoresExistentes[$name] !== (int)$expectedAnswer);
+        }
 
         $html = '<div class="question-item" id="' . $name . '_row">';
         $html .= '<div class="question-text">' . htmlspecialchars($texto) . '</div>';
         $html .= '<div class="question-options">';
         // SÍ
         $html .= '<label class="checkbox-label checkbox-si">';
-        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-si-input" value="1" data-name="' . $name . '" data-binary-group="' . $name . '" ' . $checkedSi . '>';
+        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-si-input" value="1" data-name="' . $name . '" data-binary-group="' . $name . '" data-expected="' . ($expectedAnswer ?? '') . '" ' . $checkedSi . '>';
         $html .= '<span class="checkbox-text">SÍ</span>';
         $html .= '</label>';
         // NO
         $html .= '<label class="checkbox-label checkbox-no">';
-        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-no-input" value="2" data-name="' . $name . '" data-binary-group="' . $name . '" ' . $checkedNo . '>';
+        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-no-input" value="2" data-name="' . $name . '" data-binary-group="' . $name . '" data-expected="' . ($expectedAnswer ?? '') . '" ' . $checkedNo . '>';
         $html .= '<span class="checkbox-text">NO</span>';
         $html .= '</label>';
         $html .= '</div>';
         $html .= '</div>';
+
+        // Warning por respuesta negativa en preguntas personales del conductor
+        if ($expectedAnswer !== null) {
+            $displayStyle = $respuestaNegativa ? '' : 'display:none;';
+            $html .= '<div class="driver-warning" id="' . $name . '_warning" style="' . $displayStyle . '">';
+            $html .= '<i class="fas fa-exclamation-triangle"></i> ';
+            $html .= '<strong>ATENCIÓN:</strong> ' . htmlspecialchars(self::MSG_BLOQUEO_CONDUCTOR);
+            $html .= '</div>';
+        }
 
         // Foto si es requerida
         if ($requirePhoto) {
@@ -237,14 +255,26 @@ class PreoperacionalNuevaEncuestaViewHelper
      */
     public static function renderPreguntasPersonales($preguntas, $titulo, $cardClass, $valoresExistentes = null)
     {
+        // Determinar si esta sección es de conductor (para mostrar banner de bloqueo)
+        $esSeccionConductor = ($cardClass === 'conductor' || $cardClass === 'vehiculo-propio');
+
         $html = '<div class="preop-card ' . $cardClass . '">';
         $html .= '<div class="preop-card-header">' . $titulo . '</div>';
         $html .= '<div class="preop-card-body">';
 
+        // Banner de advertencia global para secciones de conductor
+        if ($esSeccionConductor) {
+            $html .= '<div class="driver-block-banner" id="' . $cardClass . '_block_banner" style="display:none;">';
+            $html .= '<i class="fas fa-ban"></i> ';
+            $html .= '<strong>PRECAUTELADO:</strong> ' . htmlspecialchars(self::MSG_BLOQUEO_CONDUCTOR);
+            $html .= '</div>';
+        }
+
         foreach ($preguntas as $preg) {
             $name = $preg[0];
             $texto = $preg[1];
-            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, false);
+            $expectedAnswer = $preg[2] ?? null;
+            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, false, $expectedAnswer);
         }
 
         $html .= '</div></div>';
@@ -330,7 +360,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Genera tarjeta de información del vehículo
      */
-    public static function renderVehicleInfoCard($datosVehiculo)
+    public static function renderVehicleInfoCard($datosVehiculo, $alertasHtml = '')
     {
         if (empty($datosVehiculo)) return '';
 
@@ -340,13 +370,20 @@ class PreoperacionalNuevaEncuestaViewHelper
             'MODELO' => $datosVehiculo['veh_modelo'] ?? '',
             'KM' => $datosVehiculo['veh_kilactual'] ?? '',
             'CONDUCTOR' => $datosVehiculo['usu_nombre'] ?? '',
-            'CÉDULA' => $datosVehiculo['usu_identificacion'] ?? '',
+            'CEDULA' => $datosVehiculo['usu_identificacion'] ?? '',
             'LICENCIA' => $datosVehiculo['usu_licencia'] ?? '',
-            'FECHA VENC.' => $datosVehiculo['usu_fechalicencia'] ?? ''
+            'FECHA VENC. LIC.' => $datosVehiculo['usu_fechalicencia'] ?? '',
+            'SEGURO VENCE' => $datosVehiculo['veh_fechaseguro'] ?? '',
+            'TECNOMECÁNICA VENCE' => $datosVehiculo['veh_fechategnomecanica'] ?? ''
         ];
 
         $html = '<div class="preop-card vehicle-info">';
-        $html .= '<div class="preop-card-header"><i class="fas fa-truck"></i> DATOS DEL VEHÍCULO</div>';
+        $html .= '<div class="preop-card-header">';
+        $html .= '<i class="fas fa-truck"></i> DATOS DEL VEHÍCULO';
+        if (!empty($alertasHtml)) {
+            $html .= '<span class="vehicle-alert-indicator">' . $alertasHtml . '</span>';
+        }
+        $html .= '</div>';
         $html .= '<div class="preop-card-body">';
         $html .= '<div class="vehicle-info-grid">';
 
@@ -366,6 +403,9 @@ class PreoperacionalNuevaEncuestaViewHelper
     public static function renderKilometrajeCard($registroExistente, $esValidacion = false)
     {
         $disabled = $esValidacion ? 'disabled' : '';
+        $tieneImagen = !empty($registroExistente['pre_img_kilo']);
+        $required = (!$esValidacion && !$tieneImagen) ? 'required' : '';
+
         $html = '<div class="preop-card kilometraje-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-tachometer-alt"></i> KILOMETRAJE ACTUAL</div>';
         $html .= '<div class="preop-card-body">';
@@ -374,11 +414,13 @@ class PreoperacionalNuevaEncuestaViewHelper
         $html .= '</div>';
         $html .= '<div>';
         $html .= '<label style="font-weight:600;font-size:14px;color:#555;">Imagen Kilometraje:</label>';
-        $html .= '<input type="file" name="imagen_kilometraje" class="photo-input" ' . $disabled . '>';
-        if (!empty($registroExistente['pre_img_kilo'])) {
+        $html .= '<input type="file" name="imagen_kilometraje" class="photo-input" ' . $required . ' ' . $disabled . '>';
+        if ($tieneImagen) {
             $url = self::rutaAbsolutaAUrl($registroExistente['pre_img_kilo']);
             $html .= '<br><a href="' . htmlspecialchars($url) . '" target="_blank" style="font-size:13px;">Ver imagen actual</a>';
         }
+        // Hidden para indicar al JS si ya existe imagen previa (no exigir re-subida)
+        $html .= '<input type="hidden" id="pre_img_kilo_existente" value="' . ($tieneImagen ? '1' : '0') . '">';
         $html .= '</div></div></div>';
         return $html;
     }
