@@ -987,7 +987,13 @@
                             if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
                                 window.close();
                             } else if (typeof URL_REDIRECT !== 'undefined' && URL_REDIRECT) {
-                                window.location.href = URL_REDIRECT;
+                                var redirectUrl = new URL(URL_REDIRECT, window.location.href).href;
+
+                                if (window.parent && window.parent !== window) {
+                                    window.parent.location.href = redirectUrl;
+                                } else {
+                                    window.location.href = redirectUrl;
+                                }
                             } else {
                                 window.close();
                             }
