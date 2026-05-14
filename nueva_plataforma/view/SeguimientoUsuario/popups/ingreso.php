@@ -90,7 +90,7 @@ $horasSeleccionada = $horasSeleccionada ?? '';
             <label for="horas" class="form-label">Horas</label>
             <select name="horas" id="horas" class="form-select">
                 <option value="">Seleccione horas</option>
-                <?php for ($i = 1; $i <= 12; $i++): ?>
+                <?php for ($i = 0; $i <= 12; $i++): ?>
                     <option value="<?= $i ?>" <?= ($horasSeleccionada == $i) ? 'selected' : '' ?>><?= $i ?> hora(s)</option>
                 <?php endfor; ?>
             </select>
