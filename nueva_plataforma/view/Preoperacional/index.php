@@ -120,8 +120,16 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                     </button>
                     <h3 class="mb-0">
                         <i class="fas fa-clipboard-list me-2"></i>
-                        <?= $esCovid ? 'Test COVID-19' : 'Preoperacional de Vehículo' ?>
-                        <?php if (!$esCovid): ?>
+                        <?php
+                        if ($esCovid && !$usarNuevoFormato) {
+                            echo 'Test COVID-19';
+                        } elseif ($usarNuevoFormato && !($mostrarSecciones['preoperacional_vehiculo'] || $mostrarSecciones['preoperacional_moto'])) {
+                            echo 'Preoperacional Transmillas';
+                        } else {
+                            echo 'Preoperacional de Vehículo';
+                        }
+                        ?>
+                        <?php if (!$esCovid || $usarNuevoFormato): ?>
                             <span class="format-indicator <?= $usarNuevoFormato ? 'nuevo' : 'legado' ?>">
                                 <?= $usarNuevoFormato ? 'NUEVO FORMATO' : 'FORMATO LEGADO' ?>
                             </span>

@@ -198,6 +198,15 @@ function loadView($service)
         'preoperacional_moto' => ($tipovehiculo === 'MOTO')
     ];
 
+    // Fallback: si ningún cuestionario de rol aplica, usar preguntas administrativas por defecto
+    $tieneSeccionPersonal = $mostrarSecciones['administrativo']
+        || $mostrarSecciones['conductor']
+        || $mostrarSecciones['vehiculo_propio']
+        || $mostrarSecciones['auxiliar_carga'];
+    if (!$tieneSeccionPersonal) {
+        $mostrarSecciones['administrativo'] = true;
+    }
+
     // ==================== FIN DE SECCIONES POR ROL ====================
 
     // Limpiar buffer y cargar la vista
