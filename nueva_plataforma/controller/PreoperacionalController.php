@@ -121,6 +121,7 @@ function loadView($service)
     // Calcular estado de documentos del vehículo (alertas de expiración)
     $estadoDocumentos = !empty($datosVehiculo) ? $service->getEstadoDocumentosVehiculo($datosVehiculo) : ['alertas' => [], 'expired' => false, 'max_severity' => 0, 'bloquear' => false];
     $alertasVehiculoHtml = $service->generarHtmlAlertasVehiculo($estadoDocumentos);
+    $alertaSeveridadVehiculo = $estadoDocumentos['max_severity'] ?? 0;
     $mostrarAlertaVencidos = $estadoDocumentos['expired'] && !$esValidacion;
 
     // Buscar registro existente si aplica

@@ -1209,49 +1209,6 @@
         }
     }
 
-    /**
-     * Inicializa el dropdown de alertas de documentos del vehículo (hover)
-     */
-    function initAlertasVehiculo() {
-        if (typeof $ === 'undefined') return;
-
-        $(document).on('mouseenter', '.alerta-wrapper', function () {
-            var $wrapper = $(this);
-            var $dropdown = $wrapper.find('.alerta-dropdown');
-            if (!$dropdown.length) return;
-            var rect = $wrapper[0].getBoundingClientRect();
-            $dropdown.data('_parentWrapper', $wrapper).addClass('alerta-open');
-            $dropdown.appendTo('body').css({
-                position: 'fixed', left: rect.left, top: rect.bottom,
-                display: 'block', zIndex: 99999
-            });
-            $('.warning-dot').css('animation-play-state', 'paused');
-        });
-
-        $(document).on('mouseleave', '.alerta-wrapper', function (e) {
-            if ($(e.relatedTarget).closest('.alerta-dropdown.alerta-open').length) return;
-            cerrarAlertaDropdown($(this));
-        });
-
-        $(document).on('mouseleave', '.alerta-dropdown.alerta-open', function (e) {
-            var $dropdown = $(this);
-            var $wrapper = $dropdown.data('_parentWrapper');
-            if ($wrapper && $.contains($wrapper[0], e.relatedTarget)) return;
-            cerrarAlertaDropdown($wrapper);
-        });
-
-        function cerrarAlertaDropdown($wrapper) {
-            if (!$wrapper || !$wrapper.length) return;
-            var $dropdown = $('.alerta-dropdown.alerta-open').filter(function () {
-                return $(this).data('_parentWrapper') && $(this).data('_parentWrapper').is($wrapper);
-            });
-            if ($dropdown.length) {
-                $dropdown.removeClass('alerta-open').css({ position: '', left: '', top: '', display: '', zIndex: '' });
-                $dropdown.appendTo($wrapper);
-            }
-            $('.warning-dot').css('animation-play-state', '');
-        }
-    }
 
     /**
      * Inicialización cuando el DOM está listo
@@ -1261,7 +1218,6 @@
             initBinaryCheckboxes();
             initKilometrajeFormatting();
             initDriverWarnings();
-            initAlertasVehiculo();
             handleSubmitForm();
             cargarDatosPrecarga();
 

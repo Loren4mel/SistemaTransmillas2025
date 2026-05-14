@@ -155,21 +155,6 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                         <input type="hidden" name="formato_encuesta" id="formato_encuesta" value="<?= $usarNuevoFormato ? 'nuevo' : 'legado' ?>">
                         <input type="hidden" name="vehiculo_bloquear" id="vehiculo_bloquear" value="<?= $mostrarAlertaVencidos ? '1' : '0' ?>">
                         <input type="hidden" name="vehiculo_alertas" id="vehiculo_alertas" value="<?= htmlspecialchars(json_encode($estadoDocumentos['alertas'] ?? [])) ?>">
-                        <!-- Banner de advertencia por documentos vencidos -->
-                        <?php if ($mostrarAlertaVencidos): ?>
-                        <div id="vehiculo-vencidos-banner" class="vehiculo-vencidos-banner">
-                            <div class="vehiculo-vencidos-icon">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <div class="vehiculo-vencidos-content">
-                                <strong>ATENCIÓN: Hay documentos del vehículo vencidos</strong>
-                                <p>Se han detectado documentos vencidos (licencia, seguro o tecnicomecánica). El preoperacional puede registrarse, pero <strong>debe actualizar los documentos cuanto antes</strong>. Comuníquese con el jefe de operaciones para registrar los datos actualizados.</p>
-                                <?php if (!empty($alertasVehiculoHtml)): ?>
-                                <div class="vehiculo-vencidos-alertas"><?= $alertasVehiculoHtml ?></div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php endif; ?>
 
                         <!-- ==================== CONTENEDOR DE TARJETAS ==================== -->
                         <div class="preop-sections-wrapper">
@@ -221,7 +206,8 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                             <?php if ($mostrarSecciones['preoperacional_vehiculo'] ?? false): ?>
 
                                 <!-- Datos del vehículo -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertasVehiculoHtml) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
+                                <?= $alertasVehiculoHtml ?>
 
                                 <!-- Subsecciones del vehículo como tarjetas individuales -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($valoresEncuesta) ?>
@@ -242,7 +228,8 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                             <?php if ($mostrarSecciones['preoperacional_moto'] ?? false): ?>
 
                                 <!-- Datos del vehículo -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertasVehiculoHtml) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
+                                <?= $alertasVehiculoHtml ?>
 
                                 <!-- Subsecciones de la moto como tarjetas individuales -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($valoresEncuesta) ?>
@@ -321,7 +308,8 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                             <?php endif; ?>
 
                             <!-- Datos del vehículo -->
-                            <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertasVehiculoHtml) ?>
+                            <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
+                            <?= $alertasVehiculoHtml ?>
 
                             <!-- Preoperacional vehículo legado -->
                             <?php if ($mostrarVehiculo && $tipovehiculo == 'MOTO'): ?>

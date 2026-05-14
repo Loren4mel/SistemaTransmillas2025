@@ -291,7 +291,8 @@ class PreoperacionalService
     }
 
     /**
-     * Genera el HTML de alerta para mostrar en la tarjeta del vehículo.
+     * Genera el HTML del panel de alerta de documentos para mostrar debajo de la tarjeta del vehículo.
+     * El panel lista todos los documentos con alertas y su severidad.
      */
     public function generarHtmlAlertasVehiculo(array $estadoDocumentos): string
     {
@@ -299,57 +300,79 @@ class PreoperacionalService
         if (empty($alertas))
             return '';
 
-        $dropdownItems = [];
-        $mostUrgent = null;
+        $alertasVisibles = array_filter($alertas, function ($a) {
+            return $a['severity'] >= 1;
+        });
+        if (empty($alertasVisibles))
+            return '';
+
+        $maxSeverity = $estadoDocumentos['max_severity'] ?? 0;
+
+        $severityLabels = [
+            1 => 'warning',
+            2 => 'critical',
+            3 => 'expired'
+        ];
+        $severityClass = $severityLabels[$maxSeverity] ?? 'warning';
+
+        $iconMap = [
+            1 => 'fa-clock',
+            2 => 'fa-exclamation-circle',
+            3 => 'fa-exclamation-triangle'
+        ];
+        $titleMap = [
+            1 => 'Documentos próximos a vencer',
+            2 => 'Documentos críticos por vencer',
+            3 => 'Documentos vencidos'
+        ];
+
+        $icon = $iconMap[$maxSeverity] ?? 'fa-exclamation-circle';
+        $title = $titleMap[$maxSeverity] ?? 'Alertas de documentos';
+
+        $html = '<div class="vehiculo-docs-panel severity-' . $severityClass . '">';
+        $html .= '<div class="vehiculo-docs-panel-header">';
+        $html .= '<i class="fas ' . $icon . '"></i> ';
+        $html .= '<strong>' . $title . '</strong>';
+        $html .= '</div>';
+        $html .= '<ul class="vehiculo-docs-panel-list">';
 
         foreach ($alertas as $a) {
+            if ($a['severity'] < 1)
+                continue;
+
+            $itemClass = $severityLabels[$a['severity']] ?? '';
             $d = $a['dias'];
-            $color = $a['color'];
-            $liStyle = 'color:' . $color . ';' . ($d < 0 ? ' font-weight:bold;' : '');
 
             if ($d < 0) {
-                $texto = $a['nombre'] . ': expirada hace ' . abs($d) . ' días';
+                $badge = '<span class="doc-badge badge-expired">EXPIRADA</span>';
+                $detail = 'hace ' . abs($d) . ' días';
             } elseif ($d <= 7) {
-                $texto = $a['nombre'] . ': expira en ' . $d . ' días';
-            } elseif ($d <= 30) {
-                $texto = $a['nombre'] . ': expira en ' . $d . ' días';
+                $badge = '<span class="doc-badge badge-critical">CRÍTICO</span>';
+                $detail = 'expira en ' . $d . ' días';
             } else {
-                $texto = $a['nombre'] . ': ' . $a['fecha'] . ' (' . $d . ' días)';
+                $badge = '<span class="doc-badge badge-warning">POR VENCER</span>';
+                $detail = 'expira en ' . $d . ' días';
             }
 
-            $dropdownItems[] = "<li style='$liStyle; padding:2px 0;'>" . htmlspecialchars($texto) . "</li>";
-
-            if ($mostUrgent === null || $a['severity'] > $mostUrgent['severity']) {
-                $mostUrgent = $a;
-            }
+            $html .= '<li class="doc-item ' . $itemClass . '">';
+            $html .= '<span class="doc-name">' . htmlspecialchars($a['nombre']) . '</span>';
+            $html .= '<span class="doc-status">' . $badge . ' ' . $detail;
+            $html .= ' <small>(' . htmlspecialchars($a['fecha']) . ')</small></span>';
+            $html .= '</li>';
         }
 
-        if ($mostUrgent === null || $mostUrgent['severity'] === 0) {
-            return '';
+        $html .= '</ul>';
+
+        if ($maxSeverity >= 3) {
+            $html .= '<div class="vehiculo-docs-panel-footer">';
+            $html .= '<i class="fas fa-info-circle"></i> ';
+            $html .= 'Comuníquese con el jefe de operaciones para actualizar los documentos.';
+            $html .= '</div>';
         }
 
-        $severity = $mostUrgent['severity'];
-        $nombre = $mostUrgent['nombre'];
-        $dias = $mostUrgent['dias'];
+        $html .= '</div>';
 
-        $colorClass = '';
-        $tooltip = '';
-        if ($severity >= 3) {
-            $colorClass = 'warning-red expired';
-            $tooltip = $nombre . ' expirada hace ' . abs($dias) . ' días';
-        } elseif ($severity >= 2) {
-            $colorClass = 'warning-red';
-            $tooltip = $nombre . ' expira en ' . $dias . ' días';
-        } elseif ($severity >= 1) {
-            $colorClass = 'warning-orange';
-            $tooltip = $nombre . ' expira en ' . $dias . ' días';
-        }
-
-        $dot = '<span class="warning-dot ' . $colorClass . '" title="' . htmlspecialchars($tooltip) . '"></span>';
-        $dropdown = '<div class="alerta-dropdown"><ul style="list-style:none; margin:0; padding:0;">'
-            . implode('', $dropdownItems) . '</ul></div>';
-
-        return '<div class="alerta-wrapper">' . $dot . $dropdown . '</div>';
+        return $html;
     }
 
     // ==================== MÉTODOS PRIVADOS ====================
