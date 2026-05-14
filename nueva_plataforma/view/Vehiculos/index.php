@@ -781,10 +781,12 @@
                             <select name="com_vehiculo_id" id="com_vehiculo_id"
                                     class="form-control" required>
                                 <option value="">Seleccionar...</option>
-                                <?php foreach ($Vehiculos as $v):
-                                    if ($v['veh_estado'] != 1) continue; ?>
+                                <?php foreach ($Vehiculos as $v): 
+                                     if ($v['veh_estado'] != 1) continue;
+                                     if ($v['veh_propiedad'] !== 'empresa') continue;
+                                ?>
                                 <option value="<?= $v['idvehiculos'] ?>">
-                                    <?= $v['veh_placa'] ?> — <?= $v['veh_marca'] ?> <?= $v['veh_modelo'] ?>
+                                <?= $v['veh_placa'] ?> — <?= $v['veh_marca'] ?> <?= $v['veh_modelo'] ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
@@ -792,7 +794,7 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">
-                                Estado del Comparendo <span class="text-danger">*</span>
+                                Estado Comparendo <span class="text-danger">*</span>
                             </label>
                             <select name="com_estado" id="com_estado"
                                     class="form-control" required>
@@ -804,18 +806,58 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">
-                                📅 Fecha del Comparendo <span class="text-danger">*</span>
+                                📅 Fecha Comparendo <span class="text-danger">*</span>
                             </label>
                             <input type="date" name="com_fecha" id="com_fecha"
                                    class="form-control"
                                    value="<?= date('Y-m-d') ?>" required>
                         </div>
 
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Valor Comparendo
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" name="com_valor" id="com_valor" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Número Comparendo
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" name="com_numerocompa" id="com_numerocompa" required>
+                            <small class="text-muted">
+                                 <i class="fas fa-info-circle me-1"></i>
+                                 Ingrese el numero que identifica el comparendo
+                            </small>
+                        </div>
+
                         <div class="col-md-12 mb-3">
                             <label class="form-label fw-bold text-secondary">
-                                📷 Foto del Comparendo
+                                Titular Comparendo <span class="text-danger">*</span>
+                            </label>
+                            <select name="com_titularcompa" id="com_titularcompa"
+                                    class="form-control" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Operador">Operador</option>
+                                <option value="Empresa">Empresa</option>
+                            </select>
+                        </div>
+
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📷 Foto Comparendo
+                                <span class="text-danger">*</span>
                             </label>
                             <input type="file" name="com_foto" id="com_foto"
+                                   class="form-control" accept=".jpg,.jpeg,.png">
+                        </div> 
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📷 Foto Curso de sensibilización vial
+                            </label>
+                            <input type="file" name="com_foto_curso" id="com_foto_curso"
                                    class="form-control" accept=".jpg,.jpeg,.png">
                         </div>
 
@@ -826,7 +868,7 @@
                             </div>
                         </div>
 
-                    </div>
+                    </div>  
                 </form>
             </div>
 
@@ -866,7 +908,11 @@
                                 <th>Vehículo</th>
                                 <th>Estado</th>
                                 <th>Fecha</th>
-                                <th>Foto</th>
+                                <th>Valor</th>
+                                <th>Número</th>
+                                <th>Titular Comparendo</th>
+                                <th>Foto Comparendo</th>
+                                <th>Foto Curso</th>
                             </tr>
                         </thead>
                         <tbody id="cuerpoTablaComparendos">
@@ -881,6 +927,98 @@
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-secondary"
                         data-bs-dismiss="modal">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EDITAR COMPARENDO -->
+<div class="modal fade" id="modalEditarComparendo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    Editar Comparendo
+                </h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formEditarComparendo" enctype="multipart/form-data">
+                    <input type="hidden" id="edit_com_id" name="com_id">
+
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Estado Comparendo 
+                            </label>
+                            <select name="com_estado" id="edit_com_estado" class="form-control" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Pagado">Pagado</option>
+                                <option value="Pendiente">Pendiente</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Valor Comparendo 
+                            </label>
+                            <input type="text" class="form-control" name="com_valor"
+                                   id="edit_com_valor" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Numero Comparendo 
+                            </label>
+                            <input type="text" class="form-control" name="com_numerocompa"
+                                   id="edit_com_numerocompa" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Titular Comparendo 
+                            </label>
+                            <select name="com_titularcompa" id="edit_com_titularcompa"
+                                    class="form-control" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Operador">Operador</option>
+                                <option value="Empresa">Empresa</option>
+                            </select>
+                        </div>  
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📷 Foto Comparendo
+                            </label>
+                            <div id="preview_edit_com_foto" class="mb-2"></div>
+                            <input type="file" name="com_foto" id="edit_com_foto"
+                                   class="form-control" accept=".jpg,.jpeg,.png">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📷 Foto Curso de Sensibilización Vial
+                            </label>
+                            <div id="preview_edit_com_foto_curso" class="mb-2"></div>
+                            <input type="file" name="com_foto_curso" id="edit_com_foto_curso"
+                                   class="form-control" accept=".jpg,.jpeg,.png">
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarEditarComparendo">
+                        Guardar Cambios
+                </button>
             </div>
 
         </div>
