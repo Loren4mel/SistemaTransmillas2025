@@ -3313,6 +3313,17 @@ print_r($pagadas);
 	// $FB->llena_texto("id_param", 1, 13, $DB, "", "", $id_param, 5, 0);
 	// $FB->llena_texto("id_param2", 1, 13, $DB, "", "", $id_param, 5, 0);
 	// $FB->llena_texto("porcobrar", 1, 13, $DB, "", "",$cambio, 5, 0);
+    // if ($id_usuario==483 or $id_usuario==523) {
+    //     echo '
+	// 	<div style="width: 100%; height: 100vh;">
+	// 	<iframe 
+	// 		src="sistema_pruebas/controller/EntregarController.php?accion=vista&idServicio='.$id_param.'&sede='.$id_sedes.'&acceso='.$nivel_acceso.'&nombre='.$id_nombre.'&porcobrar='.$cambio.'&usuario='.$id_usuario.'"
+	// 		style="width: 100%; height: 100%; border: 0;"
+	// 		allowfullscreen
+	// 		loading="lazy">
+	// 	</iframe>
+	// 	</div>';
+    // }else{
 		echo '
 		<div style="width: 100%; height: 100vh;">
 		<iframe 
@@ -3322,6 +3333,8 @@ print_r($pagadas);
 			loading="lazy">
 		</iframe>
 		</div>';
+    // }
+
 
  } 
  else if ($tabla == "seguimientoruta") {
@@ -4827,6 +4840,45 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
 
     $credito = $_REQUEST["ide"];
 
+    echo '<tr class="correo-factura-style"><td colspan="2"><style>
+        .correo-factura-row td { padding: 10px 12px; vertical-align: top; }
+        .correo-factura-label { color: #34495e; display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+        .correo-factura-select {
+            border: 1px solid #ccd6e0;
+            border-radius: 6px;
+            color: #2c3e50;
+            font-size: 14px;
+            min-height: 38px;
+            padding: 7px 10px;
+            width: 100%;
+        }
+        .correo-factura-select:focus {
+            border-color: #337ab7;
+            box-shadow: 0 0 0 3px rgba(51, 122, 183, .15);
+            outline: none;
+        }
+        .correo-factura-table { background: #fff; border: 1px solid #dfe6ee; border-radius: 6px; margin-bottom: 8px; overflow: hidden; width: 100%; }
+        .correo-factura-table th { background: #f4f7fa; color: #34495e; font-size: 13px; padding: 9px 12px; }
+        .correo-factura-email { align-items: center; display: flex; gap: 8px; padding: 8px 10px; }
+        .correo-factura-docs { display: flex; flex-wrap: wrap; gap: 12px; }
+        .correo-factura-doc {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #dfe6ee;
+            border-radius: 6px;
+            display: inline-flex;
+            gap: 8px;
+            padding: 8px 12px;
+        }
+        .correo-factura-doc input { margin: 0; }
+        .correo-factura-actions { align-items: center; display: flex; gap: 12px; justify-content: flex-end; }
+        .correo-factura-button { background: #337ab7; border: 1px solid #2e6da4; border-radius: 5px; color: #fff; font-weight: 700; min-height: 36px; padding: 8px 18px; }
+        .correo-factura-button:hover,
+        .correo-factura-button:focus { background: #286090; border-color: #204d74; color: #fff; }
+        #loading.correo-factura-loading { display: none; margin: 0; }
+        #loading.correo-factura-loading img { height: 28px; width: 28px; }
+    </style></td></tr>';
+
     if ($credito == "EXTERNOS") {
         $FB->llena_texto("Email Destinatario:", 2, 1, $DB, "", "", "", 2, 0);
     } else {
@@ -4842,8 +4894,9 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
                 WHERE cont_idhojavida = '$rw1[2]'";
         $DB1->Execute($sql3);  
 
+        echo '<tr class="correo-factura-row"><td colspan="2">';
         echo '<div class="table-responsive mb-3">';
-        echo '<table class="table table-bordered table-hover">';
+        echo '<table class="table table-bordered table-hover correo-factura-table">';
         echo '<thead class="table-light"><tr><th colspan="2">Correos</th></tr></thead>';
         echo '<tbody>';
 
@@ -4851,23 +4904,24 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
             if ($rw3[1] != "") {
                 echo "<tr >
                         <td colspan='2'>
-                            <input type='checkbox' class='form-check-input' id='{$rw3[0]}s' value='{$rw3[0]}'
-                                onchange='selecionado({$rw3[0]}, \"{$rw3[1]}\")'>
-                                
-                                <label><strong>{$rw3[1]}</strong></label>
+                            <label class='correo-factura-email'>
+                                <input type='checkbox' class='form-check-input' id='{$rw3[0]}s' value='{$rw3[0]}'
+                                    onchange='selecionado({$rw3[0]}, \"{$rw3[1]}\")'>
+                                <strong>{$rw3[1]}</strong>
+                            </label>
                         </td>
                         
                     </tr>";
             }
         }
 
-        
+        echo '</tbody></table></div></td></tr>';
     }
 
     $FB->llena_texto("Otro Email :", 2, 1, $DB, "", "", "", 2, 0);
     $FB->llena_texto("Documento1", 3, 6, $DB, "", "", "", 1, 0);
     $FB->llena_texto("Documento2", 6, 6, $DB, "", "", "", 1, 0);
-    $FB->llena_texto("Whatsapp", 12, 1, $DB, "", "", "57", 1, 0);
+    $FB->llena_texto("Whatsapp", 12, 1, $DB, "", "", "", 1, 0);
 
     $sql3 = "SELECT idfacturascreditos, fac_fechafactura, fac_credito, fac_numerofactura, fac_fechaprefac, fac_idservicios,
                     fac_iduserpre, fac_numeroref, fac_fechafacturado, fac_fechavencimiento, fac_estado, fac_tipopago,
@@ -4881,9 +4935,9 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
     $fechaactual = date("Y-m-d");
 
     // Mensajes
-    echo '<tr  class="text"><td class="text" >';
-    echo '<label for="param5" class="form-label"><strong>Mensaje</strong></label></td>';
-    echo '<td class="text" ><select class="form-select" id="param5" name="param5">';
+    echo '<tr class="text correo-factura-row"><td class="text">';
+    echo '<label for="param5" class="correo-factura-label">Mensaje</label></td>';
+    echo '<td class="text"><select class="form-select correo-factura-select" id="param5" name="param5">';
     echo "<option value='Estimado cliente estos son los documentos correspondientes a la factura #{$rw3[7]}'>
             Estimado cliente estos son los documentos correspondientes a la factura #{$rw3[7]}
         </option>";
@@ -4902,6 +4956,7 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
     // Documentos adjuntos
     $radicado = "Facturado:" . $rw3[17];
     $linkfak1 = $LT->llenadocs31($DB1, "facturascreditos", $rw3[0], 3, 15, $radicado);
+    $link = "";
 
     if (preg_match("/href='([^']+)'/", $linkfak1, $matches)) {
         $link = $matches[1];
@@ -4910,27 +4965,30 @@ $rw = mysqli_fetch_array($DB->Consulta_ID);
     $chek0 = file_exists("pre_facturas/{$rw3[3]}.xls") ? "" : "disabled";
     $chek1 = file_exists($link) ? "" : "disabled";
 
-    echo '<tr  class="text"><td class="text" colspan="2">';
-    echo "<input class='form-check-input' type='checkbox' id='param10' name='param10' $chek0>";
-    echo "<label class='form-check-label' for='param10'>Pre-factura</label>";
-    echo "<input class='form-check-input' type='checkbox' id='param11' name='param11' $chek1>";
-    echo "<label class='form-check-label' for='param11'>Factura</label>";
+    echo '<tr class="text correo-factura-row"><td class="text" colspan="2">';
+    echo '<label class="correo-factura-label">Documentos adjuntos</label>';
+    echo '<div class="correo-factura-docs">';
+    echo "<label class='correo-factura-doc' for='param10'><input class='form-check-input' type='checkbox' id='param10' name='param10' $chek0> Pre-factura</label>";
+    echo "<label class='correo-factura-doc' for='param11'><input class='form-check-input' type='checkbox' id='param11' name='param11' $chek1> Factura</label>";
+    echo '</div>';
     echo '</td></tr>';
 
 
 
+    echo '<tr style="display:none;"><td colspan="2">';
     echo "<input type='hidden' id='linkfac' name='linkfac' value='pre_facturas/{$rw3[3]}.xls'>";
     echo "<input type='hidden' id='linkfac1' name='linkfac1' value='{$link}'>";
-
-    // Botón enviar
-    echo '<tr  class="text"><td class="text" colspan="2">';
-    echo "<button class='btn btn-primary' onclick='sendEmailfac($id_param); return false;'>Enviar</button>";
     echo '</td></tr>';
 
-    echo '</tbody></table></div>';
-    echo '<div id="loading" class="mt-2">';
+    // Botón enviar
+    echo '<tr class="text correo-factura-row"><td class="text" colspan="2">';
+    echo '<div class="correo-factura-actions">';
+    echo '<div id="loading" class="correo-factura-loading">';
     echo '<img src="images/loading.gif" alt="Cargando...">';
     echo '</div>';
+    echo "<button class='btn btn-primary correo-factura-button' onclick='sendEmailfac($id_param); return false;'>Enviar</button>";
+    echo '</div>';
+    echo '</td></tr>';
         
 }else if ($tabla == "Enviar Whatsapp"){
     // $myArray = $_REQUEST["ide"];

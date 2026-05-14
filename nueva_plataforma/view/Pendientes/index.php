@@ -30,6 +30,7 @@ pendientesViewLog('Inicio vista Pendientes', [
 ]);
 
 $puedeAdministrarPendientes = ($rolUsuario ?? 0) === 1;
+$puedeAdministrarFormularios = in_array((int) ($rolUsuario ?? 0), [1, 12], true);
 $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], true);
 ?>
 <!DOCTYPE html>
@@ -231,7 +232,7 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
 </head>
 <body>
   <div class="container-fluid mt-4">
-    <?php if ($puedeAdministrarPendientes): ?>
+    <?php if ($puedeAdministrarPendientes || $puedeAdministrarFormularios): ?>
       <?php pendientesViewLog('Render seccion gestion gerente'); ?>
       <?php ob_start(); ?>
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
@@ -239,9 +240,18 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
           El gerente puede crear pendientes con archivo, link o ambos y asignarlos a uno o varios roles.
           Los usuarios no podran confirmarlos hasta abrir el documento.
         </div>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCrearPendiente">
-          <i class="fas fa-plus me-1"></i> Nuevo pendiente
-        </button>
+        <div class="d-flex gap-2 flex-wrap">
+          <?php if ($puedeAdministrarFormularios): ?>
+            <a class="btn btn-outline-primary" href="FormulariosController.php">
+              <i class="bi bi-ui-checks-grid"></i> Formularios
+            </a>
+          <?php endif; ?>
+          <?php if ($puedeAdministrarPendientes): ?>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCrearPendiente">
+              <i class="fas fa-plus me-1"></i> Nuevo pendiente
+            </button>
+          <?php endif; ?>
+        </div>
       </div>
       <?php
       $bodyGestionPendientes = ob_get_clean();
@@ -249,7 +259,7 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
       echo component('section-card', [
         'title' => 'Gestion de Pendientes',
         'icon' => 'fas fa-plus-circle',
-        'headerAside' => '<span class="text-white small">Solo disponible para gerente</span>',
+        'headerAside' => '<span class="text-white small">Disponible para roles autorizados</span>',
         'body' => $bodyGestionPendientes,
       ]);
       ?>
@@ -288,6 +298,9 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                             <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Aceptados', 'value' => (int) $pendienteCreado['total_aceptados']]) ?>
                             <?= component('summary-badge', ['tone' => 'rechazado', 'label' => 'Rechazados', 'value' => (int) $pendienteCreado['total_rechazados']]) ?>
                             <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Pendientes', 'value' => (int) $pendienteCreado['total_pendientes']]) ?>
+                            <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                              <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Formularios', 'value' => (int) $pendienteCreado['total_formularios_respondidos']]) ?>
+                            <?php endif; ?>
                           </div>
                         </div>
                       </div>
@@ -321,6 +334,16 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                           <span class="meta-pendiente">
                             Estado general: <?= (int) $pendienteCreado['estado'] === 1 ? 'Activo' : 'Inactivo' ?>
                           </span>
+                          <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                            <a
+                              class="document-link"
+                              href="FormulariosController.php?accion=respuestas&formulario_id=<?= (int) ($pendienteCreado['formulario_id'] ?? 0) ?>"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <i class="bi bi-ui-checks-grid"></i> Ver respuestas
+                            </a>
+                          <?php endif; ?>
                         </div>
                       </div>
 
@@ -363,10 +386,16 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                               <th>Usuario</th>
                               <th>Rol</th>
                               <th>Documento abierto</th>
+                              <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                                <th>Formulario</th>
+                              <?php endif; ?>
                               <th>PDF firmado</th>
                               <th>Estado</th>
                               <th>Fecha confirmacion</th>
                               <th>Observacion</th>
+                              <?php if ($puedeAdministrarPendientes): ?>
+                                <th>Accion</th>
+                              <?php endif; ?>
                             </tr>
                           </thead>
                           <tbody>
@@ -385,6 +414,18 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                                     <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Estado', 'value' => 'No']) ?>
                                   <?php endif; ?>
                                 </td>
+                                <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                                  <td>
+                                    <?php if ((int) ($usuarioPendiente['formulario_respondido'] ?? 0) === 1): ?>
+                                      <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Estado', 'value' => 'Respondido']) ?>
+                                      <?php if (!empty($usuarioPendiente['formulario_fecha_respuesta'])): ?>
+                                        <div class="meta-pendiente mt-1"><?= htmlspecialchars($usuarioPendiente['formulario_fecha_respuesta']) ?></div>
+                                      <?php endif; ?>
+                                    <?php else: ?>
+                                      <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Estado', 'value' => 'Sin responder']) ?>
+                                    <?php endif; ?>
+                                  </td>
+                                <?php endif; ?>
                                 <td>
                                   <?php if ($usuarioPendiente['pdf_firmado_ruta'] !== ''): ?>
                                     <a
@@ -416,6 +457,19 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                                 <td>
                                   <?= $usuarioPendiente['observacion'] !== '' ? htmlspecialchars($usuarioPendiente['observacion']) : '<span class="text-muted">Sin observacion</span>' ?>
                                 </td>
+                                <?php if ($puedeAdministrarPendientes): ?>
+                                  <td class="text-center">
+                                    <button
+                                      type="button"
+                                      class="btn btn-outline-danger btn-sm btn-eliminar-usuario-pendiente"
+                                      data-pendiente-id="<?= (int) $pendienteCreado['id'] ?>"
+                                      data-usuario-id="<?= (int) $usuarioPendiente['usuario_id'] ?>"
+                                      data-usuario-nombre="<?= htmlspecialchars($usuarioPendiente['usuario_nombre']) ?>"
+                                    >
+                                      <i class="bi bi-person-x"></i> Quitar
+                                    </button>
+                                  </td>
+                                <?php endif; ?>
                               </tr>
                             <?php endforeach; ?>
                           </tbody>
@@ -1454,6 +1508,56 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
             const mensaje = xhr.responseJSON && xhr.responseJSON.message
               ? xhr.responseJSON.message
               : 'No fue posible eliminar el pendiente.';
+
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: mensaje
+            });
+          }
+        });
+      });
+    });
+
+    $(document).on('click', '.btn-eliminar-usuario-pendiente', function () {
+      const pendienteId = $(this).data('pendiente-id');
+      const usuarioId = $(this).data('usuario-id');
+      const nombreUsuario = $(this).data('usuario-nombre');
+
+      Swal.fire({
+        icon: 'warning',
+        title: 'Quitar persona',
+        text: 'Se retirara a ' + nombreUsuario + ' de este pendiente.',
+        showCancelButton: true,
+        confirmButtonText: 'Si, quitar',
+        cancelButtonText: 'Cancelar'
+      }).then(function (resultado) {
+        if (!resultado.isConfirmed) {
+          return;
+        }
+
+        $.ajax({
+          url: 'PendientesController.php',
+          type: 'POST',
+          dataType: 'json',
+          data: {
+            accion: 'eliminar_usuario_pendiente',
+            pendiente_id: pendienteId,
+            usuario_id: usuarioId
+          },
+          success: function (respuesta) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Persona retirada',
+              text: respuesta.message
+            }).then(function () {
+              location.reload();
+            });
+          },
+          error: function (xhr) {
+            const mensaje = xhr.responseJSON && xhr.responseJSON.message
+              ? xhr.responseJSON.message
+              : 'No fue posible retirar a la persona seleccionada.';
 
             Swal.fire({
               icon: 'error',

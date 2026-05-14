@@ -259,7 +259,8 @@ $va=0;
 			$pdf->SetFillColor(255, 255, 255);
 			$pdf->SetDrawColor($colorOscuro[0], $colorOscuro[1], $colorOscuro[2]);
 			$pdf->SetLineWidth(0.8);
-			$pdf->RoundedRect(1.2, 1.2, 117.6, 67.6, 3.5, 'D');
+			// $pdf->RoundedRect(1.2, 1.2, 117.6, 67.6, 3.5, 'D');
+			$pdf->RoundedRect(3.0, 1.2, 115.8, 67.6, 3.5, 'D');
 
 			$pdf->SetFillColor(255, 255, 255);
 			$pdf->RoundedRect(82.5, 7, 34, 34, 2, 'D');
