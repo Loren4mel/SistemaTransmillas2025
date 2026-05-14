@@ -718,25 +718,62 @@
     }
 
     /**
-     * Valida que no haya documentos del vehículo vencidos.
-     * Retorna true si puede continuar, false si está bloqueado.
+     * Muestra una alerta grande si hay documentos del vehículo vencidos.
+     * Permite continuar con el guardado después de que el usuario reconozca la advertencia.
      */
-    function validarDocumentosVehiculo() {
+    async function validarDocumentosVehiculo() {
         if (hayDocumentosVencidos()) {
-            Swal.fire({
-                title: 'Preoperacional bloqueado',
-                html: 'Hay documentos del vehículo vencidos (licencia, seguro o tecnicomecánica).<br><br>' +
-                    'Por favor, actualice los documentos o comuníquese con el jefe de operaciones para registrar los datos actualizados.',
+            // Construir lista de alertas para mostrar en el modal
+            var alertasEl = document.getElementById('vehiculo_alertas');
+            var listaAlertas = '';
+            if (alertasEl && alertasEl.value) {
+                try {
+                    var alertas = JSON.parse(alertasEl.value);
+                    for (var i = 0; i < alertas.length; i++) {
+                        var a = alertas[i];
+                        var texto = '';
+                        if (a.dias < 0) {
+                            texto = a.nombre + ': <span style="color:#dc3545;font-weight:bold;">EXPIRADA hace ' + Math.abs(a.dias) + ' días</span>';
+                        } else if (a.dias <= 7) {
+                            texto = a.nombre + ': <span style="color:#dc3545;">expira en ' + a.dias + ' días</span>';
+                        } else if (a.dias <= 30) {
+                            texto = a.nombre + ': <span style="color:#ff9800;">expira en ' + a.dias + ' días</span>';
+                        } else {
+                            texto = a.nombre + ': ' + a.fecha + ' (' + a.dias + ' días)';
+                        }
+                        listaAlertas += '<li style="margin-bottom:6px;">' + texto + '</li>';
+                    }
+                } catch(e) {}
+            }
+
+            await Swal.fire({
+                title: '<span style="font-size:1.4em;">ATENCIÓN: Documentos del vehículo vencidos</span>',
+                html: '<div style="font-size:1.05em; line-height:1.7; text-align:left;">' +
+                    '<p style="margin-bottom:12px;">Se han detectado <strong>documentos vencidos</strong> del vehículo (licencia, seguro o tecnicomecánica).</p>' +
+                    '<p style="margin-bottom:12px;">El preoperacional <strong>se registrará de todos modos</strong>, pero es indispensable que actualice los documentos cuanto antes.</p>' +
+                    (listaAlertas ? '<div style="background:#fffbf0; border:1px solid #ff9800; border-radius:10px; padding:14px 18px; margin:12px 0;">' +
+                        '<strong style="color:#7a5200;">Documentos con alerta:</strong>' +
+                        '<ul style="margin:8px 0 0 0; padding-left:18px; list-style:none;">' + listaAlertas + '</ul></div>' : '') +
+                    '<p style="margin-top:12px; color:#dc3545;"><em>Comuníquese con el jefe de operaciones para actualizar los documentos.</em></p>' +
+                    '</div>',
                 icon: 'warning',
-                confirmButtonText: 'Entendido'
+                confirmButtonText: 'Entendido, continuar de todos modos',
+                confirmButtonColor: '#ff9800',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                width: '42em',
+                customClass: {
+                    title: 'swal-title-large',
+                    popup: 'swal-popup-large'
+                }
             });
-            return false;
         }
-        return true;
     }
 
     /**
-     * Deshabilita el botón de guardar si hay respuestas negativas del conductor o documentos vencidos
+     * Actualiza el estado del botón de guardar:
+     * - Se deshabilita solo si hay respuestas negativas del conductor.
+     * - Si hay documentos vencidos, se muestra una advertencia debajo del botón pero se permite guardar.
      */
     function actualizarBotonGuardar() {
         var btn = document.getElementById('btnGuardar');
@@ -749,16 +786,12 @@
             return;
         }
 
-        var motivoBloqueo = '';
-        if (hayDocumentosVencidos()) {
-            motivoBloqueo = 'No se puede guardar: hay documentos del vehículo vencidos (licencia, seguro o tecnicomecánica).';
-        } else if (hayRespuestaNegativa()) {
-            motivoBloqueo = 'No se puede guardar: hay respuestas que impiden realizar el preoperacional';
-        }
+        var bloquearPorConductor = hayRespuestaNegativa();
+        var alertaVencidos = hayDocumentosVencidos();
 
-        if (motivoBloqueo) {
+        if (bloquearPorConductor) {
             btn.disabled = true;
-            btn.title = motivoBloqueo;
+            btn.title = 'No se puede guardar: hay respuestas que impiden realizar el preoperacional';
             btn.style.opacity = '0.5';
             btn.style.cursor = 'not-allowed';
 
@@ -769,9 +802,34 @@
                 alertaEl.className = 'btn-guardar-alerta';
                 btn.parentNode.insertBefore(alertaEl, btn.nextSibling);
             }
+            if (alertaVencidos) {
+                alertaEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' +
+                    'Hay documentos del vehículo vencidos y respuestas que impiden realizar el preoperacional. ' +
+                    'Comuníquese con el jefe de operaciones.';
+            } else {
+                alertaEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' +
+                    'Por favor, comuníquese con el jefe de operaciones / oficina, ' +
+                    'actualmente no se puede realizar el preoperacional si presenta complicaciones.';
+            }
+            alertaEl.style.display = '';
+        } else if (alertaVencidos) {
+            // Documentos vencidos: botón habilitado, pero con advertencia visible
+            btn.disabled = false;
+            btn.title = 'Hay documentos del vehículo vencidos. Puede guardar, pero debe actualizarlos cuanto antes.';
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+
+            var alertaEl = document.getElementById('btnGuardarAlerta');
+            if (!alertaEl) {
+                alertaEl = document.createElement('div');
+                alertaEl.id = 'btnGuardarAlerta';
+                alertaEl.className = 'btn-guardar-alerta btn-guardar-alerta-vencidos';
+                btn.parentNode.insertBefore(alertaEl, btn.nextSibling);
+            }
+            alertaEl.className = 'btn-guardar-alerta btn-guardar-alerta-vencidos';
             alertaEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' +
-                'Por favor, comuníquese con el jefe de operaciones / oficina, ' +
-                'actualmente no se puede realizar el preoperacional si presenta complicaciones.';
+                'Hay documentos del vehículo vencidos. Puede guardar el preoperacional, ' +
+                'pero debe actualizar los documentos cuanto antes.';
             alertaEl.style.display = '';
         } else {
             btn.disabled = false;
@@ -827,17 +885,15 @@
         if (!form) {
             return;
         }
-        form.addEventListener('submit', function (e) {
+        form.addEventListener('submit', async function (e) {
             e.preventDefault();
 
             var esValidacion = (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION);
 
             // En modo validación, omitir validaciones de checkboxes, fotos, firma y ubicación
             if (!esValidacion) {
-                // Validar documentos del vehículo (licencia, seguro, tecnicomecánica)
-                if (!validarDocumentosVehiculo()) {
-                    return;
-                }
+                // Mostrar advertencia si hay documentos del vehículo vencidos (permite continuar)
+                await validarDocumentosVehiculo();
 
                 // Validar respuestas negativas del conductor (bloquea el preoperacional)
                 if (!validarRespuestasConductor()) {

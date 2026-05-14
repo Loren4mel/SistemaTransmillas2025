@@ -924,6 +924,22 @@
     margin-right: 4px;
 }
 
+/* Variante para advertencia de documentos vencidos (permite guardar) */
+.btn-guardar-alerta-vencidos {
+    background: #fffbf0;
+    border: 2px solid #ff9800;
+    color: #7a5200;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 16px 20px;
+    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.2);
+}
+
+.btn-guardar-alerta-vencidos i {
+    color: #ff9800;
+    font-size: 16px;
+}
+
 /* ==================== ALERTAS DE DOCUMENTOS DEL VEHÍCULO ==================== */
 
 .alerta-wrapper {
@@ -991,41 +1007,49 @@
     position: relative;
 }
 
-/* ==================== BANNER DE BLOQUEO POR DOCUMENTOS VENCIDOS ==================== */
+/* ==================== BANNER DE ADVERTENCIA POR DOCUMENTOS VENCIDOS ==================== */
 
-.vehiculo-bloqueo-banner {
-    background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
-    border: 2px solid #dc3545;
-    border-radius: 14px;
-    padding: 20px 24px;
-    margin-bottom: 20px;
+.vehiculo-vencidos-banner {
+    background: linear-gradient(135deg, #fffbf0 0%, #fff3cd 100%);
+    border: 3px solid #ff9800;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
     display: flex;
     align-items: flex-start;
-    gap: 16px;
+    gap: 20px;
     animation: fadeInWarning 0.4s ease;
+    box-shadow: 0 6px 24px rgba(255, 152, 0, 0.25);
 }
 
-.vehiculo-bloqueo-banner .vehiculo-bloqueo-icon {
+.vehiculo-vencidos-banner .vehiculo-vencidos-icon {
     flex-shrink: 0;
-    font-size: 28px;
-    color: #dc3545;
+    font-size: 40px;
+    color: #ff9800;
     margin-top: 2px;
+    animation: pulseExpired 2s infinite;
 }
 
-.vehiculo-bloqueo-banner .vehiculo-bloqueo-content strong {
+.vehiculo-vencidos-banner .vehiculo-vencidos-content strong {
     display: block;
-    color: #721c24;
+    color: #7a5200;
+    font-size: 20px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.vehiculo-vencidos-banner .vehiculo-vencidos-content p {
+    margin: 0 0 10px;
+    color: #7a5200;
     font-size: 16px;
-    margin-bottom: 4px;
+    line-height: 1.6;
 }
 
-.vehiculo-bloqueo-banner .vehiculo-bloqueo-content p {
-    margin: 0 0 8px;
-    color: #721c24;
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.vehiculo-bloqueo-banner .vehiculo-bloqueo-alertas {
-    margin-top: 8px;
+.vehiculo-vencidos-banner .vehiculo-vencidos-alertas {
+    margin-top: 12px;
+    padding: 14px 18px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 152, 0, 0.3);
 }

@@ -145,19 +145,19 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                         <input type="hidden" name="tipo_vehiculo" value="<?= htmlspecialchars($tipovehiculo) ?>">
                         <input type="hidden" name="param3" value="<?= htmlspecialchars($tipovehiculo) ?>">
                         <input type="hidden" name="formato_encuesta" id="formato_encuesta" value="<?= $usarNuevoFormato ? 'nuevo' : 'legado' ?>">
-                        <input type="hidden" name="vehiculo_bloquear" id="vehiculo_bloquear" value="<?= $bloquearGuardado ? '1' : '0' ?>">
+                        <input type="hidden" name="vehiculo_bloquear" id="vehiculo_bloquear" value="<?= $mostrarAlertaVencidos ? '1' : '0' ?>">
                         <input type="hidden" name="vehiculo_alertas" id="vehiculo_alertas" value="<?= htmlspecialchars(json_encode($estadoDocumentos['alertas'] ?? [])) ?>">
-                        <!-- Banner de bloqueo por documentos vencidos -->
-                        <?php if ($bloquearGuardado): ?>
-                        <div id="vehiculo-bloqueo-banner" class="vehiculo-bloqueo-banner">
-                            <div class="vehiculo-bloqueo-icon">
+                        <!-- Banner de advertencia por documentos vencidos -->
+                        <?php if ($mostrarAlertaVencidos): ?>
+                        <div id="vehiculo-vencidos-banner" class="vehiculo-vencidos-banner">
+                            <div class="vehiculo-vencidos-icon">
                                 <i class="fas fa-exclamation-triangle"></i>
                             </div>
-                            <div class="vehiculo-bloqueo-content">
-                                <strong>No se puede realizar el preoperacional</strong>
-                                <p>Hay documentos del vehículo vencidos (licencia, seguro o tecnicomecánica). Por favor, actualice los documentos o comuníquese con el jefe de operaciones para registrar los datos actualizados.</p>
+                            <div class="vehiculo-vencidos-content">
+                                <strong>ATENCIÓN: Hay documentos del vehículo vencidos</strong>
+                                <p>Se han detectado documentos vencidos (licencia, seguro o tecnicomecánica). El preoperacional puede registrarse, pero <strong>debe actualizar los documentos cuanto antes</strong>. Comuníquese con el jefe de operaciones para registrar los datos actualizados.</p>
                                 <?php if (!empty($alertasVehiculoHtml)): ?>
-                                <div class="vehiculo-bloqueo-alertas"><?= $alertasVehiculoHtml ?></div>
+                                <div class="vehiculo-vencidos-alertas"><?= $alertasVehiculoHtml ?></div>
                                 <?php endif; ?>
                             </div>
                         </div>

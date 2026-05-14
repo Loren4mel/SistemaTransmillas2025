@@ -74,20 +74,6 @@ class PreoperacionalService
             }
         }
 
-        // Validar documentos del vehículo (solo para nuevos registros, no validación)
-        if ($idPre === 0 && $idVehiculo > 0) {
-            $datosVehiculo = $this->model->obtenerDatosVehiculoYUsuario($idUsuario, $idVehiculo);
-            if ($datosVehiculo) {
-                $estadoDocs = $this->getEstadoDocumentosVehiculo($datosVehiculo);
-                if ($estadoDocs['bloquear']) {
-                    return [
-                        'success' => false,
-                        'message' => 'No se puede realizar el preoperacional: hay documentos del vehículo vencidos (licencia, seguro o tecnicomecánica). Por favor, actualice los documentos o comuníquese con el jefe de operaciones.'
-                    ];
-                }
-            }
-        }
-
         // Procesar imágenes
         $imagenKilo = $this->procesarImagenKilometraje($files);
         $imagenInspeccion = $this->procesarImagenInspeccionInicial($files, $dataJson);
@@ -300,7 +286,7 @@ class PreoperacionalService
             'alertas' => $alertas,
             'expired' => $expired,
             'max_severity' => $maxSeverity,
-            'bloquear' => $expired
+            'bloquear' => false
         ];
     }
 
