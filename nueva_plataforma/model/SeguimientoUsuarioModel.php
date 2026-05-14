@@ -898,7 +898,9 @@ class SeguimientoUsuarioModel
         if (empty($row['idpreoperacinal']))
             return '';
         $estado = $row['preestado'];
-        if (in_array($estado, ['No aplica', 'descanso', 'vacaciones']))
+        if ($estado === 'No aplica')
+            return htmlspecialchars($row['seg_motivo'] ?: $estado);
+        if (in_array($estado, ['descanso', 'vacaciones']))
             return $estado;
         $url = $this->buildPreoperacionalUrl($row);
         return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>$estado</a>";
