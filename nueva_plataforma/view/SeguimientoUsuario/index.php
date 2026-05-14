@@ -220,11 +220,6 @@
                         <button type="button" class="btn btn-info btn-lg" onclick="abrirModalLicencias()">
                             <i class="fas fa-file-medical"></i> + Licencias y permisos
                         </button>
-                        <?php if ($_SESSION['usuario_rol'] == 1 || $_SESSION['usuario_rol'] == 12): ?>
-                            <!-- <button type="button" class="btn btn-primary btn-lg" onclick="abrirModalIngreso()">
-                                <i class="fas fa-user-plus"></i> Ingreso manual
-                            </button> -->
-                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -321,21 +316,6 @@
     </div>
 
     <!-- MODALES -->
-
-    <!-- Modal Ingreso (SeguimientoUser) -->
-    <div class="modal fade" id="modalIngreso" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Registrar ingreso de operario</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="ingresoModalBody">
-                    <!-- Se cargará vía AJAX -->
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Modal Festivos (día de descanso para todos) -->
     <div class="modal fade" id="modalFestivos" tabindex="-1">

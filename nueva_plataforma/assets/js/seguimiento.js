@@ -126,19 +126,18 @@
 
     // ==================== CARGA DE OPERARIOS Y ZONAS ====================
 
-    /** Carga operarios en un <select> (con o sin Select2) */
+    /** Carga operarios en un <select> (con o sin Select2).
+     *  Si no se especifica sede, carga todos los operarios. */
     function cargarOperarios(selectId, sedeId, placeholder, useSelect2) {
         placeholder = placeholder || 'Seleccione';
         var $select = $(selectId);
         if (!$select.length) return;
 
-        if (!sedeId) {
-            $select.html('<option value="">' + placeholder + '</option>');
-            if (useSelect2) initSelect2($select, placeholder);
-            return;
-        }
+        var params = (sedeId && sedeId > 0)
+            ? { accion: 'get_operarios', idsede: sedeId }
+            : { accion: 'get_all_operarios' };
 
-        $.get(dirPage, { accion: 'get_operarios', idsede: sedeId }, function (data) {
+        $.get(dirPage, params, function (data) {
             var options = '<option value="">' + placeholder + '</option>';
             if (Array.isArray(data)) {
                 data.forEach(function (op) {
@@ -287,6 +286,9 @@
             cargarOperarios('#lic_operario', sede, 'Seleccione', true);
         });
 
+        // Carga inicial del select de operarios del filtro
+        cargarOperarios('#operario', $('#sede').val(), 'Todos', false);
+
         // Deuda al seleccionar operario
         $('#operario').on('change', function () {
             var id = $(this).val();
@@ -302,13 +304,6 @@
         });
 
         // --- Carga de modales principales ---
-        cargarModalBody('#modalIngreso', '#ingresoModalBody', 'ingreso_manual', {}, function () {
-            var sedeInicial = $('#ing_sede').val();
-            cargarOperarios('#ing_operario', sedeInicial, 'Seleccione operario', true);
-            cargarZonas('#ing_zona', sedeInicial, 'Seleccione zona', true);
-            initHorasFieldPopup();
-        });
-
         cargarModalBody('#modalFestivos', '#festivosModalBody', 'festivos');
 
         cargarModalBody('#modalVacaciones', '#vacacionesModalBody', 'vacaciones', {}, function () {
@@ -327,7 +322,7 @@
         });
 
         // Destruir Select2 al cerrar modales
-        $('#modalVacaciones, #modalLicencias, #modalIngreso, #popupModal').on('hidden.bs.modal', function () {
+        $('#modalVacaciones, #modalLicencias, #popupModal').on('hidden.bs.modal', function () {
             $(this).find('select').each(function () {
                 if ($(this).data('select2')) {
                     $(this).select2('destroy');
@@ -459,7 +454,6 @@
         });
     }
 
-    function abrirModalIngreso() { $('#modalIngreso').modal('show'); }
     function abrirModalFestivos() { $('#modalFestivos').modal('show'); }
     function abrirModalVacaciones() { $('#modalVacaciones').modal('show'); }
     function abrirModalLicencias() { $('#modalLicencias').modal('show'); }
@@ -498,8 +492,6 @@
         }
         enviarForm($('#formLicencias'), { modalId: '#modalLicencias' });
     }
-    function guardarIngreso()    { enviarForm($('#formIngreso'), { formData: true, modalId: '#modalIngreso' }); }
-
     /** Motivos que NO representan inicio real de jornada y no requieren zona */
     var motivosSinZona = [
         'No trabajo', 'Sancionado', 'Incapacidad', 'Se devolvio',
@@ -560,7 +552,7 @@
             'hora_almuerzo': 'Hora almuerzo', 'retorno_almuerzo': 'Retorno almuerzo',
             'retorno_oficina': 'Retorno oficina', 'festivos': 'Festivos',
             'vacaciones': 'Vacaciones', 'licencias': 'Licencias',
-            'ingreso_manual': 'Ingreso manual', 'ingreso': 'Ingreso'
+            'ingreso': 'Ingreso'
         };
         $('#popupModal .modal-title').text(titulos[tipo] || ('Editando: ' + tipo));
         $('#popupModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
@@ -607,14 +599,12 @@
     // Exponer funciones globales
     window.eliminarRegistro = eliminarRegistro;
     window.recargarTabla = recargarTabla;
-    window.abrirModalIngreso = abrirModalIngreso;
     window.abrirModalFestivos = abrirModalFestivos;
     window.abrirModalVacaciones = abrirModalVacaciones;
     window.abrirModalLicencias = abrirModalLicencias;
     window.guardarFestivos = guardarFestivos;
     window.guardarVacaciones = guardarVacaciones;
     window.guardarLicencias = guardarLicencias;
-    window.guardarIngreso = guardarIngreso;
     window.abrirPopup = abrirPopup;
     window.verDocumento = verDocumento;
     window.abrirValidacionPreoperacional = abrirValidacionPreoperacional;

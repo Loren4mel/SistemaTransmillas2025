@@ -213,6 +213,25 @@ $layout_profile = false;
                 box-shadow: 1px 1px 1px gray;
             }
 
+            /* Pulsado para notificacion "Sin ingreso" con preoperacionales sin validar */
+            li.sin-ingreso-pulso a {
+                animation: pulsoFondoRojo 0.8s ease-in-out infinite;
+            }
+
+            @keyframes pulsoFondoRojo {
+                0%, 100% { background-color: inherit; }
+                50%      { background-color: #dc3545; }
+            }
+
+            li.sin-ingreso-pulso .noti_bubble {
+                animation: pulsoAlerta 0.8s ease-in-out infinite;
+            }
+
+            @keyframes pulsoAlerta {
+                0%, 100% { transform: scale(0.90); opacity: 0.6; }
+                50%      { transform: scale(1.12); opacity: 1.0;  }
+            }
+
             .alerta-flotante {
             position: fixed;
             top: 20px;
@@ -410,6 +429,55 @@ function iniciarNotificaciones(tipo){
         buscarnotificaciones(tipo);
     }, 1200000);
 }
+
+// ==================== POLLING LIGERO: PREOPERACIONALES SIN VALIDAR ====================
+var pulsoPrevalidarActivo = false;
+var timerPrevalidar = null;
+
+function verificarPreoperacionalesSinValidar() {
+    fetch('consulta_prevalidar.php', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.authorized && data.count > 0) {
+                aplicarPulsoSinIngreso();
+                sessionStorage.setItem('pulso_prevalidar_activo', 'true');
+            } else if (data.authorized && data.count === 0 && pulsoPrevalidarActivo) {
+                detenerPulsoSinIngreso();
+            }
+        });
+}
+
+function aplicarPulsoSinIngreso() {
+    pulsoPrevalidarActivo = true;
+    var el = document.getElementById('notif230');
+    if (el) {
+        var li = el.closest('li');
+        if (li) li.classList.add('sin-ingreso-pulso');
+        var bubble = el.querySelector('.noti_bubble');
+        if (bubble) bubble.classList.add('pulsando');
+    }
+}
+
+function detenerPulsoSinIngreso() {
+    pulsoPrevalidarActivo = false;
+    sessionStorage.removeItem('pulso_prevalidar_activo');
+    var el = document.getElementById('notif230');
+    if (el) {
+        var li = el.closest('li');
+        if (li) li.classList.remove('sin-ingreso-pulso');
+        var bubble = el.querySelector('.noti_bubble');
+        if (bubble) bubble.classList.remove('pulsando');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var linkSinIngreso = document.querySelector('a[href="seguimientouser.php"]');
+    if (linkSinIngreso) {
+        linkSinIngreso.addEventListener('click', function() {
+            detenerPulsoSinIngreso();
+        });
+    }
+});
 
 // function buscarnotificaciones(tipo){
 
@@ -1308,6 +1376,18 @@ function procesarSeguimiento($id_usuario, $DB, $DB1) {
 //         iniciarNotificaciones(1);
 //     }, 2000);
 // });
+</script>
+<?php } ?>
+
+<?php if($nivel_acceso==1 or $nivel_acceso==12){ ?>
+<script>
+(function() {
+    if (sessionStorage.getItem('pulso_prevalidar_activo') === 'true') {
+        aplicarPulsoSinIngreso();
+    }
+    verificarPreoperacionalesSinValidar();
+    timerPrevalidar = setInterval(verificarPreoperacionalesSinValidar, 15000);
+})();
 </script>
 <?php } ?>
 

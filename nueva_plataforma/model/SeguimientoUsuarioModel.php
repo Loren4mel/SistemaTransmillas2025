@@ -94,10 +94,9 @@ class SeguimientoUsuarioModel
     /**
      * Obtiene los motivos de ingreso (para filtros y selects).
      *
-     * @param string $tipo (no utilizado actualmente)
      * @return array
      */
-    public function getMotivosIngreso(string $tipo = 'todos'): array
+    public function getMotivosIngreso(): array
     {
         return $this->getMotivosIngresoArray();
     }
@@ -121,10 +120,14 @@ class SeguimientoUsuarioModel
      */
     public function getTiposContrato(): array
     {
-        return [
-            ['id' => 'Empresa', 'nombre' => 'Empresa'],
-            ['id' => 'Prestacion de servicios', 'nombre' => 'Prestación de servicios']
-        ];
+        $sql = "SELECT DISTINCT usu_tipocontrato FROM usuarios WHERE usu_tipocontrato IS NOT NULL AND usu_tipocontrato != '' AND usu_estado = 1 AND usu_filtro = 1 AND roles_idroles != 6 ORDER BY usu_tipocontrato";
+        $result = $this->db->query($sql);
+        if (!$result) return [];
+        $tipos = [];
+        while ($row = $result->fetch_assoc()) {
+            $tipos[] = ['id' => $row['usu_tipocontrato'], 'nombre' => $row['usu_tipocontrato']];
+        }
+        return $tipos;
     }
 
     /**
@@ -527,26 +530,8 @@ class SeguimientoUsuarioModel
             }
         }
 
-        // 8. Precargar relaciones en caché
-        $this->cargarRelacionesEnLote($allData);
-
-        // 9. Enriquecer filas
-        foreach ($allData as &$row) {
-            $row = $this->enriquecerFila($row);
-        }
-
-        // 10. Ordenar por prioridad y nombre
-        usort($allData, function ($a, $b) {
-            $prioridadA = $this->getPrioridadOrden($a);
-            $prioridadB = $this->getPrioridadOrden($b);
-            if ($prioridadA != $prioridadB) {
-                return $prioridadA <=> $prioridadB;
-            }
-            return strcmp($a['usu_nombre'], $b['usu_nombre']);
-        });
-
-        // 11. Paginar
-        return array_slice($allData, $start, $length);
+        // 8. Procesar, enriquecer, ordenar y paginar
+        return $this->procesarResultadosDataTable($allData, $start, $length);
     }
 
     /**
@@ -607,10 +592,24 @@ class SeguimientoUsuarioModel
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
+        // Procesar, enriquecer, ordenar y paginar
+        return $this->procesarResultadosDataTable($rows, $start, $length);
+    }
+
+    /**
+     * Procesa las filas de resultado: precarga relaciones, enriquece, ordena y pagina.
+     *
+     * @param array $rows
+     * @param int $start
+     * @param int $length
+     * @return array
+     */
+    private function procesarResultadosDataTable(array $rows, int $start, int $length): array
+    {
         // Precargar relaciones en caché
         $this->cargarRelacionesEnLote($rows);
 
-        // Enriquecer
+        // Enriquecer filas
         foreach ($rows as &$row) {
             $row = $this->enriquecerFila($row);
         }
@@ -648,6 +647,22 @@ class SeguimientoUsuarioModel
     }
 
     /**
+     * Precarga genérica de datos en lote evitando N+1.
+     * Ejecuta la consulta SQL y puebla el cache con el callback.
+     */
+    private function cargarCacheEnLote(array $ids, string $sql, callable $populateFn): void
+    {
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->db->prepare(str_replace('__PLACEHOLDERS__', $placeholders, $sql));
+        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $populateFn($row);
+        }
+    }
+
+    /**
      * Carga en lote los datos de vehículos, zonas y compañeros para evitar N+1.
      *
      * @param array $rows Referencia a las filas
@@ -671,68 +686,29 @@ class SeguimientoUsuarioModel
         }
 
         if (!empty($vehiculoIds)) {
-            $this->cargarVehiculosCache(array_unique($vehiculoIds));
+            $vehiculoIds = array_unique($vehiculoIds);
+            $this->cargarCacheEnLote($vehiculoIds,
+                "SELECT idvehiculos, veh_placa, veh_fechaseguro, veh_fechategnomecanica, veh_aceitekil, veh_kmalcambaceite, veh_kilactual
+                 FROM vehiculos WHERE idvehiculos IN (__PLACEHOLDERS__)",
+                function ($row) {
+                    $this->vehiculosCache[$row['idvehiculos']] = $row;
+                });
         }
         if (!empty($zonaIds)) {
-            $this->cargarZonasCache(array_unique($zonaIds));
+            $zonaIds = array_unique($zonaIds);
+            $this->cargarCacheEnLote($zonaIds,
+                "SELECT idzonatrabajo, zon_nombre FROM zonatrabajo WHERE idzonatrabajo IN (__PLACEHOLDERS__)",
+                function ($row) {
+                    $this->zonasCache[$row['idzonatrabajo']] = $row['zon_nombre'];
+                });
         }
         if (!empty($companeroIds)) {
-            $this->cargarCompanerosCache(array_unique($companeroIds));
-        }
-    }
-
-    /**
-     * Precarga vehículos en caché.
-     *
-     * @param array $ids
-     */
-    private function cargarVehiculosCache(array $ids): void
-    {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT idvehiculos, veh_placa, veh_fechaseguro, veh_fechategnomecanica, veh_aceitekil, veh_kmalcambaceite, veh_kilactual
-                FROM vehiculos WHERE idvehiculos IN ($placeholders)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $this->vehiculosCache[$row['idvehiculos']] = $row;
-        }
-    }
-
-    /**
-     * Precarga zonas en caché.
-     *
-     * @param array $ids
-     */
-    private function cargarZonasCache(array $ids): void
-    {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT idzonatrabajo, zon_nombre FROM zonatrabajo WHERE idzonatrabajo IN ($placeholders)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $this->zonasCache[$row['idzonatrabajo']] = $row['zon_nombre'];
-        }
-    }
-
-    /**
-     * Precarga compañeros (usuarios) en caché.
-     *
-     * @param array $ids
-     */
-    private function cargarCompanerosCache(array $ids): void
-    {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT idusuarios, usu_nombre FROM usuarios WHERE idusuarios IN ($placeholders)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $this->companerosCache[$row['idusuarios']] = $row['usu_nombre'];
+            $companeroIds = array_unique($companeroIds);
+            $this->cargarCacheEnLote($companeroIds,
+                "SELECT idusuarios, usu_nombre FROM usuarios WHERE idusuarios IN (__PLACEHOLDERS__)",
+                function ($row) {
+                    $this->companerosCache[$row['idusuarios']] = $row['usu_nombre'];
+                });
         }
     }
 
@@ -1443,7 +1419,7 @@ class SeguimientoUsuarioModel
      */
     public function insertarLicencia(array $data, int $idUsuario): bool
     {
-        return $this->insertarRangoFechas($data['operario'], $data['fecha_ini'], $data['fecha_fin'], $data['motivo'], $data['descripcion'], $data['motivo'], $idUsuario);
+        return $this->insertarRangoFechas($data['operario'], $data['fecha_ini'], $data['fecha_fin'], $data['motivo'], $data['descripcion'], 'No aplica', $idUsuario);
     }
 
     /**
@@ -1714,18 +1690,23 @@ class SeguimientoUsuarioModel
     }
 
     /**
-     * Obtiene el ID del documento más reciente para un registro (consulta base compartida).
+     * Obtiene el ID del documento más reciente para un registro.
      *
-     * @param int $idViene
+     * @param int|null $idViene
      * @param string $tabla
      * @param int $version
+     * @param bool $soloConArchivo Solo documentos con archivo físico (doc_ruta != '')
      * @return int|null
      */
-    private function getDocumentoId(int $idViene, string $tabla, int $version): ?int
+    private function obtenerDocumentoId(?int $idViene, string $tabla, int $version, bool $soloConArchivo = false): ?int
     {
+        if (!$idViene) return null;
         $sql = "SELECT iddocumentos FROM documentos
-                WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ?
-                ORDER BY doc_fecha DESC LIMIT 1";
+                WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ?";
+        if ($soloConArchivo) {
+            $sql .= " AND doc_ruta != ''";
+        }
+        $sql .= " ORDER BY doc_fecha DESC LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("isi", $idViene, $tabla, $version);
         $stmt->execute();
@@ -1738,28 +1719,12 @@ class SeguimientoUsuarioModel
      */
     private function generarLinkDocumento(string $tabla, int $idViene, int $version, string $texto): string
     {
-        $id = $this->getDocumentoId($idViene, $tabla, $version);
+        $id = $this->obtenerDocumentoId($idViene, $tabla, $version);
         if ($id) {
             $url = "?accion=ver_documento&id=" . $id;
             return "<a href='#' onclick='window.open(\"$url\", \"_blank\")'><img src='img/icono_documento.png' width='35'> $texto</a>";
         }
         return '';
-    }
-
-    /**
-     * Obtiene el ID del documento más reciente que tenga archivo físico (doc_ruta no vacío).
-     */
-    private function obtenerDocumentoId(?int $idViene, string $tabla, int $version): ?int
-    {
-        if (!$idViene) return null;
-        $sql = "SELECT iddocumentos FROM documentos
-                WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ? AND doc_ruta != ''
-                ORDER BY doc_fecha DESC LIMIT 1";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("isi", $idViene, $tabla, $version);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        return $row ? (int) $row['iddocumentos'] : null;
     }
 
     /**
