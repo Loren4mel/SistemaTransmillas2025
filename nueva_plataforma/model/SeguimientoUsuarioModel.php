@@ -1340,10 +1340,21 @@ class SeguimientoUsuarioModel
         $stmt1->bind_param("issssi", $idOperario, $fechaHora, $motivo, $descripcion, $fechaStr, $idUsuario);
         $stmt1->execute();
 
-        $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, ?)";
-        $stmt2 = $this->db->prepare($sql2);
-        $stmt2->bind_param("sis", $fechaHora, $idOperario, $estadoPre);
-        $stmt2->execute();
+        $check = "SELECT idpreoperacinal FROM `pre-operacional` WHERE preidusuario = ? AND DATE(prefechaingreso) = ?";
+        $stmtCheck = $this->db->prepare($check);
+        $stmtCheck->bind_param("is", $idOperario, $fechaStr);
+        $stmtCheck->execute();
+        if ($stmtCheck->get_result()->num_rows > 0) {
+            $sqlUp = "UPDATE `pre-operacional` SET preestado = ? WHERE preidusuario = ? AND DATE(prefechaingreso) = ?";
+            $stmtUp = $this->db->prepare($sqlUp);
+            $stmtUp->bind_param("sis", $estadoPre, $idOperario, $fechaStr);
+            $stmtUp->execute();
+        } else {
+            $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, ?)";
+            $stmt2 = $this->db->prepare($sql2);
+            $stmt2->bind_param("sis", $fechaHora, $idOperario, $estadoPre);
+            $stmt2->execute();
+        }
     }
 
     /**

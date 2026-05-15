@@ -26,7 +26,7 @@ $DB->conectar();
 $sql = "SELECT COUNT(*)
         FROM `pre-operacional`
         WHERE prefechavalidacion IS NULL
-        AND preestado NOT IN ('No aplica', 'descanso', 'vacaciones', 'Licencia')
+        AND preestado IN ('pendiente', 'covid19', 'ingresado')
         AND prefechaingreso BETWEEN '$inicioDia' AND '$finDia'";
 $DB->Execute($sql);
 $count = (int) $DB->recogedato(0);
