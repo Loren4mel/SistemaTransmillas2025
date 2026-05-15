@@ -1005,7 +1005,7 @@ class SeguimientoUsuarioModel
     {
         if (!$fecha || $fecha === '0000-00-00')
             return '';
-        $documentoId = $this->obtenerDocumentoId($vehiculoId, 'vehiculos', $version);
+        $documentoId = $this->obtenerDocumentoId($vehiculoId, 'vehiculos', $version, true);
         $dias = $this->diasHasta($hoy, $fecha);
         $styledFecha = ($dias <= 3 && $dias >= 0) ? "<span style='background-color:#F39C12'>$fecha</span>" : $fecha;
         if ($documentoId) {
