@@ -18,7 +18,10 @@ class VehiculosModel {
     `veh_img_actual_frente`, `veh_img_actual_trasera`,
     IF(idusuarios = 14, 'Transmillas', usu_nombre) AS usu_nombre,
     (SELECT COUNT(*) FROM comparendos 
-     WHERE com_vehiculo_id = idvehiculos) AS total_comparendos
+     WHERE com_vehiculo_id = idvehiculos) AS total_comparendos,
+    (SELECT COUNT(*) FROM comparendos 
+     WHERE com_vehiculo_id = idvehiculos 
+     AND com_estado = 'Pendiente') AS comparendos_pendientes
      FROM `vehiculos` LEFT JOIN usuarios ON veh_dueño = idusuarios
      WHERE 1=1";
 
@@ -34,18 +37,19 @@ class VehiculosModel {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
     
+//Funcion para actualizar campos específicos (como estado) sin afectar otros datos del vehículo
     public function actualizarCampo($id, $campo, $valor) {
-        // Solo permitir actualizar el campo 'estado'
-        $permitidos = ['estado'];
-        if (!in_array($campo, $permitidos)) return;
+    $permitidos = ['veh_estado'];
+    if (!in_array($campo, $permitidos)) return;
 
-        $sql = "UPDATE usuarios SET $campo = ? WHERE idusuarios = ?";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("ii", $valor, $id);
-        $stmt->execute();
-        $stmt->close();
-    }
+    $sql = "UPDATE vehiculos SET $campo = ? WHERE idvehiculos = ?";
+    $stmt = $this->db->prepare($sql);
+    $stmt->bind_param("ii", $valor, $id);
+    $stmt->execute();
+    $stmt->close();
+}
 
+// Función para eliminar un vehículo por su ID
     public function eliminarVehiculo($id) {
         $sql = "DELETE FROM vehiculos WHERE idvehiculos = ?";
         $stmt = $this->db->prepare($sql);
@@ -53,7 +57,8 @@ class VehiculosModel {
         $stmt->execute();
         $stmt->close();
     }
-    
+
+//Funcion para guardar vehiculo nuevo con validación de fechas y manejo de imágenes
     public function guardarVehiculo($datos) {
     $fechas = ['veh_fechaseguro', 'veh_fechategnomecanica', 'veh_fechamantenimiento'];
     foreach ($fechas as $f) {
@@ -83,7 +88,6 @@ class VehiculosModel {
         return ['error' => 'Prepare falló: ' . $this->db->error];
     }
 
-    // 27 parámetros: i para veh_dueño, s para el resto
     $stmt->bind_param(
         "sssssssisssssssssssssssssss",
         $datos['veh_tipo'],
@@ -93,14 +97,14 @@ class VehiculosModel {
         $datos['veh_color'],
         $datos['veh_tipov'],
         $datos['veh_propiedad'],
-        $datos['veh_dueno'],             // i
+        $datos['veh_dueno'],             
         $datos['veh_fechaseguro'],
         $veh_img_soat,
         $datos['veh_fechategnomecanica'],
         $veh_img_tecnomecanica,
         $datos['veh_fechamantenimiento'],
         $datos['veh_kilactual'],
-        $datos['veh_kmactual_cambioaceite'], // NUEVO
+        $datos['veh_kmactual_cambioaceite'], 
         $datos['veh_calkmcambioaceite'],
         $datos['veh_chasis'],
         $datos['veh_motor'],
@@ -125,6 +129,7 @@ class VehiculosModel {
     return true;
 }
 
+//Funcion para guardar imagenes de entrega de vehículo con validación de usuario y hoja de vida
 private function guardarImagen(array $file, string $carpetaRelativa)
 {
     if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
@@ -175,7 +180,7 @@ private function guardarImagen(array $file, string $carpetaRelativa)
     return $carpetaRelativa . "/" . $nombre;
 }
 
-// Obtener lista de dueños activos para el dropdown
+// Funcion para obtener lista de dueños activos para el dropdown
 public function obtenerDueños() {
     $sql = "SELECT idusuarios AS iddueños, usu_nombre AS due_nombre 
             FROM usuarios 
@@ -186,6 +191,7 @@ public function obtenerDueños() {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+// Funcion para obtener un vehículo por su ID (para modal editar)
 public function obtenerVehiculoPorId($id) {
     $id    = intval($id);
     $sql   = "SELECT * FROM vehiculos WHERE idvehiculos = $id LIMIT 1";
@@ -193,6 +199,7 @@ public function obtenerVehiculoPorId($id) {
     return $result ? $result->fetch_assoc() : null;
 }
 
+//Funcion para actualizar vehículo con validación de fechas y manejo de imágenes
 public function actualizarVehiculo($datos) {
     $veh_img_soat           = $this->guardarImagen($_FILES['veh_img_soat'],           "uploads/vehiculos");
     $veh_img_tecnomecanica  = $this->guardarImagen($_FILES['veh_img_tecnomecanica'],  "uploads/vehiculos");
@@ -238,7 +245,6 @@ public function actualizarVehiculo($datos) {
 
     $stmt = $this->db->prepare($sql);
 
-    // 21 parámetros: s para todos
     $stmt->bind_param(
         "sssssssssssssssssssss",
         $datos['veh_tipo'],
@@ -253,7 +259,7 @@ public function actualizarVehiculo($datos) {
         $datos['veh_fechategnomecanica'],
         $datos['veh_fechamantenimiento'],
         $datos['veh_kilactual'],
-        $datos['veh_kmactual_cambioaceite'], // NUEVO
+        $datos['veh_kmactual_cambioaceite'], 
         $datos['veh_calkmcambioaceite'],
         $datos['veh_chasis'],
         $datos['veh_motor'],
@@ -269,6 +275,7 @@ public function actualizarVehiculo($datos) {
     return $resultado;
 }
 
+//Funcion para obtener operadores activos para el dropdown de entrega de vehículo
 public function obtenerOperadoresActivos() {
     $sql = "SELECT idusuarios, usu_nombre 
             FROM usuarios 
@@ -279,6 +286,7 @@ public function obtenerOperadoresActivos() {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+//Funcion para guardar entrega de vehículo con validación de usuario, hoja de vida y manejo de imágenes
 public function guardarEntregaVehiculo($datos) {
 
     $ent_img_frente  = $this->guardarImagen($_FILES['ent_img_frente'],  "uploads/vehiculos");
@@ -354,6 +362,7 @@ public function guardarEntregaVehiculo($datos) {
     return true;
 }
 
+//Funcion para obtener equipo de carretera de un vehículo por su ID (para mostrar en modal entrega)
 public function obtenerEquipoVehiculo($id) {
     $id     = intval($id);
     $sql    = "SELECT veh_equipo_carretera FROM vehiculos WHERE idvehiculos = $id LIMIT 1";
@@ -369,12 +378,16 @@ public function obtenerEquipoVehiculo($id) {
     return [];
 }
 
-// MODAL COMPARENDOS
-
+//Funcion para guardar comparendo con validación de usuario, hoja de vida y manejo de imágenes
 public function guardarComparendo($datos) {
     $com_foto = '';
     if (isset($_FILES['com_foto']) && is_uploaded_file($_FILES['com_foto']['tmp_name'])) {
         $com_foto = $this->guardarImagen($_FILES['com_foto'], 'uploads/comparendos');
+    }
+
+    $com_foto_curso = '';
+    if (isset($_FILES['com_foto_curso']) && is_uploaded_file($_FILES['com_foto_curso']['tmp_name'])) {
+        $com_foto_curso = $this->guardarImagen($_FILES['com_foto_curso'], 'uploads/comparendos');
     }
 
     $idHoja = null;
@@ -399,20 +412,27 @@ public function guardarComparendo($datos) {
         if ($rowH) $idHoja = $rowH['idhojadevida'];
     }
 
-    $sql  = "INSERT INTO comparendos
-             (com_operador_id, com_vehiculo_id, com_estado, com_foto, com_fecha, com_hojadevida_id)
-             VALUES (?, ?, ?, ?, ?, ?)";
+    $datos['com_valor'] = str_replace(['.', ','], ['', '.'], $datos['com_valor']);
+
+   $sql  = "INSERT INTO comparendos
+             (com_operador_id, com_vehiculo_id, com_estado, com_foto, com_fecha,
+             com_hojadevida_id, com_valor, com_numerocompa, com_titularcompa, com_foto_curso)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt = $this->db->prepare($sql);
     if (!$stmt) return ['error' => $this->db->error];
 
     $stmt->bind_param(
-        "iisssi",
+        "iisssissss",
         $datos['com_operador_id'],
         $datos['com_vehiculo_id'],
         $datos['com_estado'],
         $com_foto,
         $datos['com_fecha'],
-        $idHoja
+        $idHoja,
+        $datos['com_valor'],
+        $datos['com_numerocompa'],
+        $datos['com_titularcompa'],
+        $com_foto_curso
     );
 
     $ok = $stmt->execute();
@@ -421,6 +441,7 @@ public function guardarComparendo($datos) {
     return true;
 }
 
+//Funcion para obtener comparendos de un vehículo por su ID (para mostrar en modal comparendos)
 public function obtenerComparendosPorVehiculo($idVehiculo) {
     $id  = intval($idVehiculo);
     $sql = "SELECT c.*,
@@ -437,6 +458,7 @@ public function obtenerComparendosPorVehiculo($idVehiculo) {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+//Funcion para contar el número de comparendos de un operador por su ID (para mostrar en info hoja de vida)
 public function contarComparendosPorOperador($idOperador) {
     $id     = intval($idOperador);
     $sql    = "SELECT COUNT(*) AS total FROM comparendos WHERE com_operador_id = $id";
@@ -448,10 +470,47 @@ public function contarComparendosPorOperador($idOperador) {
     return 0;
 }
 
+//Funcion para obtener lista de sedes para el dropdown en entrega de vehículo (y posibles filtros futuros)
 public function obtenerSedes() {
     $sql = "SELECT idsedes, sed_nombre FROM sedes ORDER BY sed_nombre ASC";
     $result = $this->db->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+}
+
+//Funcion para actualizar comparendo con validación de usuario, hoja de vida y manejo de imágenes
+public function actualizarComparendo($datos) {
+    $com_foto = '';
+    if (isset($_FILES['com_foto']) && is_uploaded_file($_FILES['com_foto']['tmp_name'])) {
+        $com_foto = $this->guardarImagen($_FILES['com_foto'], 'uploads/comparendos');
+    }
+
+    $com_foto_curso = '';
+    if (isset($_FILES['com_foto_curso']) && is_uploaded_file($_FILES['com_foto_curso']['tmp_name'])) {
+        $com_foto_curso = $this->guardarImagen($_FILES['com_foto_curso'], 'uploads/comparendos');
+    }
+
+    $id      = intval($datos['com_id']);
+    $estado  = $this->db->real_escape_string($datos['com_estado']);
+    $valor = str_replace(['.', ','], ['', '.'], $datos['com_valor']);
+    $valor = floatval($valor);
+    $numero  = $this->db->real_escape_string($datos['com_numerocompa']);
+    $titular = $this->db->real_escape_string($datos['com_titularcompa']);
+
+    $sqlFotos = '';
+    if ($com_foto)       $sqlFotos .= ", com_foto = '" . $this->db->real_escape_string($com_foto) . "'";
+    if ($com_foto_curso) $sqlFotos .= ", com_foto_curso = '" . $this->db->real_escape_string($com_foto_curso) . "'";
+
+    $sql = "UPDATE comparendos SET
+                com_estado       = '$estado',
+                com_valor        = '$valor',
+                com_numerocompa  = '$numero',
+                com_titularcompa = '$titular'
+                {$sqlFotos}
+            WHERE idcomparendos = $id";
+
+    $resultado = $this->db->query($sql);
+    if (!$resultado) return ['error' => $this->db->error];
+    return true;
 }
 
 }
