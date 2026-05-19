@@ -21,10 +21,17 @@ $modelo = new SeguimientoUsuarioModel();
 
 // ==================== FUNCIONES DE PERMISOS Y HELPERS ====================
 
+define('ADMIN_ROLES', [1, 12]);
+
+function esAdmin()
+{
+    return in_array($_SESSION['usuario_rol'] ?? 0, ADMIN_ROLES);
+}
+
 function puedeModificarSeguimiento($idSeguimiento)
 {
     global $modelo;
-    if (in_array($_SESSION['usuario_rol'] ?? 0, [1, 12])) {
+    if (esAdmin()) {
         return true;
     }
     $sql = "SELECT u.usu_idsede FROM seguimiento_user s
@@ -43,6 +50,25 @@ function verificarPermiso($idSeguimiento, $mensaje = 'Permiso denegado')
 {
     if (!puedeModificarSeguimiento($idSeguimiento)) {
         return ['success' => false, 'message' => $mensaje];
+    }
+    return null;
+}
+
+function verificarAdmin($mensaje = 'Acción solo para administradores')
+{
+    if (!esAdmin()) {
+        return ['success' => false, 'message' => $mensaje];
+    }
+    return null;
+}
+
+function validarRangoFechas($fechaIni, $fechaFin)
+{
+    if (empty($fechaIni) || empty($fechaFin)) {
+        return 'Ambas fechas son obligatorias';
+    }
+    if ($fechaFin < $fechaIni) {
+        return 'La fecha fin no puede ser anterior a la fecha inicio';
     }
     return null;
 }
@@ -195,10 +221,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
 
             // --- Guardar festivos ---
             case 'guardar_festivos':
-                if (!in_array($_SESSION['usuario_rol'] ?? 0, [1, 12])) {
-                    $response = ['success' => false, 'message' => 'Acción solo para administradores'];
-                    break;
-                }
+                $error = verificarAdmin();
+                if ($error) { $response = $error; break; }
                 if (empty($_POST['fecha'])) {
                     $response = ['success' => false, 'message' => 'La fecha es obligatoria'];
                     break;
@@ -211,14 +235,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
             case 'guardar_vacaciones':
                 $fechaIni = $_POST['fecha_ini'] ?? '';
                 $fechaFin = $_POST['fecha_fin'] ?? '';
-                if (empty($fechaIni) || empty($fechaFin)) {
-                    $response = ['success' => false, 'message' => 'Ambas fechas son obligatorias'];
-                    break;
-                }
-                if ($fechaFin < $fechaIni) {
-                    $response = ['success' => false, 'message' => 'La fecha fin no puede ser anterior a la fecha inicio'];
-                    break;
-                }
+                $errorFecha = validarRangoFechas($fechaIni, $fechaFin);
+                if ($errorFecha) { $response = ['success' => false, 'message' => $errorFecha]; break; }
                 $ok = $modelo->insertarVacaciones([
                     'operario' => intval($_POST['operario']),
                     'fecha_ini' => $fechaIni,
@@ -231,14 +249,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
             case 'guardar_licencia':
                 $fechaLicIni = $_POST['fecha_ini'] ?? '';
                 $fechaLicFin = $_POST['fecha_fin'] ?? '';
-                if (empty($fechaLicIni) || empty($fechaLicFin)) {
-                    $response = ['success' => false, 'message' => 'Ambas fechas son obligatorias'];
-                    break;
-                }
-                if ($fechaLicFin < $fechaLicIni) {
-                    $response = ['success' => false, 'message' => 'La fecha fin no puede ser anterior a la fecha inicio'];
-                    break;
-                }
+                $errorFecha = validarRangoFechas($fechaLicIni, $fechaLicFin);
+                if ($errorFecha) { $response = ['success' => false, 'message' => $errorFecha]; break; }
                 $ok = $modelo->insertarLicencia([
                     'operario' => intval($_POST['operario']),
                     'fecha_ini' => $fechaLicIni,
@@ -251,10 +263,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
 
             // --- Eliminar seguimiento ---
             case 'eliminar_seguimiento':
-                if (!in_array($_SESSION['usuario_rol'] ?? 0, [1, 12])) {
-                    $response = ['success' => false, 'message' => 'No tiene permiso para eliminar registros'];
-                    break;
-                }
+                $error = verificarAdmin('No tiene permiso para eliminar registros');
+                if ($error) { $response = $error; break; }
                 $idCombinado = $_POST['id_combinado'] ?? '';
                 if (empty($idCombinado)) {
                     $response = ['success' => false, 'message' => 'ID no proporcionado'];
@@ -299,7 +309,7 @@ if (isset($_GET['accion'])) {
                 break;
 
             case 'get_detalles_eliminar':
-                if (!in_array($_SESSION['usuario_rol'] ?? 0, [1, 12])) {
+                if (!esAdmin()) {
                     sendJsonResponse(['error' => 'No tiene permiso'], 403);
                 }
                 sendJsonResponse($modelo->getDetallesParaEliminar($_GET['id_combinado'] ?? ''));
@@ -339,24 +349,6 @@ if (isset($_GET['accion'])) {
 
                 $data = [];
                 switch ($tipo) {
-                    case 'ingreso_manual':
-                        $motivos = $modelo->getMotivosIngreso();
-                        $sedes = $modelo->getSedes();
-                        $zonas = $modelo->getZonasPorSede($sedePredeterminada);
-                        $idUsuario = 0;
-                        $sedePredeterminada = 0;
-                        $idSeguimiento = 0;
-                        $fecha = date('Y-m-d');
-                        $motivoSeleccionado = '';
-                        $descripcion = '';
-                        $zonaSeleccionada = 0;
-                        $pruebaSeleccionada = 'No aplica';
-                        $horasSeleccionada = '';
-                        $usuario = null;
-                        ob_clean();
-                        include "../view/SeguimientoUsuario/popups/ingreso.php";
-                        exit;
-
                     case 'ingreso':
                         $motivos = $modelo->getMotivosIngreso();
                         $sedePredeterminada = $_SESSION['usu_idsede'] ?? 0;
@@ -489,7 +481,7 @@ if (isset($_GET['accion'])) {
                         break;
                 }
 
-                if (!in_array($tipo, ['ingreso_manual', 'ingreso'])) {
+                if ($tipo !== 'ingreso') {
                     extract($data);
                     ob_clean();
                     include "../view/SeguimientoUsuario/popups/$tipo.php";

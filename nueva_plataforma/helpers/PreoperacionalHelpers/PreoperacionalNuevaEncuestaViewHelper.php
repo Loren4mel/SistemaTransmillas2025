@@ -359,10 +359,25 @@ class PreoperacionalNuevaEncuestaViewHelper
 
     /**
      * Genera tarjeta de información del vehículo
+     * @param array $datosVehiculo Datos del vehículo y usuario
+     * @param int $maxSeverity Nivel de severidad de documentos (0=normal, 1=warning, 2=critical, 3=expired)
      */
-    public static function renderVehicleInfoCard($datosVehiculo, $alertasHtml = '')
+    public static function renderVehicleInfoCard($datosVehiculo, $maxSeverity = 0)
     {
         if (empty($datosVehiculo)) return '';
+
+        $severityClass = '';
+        $severityIcon = '';
+        if ($maxSeverity >= 3) {
+            $severityClass = 'severity-expired';
+            $severityIcon = ' <i class="fas fa-exclamation-triangle severity-indicator-icon pulse-warning"></i>';
+        } elseif ($maxSeverity >= 2) {
+            $severityClass = 'severity-critical';
+            $severityIcon = ' <i class="fas fa-exclamation-circle severity-indicator-icon"></i>';
+        } elseif ($maxSeverity >= 1) {
+            $severityClass = 'severity-warning';
+            $severityIcon = ' <i class="fas fa-clock severity-indicator-icon"></i>';
+        }
 
         $campos = [
             'PLACA' => $datosVehiculo['veh_placa'] ?? '',
@@ -377,12 +392,9 @@ class PreoperacionalNuevaEncuestaViewHelper
             'TECNOMECÁNICA VENCE' => $datosVehiculo['veh_fechategnomecanica'] ?? ''
         ];
 
-        $html = '<div class="preop-card vehicle-info">';
+        $html = '<div class="preop-card vehicle-info ' . $severityClass . '">';
         $html .= '<div class="preop-card-header">';
-        $html .= '<i class="fas fa-truck"></i> DATOS DEL VEHÍCULO';
-        if (!empty($alertasHtml)) {
-            $html .= '<span class="vehicle-alert-indicator">' . $alertasHtml . '</span>';
-        }
+        $html .= '<i class="fas fa-truck"></i> DATOS DEL VEHÍCULO' . $severityIcon;
         $html .= '</div>';
         $html .= '<div class="preop-card-body">';
         $html .= '<div class="vehicle-info-grid">';
