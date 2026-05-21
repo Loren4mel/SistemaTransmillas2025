@@ -1,9 +1,7 @@
-<<<<<<< HEAD
-const urlController = '/SistemaTransmillas2025/nueva_plataforma/controller/VehiculosController.php';
-=======
+
 
 const urlController = 'VehiculosController.php';
->>>>>>> ea9e0997c49eea804beb09a1984f8ac0dbbc0b7e
+
 $(document).ready(function () {
     const tabla = $('#tablaVehiculos').DataTable({
         ajax: {
@@ -28,9 +26,9 @@ $(document).ready(function () {
             { data: 'veh_fechaseguro' },
             { data: 'veh_fechategnomecanica' },
             { data: 'veh_fechamantenimiento' },
-            { data: 'veh_kilactual' },              // Kilometraje Actual (NUEVO)
-            { data: 'veh_kmactual_cambioaceite' },  // Km Al Cambio de Aceite (RENOMBRADO)
-            { data: 'veh_calkmcambioaceite' },      // Limite Km cambio aceite (existente)
+            { data: 'veh_kilactual' },
+            { data: 'veh_kmactual_cambioaceite' },
+            { data: 'veh_calkmcambioaceite' },
 
             {
                 data: 'veh_img_anverso',
@@ -66,18 +64,24 @@ $(document).ready(function () {
                 orderable: false,
                 searchable: false,
                 render: function (data, type, row) {
-                    const total = row.total_comparendos ?? 0;
-                    const badge = total > 0
-                        ? `<span class="badge bg-danger">${total}</span>`
-                        : `<span style="font-size:13px;">0</span>`;
+                    const total = parseInt(row.total_comparendos ?? 0);
+                    const pendientes = parseInt(row.comparendos_pendientes ?? 0);
+                    let badge;
+                    if (pendientes > 0) {
+                        badge = `<span class="badge bg-danger">${total}</span>`;
+                    } else if (total > 0) {
+                        badge = `<span class="badge bg-success">${total}</span>`;
+                    } else {
+                        badge = `<span style="font-size:13px;">0</span>`;
+                    }
                     return `
-                        <button class="btn btn-sm btn-primary btn-ver-comparendos"
-                                style="min-width:52px;"
-                                title="Ver comparendos de este vehículo"
-                                data-id="${row.idvehiculos}"
-                                data-placa="${row.veh_placa}">
-                               ${badge}
-                        </button>`;
+            <button class="btn btn-sm btn-primary btn-ver-comparendos"
+                    style="min-width:52px;"
+                    title="Ver comparendos de este vehículo"
+                    data-id="${row.idvehiculos}"
+                    data-placa="${row.veh_placa}">
+                   ${badge}
+            </button>`;
                 }
             },
 
@@ -119,7 +123,13 @@ $(document).ready(function () {
                         </button>`;
                 }
             }
-        ]
+        ],
+        createdRow: function (row, data) {
+            if (parseInt(data.comparendos_pendientes) > 0) {
+                $(row).attr('style', 'background-color: #fdd1d1 !important;');
+                $(row).find('td').attr('style', 'background-color: #fdd1d1 !important;');
+            }
+        }
     });
 
     // Filtro dueño según propiedad del vehiculo (modal AGREGAR)
@@ -155,6 +165,7 @@ $(document).ready(function () {
         }
     });
 
+    // Recargar tabla al cambiar filtros
     $('#filtrotipodevehiculo, #filtroestado').on('change', function () {
         tabla.ajax.reload();
     });
@@ -192,6 +203,7 @@ $(document).ready(function () {
             return;
         }
 
+        // Validar imágenes antes de enviar
         const validarImagen = (input, nombreCampo) => {
             if (input && input.files.length > 0) {
                 const archivo = input.files[0];
@@ -208,6 +220,7 @@ $(document).ready(function () {
             return true;
         };
 
+        // Validar cada imagen individualmente para mostrar errores específicos
         const inputSoat = $('input[name="veh_img_soat"]')[0];
         const inputTecno = $('input[name="veh_img_tecnomecanica"]')[0];
         const inputFrente = $('input[name="veh_img_anverso"]')[0];
@@ -271,7 +284,7 @@ $(document).ready(function () {
     });
 });
 
-// Cambiar estado
+// Cambiar estado u otro campo directamente desde la tabla
 $('#tablaVehiculos tbody').on('change', '.cambiar-campo', function () {
     const id = $(this).data('id');
     const campo = $(this).data('campo');
@@ -290,7 +303,7 @@ $('#tablaVehiculos tbody').on('change', '.cambiar-campo', function () {
     });
 });
 
-// Eliminar vehículo
+// Eliminar vehículo con confirmación
 $('#tablaVehiculos tbody').on('click', '.eliminar-vehiculo', function () {
     const id = $(this).data('id');
 
@@ -352,8 +365,8 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
                 }
 
                 $('#edit_veh_dueno').val(v.veh_dueño);
-                $('#edit_veh_kilactual').val(v.veh_kilactual);                         // Kilometraje Actual (NUEVO)
-                $('#edit_veh_kmactual_cambioaceite').val(v.veh_kmactual_cambioaceite); // Km Al Cambio de Aceite (RENOMBRADO)
+                $('#edit_veh_kilactual').val(v.veh_kilactual);
+                $('#edit_veh_kmactual_cambioaceite').val(v.veh_kmactual_cambioaceite);
                 $('#edit_veh_fecha_soat').val(v.veh_fechaseguro);
                 $('#edit_veh_fechategnomecanica').val(v.veh_fechategnomecanica);
                 $('#edit_veh_fechamantenimiento').val(v.veh_fechamantenimiento);
@@ -535,19 +548,23 @@ function serializarHerramientasEdit() {
 function crearFilaHerramientaEntrega(nombre = '', existe = 'si') {
     const div = document.createElement('div');
     div.className = 'd-flex align-items-center gap-2 mb-2';
+    const checked = (existe === 'si') ? 'checked' : '';
     div.innerHTML = `
         <input type="text" class="form-control form-control-sm herramienta-nombre-entrega"
-               placeholder="Nombre de la herramienta" value="${nombre}" style="flex:2">
-        <select class="form-select form-select-sm herramienta-existe-entrega" style="flex:1">
-            <option value="si" ${existe === 'si' ? 'selected' : ''}>✅ Activo</option>
-            <option value="no" ${existe === 'no' ? 'selected' : ''}>❌ Inactivo</option>
-        </select>
-        <button type="button" class="btn btn-sm btn-danger btn-eliminar-herramienta-entrega">
-            <i class="fas fa-trash-alt"></i>
-        </button>
+               placeholder="Nombre de la herramienta" value="${nombre}" style="flex:2" readonly>
+        <div class="form-check form-switch d-flex align-items-center gap-2 mb-0" style="flex:1; min-width:120px;">
+            <input class="form-check-input herramienta-existe-entrega" type="checkbox"
+                   role="switch" style="width:2.5em; height:1.4em; cursor:pointer;" ${checked}>
+            <label class="form-check-label herramienta-check-label mb-0">
+                ${existe === 'si' ? '✅' : '❌'}
+            </label>
+        </div>
     `;
-    div.querySelector('.btn-eliminar-herramienta-entrega').addEventListener('click', function () {
-        div.remove();
+    // Actualizar label dinámicamente al cambiar
+    const cb = div.querySelector('.herramienta-existe-entrega');
+    const lbl = div.querySelector('.herramienta-check-label');
+    cb.addEventListener('change', function () {
+        lbl.textContent = this.checked ? '✅' : '❌';
     });
     return div;
 }
@@ -561,14 +578,17 @@ function serializarHerramientasEntrega() {
     const filas = document.querySelectorAll('#listaHerramientasEntrega .d-flex');
     const herramientas = [];
     filas.forEach(fila => {
-        const nombre = fila.querySelector('.herramienta-nombre-entrega').value.trim();
-        const existe = fila.querySelector('.herramienta-existe-entrega').value;
+        const nombreEl = fila.querySelector('.herramienta-nombre-entrega');
+        const checkEl = fila.querySelector('.herramienta-existe-entrega');
+        if (!nombreEl || !checkEl) return;
+        const nombre = nombreEl.value.trim();
+        const existe = checkEl.checked ? 'si' : 'no';
         if (nombre !== '') herramientas.push({ nombre, existe });
     });
     document.getElementById('ent_equipo_carretera').value = JSON.stringify(herramientas);
 }
 
-// Al seleccionar vehículo → cargar su equipo automáticamente
+// Al seleccionar vehículo cargar su equipo automáticamente
 $('#ent_vehiculo_id').on('change', function () {
     const idVehiculo = $(this).val();
     const lista = document.getElementById('listaHerramientasEntrega');
@@ -816,8 +836,7 @@ document.getElementById('modalEntregaVehiculo').addEventListener('hidden.bs.moda
     firmaEntregaDrawing = false;
 });
 
-// COMPARENDOS
-
+// COMPARENDOS - Al seleccionar operador mostrar info de hoja de vida
 $(document).on('change', '#com_operador_id', function () {
     const idOp = $(this).val();
     const $info = $('#infoHojaVida');
@@ -846,17 +865,24 @@ $(document).on('change', '#com_operador_id', function () {
     });
 });
 
+// GUARDAR COMPARENDO
 $(document).on('click', '#btnGuardarComparendo', function () {
 
     const operador = $('#com_operador_id').val();
     const vehiculo = $('#com_vehiculo_id').val();
     const estado = $('#com_estado').val();
     const fecha = $('#com_fecha').val();
+    const valor = $('#com_valor').val().trim();
+    const numero = $('#com_numerocompa').val().trim();
+    const titular = $('#com_titularcompa').val();
 
     if (!operador) { Swal.fire('Error', 'Debe seleccionar un operador', 'error'); return; }
     if (!vehiculo) { Swal.fire('Error', 'Debe seleccionar un vehículo', 'error'); return; }
     if (!estado) { Swal.fire('Error', 'Debe seleccionar el estado del comparendo', 'error'); return; }
     if (!fecha) { Swal.fire('Error', 'Debe ingresar la fecha del comparendo', 'error'); return; }
+    if (!valor) { Swal.fire('Error', 'Debe ingresar el valor del comparendo', 'error'); return; }
+    if (!numero) { Swal.fire('Error', 'Debe ingresar el número del comparendo', 'error'); return; }
+    if (!titular) { Swal.fire('Error', 'Debe seleccionar el titular del comparendo', 'error'); return; }
 
     const inputFoto = document.getElementById('com_foto');
     if (inputFoto && inputFoto.files.length > 0) {
@@ -869,7 +895,20 @@ $(document).on('click', '#btnGuardarComparendo', function () {
         }
     }
 
+    const inputFotoCurso = document.getElementById('com_foto_curso');
+    if (inputFotoCurso && inputFotoCurso.files.length > 0) {
+        const archivo = inputFotoCurso.files[0];
+        if (!/(\.jpg|\.jpeg|\.png)$/i.test(archivo.name)) {
+            Swal.fire('Error', 'La foto del curso debe ser JPG o PNG', 'error'); return;
+        }
+        if (archivo.size > 5 * 1024 * 1024) {
+            Swal.fire('Error', 'La foto del curso es muy pesada (máx 5MB)', 'error'); return;
+        }
+    }
+
     const datos = new FormData(document.getElementById('formComparendo'));
+    const valorRaw = $('#com_valor').val().trim().replace(/\./g, '').replace(',', '.');
+    datos.set('com_valor', valorRaw);
     datos.append('guardar_comparendo', true);
 
     Swal.fire({
@@ -917,12 +956,15 @@ $(document).on('click', '#btnGuardarComparendo', function () {
     });
 });
 
+// VER COMPARENDOS - Al hacer clic en el botón de un vehículo, mostrar modal con tabla de comparendos asociados
 $(document).on('click', '.btn-ver-comparendos', function () {
     const idVehiculo = $(this).data('id');
     const placa = $(this).data('placa');
 
+    window._idVehiculoComparendos = idVehiculo;
+
     $('#tituloPlacaComparendo').text(placa);
-    $('#cuerpoTablaComparendos').html('<tr><td colspan="6" class="text-muted">Cargando...</td></tr>');
+    $('#cuerpoTablaComparendos').html('<tr><td colspan="10" class="text-muted">Cargando...</td></tr>');
     $('#modalVerComparendos').modal('show');
 
     $.ajax({
@@ -930,47 +972,218 @@ $(document).on('click', '.btn-ver-comparendos', function () {
         type: 'POST',
         data: { obtener_comparendos: true, id: idVehiculo },
         success: function (res) {
+            recargarTablaComparendos(res);
+        },
+        error: function () {
+            $('#cuerpoTablaComparendos').html('<tr><td colspan="10" class="text-danger">Error de conexión</td></tr>');
+        }
+    });
+});
+
+//FUNCIÓN REUTILIZABLE PARA PINTAR LA TABLA DE COMPARENDOS
+function recargarTablaComparendos(res) {
+    try {
+        const lista = typeof res === 'object' ? res : JSON.parse(res);
+        const $tbody = $('#cuerpoTablaComparendos');
+        $tbody.empty();
+
+        if (!lista || lista.length === 0) {
+            $tbody.html('<tr><td colspan="10" class="text-muted">Sin comparendos registrados</td></tr>');
+            return;
+        }
+
+        lista.forEach((c, i) => {
+            const estadoBadge = c.com_estado === 'Pagado'
+                ? `<span class="badge bg-success btn-editar-comparendo"
+            style="cursor:pointer;"
+            data-id="${c.idcomparendos}"
+            data-estado="${c.com_estado}"
+            data-valor="${c.com_valor}"
+            data-numero="${c.com_numerocompa ?? ''}"
+            data-titular="${c.com_titularcompa ?? ''}"
+            data-foto="${c.com_foto ?? ''}"
+            data-fotocurso="${c.com_foto_curso ?? ''}"
+            title="Clic para editar comparendo">
+            Pagado &nbsp;<i class="fas fa-pen" style="font-size:10px;opacity:0.85;"></i>
+        </span>`
+                : `<span class="badge bg-warning text-dark btn-editar-comparendo"
+            style="cursor:pointer;"
+            data-id="${c.idcomparendos}"
+            data-estado="${c.com_estado}"
+            data-valor="${c.com_valor}"
+            data-numero="${c.com_numerocompa ?? ''}"
+            data-titular="${c.com_titularcompa ?? ''}"
+            data-foto="${c.com_foto ?? ''}"
+            data-fotocurso="${c.com_foto_curso ?? ''}"
+            title="Clic para editar comparendo">
+            Pendiente &nbsp;<i class="fas fa-pen" style="font-size:10px;opacity:0.85;"></i>
+        </span>`;
+
+            const foto = c.com_foto
+                ? `<img src="/SistemaTransmillas2025/nueva_plataforma/${c.com_foto}"
+                        style="height:48px;width:72px;object-fit:cover;
+                               border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
+                        onclick="window.open('/SistemaTransmillas2025/nueva_plataforma/${c.com_foto}','_blank')"
+                        title="Ver foto completa">`
+                : '<span class="text-muted" style="font-size:11px;">Sin foto</span>';
+
+            const fotoCurso = c.com_foto_curso
+                ? `<img src="/SistemaTransmillas2025/nueva_plataforma/${c.com_foto_curso}"
+                        style="height:48px;width:72px;object-fit:cover;
+                               border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
+                        onclick="window.open('/SistemaTransmillas2025/nueva_plataforma/${c.com_foto_curso}','_blank')"
+                        title="Ver foto curso">`
+                : '<span class="text-muted" style="font-size:11px;">Sin foto</span>';
+
+            $tbody.append(`
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${c.operador_nombre ?? '—'}</td>
+                    <td>${c.vehiculo_placa} — ${c.vehiculo_marca} ${c.vehiculo_modelo}</td>
+                    <td>${estadoBadge}</td>
+                    <td>${c.com_fecha}</td>
+                    <td>${c.com_valor ? '$' + Number(c.com_valor).toLocaleString('es-CO') : '—'}</td>
+                    <td>${c.com_numerocompa ?? '—'}</td>
+                    <td>${c.com_titularcompa ?? '—'}</td>
+                    <td>${foto}</td>
+                    <td>${fotoCurso}</td>
+                </tr>
+            `);
+        });
+
+    } catch (e) {
+        $('#cuerpoTablaComparendos').html('<tr><td colspan="10" class="text-danger">Error al cargar los datos</td></tr>');
+    }
+}
+
+// ABRIR MODAL EDITAR AL HACER CLIC EN EL BADGE DE ESTADO
+$(document).on('click', '.btn-editar-comparendo', function () {
+    const id = $(this).data('id');
+    const estado = $(this).data('estado');
+    const valor = $(this).data('valor');
+    const numero = $(this).data('numero');
+    const titular = $(this).data('titular');
+    const foto = $(this).data('foto');
+    const fotoCurso = $(this).data('fotocurso');
+
+    $('#edit_com_id').val(id);
+    $('#edit_com_estado').val(estado);
+    $('#edit_com_valor').val(valor ? Number(valor).toLocaleString('es-CO') : '');
+    $('#edit_com_numerocompa').val(numero);
+    $('#edit_com_titularcompa').val(titular);
+
+    // Preview foto comparendo
+    const $prevFoto = $('#preview_edit_com_foto');
+    if (foto) {
+        const url = '/SistemaTransmillas2025/nueva_plataforma/' + foto;
+        $prevFoto.html(`
+            <a href="${url}" target="_blank">
+                <img src="${url}" style="max-height:60px;border-radius:4px;border:1px solid #dee2e6;margin-bottom:4px;">
+            </a>
+            <small class="text-muted d-block">
+                <a href="${url}" target="_blank">🔍 Ver imagen actual</a> — Sube una nueva para reemplazar
+            </small>`);
+    } else {
+        $prevFoto.html('<small class="text-muted">Sin foto actual</small>');
+    }
+
+    // Preview foto curso
+    const $prevCurso = $('#preview_edit_com_foto_curso');
+    if (fotoCurso) {
+        const url2 = '/SistemaTransmillas2025/nueva_plataforma/' + fotoCurso;
+        $prevCurso.html(`
+            <a href="${url2}" target="_blank">
+                <img src="${url2}" style="max-height:60px;border-radius:4px;border:1px solid #dee2e6;margin-bottom:4px;">
+            </a>
+            <small class="text-muted d-block">
+                <a href="${url2}" target="_blank">🔍 Ver imagen actual</a> — Sube una nueva para reemplazar
+            </small>`);
+    } else {
+        $prevCurso.html('<small class="text-muted">Sin foto de curso actual</small>');
+    }
+
+    const modalEditar = new bootstrap.Modal(document.getElementById('modalEditarComparendo'));
+    modalEditar.show();
+});
+
+// GUARDAR CAMBIOS DEL COMPARENDO 
+$(document).on('click', '#btnGuardarEditarComparendo', function () {
+    const estado = $('#edit_com_estado').val();
+    const valor = $('#edit_com_valor').val().trim();
+    const valorLimpio = valor.replace(/\./g, '').replace(',', '.');
+    const numero = $('#edit_com_numerocompa').val().trim();
+    const titular = $('#edit_com_titularcompa').val().trim();
+
+    if (!estado) { Swal.fire('Error', 'Debe seleccionar un estado', 'error'); return; }
+    if (!valor) { Swal.fire('Error', 'Debe ingresar el valor del comparendo', 'error'); return; }
+    if (!numero) { Swal.fire('Error', 'Debe ingresar el número del comparendo', 'error'); return; }
+    if (!titular) { Swal.fire('Error', 'Debe ingresar el titular del comparendo', 'error'); return; }
+
+    const validarImg = (inputEl, nombre) => {
+        if (inputEl && inputEl.files.length > 0) {
+            const f = inputEl.files[0];
+            if (!/(\.jpg|\.jpeg|\.png)$/i.test(f.name)) {
+                Swal.fire('Error', `La foto de ${nombre} debe ser JPG o PNG`, 'error');
+                return false;
+            }
+            if (f.size > 5 * 1024 * 1024) {
+                Swal.fire('Error', `La foto de ${nombre} es muy pesada (máx 5MB)`, 'error');
+                return false;
+            }
+        }
+        return true;
+    };
+
+    if (!validarImg(document.getElementById('edit_com_foto'), 'Comparendo')) return;
+    if (!validarImg(document.getElementById('edit_com_foto_curso'), 'Curso')) return;
+
+    const datos = new FormData(document.getElementById('formEditarComparendo'));
+    datos.set('com_valor', valorLimpio);
+    datos.append('actualizar_comparendo', true);
+
+    Swal.fire({ title: 'Guardando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    $.ajax({
+        url: urlController,
+        type: 'POST',
+        data: datos,
+        cache: false,
+        contentType: false,
+        processData: false,
+        success: function (res) {
+            Swal.close();
             try {
-                const lista = typeof res === 'object' ? res : JSON.parse(res);
-                const $tbody = $('#cuerpoTablaComparendos');
-                $tbody.empty();
+                const r = typeof res === 'object' ? res : JSON.parse(res);
+                if (r.success) {
+                    Swal.fire({ icon: 'success', title: '¡Actualizado!', text: r.mensaje, timer: 2000, showConfirmButton: false });
 
-                if (!lista || lista.length === 0) {
-                    $tbody.html('<tr><td colspan="6" class="text-muted">Sin comparendos registrados</td></tr>');
-                    return;
+                    // Cerrar modal edición
+                    bootstrap.Modal.getInstance(document.getElementById('modalEditarComparendo')).hide();
+
+                    // Recargar filas del modal de ver comparendos
+                    if (window._idVehiculoComparendos) {
+                        $.ajax({
+                            url: urlController,
+                            type: 'POST',
+                            data: { obtener_comparendos: true, id: window._idVehiculoComparendos },
+                            success: function (res2) { recargarTablaComparendos(res2); }
+                        });
+                    }
+
+                    // Refrescar badge en tabla principal
+                    if ($.fn.DataTable.isDataTable('#tablaVehiculos')) {
+                        $('#tablaVehiculos').DataTable().ajax.reload(null, false);
+                    }
+                } else {
+                    Swal.fire('Error', r.mensaje, 'error');
                 }
-
-                lista.forEach((c, i) => {
-                    const estadoBadge = c.com_estado === 'Pagado'
-                        ? '<span class="badge bg-success">✅ Pagado</span>'
-                        : '<span class="badge bg-warning text-dark">⏳ Pendiente</span>';
-
-                    const foto = c.com_foto
-                        ? `<img src="/SistemaTransmillas2025/nueva_plataforma/${c.com_foto}"
-                                style="height:48px;width:72px;object-fit:cover;
-                                       border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
-                                onclick="window.open('/SistemaTransmillas2025/nueva_plataforma/${c.com_foto}','_blank')"
-                                title="Ver foto completa">`
-                        : '<span class="text-muted" style="font-size:11px;">Sin foto</span>';
-
-                    $tbody.append(`
-                        <tr>
-                            <td>${i + 1}</td>
-                            <td>${c.operador_nombre ?? '—'}</td>
-                            <td>${c.vehiculo_placa} — ${c.vehiculo_marca} ${c.vehiculo_modelo}</td>
-                            <td>${estadoBadge}</td>
-                            <td>${c.com_fecha}</td>
-                            <td>${foto}</td>
-                        </tr>
-                    `);
-                });
-
             } catch (e) {
-                $('#cuerpoTablaComparendos').html('<tr><td colspan="6" class="text-danger">Error al cargar los datos</td></tr>');
+                Swal.fire('Error', 'Error en la respuesta del servidor', 'error');
             }
         },
         error: function () {
-            $('#cuerpoTablaComparendos').html('<tr><td colspan="6" class="text-danger">Error de conexión</td></tr>');
+            Swal.close();
+            Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
         }
     });
 });

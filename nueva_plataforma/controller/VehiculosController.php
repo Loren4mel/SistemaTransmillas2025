@@ -105,12 +105,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_comparendo'])
         'com_vehiculo_id' => intval($_POST['com_vehiculo_id']),
         'com_estado'      => $_POST['com_estado'],
         'com_fecha'       => $_POST['com_fecha'],
+        'com_valor' => str_replace(['.', ','], ['', '.'], $_POST['com_valor']),
+        'com_numerocompa' => $_POST['com_numerocompa'],
+        'com_titularcompa'=> $_POST['com_titularcompa'],
     ];
+    
     $resultado = $modelo->guardarComparendo($datos);
     if (ob_get_length()) ob_clean();
     echo json_encode($resultado === true
         ? ['success' => true,  'mensaje' => 'Comparendo registrado correctamente']
         : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al guardar']
+    );
+    exit;
+}
+
+// ACTUALIZAR COMPARENDO
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comparendo'])) {
+    $datos = [
+        'com_id'     => intval($_POST['com_id']),
+        'com_estado' => $_POST['com_estado'],
+        'com_valor' => str_replace(['.', ','], ['', '.'], $_POST['com_valor']),
+        'com_numerocompa' => $_POST['com_numerocompa'],
+        'com_titularcompa' => $_POST['com_titularcompa'],
+    ];
+    $resultado = $modelo->actualizarComparendo($datos);
+    if (ob_get_length()) ob_clean();
+    echo json_encode($resultado === true
+        ? ['success' => true,  'mensaje' => 'Comparendo actualizado correctamente']
+        : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al actualizar']
     );
     exit;
 }
