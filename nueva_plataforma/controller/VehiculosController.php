@@ -25,11 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_vehiculo']))
     exit;
 }
 
-// AJAX — OBTENER VEHÍCULOS (DataTable)
+// OBTENER VEHÍCULOS (DataTable)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     $tipodevehiculo = $_POST['tipodevehiculo'] ?? '';
     $estado         = $_POST['estado'] ?? '';
-    $vehiculos      = $modelo->obtenerVehiculos($tipodevehiculo, $estado);
+    $propiedad      = $_POST['propiedadvehiculo'] ?? '';
+    $vehiculos      = $modelo->obtenerVehiculos($tipodevehiculo, $estado, $propiedad);
     echo json_encode($vehiculos);
     exit;
 }
@@ -157,10 +158,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_comparendos_o
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $Dueños      = $modelo->obtenerDueños();
     $Vehiculos   = $modelo->obtenerVehiculos();
-    /*
-    $Usuarios    = $modelo->obtenerUsuariosActivos(); 
-    $conductoresActivos = $modelo->obtenerConductoresActivos();
-    */
     $Sedes       = $modelo->obtenerSedes();
     $operadoresActivos = $modelo->obtenerOperadoresActivos();
     include "../view/Vehiculos/index.php";

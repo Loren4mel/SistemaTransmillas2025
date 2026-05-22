@@ -1,6 +1,11 @@
+//const urlController = '/SistemaTransmillas2025/nueva_plataforma/controller/VehiculosController.php';
 
+// DESPUÉS — detecta automáticamente el entorno
+const baseUrl = window.location.hostname === 'localhost'
+    ? '/SistemaTransmillas2025/nueva_plataforma'
+    : '/nueva_plataforma';
 
-const urlController = 'VehiculosController.php';
+const urlController = `${baseUrl}/controller/VehiculosController.php`;
 
 $(document).ready(function () {
     const tabla = $('#tablaVehiculos').DataTable({
@@ -11,15 +16,61 @@ $(document).ready(function () {
                 d.ajax = true;
                 d.tipodevehiculo = $('#filtrotipodevehiculo').val();
                 d.estado = $('#filtroestado').val();
+                d.propiedadvehiculo = $('#filtropropiedad').val();
             },
+
             dataSrc: ''
         },
+
         order: [[14, 'asc']],
 
         columns: [
             { data: 'veh_tipo' },
             { data: 'veh_marca' },
-            { data: 'veh_placa' },
+
+            {
+                data: 'veh_placa',
+                render: function (data, type, row) {
+                    const camposFaltantes = [];
+
+                    if (!row.veh_tipo) camposFaltantes.push('Tipo Vehículo');
+                    if (!row.veh_marca) camposFaltantes.push('Marca');
+                    if (!row.veh_placa) camposFaltantes.push('Placa');
+                    if (!row.veh_modelo) camposFaltantes.push('Modelo');
+                    if (!row.veh_color) camposFaltantes.push('Color');
+                    if (!row.veh_tipov) camposFaltantes.push('Tipo');
+                    if (!row.veh_kilactual) camposFaltantes.push('Kilometraje Actual');
+                    if (!row.veh_fechaseguro || row.veh_fechaseguro === '0000-00-00')
+                        camposFaltantes.push('Fecha Seguro SOAT');
+                    if (!row.veh_img_soat) camposFaltantes.push('Foto SOAT');
+                    if (!row.veh_fechategnomecanica || row.veh_fechategnomecanica === '0000-00-00')
+                        camposFaltantes.push('Fecha Tecnomecánica');
+                    if (!row.veh_img_tecnomecanica) camposFaltantes.push('Foto Tecnomecánica');
+                    if (!row.veh_fechamantenimiento || row.veh_fechamantenimiento === '0000-00-00')
+                        camposFaltantes.push('Fecha Cambio Aceite');
+                    if (!row.veh_kmactual_cambioaceite) camposFaltantes.push('Km Actual Al Cambio Aceite');
+                    if (!row.veh_calkmcambioaceite) camposFaltantes.push('Límite Km Cambio Aceite');
+                    if (!row.veh_chasis) camposFaltantes.push('Número Chasis');
+                    if (!row.veh_motor) camposFaltantes.push('Número Motor');
+                    if (!row.veh_cilidraje) camposFaltantes.push('Número Cilindraje');
+                    if (!row.veh_usuve) camposFaltantes.push('Uso del Vehículo');
+                    if (!row.veh_img_actual_frente) camposFaltantes.push('Foto Actual Frente');
+                    if (!row.veh_img_actual_trasera) camposFaltantes.push('Foto Actual Respaldo');
+                    if (!row.veh_img_anverso) camposFaltantes.push('Foto Tarjeta Propiedad Frente');
+                    if (!row.veh_img_reverso) camposFaltantes.push('Foto Tarjeta Propiedad Respaldo');
+
+                    const icono = camposFaltantes.length > 0
+                        ? `<i class="fas fa-exclamation-triangle text-warning ms-1 btn-info-incompleta" 
+                  style="cursor:pointer; font-size:13px;"
+                  title="Información incompleta"
+                  data-campos='${JSON.stringify(camposFaltantes)}'
+                  data-placa="${data}"></i>`
+                        : '';
+
+                    return `${data} ${icono}`;
+                }
+            },
+
             { data: 'veh_modelo' },
             { data: 'veh_propiedad' },
             { data: 'usu_nombre' },
@@ -36,7 +87,7 @@ $(document).ready(function () {
                 searchable: false,
                 render: function (data, type, row) {
                     if (!data) return '<span class="text-muted" style="font-size:11px;">Sin imagen</span>';
-                    const ruta = '/SistemaTransmillas2025/nueva_plataforma/' + data;
+                    const ruta = `${baseUrl}/` + data;
                     return `<img src="${ruta}" 
                     style="height:50px; width:75px; object-fit:cover; 
                            border-radius:4px; border:1px solid #dee2e6; cursor:pointer;"
@@ -50,7 +101,7 @@ $(document).ready(function () {
                 searchable: false,
                 render: function (data, type, row) {
                     if (!data) return '<span class="text-muted" style="font-size:11px;">Sin imagen</span>';
-                    const ruta = '/SistemaTransmillas2025/nueva_plataforma/' + data;
+                    const ruta = `${baseUrl}/` + data;
                     return `<img src="${ruta}" 
                     style="height:50px; width:75px; object-fit:cover; 
                            border-radius:4px; border:1px solid #dee2e6; cursor:pointer;"
@@ -125,9 +176,51 @@ $(document).ready(function () {
             }
         ],
         createdRow: function (row, data) {
+
+            // 🔴 Rojo claro — comparendos pendientes (prioridad máxima)
             if (parseInt(data.comparendos_pendientes) > 0) {
                 $(row).attr('style', 'background-color: #fdd1d1 !important;');
                 $(row).find('td').attr('style', 'background-color: #fdd1d1 !important;');
+
+            }
+
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const limite = new Date(hoy);
+            limite.setMonth(limite.getMonth() + 1);
+
+            function parsearFecha(fechaStr) {
+                if (!fechaStr || fechaStr === '0000-00-00' || fechaStr === null) return null;
+                const partes = fechaStr.split('-');
+                if (partes.length !== 3) return null;
+                const fecha = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+                if (isNaN(fecha.getTime())) return null;
+                return fecha;
+            }
+
+            function debeAlerta(fechaStr) {
+                const fecha = parsearFecha(fechaStr);
+                if (!fecha) return false;
+                return fecha < hoy || (fecha >= hoy && fecha <= limite);
+            }
+
+            const tecno = data.veh_fechategnomecanica;
+            const aceite = data.veh_fechamantenimiento;
+            const seguro = data.veh_fechaseguro;
+
+            if (debeAlerta(seguro)) {
+                $(row).find('td').eq(6).attr('style',
+                    'background-color: #e79086 !important; font-weight:bold; color:#fff !important;');
+            }
+
+            if (debeAlerta(tecno)) {
+                $(row).find('td').eq(7).attr('style',
+                    'background-color: #e79086 !important; font-weight:bold; color:#fff !important;');
+            }
+
+            if (debeAlerta(aceite)) {
+                $(row).find('td').eq(8).attr('style',
+                    'background-color: #e79086 !important; font-weight:bold; color:#fff !important;');
             }
         }
     });
@@ -166,7 +259,7 @@ $(document).ready(function () {
     });
 
     // Recargar tabla al cambiar filtros
-    $('#filtrotipodevehiculo, #filtroestado').on('change', function () {
+    $('#filtrotipodevehiculo, #filtroestado, #filtropropiedad').on('change', function () {
         tabla.ajax.reload();
     });
 
@@ -182,6 +275,9 @@ $(document).ready(function () {
             { name: 'veh_color', label: 'Color' },
             { name: 'veh_tipov', label: 'Tipo' },
             { name: 'veh_kilactual', label: 'Kilometraje Actual' },
+            { name: 'veh_fechaseguro', label: 'Fecha Seguro SOAT' },
+            { name: 'veh_fechategnomecanica', label: 'Fecha Tecnomecánica' },
+            { name: 'veh_fechamantenimiento', label: 'Fecha Mantenimiento' },
             { name: 'veh_kmactual_cambioaceite', label: 'Kilometraje Actual Al Cambio de Aceite' },
             { name: 'veh_calkmcambioaceite', label: 'Km Cambio Aceite' },
             { name: 'veh_chasis', label: 'Número Chasis' },
@@ -190,9 +286,40 @@ $(document).ready(function () {
             { name: 'veh_usuve', label: 'Uso del Vehículo' },
         ];
 
+        const camposFecha = [
+            { name: 'veh_fechaseguro', label: 'Fecha Vencimiento Seguro (SOAT)' },
+            { name: 'veh_fechategnomecanica', label: 'Fecha Vencimiento Tecnomecánica' },
+            { name: 'veh_fechamantenimiento', label: 'Fecha Último Cambio de Aceite' }
+        ];
+
+        for (const campo of camposFecha) {
+            const valor = $(`[name="${campo.name}"]`).val();
+            if (!valor || valor === '' || valor === '0000-00-00') {
+                Swal.fire('Error', `El campo "${campo.label}" es obligatorio`, 'error');
+                return;
+            }
+        }
+
         for (const campo of camposTexto) {
             const valor = $(`[name="${campo.name}"]`).val().trim();
             if (valor === '') {
+                Swal.fire('Error', `El campo "${campo.label}" es obligatorio`, 'error');
+                return;
+            }
+        }
+
+        const camposFotos = [
+            { name: 'veh_img_soat', label: 'Foto Vigente Seguro (SOAT)' },
+            { name: 'veh_img_tecnomecanica', label: 'Foto Vigente Tecnomecánica' },
+            { name: 'veh_img_actual_frente', label: 'Foto Actual del Vehículo (Frente)' },
+            { name: 'veh_img_actual_trasera', label: 'Foto Actual del Vehículo (Respaldo)' },
+            { name: 'veh_img_anverso', label: 'Foto Tarjeta Propiedad (Frente)' },
+            { name: 'veh_img_reverso', label: 'Foto Tarjeta Propiedad (Respaldo)' }
+        ];
+
+        for (const campo of camposFotos) {
+            const input = $(`input[name="${campo.name}"]`)[0];
+            if (!input || !input.files || input.files.length === 0) {
                 Swal.fire('Error', `El campo "${campo.label}" es obligatorio`, 'error');
                 return;
             }
@@ -207,9 +334,9 @@ $(document).ready(function () {
         const validarImagen = (input, nombreCampo) => {
             if (input && input.files.length > 0) {
                 const archivo = input.files[0];
-                const extensiones = /(\.jpg|\.jpeg|\.png)$/i;
+                const extensiones = /(\.jpg|\.jpeg|\.png|\.pdf)$/i;
                 if (!extensiones.exec(archivo.name)) {
-                    Swal.fire("Error", `El archivo en ${nombreCampo} debe ser JPG o PNG`, "error");
+                    Swal.fire("Error", `El archivo en ${nombreCampo} debe ser JPG, PNG o PDF`, "error");
                     return false;
                 }
                 if (archivo.size > 5 * 1024 * 1024) {
@@ -401,7 +528,7 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
 function mostrarPreviewEditar(containerId, ruta) {
     const div = document.getElementById(containerId);
     if (ruta) {
-        const urlCompleta = '/SistemaTransmillas2025/nueva_plataforma/' + ruta;
+        const urlCompleta = `${baseUrl}/` + ruta;
         div.innerHTML = `
             <a href="${urlCompleta}" target="_blank" title="Ver imagen completa">
                 <img src="${urlCompleta}" 
@@ -657,9 +784,9 @@ $('#btnGuardarEntrega').on('click', function () {
     const validarImagen = (input, nombreCampo) => {
         if (input && input.files.length > 0) {
             const archivo = input.files[0];
-            const extensiones = /(\.jpg|\.jpeg|\.png)$/i;
+            const extensiones = /(\.jpg|\.jpeg|\.png|\.pdf)$/i;
             if (!extensiones.exec(archivo.name)) {
-                Swal.fire("Error", `El archivo en ${nombreCampo} debe ser JPG o PNG`, "error");
+                Swal.fire("Error", `El archivo en ${nombreCampo} debe ser JPG, PNG o PDF`, "error");
                 return false;
             }
             if (archivo.size > 5 * 1024 * 1024) {
@@ -887,8 +1014,8 @@ $(document).on('click', '#btnGuardarComparendo', function () {
     const inputFoto = document.getElementById('com_foto');
     if (inputFoto && inputFoto.files.length > 0) {
         const archivo = inputFoto.files[0];
-        if (!/(\.jpg|\.jpeg|\.png)$/i.test(archivo.name)) {
-            Swal.fire('Error', 'La foto debe ser JPG o PNG', 'error'); return;
+        if (!/(\.jpg|\.jpeg|\.png|\.pdf)$/i.test(archivo.name)) {
+            Swal.fire('Error', 'El archivo debe ser JPG, PNG o PDF', 'error'); return;
         }
         if (archivo.size > 5 * 1024 * 1024) {
             Swal.fire('Error', 'La foto es muy pesada (máx 5MB)', 'error'); return;
@@ -898,8 +1025,8 @@ $(document).on('click', '#btnGuardarComparendo', function () {
     const inputFotoCurso = document.getElementById('com_foto_curso');
     if (inputFotoCurso && inputFotoCurso.files.length > 0) {
         const archivo = inputFotoCurso.files[0];
-        if (!/(\.jpg|\.jpeg|\.png)$/i.test(archivo.name)) {
-            Swal.fire('Error', 'La foto del curso debe ser JPG o PNG', 'error'); return;
+        if (!/(\.jpg|\.jpeg|\.png|\.pdf)$/i.test(archivo.name)) {
+            Swal.fire('Error', 'El archivo debe ser JPG, PNG o PDF', 'error'); return;
         }
         if (archivo.size > 5 * 1024 * 1024) {
             Swal.fire('Error', 'La foto del curso es muy pesada (máx 5MB)', 'error'); return;
@@ -1020,19 +1147,27 @@ function recargarTablaComparendos(res) {
         </span>`;
 
             const foto = c.com_foto
-                ? `<img src="/SistemaTransmillas2025/nueva_plataforma/${c.com_foto}"
-                        style="height:48px;width:72px;object-fit:cover;
-                               border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
-                        onclick="window.open('/SistemaTransmillas2025/nueva_plataforma/${c.com_foto}','_blank')"
-                        title="Ver foto completa">`
+                ? c.com_foto.toLowerCase().endsWith('.pdf')
+                    ? `<a href="${baseUrl}/${c.com_foto}" target="_blank" class="btn btn-sm btn-outline-danger">
+               <i class="fas fa-file-pdf"></i> Ver PDF
+           </a>`
+                    : `<img src="${baseUrl}/${c.com_foto}"
+                style="height:48px;width:72px;object-fit:cover;
+                       border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
+                onclick="window.open('${baseUrl}/${c.com_foto}','_blank')"
+                title="Ver foto completa">`
                 : '<span class="text-muted" style="font-size:11px;">Sin foto</span>';
 
             const fotoCurso = c.com_foto_curso
-                ? `<img src="/SistemaTransmillas2025/nueva_plataforma/${c.com_foto_curso}"
-                        style="height:48px;width:72px;object-fit:cover;
-                               border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
-                        onclick="window.open('/SistemaTransmillas2025/nueva_plataforma/${c.com_foto_curso}','_blank')"
-                        title="Ver foto curso">`
+                ? c.com_foto_curso.toLowerCase().endsWith('.pdf')
+                    ? `<a href="${baseUrl}/${c.com_foto_curso}" target="_blank" class="btn btn-sm btn-outline-danger">
+               <i class="fas fa-file-pdf"></i> Ver PDF
+           </a>`
+                    : `<img src="${baseUrl}/${c.com_foto_curso}"
+                style="height:48px;width:72px;object-fit:cover;
+                       border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
+                onclick="window.open('${baseUrl}/${c.com_foto_curso}','_blank')"
+                title="Ver foto curso">`
                 : '<span class="text-muted" style="font-size:11px;">Sin foto</span>';
 
             $tbody.append(`
@@ -1072,17 +1207,23 @@ $(document).on('click', '.btn-editar-comparendo', function () {
     $('#edit_com_numerocompa').val(numero);
     $('#edit_com_titularcompa').val(titular);
 
+
     // Preview foto comparendo
     const $prevFoto = $('#preview_edit_com_foto');
     if (foto) {
-        const url = '/SistemaTransmillas2025/nueva_plataforma/' + foto;
-        $prevFoto.html(`
-            <a href="${url}" target="_blank">
-                <img src="${url}" style="max-height:60px;border-radius:4px;border:1px solid #dee2e6;margin-bottom:4px;">
-            </a>
-            <small class="text-muted d-block">
-                <a href="${url}" target="_blank">🔍 Ver imagen actual</a> — Sube una nueva para reemplazar
-            </small>`);
+        const url = `${baseUrl}/` + foto;
+        const esPdf = foto.toLowerCase().endsWith('.pdf');
+        $prevFoto.html(esPdf
+            ? `<a href="${url}" target="_blank" class="btn btn-sm btn-outline-danger mb-1">
+               <i class="fas fa-file-pdf"></i> Ver PDF actual
+           </a><small class="text-muted d-block">Sube uno nuevo para reemplazar</small>`
+            : `<a href="${url}" target="_blank">
+               <img src="${url}" style="max-height:60px;border-radius:4px;border:1px solid #dee2e6;margin-bottom:4px;">
+           </a>
+           <small class="text-muted d-block">
+               <a href="${url}" target="_blank">🔍 Ver imagen actual</a> — Sube una nueva para reemplazar
+           </small>`
+        );
     } else {
         $prevFoto.html('<small class="text-muted">Sin foto actual</small>');
     }
@@ -1090,14 +1231,19 @@ $(document).on('click', '.btn-editar-comparendo', function () {
     // Preview foto curso
     const $prevCurso = $('#preview_edit_com_foto_curso');
     if (fotoCurso) {
-        const url2 = '/SistemaTransmillas2025/nueva_plataforma/' + fotoCurso;
-        $prevCurso.html(`
-            <a href="${url2}" target="_blank">
-                <img src="${url2}" style="max-height:60px;border-radius:4px;border:1px solid #dee2e6;margin-bottom:4px;">
-            </a>
-            <small class="text-muted d-block">
-                <a href="${url2}" target="_blank">🔍 Ver imagen actual</a> — Sube una nueva para reemplazar
-            </small>`);
+        const url2 = `${baseUrl}/` + fotoCurso;
+        const esPdf2 = fotoCurso.toLowerCase().endsWith('.pdf');
+        $prevCurso.html(esPdf2
+            ? `<a href="${url2}" target="_blank" class="btn btn-sm btn-outline-danger mb-1">
+               <i class="fas fa-file-pdf"></i> Ver PDF actual
+           </a><small class="text-muted d-block">Sube uno nuevo para reemplazar</small>`
+            : `<a href="${url2}" target="_blank">
+               <img src="${url2}" style="max-height:60px;border-radius:4px;border:1px solid #dee2e6;margin-bottom:4px;">
+           </a>
+           <small class="text-muted d-block">
+               <a href="${url2}" target="_blank">🔍 Ver imagen actual</a> — Sube una nueva para reemplazar
+           </small>`
+        );
     } else {
         $prevCurso.html('<small class="text-muted">Sin foto de curso actual</small>');
     }
@@ -1122,9 +1268,8 @@ $(document).on('click', '#btnGuardarEditarComparendo', function () {
     const validarImg = (inputEl, nombre) => {
         if (inputEl && inputEl.files.length > 0) {
             const f = inputEl.files[0];
-            if (!/(\.jpg|\.jpeg|\.png)$/i.test(f.name)) {
-                Swal.fire('Error', `La foto de ${nombre} debe ser JPG o PNG`, 'error');
-                return false;
+            if (!/(\.jpg|\.jpeg|\.png|\.pdf)$/i.test(f.name)) {
+                Swal.fire('Error', 'El archivo debe ser JPG, PNG o PDF', 'error'); return;
             }
             if (f.size > 5 * 1024 * 1024) {
                 Swal.fire('Error', `La foto de ${nombre} es muy pesada (máx 5MB)`, 'error');
@@ -1186,4 +1331,26 @@ $(document).on('click', '#btnGuardarEditarComparendo', function () {
             Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
         }
     });
+});
+
+// MODAL INFO INCOMPLETA
+$(document).on('click', '.btn-info-incompleta', function () {
+    const placa = $(this).data('placa');
+    const campos = $(this).data('campos');
+
+    $('#placaInfoIncompleta').text(placa);
+
+    const $lista = $('#listaCamposFaltantes');
+    $lista.empty();
+
+    campos.forEach(function (campo) {
+        $lista.append(`
+            <li class="list-group-item py-2 d-flex align-items-center gap-2">
+                <i class="fas fa-times-circle text-danger" style="font-size:13px;"></i>
+                <span style="font-size:13px;">${campo}</span>
+            </li>
+        `);
+    });
+
+    new bootstrap.Modal(document.getElementById('modalInfoIncompleta')).show();
 });
