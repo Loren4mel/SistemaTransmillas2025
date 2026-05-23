@@ -184,7 +184,7 @@
             {
                 data: 'alerta_html',
                 render: function (data, type, row) {
-                    return (row.alerta_html || '') + (row.alerta_izquierda_html || '') + ' ' + row.usu_nombre;
+                    return (row.alerta_nuevo_html || '') + (row.alerta_html || '') + (row.alerta_izquierda_html || '') + ' ' + row.usu_nombre;
                 }
             },
             { data: 'preoperacional_link' },

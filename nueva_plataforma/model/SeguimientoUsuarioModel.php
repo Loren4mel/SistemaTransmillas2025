@@ -477,7 +477,8 @@ class SeguimientoUsuarioModel
         $idPlaceholder = implode(',', array_fill(0, count($identificaciones), '?'));
         $sqlHv = "SELECT hoj_cedula,
                      (hoj_cuen IS NULL OR hoj_cuen = '') as falta_cuenta,
-                     (hoj_arl IS NULL OR hoj_arl = '') as falta_arl
+                     (hoj_arl IS NULL OR hoj_arl = '') as falta_arl,
+                     hoj_fechaingreso
               FROM hojadevida
               WHERE hoj_cedula IN ($idPlaceholder) AND hoj_estado = 'Activo'";
         $stmt = $this->db->prepare($sqlHv);
@@ -494,10 +495,14 @@ class SeguimientoUsuarioModel
         foreach ($usuarios as $u) {
             $id = $u['idusuarios'];
             $cedula = $u['usu_identificacion'];
-            $hv = $hvIndex[$cedula] ?? ['falta_cuenta' => 0, 'falta_arl' => 0];
+            $hv = $hvIndex[$cedula] ?? ['falta_cuenta' => 0, 'falta_arl' => 0, 'hoj_fechaingreso' => null];
             foreach ($diasList as $dia) {
                 $pre = $preIndex[$id][$dia] ?? null;
                 $seg = $segIndex[$id][$dia] ?? null;
+
+                if (!empty($hv['hoj_fechaingreso']) && $dia < $hv['hoj_fechaingreso']) {
+                    continue;
+                }
 
                 $row = [
                     'idusuarios' => $id,
@@ -508,6 +513,7 @@ class SeguimientoUsuarioModel
                     'usu_idsede' => $u['usu_idsede'],
                     'falta_cuenta' => $hv['falta_cuenta'],
                     'falta_arl' => $hv['falta_arl'],
+                    'hoj_fechaingreso' => $hv['hoj_fechaingreso'],
                     'fecha' => $dia,
                     'idpreoperacinal' => $pre['idpreoperacinal'] ?? null,
                     'prefechaingreso' => $pre['prefechaingreso'] ?? null,
@@ -573,7 +579,8 @@ class SeguimientoUsuarioModel
                 p.preestado,
                 p.prevehiculo,
                 h.hoj_cuen IS NULL OR h.hoj_cuen = '' AS falta_cuenta,
-                h.hoj_arl IS NULL OR h.hoj_arl = '' AS falta_arl
+                h.hoj_arl IS NULL OR h.hoj_arl = '' AS falta_arl,
+                h.hoj_fechaingreso
             FROM seguimiento_user s
             INNER JOIN usuarios u ON u.idusuarios = s.seg_idusuario
             LEFT JOIN `pre-operacional` p ON p.preidusuario = u.idusuarios AND DATE(p.prefechaingreso) = DATE(s.seg_fechaalcohol)
@@ -730,6 +737,20 @@ class SeguimientoUsuarioModel
             $alertas[] = 'Falta cuenta bancaria';
         if ($row['falta_arl'] > 0 && $row['usu_tipocontrato'] === 'Empresa')
             $alertas[] = 'Falta ARL';
+
+        // Alerta empleado nuevo (14 dias desde fecha ingreso)
+        $esNuevo = false;
+        if (!empty($row['hoj_fechaingreso'])) {
+            $fechaIngreso = new DateTime($row['hoj_fechaingreso']);
+            $hoy = new DateTime($row['fecha']);
+            $diferencia = (int)$hoy->diff($fechaIngreso)->days;
+            if ($fechaIngreso <= $hoy && $diferencia <= 14) {
+                $esNuevo = true;
+                $row['alerta_nuevo_texto'] = 'Empleado nuevo, ingresó el: ' . $fechaIngreso->format('d/m/Y');
+            }
+        }
+        $row['alerta_nuevo_html'] = $esNuevo ? $this->generarBurbujaNuevoEmpleado($row['idusuarios'], $row['alerta_nuevo_texto']) : '';
+
         $row['alertas'] = $alertas;
         $row['alerta_count'] = count($alertas);
         $row['alerta_html'] = $this->generarBurbujaAlertas($row['idusuarios'], $alertas);
@@ -833,6 +854,12 @@ class SeguimientoUsuarioModel
         }
         return "<div class='noti_bubble' data-id='$idUsuario'>" . count($alertas) . "</div>
                 <div class='noti_options' data-id='$idUsuario' style='display:none;'><ul>$items</ul></div>";
+    }
+
+    private function generarBurbujaNuevoEmpleado(int $idUsuario, string $texto): string
+    {
+        return "<div class='noti_bubble noti_bubble_blue' data-id='$idUsuario'>1</div>
+                <div class='noti_options' data-id='$idUsuario' style='display:none;'><ul><li>" . htmlspecialchars($texto) . "</li></ul></div>";
     }
 
     /**

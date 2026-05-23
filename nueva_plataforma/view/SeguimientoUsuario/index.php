@@ -29,6 +29,10 @@
             cursor: pointer;
         }
 
+        .noti_bubble_blue {
+            background-color: #2196F3 !important;
+        }
+
         /* Notificaciones toast */
         .toast-notification-container {
             position: fixed;
