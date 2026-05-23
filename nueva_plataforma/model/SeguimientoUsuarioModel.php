@@ -621,14 +621,25 @@ class SeguimientoUsuarioModel
             $row = $this->enriquecerFila($row);
         }
 
-        // Ordenar por prioridad
-        usort($rows, function ($a, $b) {
-            $prioridadA = $this->getPrioridadOrden($a);
-            $prioridadB = $this->getPrioridadOrden($b);
-            if ($prioridadA != $prioridadB) {
-                return $prioridadA <=> $prioridadB;
+        // Ordenar: rango de fechas -> nombre + fecha; un solo dia -> prioridad
+        $fechasUnicas = array_unique(array_column($rows, 'fecha'));
+        $esRango = count($fechasUnicas) > 1;
+
+        usort($rows, function ($a, $b) use ($esRango) {
+            if ($esRango) {
+                $nombreCompare = strcmp($a['usu_nombre'], $b['usu_nombre']);
+                if ($nombreCompare != 0) {
+                    return $nombreCompare;
+                }
+                return strcmp($a['fecha'], $b['fecha']);
+            } else {
+                $prioridadA = $this->getPrioridadOrden($a);
+                $prioridadB = $this->getPrioridadOrden($b);
+                if ($prioridadA != $prioridadB) {
+                    return $prioridadA <=> $prioridadB;
+                }
+                return strcmp($a['usu_nombre'], $b['usu_nombre']);
             }
-            return strcmp($a['usu_nombre'], $b['usu_nombre']);
         });
 
         // Paginar
@@ -746,7 +757,7 @@ class SeguimientoUsuarioModel
             $diferencia = (int)$hoy->diff($fechaIngreso)->days;
             if ($fechaIngreso <= $hoy && $diferencia <= 14) {
                 $esNuevo = true;
-                $row['alerta_nuevo_texto'] = 'Empleado nuevo, ingresó el: ' . $fechaIngreso->format('d/m/Y');
+                $row['alerta_nuevo_texto'] = 'Empleado nuevo, ingresó el: ' . $fechaIngreso->format('d-m-Y');
             }
         }
         $row['alerta_nuevo_html'] = $esNuevo ? $this->generarBurbujaNuevoEmpleado($row['idusuarios'], $row['alerta_nuevo_texto']) : '';
@@ -1017,24 +1028,32 @@ class SeguimientoUsuarioModel
 
     // ==================== FORMATO DE FECHAS Y ALERTAS ====================
 
+    private function formatoFechaVisual(?string $fecha): string
+    {
+        if (empty($fecha) || $fecha === '0000-00-00') return '-';
+        return date('d-m-Y', strtotime($fecha));
+    }
+
     private function formatoFechaConAlerta(?string $fecha, string $hoy): string
     {
         if (!$fecha || $fecha === '0000-00-00')
             return '';
+        $fechaFormateada = $this->formatoFechaVisual($fecha);
         $dias = $this->diasHasta($hoy, $fecha);
         if ($dias <= 3 && $dias >= 0) {
-            return "<span style='background-color:#F39C12'>$fecha</span>";
+            return "<span style='background-color:#F39C12'>$fechaFormateada</span>";
         }
-        return $fecha;
+        return $fechaFormateada;
     }
 
     private function formatoFechaConDocumento(?string $fecha, ?int $vehiculoId, int $version, string $hoy): string
     {
         if (!$fecha || $fecha === '0000-00-00')
             return '';
+        $fechaFormateada = $this->formatoFechaVisual($fecha);
         $documentoId = $this->obtenerDocumentoId($vehiculoId, 'vehiculos', $version, true);
         $dias = $this->diasHasta($hoy, $fecha);
-        $styledFecha = ($dias <= 3 && $dias >= 0) ? "<span style='background-color:#F39C12'>$fecha</span>" : $fecha;
+        $styledFecha = ($dias <= 3 && $dias >= 0) ? "<span style='background-color:#F39C12'>$fechaFormateada</span>" : $fechaFormateada;
         if ($documentoId) {
             $url = "?accion=ver_documento&id=$documentoId";
             return "<a href='#' onclick='window.open(\"$url\", \"_blank\")'>$styledFecha</a>";
@@ -1107,7 +1126,7 @@ class SeguimientoUsuarioModel
             } elseif ($d <= 30) {
                 $texto = $nombres[$tipo] . ': expira en ' . $d . ' días';
             } else {
-                $texto = $nombres[$tipo] . ': ' . $info['fecha'] . ' (' . $d . ' días)';
+                $texto = $nombres[$tipo] . ': ' . $this->formatoFechaVisual($info['fecha']) . ' (' . $d . ' días)';
             }
 
             $dropdownItems[] = "<li style='$liStyle; padding:2px 0;'>" . htmlspecialchars($texto) . "</li>";
