@@ -477,7 +477,8 @@ class SeguimientoUsuarioModel
         $idPlaceholder = implode(',', array_fill(0, count($identificaciones), '?'));
         $sqlHv = "SELECT hoj_cedula,
                      (hoj_cuen IS NULL OR hoj_cuen = '') as falta_cuenta,
-                     (hoj_arl IS NULL OR hoj_arl = '') as falta_arl
+                     (hoj_arl IS NULL OR hoj_arl = '') as falta_arl,
+                     hoj_fechaingreso
               FROM hojadevida
               WHERE hoj_cedula IN ($idPlaceholder) AND hoj_estado = 'Activo'";
         $stmt = $this->db->prepare($sqlHv);
@@ -494,10 +495,14 @@ class SeguimientoUsuarioModel
         foreach ($usuarios as $u) {
             $id = $u['idusuarios'];
             $cedula = $u['usu_identificacion'];
-            $hv = $hvIndex[$cedula] ?? ['falta_cuenta' => 0, 'falta_arl' => 0];
+            $hv = $hvIndex[$cedula] ?? ['falta_cuenta' => 0, 'falta_arl' => 0, 'hoj_fechaingreso' => null];
             foreach ($diasList as $dia) {
                 $pre = $preIndex[$id][$dia] ?? null;
                 $seg = $segIndex[$id][$dia] ?? null;
+
+                if (!empty($hv['hoj_fechaingreso']) && $dia < $hv['hoj_fechaingreso']) {
+                    continue;
+                }
 
                 $row = [
                     'idusuarios' => $id,
@@ -508,6 +513,7 @@ class SeguimientoUsuarioModel
                     'usu_idsede' => $u['usu_idsede'],
                     'falta_cuenta' => $hv['falta_cuenta'],
                     'falta_arl' => $hv['falta_arl'],
+                    'hoj_fechaingreso' => $hv['hoj_fechaingreso'],
                     'fecha' => $dia,
                     'idpreoperacinal' => $pre['idpreoperacinal'] ?? null,
                     'prefechaingreso' => $pre['prefechaingreso'] ?? null,
@@ -573,7 +579,8 @@ class SeguimientoUsuarioModel
                 p.preestado,
                 p.prevehiculo,
                 h.hoj_cuen IS NULL OR h.hoj_cuen = '' AS falta_cuenta,
-                h.hoj_arl IS NULL OR h.hoj_arl = '' AS falta_arl
+                h.hoj_arl IS NULL OR h.hoj_arl = '' AS falta_arl,
+                h.hoj_fechaingreso
             FROM seguimiento_user s
             INNER JOIN usuarios u ON u.idusuarios = s.seg_idusuario
             LEFT JOIN `pre-operacional` p ON p.preidusuario = u.idusuarios AND DATE(p.prefechaingreso) = DATE(s.seg_fechaalcohol)
@@ -614,14 +621,25 @@ class SeguimientoUsuarioModel
             $row = $this->enriquecerFila($row);
         }
 
-        // Ordenar por prioridad
-        usort($rows, function ($a, $b) {
-            $prioridadA = $this->getPrioridadOrden($a);
-            $prioridadB = $this->getPrioridadOrden($b);
-            if ($prioridadA != $prioridadB) {
-                return $prioridadA <=> $prioridadB;
+        // Ordenar: rango de fechas -> nombre + fecha; un solo dia -> prioridad
+        $fechasUnicas = array_unique(array_column($rows, 'fecha'));
+        $esRango = count($fechasUnicas) > 1;
+
+        usort($rows, function ($a, $b) use ($esRango) {
+            if ($esRango) {
+                $nombreCompare = strcmp($a['usu_nombre'], $b['usu_nombre']);
+                if ($nombreCompare != 0) {
+                    return $nombreCompare;
+                }
+                return strcmp($a['fecha'], $b['fecha']);
+            } else {
+                $prioridadA = $this->getPrioridadOrden($a);
+                $prioridadB = $this->getPrioridadOrden($b);
+                if ($prioridadA != $prioridadB) {
+                    return $prioridadA <=> $prioridadB;
+                }
+                return strcmp($a['usu_nombre'], $b['usu_nombre']);
             }
-            return strcmp($a['usu_nombre'], $b['usu_nombre']);
         });
 
         // Paginar
@@ -730,6 +748,20 @@ class SeguimientoUsuarioModel
             $alertas[] = 'Falta cuenta bancaria';
         if ($row['falta_arl'] > 0 && $row['usu_tipocontrato'] === 'Empresa')
             $alertas[] = 'Falta ARL';
+
+        // Alerta empleado nuevo (14 dias desde fecha ingreso)
+        $esNuevo = false;
+        if (!empty($row['hoj_fechaingreso'])) {
+            $fechaIngreso = new DateTime($row['hoj_fechaingreso']);
+            $hoy = new DateTime($row['fecha']);
+            $diferencia = (int)$hoy->diff($fechaIngreso)->days;
+            if ($fechaIngreso <= $hoy && $diferencia <= 14) {
+                $esNuevo = true;
+                $row['alerta_nuevo_texto'] = 'Empleado nuevo, ingresó el: ' . $fechaIngreso->format('d-m-Y');
+            }
+        }
+        $row['alerta_nuevo_html'] = $esNuevo ? $this->generarBurbujaNuevoEmpleado($row['idusuarios'], $row['alerta_nuevo_texto']) : '';
+
         $row['alertas'] = $alertas;
         $row['alerta_count'] = count($alertas);
         $row['alerta_html'] = $this->generarBurbujaAlertas($row['idusuarios'], $alertas);
@@ -833,6 +865,12 @@ class SeguimientoUsuarioModel
         }
         return "<div class='noti_bubble' data-id='$idUsuario'>" . count($alertas) . "</div>
                 <div class='noti_options' data-id='$idUsuario' style='display:none;'><ul>$items</ul></div>";
+    }
+
+    private function generarBurbujaNuevoEmpleado(int $idUsuario, string $texto): string
+    {
+        return "<div class='noti_bubble noti_bubble_blue' data-id='$idUsuario'>1</div>
+                <div class='noti_options' data-id='$idUsuario' style='display:none;'><ul><li>" . htmlspecialchars($texto) . "</li></ul></div>";
     }
 
     /**
@@ -990,24 +1028,32 @@ class SeguimientoUsuarioModel
 
     // ==================== FORMATO DE FECHAS Y ALERTAS ====================
 
+    private function formatoFechaVisual(?string $fecha): string
+    {
+        if (empty($fecha) || $fecha === '0000-00-00') return '-';
+        return date('d-m-Y', strtotime($fecha));
+    }
+
     private function formatoFechaConAlerta(?string $fecha, string $hoy): string
     {
         if (!$fecha || $fecha === '0000-00-00')
             return '';
+        $fechaFormateada = $this->formatoFechaVisual($fecha);
         $dias = $this->diasHasta($hoy, $fecha);
         if ($dias <= 3 && $dias >= 0) {
-            return "<span style='background-color:#F39C12'>$fecha</span>";
+            return "<span style='background-color:#F39C12'>$fechaFormateada</span>";
         }
-        return $fecha;
+        return $fechaFormateada;
     }
 
     private function formatoFechaConDocumento(?string $fecha, ?int $vehiculoId, int $version, string $hoy): string
     {
         if (!$fecha || $fecha === '0000-00-00')
             return '';
+        $fechaFormateada = $this->formatoFechaVisual($fecha);
         $documentoId = $this->obtenerDocumentoId($vehiculoId, 'vehiculos', $version, true);
         $dias = $this->diasHasta($hoy, $fecha);
-        $styledFecha = ($dias <= 3 && $dias >= 0) ? "<span style='background-color:#F39C12'>$fecha</span>" : $fecha;
+        $styledFecha = ($dias <= 3 && $dias >= 0) ? "<span style='background-color:#F39C12'>$fechaFormateada</span>" : $fechaFormateada;
         if ($documentoId) {
             $url = "?accion=ver_documento&id=$documentoId";
             return "<a href='#' onclick='window.open(\"$url\", \"_blank\")'>$styledFecha</a>";
@@ -1080,7 +1126,7 @@ class SeguimientoUsuarioModel
             } elseif ($d <= 30) {
                 $texto = $nombres[$tipo] . ': expira en ' . $d . ' días';
             } else {
-                $texto = $nombres[$tipo] . ': ' . $info['fecha'] . ' (' . $d . ' días)';
+                $texto = $nombres[$tipo] . ': ' . $this->formatoFechaVisual($info['fecha']) . ' (' . $d . ' días)';
             }
 
             $dropdownItems[] = "<li style='$liStyle; padding:2px 0;'>" . htmlspecialchars($texto) . "</li>";
