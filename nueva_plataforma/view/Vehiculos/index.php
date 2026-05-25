@@ -10,7 +10,8 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="../assets/css/vehiculos.css">
+<link rel="stylesheet" href="/SistemaTransmillas2025/nueva_plataforma/assets/css/vehiculos.css">
+<link rel="shortcut icon" href="/SistemaTransmillas2025/images/Logo Google Nuevo.png">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
@@ -19,7 +20,7 @@
 <div class="container-fluid py-4"> 
 
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <button class="btn btn-sm btn-light border">Volver</button>
+        <button class="btn btn-sm btn-light border" onclick="history.back()">Volver</button>
 
         <div class="d-flex gap-2">
         <button type="button" class="btn btn-primary" id="btnNuevoComparendo"
@@ -46,6 +47,7 @@
       <i class="fas fa-car me-2"></i> Vehiculos
     </h3>
   </div>
+
     <div class="card-body">
       <div class="row mb-3 align-items-end">
           <div class="col-md-4">
@@ -62,10 +64,19 @@
             <select id="filtroestado" name="filtroestado" class="form-control">
               <option value="">Seleccionar...</option>
               <option value="0">Inactivo</option>
-              <option value="1">Activo</option>
+              <option value="1" selected >Activo</option>
             </select>
-          </div>
-      </div>
+        </div>
+
+        <div class="col-md-4">
+            <label for="filtropropiedad">Propiedad Vehículo</label>
+            <select id="filtropropiedad" name="filtropropiedad" class="form-control">
+              <option value="">Seleccionar...</option>
+              <option value="empresa" selected>Empresa</option>
+              <option value="propio">Propio</option>
+            </select>
+        </div>
+    </div>
 
       <!-- Tabla de Vehículos -->
       <div class="table-responsive">
@@ -191,7 +202,8 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Vencimiento Seguro (SOAT)</label>
-                            <input type="date" name="veh_fechaseguro" value="<?= date('Y-m-d') ?>" class="form-control">
+                            <span class="text-danger">*</span>
+                            <input type="date" name="veh_fechaseguro" class="form-control" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -203,7 +215,8 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Vencimiento Tecnomecánica</label>
-                            <input type="date" name="veh_fechategnomecanica" value="<?= date('Y-m-d') ?>" class="form-control">
+                            <span class="text-danger">*</span>
+                            <input type="date" name="veh_fechategnomecanica" class="form-control" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -215,7 +228,8 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📅 Fecha Ultimo Cambio de Aceite</label>
-                            <input type="date" name="veh_fechamantenimiento" value="<?= date('Y-m-d') ?>" class="form-control">
+                            <span class="text-danger">*</span>
+                            <input type="date" name="veh_fechamantenimiento" class="form-control" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -407,7 +421,6 @@
                             </select>
                         </div>
 
-                        <!-- NUEVO CAMPO: Kilometraje Actual — después de Dueño -->
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">Kilometraje Actual</label>
                             <input type="text" class="form-control" name="veh_kilactual" id="edit_veh_kilactual" required>
@@ -440,7 +453,6 @@
                             <input type="date" name="veh_fechamantenimiento" id="edit_veh_fechamantenimiento" class="form-control">
                         </div>
 
-                        <!-- RENOMBRADO: Kilometraje Actual Al Cambio de Aceite -->
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">Kilometraje Actual Al Cambio de Aceite</label>
                             <input type="text" class="form-control" name="veh_kmactual_cambioaceite" id="edit_veh_kmactual_cambioaceite" required>
@@ -850,7 +862,7 @@
                                 <span class="text-danger">*</span>
                             </label>
                             <input type="file" name="com_foto" id="com_foto"
-                                   class="form-control" accept=".jpg,.jpeg,.png">
+                                   class="form-control" accept=".jpg,.jpeg,.png,.pdf">
                         </div> 
 
                         <div class="col-md-6 mb-3">
@@ -858,7 +870,7 @@
                                 📷 Foto Curso de sensibilización vial
                             </label>
                             <input type="file" name="com_foto_curso" id="com_foto_curso"
-                                   class="form-control" accept=".jpg,.jpeg,.png">
+                                   class="form-control" accept=".jpg,.jpeg,.png,.pdf">
                         </div>
 
                         <div class="col-md-12 mb-2">
@@ -997,7 +1009,7 @@
                             </label>
                             <div id="preview_edit_com_foto" class="mb-2"></div>
                             <input type="file" name="com_foto" id="edit_com_foto"
-                                   class="form-control" accept=".jpg,.jpeg,.png">
+                                   class="form-control" accept=".jpg,.jpeg,.png,.pdf">
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -1006,7 +1018,7 @@
                             </label>
                             <div id="preview_edit_com_foto_curso" class="mb-2"></div>
                             <input type="file" name="com_foto_curso" id="edit_com_foto_curso"
-                                   class="form-control" accept=".jpg,.jpeg,.png">
+                                   class="form-control" accept=".jpg,.jpeg,.png,.pdf">
                         </div>
 
                     </div>
@@ -1025,6 +1037,28 @@
     </div>
 </div>
 
+<!-- MODAL INFORMACION INCOMPLETA -->
+<div class="modal fade" id="modalInfoIncompleta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header mi-header text-white">
+                <h6 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Campos faltantes - <span id="placaInfoIncompleta"></span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" 
+                        data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <ul class="list-group list-group-flush" id="listaCamposFaltantes"></ul>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <small class="text-muted">Complete la información editando el vehículo</small>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
@@ -1034,8 +1068,7 @@
 <!-- DataTables -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-
-<script src="../assets/js/vehiculos.js"></script>
+<script src="/SistemaTransmillas2025/nueva_plataforma/assets/js/vehiculos.js"></script>
 
 </body>
 </html>

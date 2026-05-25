@@ -5,18 +5,19 @@ class VehiculosModel {
     private $dbname;
 
     public function __construct() {
-        $this->db = (new Database())->connect();
+        $this->dbname = (new Database())->connect();
     }
 
-    public function obtenerVehiculos($filtroTipovehiculo = '', $filtroEstado = '') {
-    $sql = "SELECT `idvehiculos`, `veh_tipo`, `veh_placa`, `veh_marca`, `veh_modelo`, 
+    public function obtenerVehiculos($filtroTipovehiculo = '', $filtroEstado = '', $filtroPropiedad = '') {
+    $sql = "SELECT `idvehiculos`, `veh_tipo`, `veh_placa`, `veh_marca`, `veh_modelo`,
     `veh_fechaseguro`, `veh_fechategnomecanica`, `veh_fechamantenimiento`, `veh_kilactual`,
-    `veh_kmactual_cambioaceite`,
-    `veh_aceitekil`, `veh_propiedad`, `veh_dueño`, `veh_estado`, `veh_chasis`, `veh_tipov`, `veh_cilidraje`, 
-    `veh_motor`, `veh_color`, `veh_usuve`, `veh_observaciones`, `veh_calkmcambioaceite`, 
-    `veh_restankmaceite`, `veh_faltaparacambioaceite`, `veh_kmalcambaceite`, `veh_img_anverso`, `veh_img_reverso`, 
-    `veh_img_actual_frente`, `veh_img_actual_trasera`,
-    IF(idusuarios = 14, 'Transmillas', usu_nombre) AS usu_nombre,
+    `veh_kmactual_cambioaceite`, `veh_aceitekil`, `veh_propiedad`, `veh_dueño`, `veh_estado`, 
+    `veh_chasis`, `veh_tipov`, `veh_cilidraje`, `veh_motor`, `veh_color`, `veh_usuve`, 
+    `veh_observaciones`, `veh_calkmcambioaceite`, `veh_restankmaceite`, 
+    `veh_faltaparacambioaceite`, `veh_kmalcambaceite`, 
+    `veh_img_anverso`, `veh_img_reverso`, `veh_img_actual_frente`, `veh_img_actual_trasera`,
+    `veh_img_soat`, `veh_img_tecnomecanica`,
+     IF(idusuarios = 14, 'Transmillas', usu_nombre) AS usu_nombre,
     (SELECT COUNT(*) FROM comparendos 
      WHERE com_vehiculo_id = idvehiculos) AS total_comparendos,
     (SELECT COUNT(*) FROM comparendos 
@@ -24,16 +25,19 @@ class VehiculosModel {
      AND com_estado = 'Pendiente') AS comparendos_pendientes
      FROM `vehiculos` LEFT JOIN usuarios ON veh_dueño = idusuarios
      WHERE 1=1";
-
     if ($filtroTipovehiculo !== '') {
-        $sql .= " AND veh_tipo = '" . $this->db->real_escape_string($filtroTipovehiculo) . "'";
+        $sql .= " AND veh_tipo = '" . $this->dbname->real_escape_string($filtroTipovehiculo) . "'";
     }
 
     if ($filtroEstado !== '') {
-        $sql .= " AND veh_estado = '" . $this->db->real_escape_string($filtroEstado) . "'";
+        $sql .= " AND veh_estado = '" . $this->dbname->real_escape_string($filtroEstado) . "'";
     }
 
-    $result = $this->db->query($sql);
+     if ($filtroPropiedad !== '') {
+        $sql .= " AND veh_propiedad = '" . $this->dbname->real_escape_string($filtroPropiedad) . "'";
+    }
+
+    $result = $this->dbname->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
     
@@ -43,7 +47,7 @@ class VehiculosModel {
     if (!in_array($campo, $permitidos)) return;
 
     $sql = "UPDATE vehiculos SET $campo = ? WHERE idvehiculos = ?";
-    $stmt = $this->db->prepare($sql);
+    $stmt = $this->dbname->prepare($sql);
     $stmt->bind_param("ii", $valor, $id);
     $stmt->execute();
     $stmt->close();
@@ -52,7 +56,7 @@ class VehiculosModel {
 // Función para eliminar un vehículo por su ID
     public function eliminarVehiculo($id) {
         $sql = "DELETE FROM vehiculos WHERE idvehiculos = ?";
-        $stmt = $this->db->prepare($sql);
+        $stmt = $this->dbname->prepare($sql);
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $stmt->close();
@@ -82,10 +86,10 @@ class VehiculosModel {
         veh_img_anverso, veh_img_reverso, veh_img_actual_frente, veh_img_actual_trasera
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    $stmt = $this->db->prepare($sql);
+    $stmt = $this->dbname->prepare($sql);
 
     if (!$stmt) {
-        return ['error' => 'Prepare falló: ' . $this->db->error];
+        return ['error' => 'Prepare falló: ' . $this->dbname->error];
     }
 
     $stmt->bind_param(
@@ -137,14 +141,29 @@ private function guardarImagen(array $file, string $carpetaRelativa)
     }
 
     $rutaBase = dirname(__DIR__) . DIRECTORY_SEPARATOR . $carpetaRelativa;
-
     if (!is_dir($rutaBase)) {
         mkdir($rutaBase, 0777, true);
     }
 
-    $nombre  = date("Y-m-d-H-i-s") . "-" . basename($file["name"]);
+    $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $extensionesPermitidas = ['jpg', 'jpeg', 'png', 'pdf'];
+
+    if (!in_array($extension, $extensionesPermitidas)) {
+        return "";
+    }
+
+    $nombre  = date("Y-m-d-H-i-s") . "-" . uniqid() . "." . $extension;
     $destino = $rutaBase . DIRECTORY_SEPARATOR . $nombre;
 
+    // Si es PDF, mover directamente sin procesar
+    if ($extension === 'pdf') {
+        if (move_uploaded_file($file['tmp_name'], $destino)) {
+            return $carpetaRelativa . "/" . $nombre;
+        }
+        return "";
+    }
+
+    // Si es imagen, redimensionar como antes
     $info = getimagesize($file['tmp_name']);
     if (!$info) return "";
 
@@ -179,7 +198,6 @@ private function guardarImagen(array $file, string $carpetaRelativa)
 
     return $carpetaRelativa . "/" . $nombre;
 }
-
 // Funcion para obtener lista de dueños activos para el dropdown
 public function obtenerDueños() {
     $sql = "SELECT idusuarios AS iddueños, usu_nombre AS due_nombre 
@@ -187,7 +205,7 @@ public function obtenerDueños() {
             WHERE usu_estado = 1
               AND (roles_idroles IN (2, 3) OR idusuarios = 14)
             ORDER BY usu_nombre ASC";
-    $result = $this->db->query($sql);
+    $result = $this->dbname->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
@@ -195,7 +213,7 @@ public function obtenerDueños() {
 public function obtenerVehiculoPorId($id) {
     $id    = intval($id);
     $sql   = "SELECT * FROM vehiculos WHERE idvehiculos = $id LIMIT 1";
-    $result = $this->db->query($sql);
+    $result = $this->dbname->query($sql);
     return $result ? $result->fetch_assoc() : null;
 }
 
@@ -243,7 +261,7 @@ public function actualizarVehiculo($datos) {
         $sqlImgs
         WHERE idvehiculos = $id";
 
-    $stmt = $this->db->prepare($sql);
+    $stmt = $this->dbname->prepare($sql);
 
     $stmt->bind_param(
         "sssssssssssssssssssss",
@@ -282,7 +300,7 @@ public function obtenerOperadoresActivos() {
             WHERE usu_estado = 1 
               AND roles_idroles IN (2, 3)
             ORDER BY usu_nombre ASC";
-    $result = $this->db->query($sql);
+    $result = $this->dbname->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
@@ -294,7 +312,7 @@ public function guardarEntregaVehiculo($datos) {
 
     $idUsuario = intval($datos['ent_idusuario']);
     $sqlCedula = "SELECT usu_identificacion FROM usuarios WHERE idusuarios = ? LIMIT 1";
-    $stmtCedula = $this->db->prepare($sqlCedula);
+    $stmtCedula = $this->dbname->prepare($sqlCedula);
     $stmtCedula->bind_param("i", $idUsuario);
     $stmtCedula->execute();
     $resultCedula = $stmtCedula->get_result();
@@ -307,7 +325,7 @@ public function guardarEntregaVehiculo($datos) {
         $cedula   = $usuarioData['usu_identificacion'];
         $sqlHoja  = "SELECT idhojadevida FROM hojadevida 
                      WHERE hoj_cedula = ? AND hoj_estado = 'Activo' LIMIT 1";
-        $stmtHoja = $this->db->prepare($sqlHoja);
+        $stmtHoja = $this->dbname->prepare($sqlHoja);
         $stmtHoja->bind_param("s", $cedula);
         $stmtHoja->execute();
         $resultHoja = $stmtHoja->get_result();
@@ -336,8 +354,8 @@ public function guardarEntregaVehiculo($datos) {
                 ent_observaciones, ent_firma 
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    $stmt = $this->db->prepare($sql);
-    if (!$stmt) return ['error' => 'Prepare falló: ' . $this->db->error];
+    $stmt = $this->dbname->prepare($sql);
+    if (!$stmt) return ['error' => 'Prepare falló: ' . $this->dbname->error];
 
     $stmt->bind_param(
         "sssississssss",
@@ -366,7 +384,7 @@ public function guardarEntregaVehiculo($datos) {
 public function obtenerEquipoVehiculo($id) {
     $id     = intval($id);
     $sql    = "SELECT veh_equipo_carretera FROM vehiculos WHERE idvehiculos = $id LIMIT 1";
-    $result = $this->db->query($sql);
+    $result = $this->dbname->query($sql);
     if ($result) {
         $row    = $result->fetch_assoc();
         $equipo = [];
@@ -394,7 +412,7 @@ public function guardarComparendo($datos) {
     $idOp   = intval($datos['com_operador_id']);
 
     $sqlC  = "SELECT usu_identificacion FROM usuarios WHERE idusuarios = ? LIMIT 1";
-    $stmtC = $this->db->prepare($sqlC);
+    $stmtC = $this->dbname->prepare($sqlC);
     $stmtC->bind_param("i", $idOp);
     $stmtC->execute();
     $rowC = $stmtC->get_result()->fetch_assoc();
@@ -404,7 +422,7 @@ public function guardarComparendo($datos) {
         $cedula = $rowC['usu_identificacion'];
         $sqlH   = "SELECT idhojadevida FROM hojadevida
                    WHERE hoj_cedula = ? AND hoj_estado = 'Activo' LIMIT 1";
-        $stmtH  = $this->db->prepare($sqlH);
+        $stmtH  = $this->dbname->prepare($sqlH);
         $stmtH->bind_param("s", $cedula);
         $stmtH->execute();
         $rowH = $stmtH->get_result()->fetch_assoc();
@@ -418,8 +436,8 @@ public function guardarComparendo($datos) {
              (com_operador_id, com_vehiculo_id, com_estado, com_foto, com_fecha,
              com_hojadevida_id, com_valor, com_numerocompa, com_titularcompa, com_foto_curso)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    $stmt = $this->db->prepare($sql);
-    if (!$stmt) return ['error' => $this->db->error];
+    $stmt = $this->dbname->prepare($sql);
+    if (!$stmt) return ['error' => $this->dbname->error];
 
     $stmt->bind_param(
         "iisssissss",
@@ -454,7 +472,7 @@ public function obtenerComparendosPorVehiculo($idVehiculo) {
             LEFT JOIN vehiculos v ON c.com_vehiculo_id = v.idvehiculos
             WHERE c.com_vehiculo_id = $id
             ORDER BY c.com_fecha DESC";
-    $result = $this->db->query($sql);
+    $result = $this->dbname->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
@@ -462,7 +480,7 @@ public function obtenerComparendosPorVehiculo($idVehiculo) {
 public function contarComparendosPorOperador($idOperador) {
     $id     = intval($idOperador);
     $sql    = "SELECT COUNT(*) AS total FROM comparendos WHERE com_operador_id = $id";
-    $result = $this->db->query($sql);
+    $result = $this->dbname->query($sql);
     if ($result) {
         $row = $result->fetch_assoc();
         return (int)$row['total'];
@@ -473,7 +491,7 @@ public function contarComparendosPorOperador($idOperador) {
 //Funcion para obtener lista de sedes para el dropdown en entrega de vehículo (y posibles filtros futuros)
 public function obtenerSedes() {
     $sql = "SELECT idsedes, sed_nombre FROM sedes ORDER BY sed_nombre ASC";
-    $result = $this->db->query($sql);
+    $result = $this->dbname->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
@@ -490,15 +508,15 @@ public function actualizarComparendo($datos) {
     }
 
     $id      = intval($datos['com_id']);
-    $estado  = $this->db->real_escape_string($datos['com_estado']);
+    $estado  = $this->dbname->real_escape_string($datos['com_estado']);
     $valor = str_replace(['.', ','], ['', '.'], $datos['com_valor']);
     $valor = floatval($valor);
-    $numero  = $this->db->real_escape_string($datos['com_numerocompa']);
-    $titular = $this->db->real_escape_string($datos['com_titularcompa']);
+    $numero  = $this->dbname->real_escape_string($datos['com_numerocompa']);
+    $titular = $this->dbname->real_escape_string($datos['com_titularcompa']);
 
     $sqlFotos = '';
-    if ($com_foto)       $sqlFotos .= ", com_foto = '" . $this->db->real_escape_string($com_foto) . "'";
-    if ($com_foto_curso) $sqlFotos .= ", com_foto_curso = '" . $this->db->real_escape_string($com_foto_curso) . "'";
+    if ($com_foto)       $sqlFotos .= ", com_foto = '" . $this->dbname->real_escape_string($com_foto) . "'";
+    if ($com_foto_curso) $sqlFotos .= ", com_foto_curso = '" . $this->dbname->real_escape_string($com_foto_curso) . "'";
 
     $sql = "UPDATE comparendos SET
                 com_estado       = '$estado',
@@ -508,8 +526,8 @@ public function actualizarComparendo($datos) {
                 {$sqlFotos}
             WHERE idcomparendos = $id";
 
-    $resultado = $this->db->query($sql);
-    if (!$resultado) return ['error' => $this->db->error];
+    $resultado = $this->dbname->query($sql);
+    if (!$resultado) return ['error' => $this->dbname->error];
     return true;
 }
 
