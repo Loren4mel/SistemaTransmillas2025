@@ -315,6 +315,39 @@ if (isset($_GET['accion'])) {
                 sendJsonResponse($modelo->getDetallesParaEliminar($_GET['id_combinado'] ?? ''));
                 break;
 
+            case 'buscar_nuevos_empleados':
+                $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('-14 days'));
+                $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d');
+                $errorFecha = validarRangoFechas($fechaInicio, $fechaFin);
+                if ($errorFecha) {
+                    sendJsonResponse(['error' => $errorFecha], 400);
+                    break;
+                }
+                $empleados = $modelo->buscarNuevosEmpleados($fechaInicio, $fechaFin);
+                // Enriquecer cada fila con datos calculados
+                $hoy = new DateTime();
+                foreach ($empleados as &$emp) {
+                    if (!empty($emp['hoj_fechaingreso'])) {
+                        $fechaIng = new DateTime($emp['hoj_fechaingreso']);
+                        $emp['dias_desde_ingreso'] = (int)$hoy->diff($fechaIng)->days;
+                        $emp['hoj_fechaingreso_fmt'] = $fechaIng->format('d-m-Y');
+                    } else {
+                        $emp['dias_desde_ingreso'] = null;
+                        $emp['hoj_fechaingreso_fmt'] = '';
+                    }
+                    // Formatear estado
+                    $estado = $emp['hoj_estado'] ?? '';
+                    $emp['hoj_estado_fmt'] = $estado ?: 'Sin registro';
+                    $emp['hoj_estado_activo'] = ($estado === 'Activo');
+                    // Construir texto de alertas
+                    $alertas = [];
+                    if (!empty($emp['falta_cuenta'])) $alertas[] = 'Falta cuenta bancaria';
+                    if (!empty($emp['falta_arl']) && $emp['usu_tipocontrato'] === 'Empresa') $alertas[] = 'Falta ARL';
+                    $emp['alertas_texto'] = implode(', ', $alertas);
+                }
+                sendJsonResponse($empleados);
+                break;
+
             case 'ver_documento':
                 $id = intval($_GET['id'] ?? 0);
                 $ruta = $modelo->getRutaDocumento($id);
@@ -467,6 +500,9 @@ if (isset($_GET['accion'])) {
                         }
                         $data['operarios'] = $idsede > 0 ? $modelo->getOperariosPorSede($idsede) : $modelo->getTodosOperarios();
                         $data['companero_seleccionado'] = $companeroActual;
+                        break;
+
+                    case 'nuevos_empleados':
                         break;
 
                     case 'festivos':

@@ -114,6 +114,35 @@ class SeguimientoUsuarioModel
     }
 
     /**
+     * Busca empleados cuya fecha de ingreso (hoj_fechaingreso) esté dentro del rango dado.
+     * Reutiliza la misma lógica de validación que la alerta de empleado nuevo.
+     *
+     * @param string $fechaInicio Fecha inicio del rango (Y-m-d)
+     * @param string $fechaFin    Fecha fin del rango (Y-m-d)
+     * @return array Lista de empleados con sus datos relevantes
+     */
+    public function buscarNuevosEmpleados(string $fechaInicio, string $fechaFin): array
+    {
+        $sql = "SELECT u.idusuarios, u.usu_nombre, u.usu_identificacion, u.usu_tipocontrato,
+                       u.usu_idsede, s.sed_nombre,
+                       h.hoj_fechaingreso, h.hoj_cargo, h.hoj_estado,
+                       (h.hoj_cuen IS NULL OR h.hoj_cuen = '') as falta_cuenta,
+                       (h.hoj_arl IS NULL OR h.hoj_arl = '') as falta_arl
+                FROM usuarios u
+                LEFT JOIN hojadevida h ON h.hoj_cedula = u.usu_identificacion
+                LEFT JOIN sedes s ON s.idsedes = u.usu_idsede
+                WHERE u.roles_idroles != 6
+                  AND h.hoj_fechaingreso BETWEEN ? AND ?
+                ORDER BY h.hoj_fechaingreso DESC, u.usu_nombre ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("ss", $fechaInicio, $fechaFin);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    }
+
+    /**
      * Obtiene los tipos de contrato disponibles.
      *
      * @return array

@@ -225,6 +225,9 @@
                         <button type="button" class="btn btn-info btn-lg" onclick="abrirModalLicencias()">
                             <i class="fas fa-file-medical"></i> + Licencias y permisos
                         </button>
+                        <button type="button" class="btn btn-lg" onclick="abrirModalNuevosEmpleados()" style="background-color: #2196F3; color: white;">
+                            <i class="fas fa-user-plus"></i> Nuevos Empleados
+                        </button>
                     </div>
                 </div>
 
@@ -374,6 +377,24 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                     <button class="btn btn-info" onclick="guardarLicencias()">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nuevos Empleados (búsqueda por rango de fecha de ingreso) -->
+    <div class="modal fade" id="modalNuevosEmpleados" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i> Nuevos Empleados por Fecha de Ingreso</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="nuevosEmpleadosModalBody">
+                    <!-- Cargado via AJAX -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
