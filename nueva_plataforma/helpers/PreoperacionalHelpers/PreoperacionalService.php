@@ -42,7 +42,6 @@ class PreoperacionalService
             }
         }
 
-        $estado = $postData['estado'] ?? '';
         $dataJson = $postData['data'] ?? '';
         $idVehiculo = !empty($postData['idvehiculo']) ? (int) $postData['idvehiculo'] : null;
         $tipoVehiculo = $postData['tipo_vehiculo'] ?? '';
@@ -100,7 +99,7 @@ class PreoperacionalService
         if ($idPre > 0) {
             // Actualización (validación)
             return $this->actualizarRegistro(
-                $idPre, $dataJson, $descValidada, $estado,
+                $idPre, $dataJson, $descValidada,
                 $accionCorrectiva, $responsable, $temperatura,
                 $kilometraje, $idVehiculo, $imagenKilo, $imagenInspeccion,
                 $firmaProcesada
@@ -111,7 +110,7 @@ class PreoperacionalService
                 $idVehiculo, $tipoVehiculo, $fechaHora, $idUsuario,
                 $dataJson, $observaciones, $accionCorrectiva,
                 $responsable, $temperatura, $kilometraje,
-                $limpiomaleta, $imagenKilo, $estado, $files, $imagenInspeccion,
+                $limpiomaleta, $imagenKilo, $files, $imagenInspeccion,
                 $firmaProcesada
             );
         }
@@ -475,7 +474,7 @@ class PreoperacionalService
      * Actualiza un registro existente
      */
     private function actualizarRegistro(
-        $idPre, $dataJson, $descValidada, $estado,
+        $idPre, $dataJson, $descValidada,
         $accionCorrectiva, $responsable, $temperatura,
         $kilometraje, $idVehiculo, $imagenKilo, $imagenInspeccion,
         $firmaProcesada = false
@@ -487,7 +486,7 @@ class PreoperacionalService
             'predatosvalidados' => $dataJson,
             'pre_descvalidada' => $_SESSION['usuario_nombre'] . " - " . $descValidada,
             'pre_iduservalida' => $_SESSION['usuario_id'],
-            'preestado' => ($estado == 'covid19') ? 'Validado Covid19' : 'Validado',
+            'preestado' => 'Validado',
             'pre_correctiva' => $accionCorrectiva,
             'pre_responsable' => $responsable,
             'pre_temperatura' => $temperatura,
@@ -544,7 +543,7 @@ class PreoperacionalService
         $idVehiculo, $tipoVehiculo, $fechaHora, $idUsuario,
         $dataJson, $observaciones, $accionCorrectiva,
         $responsable, $temperatura, $kilometraje,
-        $limpiomaleta, $imagenKilo, $estado, $files, $imagenInspeccion,
+        $limpiomaleta, $imagenKilo, $files, $imagenInspeccion,
         $firmaProcesada = false
     ) {
 
@@ -561,7 +560,7 @@ class PreoperacionalService
             'pre_kilrecorridos' => $kilometraje,
             'pre_limpiomaleta' => $limpiomaleta,
             'pre_img_kilo' => $imagenKilo,
-            'preestado' => ($estado == 'covid19') ? 'covid19' : 'pendiente'
+            'preestado' => 'pendiente'
         ];
 
         // Si hay imagen de inspección, agregarla a observaciones
