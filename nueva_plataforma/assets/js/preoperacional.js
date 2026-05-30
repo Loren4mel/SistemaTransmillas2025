@@ -779,6 +779,10 @@
         var btn = document.getElementById('btnGuardar');
         if (!btn) return;
 
+        // No modificar si está bloqueado por novedad vehicular
+        var container = document.getElementById('vehiculoSectionsContainer');
+        if (container && container.classList.contains('vehiculo-section-blocked')) return;
+
         // En modo validación no se bloquea
         if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
             btn.disabled = false;
@@ -870,11 +874,427 @@
             }
         }
 
-        // Deshabilitar inputs de archivo
+        // Deshabilitar inputs de archivo (excepto los de entrega de vehículo en validación)
         var fileInputs = document.querySelectorAll('input[type="file"]');
         for (var k = 0; k < fileInputs.length; k++) {
+            // Mantener habilitados los inputs de fotos de entrega (entrega_final_*, entrega_inicial_*)
+            if (fileInputs[k].id.indexOf('entrega_') === 0) continue;
             fileInputs[k].disabled = true;
         }
+    }
+
+    /**
+     * Verifica el estado del vehículo asignado al cargar la página.
+     * Si hay novedad, el panel ya está renderizado desde PHP.
+     */
+    function verificarEstadoVehiculo() {
+        var idVehiculo = document.getElementById('idvehiculo');
+        if (!idVehiculo || !idVehiculo.value || parseInt(idVehiculo.value) <= 0) return;
+
+        var novedadPanel = document.getElementById('novedadPanel');
+        if (novedadPanel) {
+            initBotonReportarNovedad();
+        }
+    }
+
+    /**
+     * Bloquea las secciones de vehículo y el botón de guardar
+     * cuando hay una novedad vehicular activa sin reportar.
+     * Las secciones de usuario (personal/conductor/etc.) permanecen editables.
+     */
+    function bloquearSeccionesVehiculo() {
+        var container = document.getElementById('vehiculoSectionsContainer');
+        if (!container) return;
+
+        // Deshabilitar todos los inputs, checkboxes, radios, selects y textareas
+        var inputs = container.querySelectorAll('input, select, textarea, button');
+        for (var i = 0; i < inputs.length; i++) {
+            var el = inputs[i];
+            if (el.tagName === 'BUTTON') continue; // No hay botones dentro, pero por si acaso
+            el.disabled = true;
+            el.classList.add('novedad-blocked');
+        }
+
+        // Deshabilitar también el botón de guardar principal
+        var btnGuardar = document.getElementById('btnGuardar');
+        if (btnGuardar) {
+            btnGuardar.disabled = true;
+            btnGuardar.title = 'Debe reportar la novedad del vehículo antes de guardar.';
+            btnGuardar.style.opacity = '0.5';
+            btnGuardar.style.cursor = 'not-allowed';
+
+            // Mostrar alerta de novedad debajo del botón
+            var alertaEl = document.getElementById('btnGuardarAlerta');
+            if (!alertaEl) {
+                alertaEl = document.createElement('div');
+                alertaEl.id = 'btnGuardarAlerta';
+                alertaEl.className = 'btn-guardar-alerta';
+                btnGuardar.parentNode.insertBefore(alertaEl, btnGuardar.nextSibling);
+            }
+            alertaEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' +
+                'El vehículo presenta novedades. Debe reportar la novedad antes de continuar con el preoperacional.';
+            alertaEl.style.display = '';
+        }
+
+        // Agregar clase visual al contenedor
+        container.classList.add('vehiculo-section-blocked');
+    }
+
+    /**
+     * Desbloquea las secciones de vehículo y el botón de guardar
+     * después de reportar una novedad (SÍ o NO con nuevo vehículo).
+     */
+    function desbloquearSeccionesVehiculo() {
+        var container = document.getElementById('vehiculoSectionsContainer');
+        if (!container) return;
+
+        // Reactivar todos los inputs
+        var inputs = container.querySelectorAll('input, select, textarea');
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].disabled = false;
+            inputs[i].classList.remove('novedad-blocked');
+        }
+
+        // Reactivar botón de guardar
+        var btnGuardar = document.getElementById('btnGuardar');
+        if (btnGuardar) {
+            btnGuardar.disabled = false;
+            btnGuardar.title = '';
+            btnGuardar.style.opacity = '';
+            btnGuardar.style.cursor = '';
+
+            // Ocultar alerta de novedad
+            var alertaEl = document.getElementById('btnGuardarAlerta');
+            if (alertaEl) {
+                alertaEl.style.display = 'none';
+            }
+        }
+
+        // Quitar clase visual
+        container.classList.remove('vehiculo-section-blocked');
+
+        // Asegurar que la info de no-vehículo esté oculta
+        var infoEl = document.getElementById('vehiculoNoSeleccionadoInfo');
+        if (infoEl) infoEl.style.display = 'none';
+        if (container) container.style.display = '';
+    }
+
+    /**
+     * Oculta las secciones de vehículo y muestra el mensaje informativo
+     * cuando el usuario reporta NO y no selecciona un vehículo alternativo.
+     */
+    function ocultarSeccionesVehiculo() {
+        var container = document.getElementById('vehiculoSectionsContainer');
+        var infoEl = document.getElementById('vehiculoNoSeleccionadoInfo');
+
+        // Ocultar secciones de vehículo
+        if (container) container.style.display = 'none';
+
+        // Mostrar info de no-vehículo
+        if (infoEl) infoEl.style.display = '';
+
+        // Reactivar botón de guardar (solo aplica a secciones de usuario)
+        var btnGuardar = document.getElementById('btnGuardar');
+        if (btnGuardar) {
+            btnGuardar.disabled = false;
+            btnGuardar.title = '';
+            btnGuardar.style.opacity = '';
+            btnGuardar.style.cursor = '';
+
+            // Ocultar alerta de novedad
+            var alertaEl = document.getElementById('btnGuardarAlerta');
+            if (alertaEl) {
+                alertaEl.style.display = 'none';
+            }
+        }
+
+        // Actualizar el hidden de idvehiculo y idvehiculo_seleccionado a 0
+        var idvField = document.querySelector('input[name="idvehiculo"]');
+        if (idvField) idvField.value = '0';
+        var selField = document.getElementById('idvehiculo_seleccionado');
+        if (selField) selField.value = '0';
+    }
+
+    /**
+     * Inicializa el botón de "Reportar Novedad" — expande el formulario inline
+     */
+    function initBotonReportarNovedad() {
+        var btn = document.getElementById('btnReportarNovedad');
+        if (!btn) return;
+
+        btn.addEventListener('click', function() {
+            // Ocultar el botón y mostrar el formulario inline
+            document.getElementById('novedadActions').style.display = 'none';
+            document.getElementById('novedadInlineForm').style.display = '';
+
+            // Bloquear secciones de vehículo mientras se reporta la novedad
+            if (typeof ES_VALIDACION === 'undefined' || !ES_VALIDACION) {
+                bloquearSeccionesVehiculo();
+            }
+        });
+
+        // Cancelar: ocultar formulario y mostrar botón de nuevo
+        var btnCancelar = document.getElementById('btnCancelarNovedad');
+        if (btnCancelar) {
+            btnCancelar.addEventListener('click', function() {
+                document.getElementById('novedadInlineForm').style.display = 'none';
+                document.getElementById('novedadActions').style.display = '';
+                // Resetear el formulario
+                var radios = document.getElementsByName('puede_operar');
+                for (var i = 0; i < radios.length; i++) radios[i].checked = false;
+                document.getElementById('novedadObservacion').value = '';
+                document.getElementById('novedadVehiculoSelect').value = '';
+                document.getElementById('novedadObservacionGroup').style.display = 'none';
+                document.getElementById('novedadVehiculoGroup').style.display = 'none';
+                // Resetear inputs file
+                var fileInputs = document.querySelectorAll('#novedadInlineForm input[type="file"]');
+                for (var j = 0; j < fileInputs.length; j++) fileInputs[j].value = '';
+                // Ocultar secciones de foto
+                var fotoGen = document.getElementById('novedadFotoGeneralGroup');
+                var salidaGrp = document.getElementById('novedadSalidaPhotosGroup');
+                var entradaGrp = document.getElementById('novedadEntradaPhotosGroup');
+                if (fotoGen) fotoGen.style.display = 'none';
+                if (salidaGrp) salidaGrp.style.display = 'none';
+                if (entradaGrp) entradaGrp.style.display = 'none';
+                // Desbloquear secciones de vehículo al cancelar
+                desbloquearSeccionesVehiculo();
+            });
+        }
+
+        // Radios SÍ/NO: mostrar/ocultar campos condicionales
+        var radios = document.getElementsByName('puede_operar');
+        for (var i = 0; i < radios.length; i++) {
+            radios[i].addEventListener('change', function() {
+                var obsGroup  = document.getElementById('novedadObservacionGroup');
+                var vehGroup  = document.getElementById('novedadVehiculoGroup');
+                var fotoGen   = document.getElementById('novedadFotoGeneralGroup');
+                var salidaGrp = document.getElementById('novedadSalidaPhotosGroup');
+                var entradaGrp = document.getElementById('novedadEntradaPhotosGroup');
+
+                // Foto general siempre visible al seleccionar cualquier radio
+                if (fotoGen) fotoGen.style.display = '';
+
+                if (this.value === 'no') {
+                    if (obsGroup)  obsGroup.style.display = '';
+                    if (vehGroup)  vehGroup.style.display = '';
+                    if (salidaGrp) salidaGrp.style.display = '';
+                    // Entrada depende del dropdown
+                    var selectVehiculo = document.getElementById('novedadVehiculoSelect');
+                    if (entradaGrp && selectVehiculo) {
+                        entradaGrp.style.display = (selectVehiculo.value !== '') ? '' : 'none';
+                    }
+                } else {
+                    if (obsGroup)  obsGroup.style.display = 'none';
+                    if (vehGroup)  vehGroup.style.display = 'none';
+                    if (salidaGrp) salidaGrp.style.display = 'none';
+                    if (entradaGrp) entradaGrp.style.display = 'none';
+                }
+            });
+        }
+
+        // Dropdown de vehículo: mostrar fotos de entrada si NO está seleccionado y hay vehículo
+        var selectVehiculo = document.getElementById('novedadVehiculoSelect');
+        if (selectVehiculo) {
+            selectVehiculo.addEventListener('change', function() {
+                var esNo = document.querySelector('input[name="puede_operar"]:checked');
+                var esNoValue = esNo ? esNo.value === 'no' : false;
+                var entradaGrp = document.getElementById('novedadEntradaPhotosGroup');
+                if (entradaGrp) {
+                    entradaGrp.style.display = (esNoValue && this.value !== '') ? '' : 'none';
+                }
+            });
+        }
+
+        // Guardar novedad desde el formulario inline
+        var btnGuardar = document.getElementById('btnGuardarNovedad');
+        if (btnGuardar) {
+            btnGuardar.addEventListener('click', function() {
+                var seleccion = document.querySelector('input[name="puede_operar"]:checked');
+                if (!seleccion) {
+                    Swal.fire({ title: 'Seleccione una opción', text: 'Debe indicar si el vehículo puede ser operado.', icon: 'warning', confirmButtonText: 'Aceptar' });
+                    return;
+                }
+                var panel = document.getElementById('novedadPanel');
+                var idVehiculo = panel ? panel.getAttribute('data-idvehiculo') : '0';
+                var datos = {
+                    puede_ser_operado: seleccion.value,
+                    observaciones: document.getElementById('novedadObservacion') ? document.getElementById('novedadObservacion').value : '',
+                    idvehiculo_nuevo: document.getElementById('novedadVehiculoSelect') ? document.getElementById('novedadVehiculoSelect').value : ''
+                };
+                guardarNovedad(idVehiculo, datos);
+            });
+        }
+    }
+
+    /**
+     * Envía el reporte de novedad al servidor desde el formulario inline
+     */
+    function guardarNovedad(idVehiculo, datos) {
+        var seleccion = document.querySelector('input[name="puede_operar"]:checked');
+        if (!seleccion) return;
+
+        // --- VALIDACIÓN DE FOTOS ---
+        // 1. Foto general SIEMPRE requerida
+        var fotoEvidencia = document.getElementById('novedad_foto_evidencia');
+        if (!fotoEvidencia || !fotoEvidencia.files || fotoEvidencia.files.length === 0) {
+            Swal.fire({ title: 'Foto requerida', text: 'Debe subir la foto de evidencia general.', icon: 'warning', confirmButtonText: 'Aceptar' });
+            var panel = document.getElementById('novedadPanel');
+            if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        // 2. Si NO: fotos de salida requeridas
+        if (seleccion.value === 'no') {
+            var faltaSalida = [];
+            var sf = document.getElementById('novedad_salida_frente');
+            var st = document.getElementById('novedad_salida_trasera');
+            if (!sf || !sf.files || sf.files.length === 0) faltaSalida.push('Foto FRENTE - Salida');
+            if (!st || !st.files || st.files.length === 0) faltaSalida.push('Foto TRASERA - Salida');
+            if (faltaSalida.length > 0) {
+                var html = '<strong>Debe subir las siguientes fotos de salida:</strong><br><br>';
+                for (var k = 0; k < faltaSalida.length; k++) { html += '• ' + faltaSalida[k] + '<br>'; }
+                Swal.fire({ title: 'Fotos de salida requeridas', html: html, icon: 'warning', confirmButtonText: 'Aceptar' });
+                var salidaGrp = document.getElementById('novedadSalidaPhotosGroup');
+                if (salidaGrp) salidaGrp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            // 3. Si vehículo nuevo seleccionado: fotos de entrada requeridas
+            var idVehiculoNuevo = datos.idvehiculo_nuevo || '';
+            if (idVehiculoNuevo) {
+                var faltaEntrada = [];
+                var ef = document.getElementById('novedad_entrada_frente');
+                var et = document.getElementById('novedad_entrada_trasera');
+                if (!ef || !ef.files || ef.files.length === 0) faltaEntrada.push('Foto FRENTE - Entrada');
+                if (!et || !et.files || et.files.length === 0) faltaEntrada.push('Foto TRASERA - Entrada');
+                if (faltaEntrada.length > 0) {
+                    var htmlE = '<strong>Debe subir las siguientes fotos de entrada:</strong><br><br>';
+                    for (var j = 0; j < faltaEntrada.length; j++) { htmlE += '• ' + faltaEntrada[j] + '<br>'; }
+                    Swal.fire({ title: 'Fotos de entrada requeridas', html: htmlE, icon: 'warning', confirmButtonText: 'Aceptar' });
+                    var entradaGrp = document.getElementById('novedadEntradaPhotosGroup');
+                    if (entradaGrp) entradaGrp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+            }
+        }
+
+        // --- BUILD FORMDATA ---
+        var formData = new FormData();
+        formData.append('accion', 'reportar_novedad');
+        formData.append('idvehiculo_actual', idVehiculo);
+        formData.append('puede_ser_operado', datos.puede_ser_operado);
+        formData.append('observaciones', datos.observaciones);
+        formData.append('idvehiculo_nuevo', datos.idvehiculo_nuevo);
+        formData.append('id_usuario', document.getElementById('user') ? document.getElementById('user').value : '');
+
+        // Append foto general
+        if (fotoEvidencia && fotoEvidencia.files.length > 0) {
+            formData.append('novedad_foto_evidencia', fotoEvidencia.files[0]);
+        }
+
+        // Append fotos de salida (si existen)
+        var salidaFiles = ['novedad_salida_frente', 'novedad_salida_trasera'];
+        for (var i = 0; i < salidaFiles.length; i++) {
+            var input = document.getElementById(salidaFiles[i]);
+            if (input && input.files.length > 0) {
+                formData.append(salidaFiles[i], input.files[0]);
+            }
+        }
+
+        // Append fotos de entrada (si existen)
+        var entradaFiles = ['novedad_entrada_frente', 'novedad_entrada_trasera'];
+        for (var m = 0; m < entradaFiles.length; m++) {
+            var inputE = document.getElementById(entradaFiles[m]);
+            if (inputE && inputE.files.length > 0) {
+                formData.append(entradaFiles[m], inputE.files[0]);
+            }
+        }
+
+        var btnGuardar = document.getElementById('btnGuardarNovedad');
+        var btnCancelar = document.getElementById('btnCancelarNovedad');
+        if (btnGuardar) { btnGuardar.disabled = true; btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; }
+        if (btnCancelar) btnCancelar.disabled = true;
+
+        fetch((window.APP_BASE_URL ? window.APP_BASE_URL + '/controller/PreoperacionalController.php' : window.location.pathname), {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (btnGuardar) { btnGuardar.disabled = false; btnGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar Novedad'; }
+            if (btnCancelar) btnCancelar.disabled = false;
+
+            if (data.success) {
+                if (data.cambio_vehiculo) {
+                    // NO + vehículo nuevo asignado → recargar página
+                    Swal.fire({ title: 'Vehículo actualizado', text: data.message + ' La página se recargará.', icon: 'success', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
+                } else {
+                    // SÍ o NO sin vehículo nuevo
+                    var inlineForm = document.getElementById('novedadInlineForm');
+                    if (inlineForm) inlineForm.style.display = 'none';
+                    var actionsDiv = document.getElementById('novedadActions');
+                    if (actionsDiv) actionsDiv.style.display = '';
+
+                    if (data.idvehiculo_final && parseInt(data.idvehiculo_final) > 0) {
+                        // SÍ: el vehículo se mantiene → desbloquear secciones
+                        var idvField = document.querySelector('input[name="idvehiculo"]');
+                        if (idvField) idvField.value = data.idvehiculo_final;
+                        var selField = document.getElementById('idvehiculo_seleccionado');
+                        if (selField) selField.value = data.idvehiculo_final;
+                        desbloquearSeccionesVehiculo();
+                    } else {
+                        // NO sin vehículo nuevo → ocultar secciones de vehículo, mostrar info
+                        ocultarSeccionesVehiculo();
+                    }
+
+                    Swal.fire({ title: 'Novedad registrada', text: data.message, icon: 'success', confirmButtonText: 'Aceptar', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+                }
+            } else {
+                Swal.fire({ title: 'Error', text: data.message || 'Error al procesar la novedad.', icon: 'error', confirmButtonText: 'Aceptar' });
+            }
+        })
+        .catch(function() {
+            if (btnGuardar) { btnGuardar.disabled = false; btnGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar Novedad'; }
+            if (btnCancelar) btnCancelar.disabled = false;
+            Swal.fire({ title: 'Error', text: 'Error de comunicación con el servidor.', icon: 'error', confirmButtonText: 'Aceptar' });
+        });
+    }
+
+    /**
+     * Valida que se hayan subido las 4 fotos de entrega en modo validación
+     */
+    function validarFotosEntrega() {
+        if (typeof ES_VALIDACION === 'undefined' || !ES_VALIDACION) return true;
+
+        var entregaCard = document.querySelector('.entrega-validacion-card');
+        if (!entregaCard) return true;
+
+        var fotosRequeridas = [
+            { id: 'entrega_final_frente', name: 'Foto FRENTE - Entrega Final' },
+            { id: 'entrega_final_trasera', name: 'Foto TRASERA - Entrega Final' },
+            { id: 'entrega_inicial_frente', name: 'Foto FRENTE - Entrega Inicial' },
+            { id: 'entrega_inicial_trasera', name: 'Foto TRASERA - Entrega Inicial' }
+        ];
+
+        var faltantes = [];
+        for (var i = 0; i < fotosRequeridas.length; i++) {
+            var input = document.getElementById(fotosRequeridas[i].id);
+            if (!input || !input.files || input.files.length === 0) {
+                faltantes.push(fotosRequeridas[i].name);
+            }
+        }
+
+        if (faltantes.length > 0) {
+            var errorHtml = '<strong>Debe subir las siguientes fotos:</strong><br><br>';
+            for (var k = 0; k < faltantes.length; k++) {
+                errorHtml += '• ' + faltantes[k] + '<br>';
+            }
+            Swal.fire({ title: 'Fotos de entrega requeridas', html: errorHtml, icon: 'warning', confirmButtonText: 'Aceptar' });
+            entregaCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -929,6 +1349,11 @@
                 if (!validarUbicacion()) {
                     return;
                 }
+            } else {
+                // Modo validación: validar las fotos de entrega
+                if (!validarFotosEntrega()) {
+                    return;
+                }
             }
 
             if (!asignar()) {
@@ -963,7 +1388,7 @@
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
             }
 
-            fetch(window.location.pathname, {
+            fetch((window.APP_BASE_URL ? window.APP_BASE_URL + '/controller/PreoperacionalController.php' : window.location.pathname), {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -1043,7 +1468,7 @@
         if (!campo) return;
 
         $.ajax({
-            url: window.location.pathname,
+            url: (window.APP_BASE_URL ? window.APP_BASE_URL + '/controller/PreoperacionalController.php' : window.location.pathname),
             type: "POST",
             data: { user: iduser, fecha: fecha, campo: campo, accion: "buscarDatos" },
             dataType: "json"
@@ -1220,6 +1645,7 @@
             initDriverWarnings();
             handleSubmitForm();
             cargarDatosPrecarga();
+            verificarEstadoVehiculo();
 
             var esLegado = !document.getElementById('ubicacion_container');
 
