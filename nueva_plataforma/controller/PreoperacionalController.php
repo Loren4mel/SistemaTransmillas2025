@@ -52,6 +52,16 @@ function handleAjaxRequest($service)
 
         switch ($accion) {
             case 'guardar':
+                // Validación de preoperacional: solo administradores (roles 1, 12)
+                // pueden validar registros, alineado con el sistema legacy (consulta_prevalidar.php).
+                $idPre = (int) ($_POST['id_preoperacional'] ?? $_POST['param11'] ?? 0);
+                if ($idPre > 0) {
+                    $rol = $_SESSION['usuario_rol'] ?? 0;
+                    if (!in_array($rol, [1, 12])) {
+                        $response = ['success' => false, 'message' => 'Solo administradores pueden validar registros preoperacionales'];
+                        break;
+                    }
+                }
                 $response = $service->guardarRegistro($_POST, $_FILES);
                 break;
 
@@ -167,6 +177,17 @@ function loadView($service)
     // Determinar el modo de operación
     $esCovid = ($param4 == 'covid19');
     $esValidacion = ($preoperacional == 'validarpreoperacional' || $param5 == 'valida');
+
+    // Validación de preoperacional: solo administradores (roles 1, 12) pueden
+    // acceder a la página de validación, alineado con el sistema legacy.
+    if ($esValidacion) {
+        $rol = $_SESSION['usuario_rol'] ?? 0;
+        if (!in_array($rol, [1, 12])) {
+            http_response_code(403);
+            echo "<h2>Acceso denegado</h2><p>Solo administradores pueden validar registros preoperacionales.</p>";
+            exit;
+        }
+    }
 
     // Obtener datos del vehículo y usuario
     $datosVehiculo = $service->obtenerDatosVehiculoYUsuario($iduser, $idvehiculo);

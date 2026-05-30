@@ -456,9 +456,18 @@
         });
     }
 
-    function abrirModalFestivos() { $('#modalFestivos').modal('show'); }
-    function abrirModalVacaciones() { $('#modalVacaciones').modal('show'); }
-    function abrirModalLicencias() { $('#modalLicencias').modal('show'); }
+    function abrirModalFestivos() {
+        if (!hasDeletePermission) return;
+        $('#modalFestivos').modal('show');
+    }
+    function abrirModalVacaciones() {
+        if (!hasDeletePermission) return;
+        $('#modalVacaciones').modal('show');
+    }
+    function abrirModalLicencias() {
+        if (!hasDeletePermission) return;
+        $('#modalLicencias').modal('show');
+    }
     function abrirModalNuevosEmpleados() { $('#modalNuevosEmpleados').modal('show'); }
 
     function guardarFestivos() {

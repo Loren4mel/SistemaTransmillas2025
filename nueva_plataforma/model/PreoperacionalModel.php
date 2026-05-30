@@ -660,22 +660,38 @@ class PreoperacionalModel
 
         $stmt = $this->db->prepare($sql);
         $metadataJson = !empty($datos['metadata_evento']) ? json_encode($datos['metadata_evento']) : null;
+
+        // Extraer a variables: bind_param requiere referencias, no expresiones
+        $tipoEvento         = $datos['tipo_evento'] ?? '';
+        $idPreoperacional   = $datos['id_preoperacional'] ?? null;
+        $idSeguimientoUser  = $datos['id_seguimiento_user'] ?? null;
+        $idVehiculo         = $datos['id_vehiculo'] ?? null;
+        $idConductor        = $datos['id_conductor'] ?? null;
+        $idResponsable      = $datos['id_responsable'] ?? null;
+        $kilometraje        = $datos['kilometraje'] ?? null;
+        $ubicacion          = $datos['ubicacion'] ?? null;
+        $estadoGeneral      = $datos['estado_general'] ?? '';
+        $fotoEvidencia      = $datos['foto_evidencia'] ?? null;
+        $observaciones      = $datos['observaciones'] ?? null;
+        $entregaFinal       = $datos['entrega_final_usuario'] ?? null;
+        $entregaInicial     = $datos['entrega_inicial_usuario'] ?? null;
+
         $stmt->bind_param(
             "ssiiiiiissssii",
-            $datos['tipo_evento'],
+            $tipoEvento,
             $metadataJson,
-            $datos['id_preoperacional'],
-            $datos['id_seguimiento_user'],
-            $datos['id_vehiculo'],
-            $datos['id_conductor'],
-            $datos['id_responsable'],
-            $datos['kilometraje'],
-            $datos['ubicacion'],
-            $datos['estado_general'],
-            $datos['foto_evidencia'],
-            $datos['observaciones'],
-            $datos['entrega_final_usuario'] ?? null,
-            $datos['entrega_inicial_usuario'] ?? null
+            $idPreoperacional,
+            $idSeguimientoUser,
+            $idVehiculo,
+            $idConductor,
+            $idResponsable,
+            $kilometraje,
+            $ubicacion,
+            $estadoGeneral,
+            $fotoEvidencia,
+            $observaciones,
+            $entregaFinal,
+            $entregaInicial
         );
 
         if ($stmt->execute()) {

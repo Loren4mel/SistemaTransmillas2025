@@ -30,20 +30,9 @@ function esAdmin()
 
 function puedeModificarSeguimiento($idSeguimiento)
 {
-    global $modelo;
-    if (esAdmin()) {
-        return true;
-    }
-    $sql = "SELECT u.usu_idsede FROM seguimiento_user s
-            INNER JOIN usuarios u ON u.idusuarios = s.seg_idusuario
-            WHERE s.idseguimiento_user = ?";
-    $stmt = $modelo->getDB()->prepare($sql);
-    $stmt->bind_param('i', $idSeguimiento);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_assoc();
-    $sedeOperario = $row['usu_idsede'] ?? 0;
-    $sedeUsuario = $_SESSION['usu_idsede'] ?? 0;
-    return ($sedeOperario == $sedeUsuario);
+    // Solo administradores (roles 1, 12) pueden modificar registros,
+    // alineado con el sistema legacy (seguimientouser.php).
+    return esAdmin();
 }
 
 function verificarPermiso($idSeguimiento, $mensaje = 'Permiso denegado')
@@ -145,6 +134,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 if ($esActualizacion) {
                     $error = verificarPermiso($idSeguimiento);
                     if ($error) { $response = $error; break; }
+                } else {
+                    // Solo administradores pueden crear nuevos registros (legacy: roles 1, 12)
+                    $error = verificarAdmin('Solo administradores pueden crear registros de ingreso');
+                    if ($error) { $response = $error; break; }
                 }
 
                 $data = [
@@ -233,6 +226,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
 
             // --- Guardar vacaciones ---
             case 'guardar_vacaciones':
+                $error = verificarAdmin('Solo administradores pueden registrar vacaciones');
+                if ($error) { $response = $error; break; }
                 $fechaIni = $_POST['fecha_ini'] ?? '';
                 $fechaFin = $_POST['fecha_fin'] ?? '';
                 $errorFecha = validarRangoFechas($fechaIni, $fechaFin);
@@ -247,6 +242,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
 
             // --- Guardar licencia ---
             case 'guardar_licencia':
+                $error = verificarAdmin('Solo administradores pueden registrar licencias');
+                if ($error) { $response = $error; break; }
                 $fechaLicIni = $_POST['fecha_ini'] ?? '';
                 $fechaLicFin = $_POST['fecha_fin'] ?? '';
                 $errorFecha = validarRangoFechas($fechaLicIni, $fechaLicFin);

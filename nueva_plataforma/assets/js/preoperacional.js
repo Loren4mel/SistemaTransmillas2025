@@ -1084,7 +1084,8 @@
                         entradaGrp.style.display = (selectVehiculo.value !== '') ? '' : 'none';
                     }
                 } else {
-                    if (obsGroup)  obsGroup.style.display = 'none';
+                    // SÍ: mostrar campo de observaciones para describir la novedad
+                    if (obsGroup)  obsGroup.style.display = '';
                     if (vehGroup)  vehGroup.style.display = 'none';
                     if (salidaGrp) salidaGrp.style.display = 'none';
                     if (entradaGrp) entradaGrp.style.display = 'none';

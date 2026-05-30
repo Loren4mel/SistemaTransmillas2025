@@ -27,6 +27,18 @@ class SeguimientoUsuarioModel
     private $uploadPath;
 
     /**
+     * Verifica si el usuario actual tiene rol de administrador (1, 12).
+     * Alineado con el sistema legacy: solo roles 1 y 12 pueden validar/modificar.
+     *
+     * @return bool
+     */
+    private function esAdminSession(): bool
+    {
+        $rol = $_SESSION['usuario_rol'] ?? 0;
+        return in_array((int) $rol, [1, 12], true);
+    }
+
+    /**
      * Constructor. Inicializa la conexión a la base de datos y la ruta de uploads.
      */
     public function __construct()
@@ -969,6 +981,10 @@ class SeguimientoUsuarioModel
             return htmlspecialchars($row['seg_motivo'] ?: $estado);
         if (in_array($estado, ['descanso', 'vacaciones']))
             return $estado;
+        // Solo administradores (roles 1, 12) pueden abrir la validación
+        if (!$this->esAdminSession()) {
+            return htmlspecialchars($estado);
+        }
         $url = $this->buildPreoperacionalUrl($row);
         return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>$estado</a>";
     }
@@ -978,6 +994,10 @@ class SeguimientoUsuarioModel
         if (empty($row['idpreoperacinal']))
             return '';
         if (in_array($row['preestado'], ['Validado', 'Validado Covid19'])) {
+            // Solo administradores (roles 1, 12) pueden abrir la validación
+            if (!$this->esAdminSession()) {
+                return 'Validado';
+            }
             $url = $this->buildPreoperacionalUrl($row);
             return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>Validado</a>";
         }

@@ -220,6 +220,7 @@
                 <!-- Botones de acción principales -->
                 <div class="row mb-3">
                     <div class="col-md-12">
+                        <?php if ($_SESSION['usuario_rol'] == 1 || $_SESSION['usuario_rol'] == 12): ?>
                         <button type="button" class="btn btn-info btn-lg" onclick="abrirModalFestivos()">
                             <i class="fas fa-calendar-plus"></i> + Día de descanso
                         </button>
@@ -229,6 +230,7 @@
                         <button type="button" class="btn btn-info btn-lg" onclick="abrirModalLicencias()">
                             <i class="fas fa-file-medical"></i> + Licencias y permisos
                         </button>
+                        <?php endif; ?>
                         <button type="button" class="btn btn-lg" onclick="abrirModalNuevosEmpleados()" style="background-color: #2196F3; color: white;">
                             <i class="fas fa-user-plus"></i> Nuevos Empleados
                         </button>
