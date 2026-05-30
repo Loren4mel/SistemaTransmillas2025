@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Seguimiento de Usuarios</title>
-    <link rel="shortcut icon" href="../../images/Logo Google Nuevo.png">
+    <link rel="shortcut icon" href="<?= $appBasePath ?>/../images/Logo Google Nuevo.png">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -15,7 +15,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="../assets/css/usuarios.css">
+    <!-- Ruta base de la aplicación (calculada por el servidor) -->
+    <script>
+        window.APP_BASE_URL = "<?= $appBasePath ?>";
+    </script>
+    <link rel="stylesheet" href="<?= $appBasePath ?>/assets/css/usuarios.css">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         .noti_bubble {
@@ -431,7 +435,7 @@
     </script>
 
     <!-- JavaScript del módulo de seguimiento de usuarios -->
-    <script src="../assets/js/seguimiento.js?v=<?= filemtime(__DIR__ . '/../../assets/js/seguimiento.js') ?>"></script>
+    <script src="<?= $appBasePath ?>/assets/js/seguimiento.js?v=<?= filemtime(__DIR__ . '/../../assets/js/seguimiento.js') ?>"></script>
 </body>
 
 </html>
