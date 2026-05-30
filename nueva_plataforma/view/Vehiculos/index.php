@@ -89,15 +89,16 @@
                 <th>Modelo</th>
                 <th>Propiedad Vehiculo</th>
                 <th>Dueño</th>
-                <th>Fecha Seguro</th>
-                <th>Fecha Tecnomecánica</th>
-                <th>Fecha Cambio Aceite</th>
+                <th>Fecha Vencimiento del Seguro</th>
+                <th>Fecha Vencimiento Tecnomecánica</th>
+                <th>Fecha Ultimo Cambio Aceite</th>
                 <th>Kilometraje Actual</th>
                 <th>Km Al Cambio de Aceite</th>
                 <th>Limite Km cambio aceite</th>
                 <th>Tarjeta de Propiedad (Frente)</th>
                 <th>Tarjeta de Propiedad (Respaldo)</th>
                 <th>Comparendos</th>
+                <th>Historial Entrega</th>
                 <th>Estado</th>
                 <th>Editar</th>
                 <th>Eliminar</th>
@@ -419,48 +420,6 @@
                                 </option>
                                 <?php endforeach; ?>
                             </select>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Kilometraje Actual</label>
-                            <input type="text" class="form-control" name="veh_kilactual" id="edit_veh_kilactual" required>
-                        </div>
- 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">📅 Fecha Seguro (SOAT)</label>
-                            <input type="date" name="veh_fechaseguro" id="edit_veh_fecha_soat" class="form-control">
-                        </div>
- 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">📷 Foto Seguro (SOAT)</label>
-                            <div id="preview_soat" class="mb-1"></div>
-                            <input type="file" name="veh_img_soat" class="form-control">
-                        </div>
- 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">📅 Fecha Tecnomecánica</label>
-                            <input type="date" name="veh_fechategnomecanica" id="edit_veh_fechategnomecanica" class="form-control">
-                        </div>
- 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">📷 Foto Tecnomecánica</label>
-                            <div id="preview_tecnomecanica" class="mb-1"></div>
-                            <input type="file" name="veh_img_tecnomecanica" class="form-control">
-                        </div>
- 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">📅 Fecha Cambio de Aceite</label>
-                            <input type="date" name="veh_fechamantenimiento" id="edit_veh_fechamantenimiento" class="form-control">
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Kilometraje Actual Al Cambio de Aceite</label>
-                            <input type="text" class="form-control" name="veh_kmactual_cambioaceite" id="edit_veh_kmactual_cambioaceite" required>
-                        </div>
- 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Limite Km cambio aceite</label>
-                            <input type="text" class="form-control" name="veh_calkmcambioaceite" id="edit_veh_calkmcambioaceite" required>
                         </div>
  
                         <div class="col-md-6 mb-3">
@@ -935,12 +894,6 @@
                     </table>
                 </div>
             </div>
-
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary"
-                        data-bs-dismiss="modal">Cerrar</button>
-            </div>
-
         </div>
     </div>
 </div>
@@ -1058,6 +1011,217 @@
         </div>
     </div>
 </div>
+
+<!-- MODAL HISTORIAL DE CONDUCTORES POR VEHÍCULO -->
+<div class="modal fade" id="modalHistorialConductores" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-history me-2"></i>
+                    Historial de Conductores -
+                    <span id="tituloPlacaHistorial" class="fw-bold"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <small class="text-muted"></small>
+                    <span id="historial_total_registros" class="badge bg-secondary fs-6"></span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle text-center">
+                        <thead class="thead-modern">
+                            <tr>
+                                <th>#</th>
+                                <th>Tipo Entrega</th>
+                                <th>Conductor</th>
+                                <th>Recibido por</th>
+                                <th>Fecha Inicio</th>
+                                <th>Fecha Final</th>
+                                <th>Equipo de Prevención y Seguridad Vial</th>
+                                <th>Foto Frente</th>
+                                <th>Foto Respaldo</th>
+                                <th>Firma</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaHistorial">
+                            <tr>
+                                <td colspan="11" class="text-muted py-3">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>          
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EDITAR FECHA ULTIMO CAMBIO DE ACEITE -->
+<div class="modal fade" id="modalEditarAceite" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    Actualizar Cambio de Aceite
+                </h5>
+                <button type="button" class="btn-close btn-close-white" 
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formEditarAceite">
+                    <input type="hidden" id="aceite_veh_id">
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Kilometraje Actual
+                            </label>
+                            <input type="text" class="form-control" 
+                                   id="aceite_kilactual" name="veh_kilactual">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📅 Fecha Cambio de Aceite
+                            </label>
+                            <input type="date" class="form-control" 
+                                   id="aceite_fecha" name="veh_fechamantenimiento">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Km Actual Al Cambio de Aceite
+                            </label>
+                            <input type="text" class="form-control" 
+                                   id="aceite_kmcambio" name="veh_kmactual_cambioaceite">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Limite Km cambio aceite
+                            </label>
+                            <input type="text" class="form-control" 
+                                   id="aceite_limite" name="veh_calkmcambioaceite">
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" 
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" 
+                        id="btnGuardarAceite">
+                         Guardar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EDITAR SEGURO SOAT -->
+<div class="modal fade" id="modalEditarSoat" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    Actualizar Seguro SOAT
+                </h5>
+                <button type="button" class="btn-close btn-close-white" 
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formEditarSoat">
+                    <input type="hidden" id="soat_veh_id">
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📅 Fecha Vencimiento Seguro (SOAT)</label>
+                            <input type="date" name="veh_fechaseguro" id="soat_veh_fechaseguro" class="form-control">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Comprobante de Pago Seguro (SOAT)</label>
+                            <div id="preview_soat_modal" class="mb-1"></div>
+                            <input type="file" name="veh_img_soat" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" 
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" 
+                        id="btnGuardarSoat">
+                         Guardar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EDITAR TECNOMECANICA -->
+<div class="modal fade" id="modalEditarTecnomecanica" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    Actualizar Tecnomecánica
+                </h5>
+                <button type="button" class="btn-close btn-close-white" 
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formEditarTecnomecanica">
+                    <input type="hidden" id="tecnomecanica_veh_id">
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📅 Fecha Vencimiento Tecnomecánica</label>
+                            <input type="date" name="veh_fechategnomecanica" id="tecnomecanica_veh_fechatecnomecanica" class="form-control">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Comprobante de Pago Tecnomecánica</label>
+                            <div id="preview_tecnomecanica_modal" class="mb-1"></div>
+                            <input type="file" name="veh_img_tecnomecanica" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" 
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" 
+                        id="btnGuardarTecnomecanica">
+                         Guardar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

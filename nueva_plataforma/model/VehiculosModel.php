@@ -219,16 +219,12 @@ public function obtenerVehiculoPorId($id) {
 
 //Funcion para actualizar vehículo con validación de fechas y manejo de imágenes
 public function actualizarVehiculo($datos) {
-    $veh_img_soat           = $this->guardarImagen($_FILES['veh_img_soat'],           "uploads/vehiculos");
-    $veh_img_tecnomecanica  = $this->guardarImagen($_FILES['veh_img_tecnomecanica'],  "uploads/vehiculos");
     $veh_img_anverso        = $this->guardarImagen($_FILES['veh_img_anverso'],        "uploads/vehiculos");
     $veh_img_reverso        = $this->guardarImagen($_FILES['veh_img_reverso'],        "uploads/vehiculos");
     $veh_img_actual_frente  = $this->guardarImagen($_FILES['veh_img_actual_frente'],  "uploads/vehiculos");
     $veh_img_actual_trasera = $this->guardarImagen($_FILES['veh_img_actual_trasera'], "uploads/vehiculos");
 
     $sqlImgs = "";
-    if ($veh_img_soat)           $sqlImgs .= ", veh_img_soat = '$veh_img_soat'";
-    if ($veh_img_tecnomecanica)  $sqlImgs .= ", veh_img_tecnomecanica = '$veh_img_tecnomecanica'";
     if ($veh_img_anverso)        $sqlImgs .= ", veh_img_anverso = '$veh_img_anverso'";
     if ($veh_img_reverso)        $sqlImgs .= ", veh_img_reverso = '$veh_img_reverso'";
     if ($veh_img_actual_frente)  $sqlImgs .= ", veh_img_actual_frente = '$veh_img_actual_frente'";
@@ -245,12 +241,6 @@ public function actualizarVehiculo($datos) {
         veh_tipov                 = ?,
         veh_propiedad             = ?,
         veh_dueño                 = ?,
-        veh_fechaseguro           = ?,
-        veh_fechategnomecanica    = ?,
-        veh_fechamantenimiento    = ?,
-        veh_kilactual             = ?,
-        veh_kmactual_cambioaceite = ?,
-        veh_calkmcambioaceite     = ?,
         veh_chasis                = ?,
         veh_motor                 = ?,
         veh_cilidraje             = ?,
@@ -264,7 +254,7 @@ public function actualizarVehiculo($datos) {
     $stmt = $this->dbname->prepare($sql);
 
     $stmt->bind_param(
-        "sssssssssssssssssssss",
+        "sssssssssssssss",
         $datos['veh_tipo'],
         $datos['veh_marca'],
         $datos['veh_placa'],
@@ -273,12 +263,6 @@ public function actualizarVehiculo($datos) {
         $datos['veh_tipov'],
         $datos['veh_propiedad'],
         $datos['veh_dueno'],
-        $datos['veh_fechaseguro'],
-        $datos['veh_fechategnomecanica'],
-        $datos['veh_fechamantenimiento'],
-        $datos['veh_kilactual'],
-        $datos['veh_kmactual_cambioaceite'], 
-        $datos['veh_calkmcambioaceite'],
         $datos['veh_chasis'],
         $datos['veh_motor'],
         $datos['veh_cilidraje'],
@@ -377,6 +361,31 @@ public function guardarEntregaVehiculo($datos) {
     $resultado = $stmt->execute();
     if (!$resultado) return ['error' => 'Execute falló: ' . $stmt->error];
     $stmt->close();
+
+    if ($datos['ent_tipoentrega'] === 'inicial' && !empty($datos['ent_vehiculo_id']) && !empty($datos['ent_idusuario'])) {
+    $idVehiculo  = intval($datos['ent_vehiculo_id']);
+    $idConductor = intval($datos['ent_idusuario']);
+
+    // Obtener tipo de vehículo para guardarlo también en el usuario
+    $sqlTipo  = "SELECT veh_tipo FROM vehiculos WHERE idvehiculos = ? LIMIT 1";
+    $stmtTipo = $this->dbname->prepare($sqlTipo);
+    $stmtTipo->bind_param("i", $idVehiculo);
+    $stmtTipo->execute();
+    $rowTipo = $stmtTipo->get_result()->fetch_assoc();
+    $stmtTipo->close();
+
+    $tipoVehiculo = $rowTipo['veh_tipo'] ?? '';
+
+    $sqlUpd  = "UPDATE usuarios SET 
+                    usu_vehiculo     = ?,
+                    usu_tipoVehiculo = ?
+                WHERE idusuarios = ?";
+    $stmtUpd = $this->dbname->prepare($sqlUpd);
+    $stmtUpd->bind_param("isi", $idVehiculo, $tipoVehiculo, $idConductor);
+    $stmtUpd->execute();
+    $stmtUpd->close();
+}
+
     return true;
 }
 
@@ -530,5 +539,85 @@ public function actualizarComparendo($datos) {
     if (!$resultado) return ['error' => $this->dbname->error];
     return true;
 }
+
+public function obtenerHistorialConductoresPorVehiculo($idVehiculo) {
+    $sqlPlaca = "SELECT veh_placa FROM vehiculos WHERE idvehiculos = ? LIMIT 1";
+    $stmtPlaca = $this->dbname->prepare($sqlPlaca);
+    $stmtPlaca->bind_param("i", $idVehiculo);
+    $stmtPlaca->execute();
+    $rowPlaca = $stmtPlaca->get_result()->fetch_assoc();
+    $stmtPlaca->close();
+
+    if (!$rowPlaca) return [];
+    $placa = $this->dbname->real_escape_string($rowPlaca['veh_placa']);
+
+    $sql = "SELECT 
+                e.identregavehiculo,
+                e.ent_tipoentrega,
+                e.ent_fechaentrega,
+                e.ent_userregistra,
+                e.ent_observaciones,
+                e.ent_equipo_carretera,
+                e.ent_img_frente,
+                e.ent_img_trasera,
+                e.ent_firma,
+                u.usu_nombre AS conductor_nombre
+            FROM entregavehiculo e
+            LEFT JOIN usuarios u ON e.ent_idusuario = u.idusuarios
+            WHERE e.ent_vehiculo LIKE '%$placa%'
+            ORDER BY e.ent_fechaentrega DESC, e.identregavehiculo DESC";
+
+    $result = $this->dbname->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+}
+
+public function actualizarDatosAceite($datos) {
+    $id      = intval($datos['id']);
+    $fecha   = $this->dbname->real_escape_string($datos['veh_fechamantenimiento']);
+    $kilact  = $this->dbname->real_escape_string($datos['veh_kilactual']);
+    $kmcambio = $this->dbname->real_escape_string($datos['veh_kmactual_cambioaceite']);
+    $limite  = $this->dbname->real_escape_string($datos['veh_calkmcambioaceite']);
+
+    $sql = "UPDATE vehiculos SET 
+                veh_fechamantenimiento    = '$fecha',
+                veh_kilactual             = '$kilact',
+                veh_kmactual_cambioaceite = '$kmcambio',
+                veh_calkmcambioaceite     = '$limite'
+            WHERE idvehiculos = $id";
+
+    return $this->dbname->query($sql) ? true : false;
+}
+
+public function actualizarSoat($datos) {
+    $id    = intval($datos['id']);
+    $fecha = $this->dbname->real_escape_string($datos['veh_fechaseguro']);
+
+    $veh_img_soat = '';
+    if (isset($_FILES['veh_img_soat']) && is_uploaded_file($_FILES['veh_img_soat']['tmp_name'])) {
+        $veh_img_soat = $this->guardarImagen($_FILES['veh_img_soat'], 'uploads/vehiculos');
+    }
+
+    $sqlImg = $veh_img_soat ? ", veh_img_soat = '" . $this->dbname->real_escape_string($veh_img_soat) . "'" : '';
+
+    $sql = "UPDATE vehiculos SET veh_fechaseguro = '$fecha' $sqlImg WHERE idvehiculos = $id";
+    return $this->dbname->query($sql) ? true : false;
+}
+
+public function actualizarTecnomecanica($datos) {
+    $id    = intval($datos['id']);
+    $fecha = $this->dbname->real_escape_string($datos['veh_fechategnomecanica']);
+
+    $veh_img_tecnomecanica = '';
+    if (isset($_FILES['veh_img_tecnomecanica']) && is_uploaded_file($_FILES['veh_img_tecnomecanica']['tmp_name'])) {
+        $veh_img_tecnomecanica = $this->guardarImagen($_FILES['veh_img_tecnomecanica'], 'uploads/vehiculos');
+    }
+
+    $sqlImg = $veh_img_tecnomecanica ? ", veh_img_tecnomecanica = '" . $this->dbname->real_escape_string($veh_img_tecnomecanica) . "'" : '';
+
+    $sql = "UPDATE vehiculos SET veh_fechategnomecanica = '$fecha' $sqlImg WHERE idvehiculos = $id";
+    return $this->dbname->query($sql) ? true : false;
+
+}
+
 
 }
