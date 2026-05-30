@@ -13,8 +13,12 @@
 <!-- <link rel="stylesheet" href="/SistemaTransmillas2025/nueva_plataforma/assets/css/vehiculos.css">
 <link rel="shortcut icon" href="/SistemaTransmillas2025/images/Logo Google Nuevo.png"> -->
 <!-- Produccion -->
-<link rel="stylesheet" href="../assets/css/vehiculos.css">
-<link rel="shortcut icon" href="../../images/Logo Google Nuevo.png">
+<!-- Ruta base de la aplicación (calculada por el servidor) -->
+    <script>
+        window.APP_BASE_URL = "<?= $appBasePath ?>";
+    </script>
+    <link rel="stylesheet" href="<?= $appBasePath ?>/assets/css/vehiculos.css">
+<link rel="shortcut icon" href="<?= $appBasePath ?>/../images/Logo Google Nuevo.png">
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -1073,6 +1077,6 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <!-- <script src="/SistemaTransmillas2025/nueva_plataforma/assets/js/vehiculos.js"></script> -->
-<script src="../assets/js/vehiculos.js"></script>
+<script src="<?= $appBasePath ?>/assets/js/vehiculos.js"></script>
 </body>
 </html>
