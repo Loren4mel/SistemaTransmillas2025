@@ -36,6 +36,24 @@ class PreoperacionalNovedadHelper
             ];
         }
 
+        // PRIORIDAD 1: REVISION_SST es la fuente autoritativa del estado del vehículo.
+        // Los registros PREOPERACIONAL son validaciones diarias que heredan el estado
+        // de REVISION_SST, pero carecen del contexto original de la metadata.
+        $revision = $this->model->obtenerUltimoSeguimientoRevisionSST($idVehiculo);
+
+        if ($revision) {
+            $estado = $revision['estado_general'] ?? 'OPTIMO';
+            $tieneNovedad = in_array($estado, ['FUERA_DE_SERVICIO', 'CON_NOVEDADES']);
+            return [
+                'tieneNovedad' => $tieneNovedad,
+                'estado_general' => $estado,
+                'observaciones' => $revision['observaciones'] ?? '',
+                'fecha_registro' => $revision['fecha_registro'] ?? '',
+                'ultimoSeguimiento' => $revision
+            ];
+        }
+
+        // PRIORIDAD 2: No existe REVISION_SST; usar el registro más reciente (cualquier tipo).
         $ultimo = $this->model->obtenerUltimoSeguimientoPorVehiculo($idVehiculo);
 
         if (!$ultimo) {

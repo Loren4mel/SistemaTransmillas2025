@@ -734,6 +734,39 @@ class PreoperacionalModel
     }
 
     /**
+     * Obtiene el último registro preoperacional de un vehículo específico.
+     *
+     * @param int $idVehiculo ID del vehículo
+     * @return array|null Registro con idpreoperacinal y prefechaingreso, o null
+     */
+    public function obtenerUltimoPreoperacionalPorVehiculo($idVehiculo)
+    {
+        $sql = "SELECT idpreoperacinal, prefechaingreso, prevehiculo
+                FROM `pre-operacional`
+                WHERE prevehiculo = ?
+                ORDER BY prefechaingreso DESC
+                LIMIT 1";
+        return $this->executeQuery($sql, "i", [$idVehiculo]);
+    }
+
+    /**
+     * Obtiene el último registro de tipo REVISION_SST para un vehículo.
+     * REVISION_SST es la fuente de verdad autoritativa sobre el estado del vehículo,
+     * ya que representa una inspección de seguridad, no una validación diaria.
+     *
+     * @param int $idVehiculo ID del vehículo
+     * @return array|null Último registro REVISION_SST o null
+     */
+    public function obtenerUltimoSeguimientoRevisionSST($idVehiculo)
+    {
+        $sql = "SELECT * FROM seguimiento_vehiculo
+                WHERE id_vehiculo = ? AND tipo_evento = 'REVISION_SST'
+                ORDER BY fecha_registro DESC
+                LIMIT 1";
+        return $this->executeQuery($sql, "i", [$idVehiculo]);
+    }
+
+    /**
      * Actualiza el estado_general de un registro de seguimiento vinculado a un preoperacional
      *
      * @param int $idPreoperacional ID del preoperacional

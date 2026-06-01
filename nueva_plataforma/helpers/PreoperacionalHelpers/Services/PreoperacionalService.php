@@ -559,6 +559,23 @@ class PreoperacionalService
      */
     public function obtenerEstadoVehiculo($idVehiculo)
     {
+        // PRIORIDAD 1: REVISION_SST es la fuente autoritativa del estado del vehículo.
+        // Los registros PREOPERACIONAL son validaciones diarias que heredan el estado
+        // de REVISION_SST, pero carecen del contexto original de la metadata.
+        $revision = $this->model->obtenerUltimoSeguimientoRevisionSST($idVehiculo);
+
+        if ($revision) {
+            $estado = $revision['estado_general'] ?? 'OPTIMO';
+            $tieneNovedad = in_array($estado, ['FUERA_DE_SERVICIO', 'CON_NOVEDADES']);
+            return [
+                'tieneNovedad' => $tieneNovedad,
+                'estado_general' => $estado,
+                'observaciones' => $revision['observaciones'] ?? '',
+                'ultimoSeguimiento' => $revision
+            ];
+        }
+
+        // PRIORIDAD 2: No existe REVISION_SST; usar el registro más reciente (cualquier tipo).
         $ultimo = $this->model->obtenerUltimoSeguimientoPorVehiculo($idVehiculo);
 
         if (!$ultimo) {
@@ -648,12 +665,24 @@ class PreoperacionalService
         $fotos = $this->procesarFotosNovedad($files);
         $fotoEvidencia = $fotos['foto_evidencia'] ?? null;
 
+        // Vincular con el último preoperacional del vehículo para trazabilidad.
+        // El conductor típicamente completa el preoperacional antes de reportar una novedad.
+        $ultimoPreop = $this->model->obtenerUltimoPreoperacionalPorVehiculo($idVehiculoActual);
+        $idPreopVinculado = ($ultimoPreop && !empty($ultimoPreop['idpreoperacinal']))
+            ? (int) $ultimoPreop['idpreoperacinal']
+            : null;
+
         if ($puedeSerOperado) {
             // REGLA 1: El vehículo SÍ puede ser operado pero mantiene CON_NOVEDADES
             // OPTIMO solo se asigna desde otro módulo (admin/SST)
             $this->guardarSeguimientoVehiculo([
                 'tipo_evento' => 'REVISION_SST',
-                'metadata_evento' => ['origen' => 'reporte_novedad', 'resuelto_por' => $_SESSION['usuario_nombre'] ?? 'Sistema'],
+                'metadata_evento' => [
+                    'origen' => 'reporte_novedad',
+                    'reportado_por' => $_SESSION['usuario_nombre'] ?? 'Sistema',
+                    'flujo' => 'preoperacional',
+                    'id_preoperacional_relacionado' => $idPreopVinculado
+                ],
                 'id_preoperacional' => null,
                 'id_seguimiento_user' => null,
                 'id_vehiculo' => $idVehiculoActual,
@@ -711,7 +740,12 @@ class PreoperacionalService
 
             $this->guardarSeguimientoVehiculo([
                 'tipo_evento' => 'REVISION_SST',
-                'metadata_evento' => ['origen' => 'reporte_novedad', 'reportado_por' => $_SESSION['usuario_nombre'] ?? 'Sistema'],
+                'metadata_evento' => [
+                    'origen' => 'reporte_novedad',
+                    'reportado_por' => $_SESSION['usuario_nombre'] ?? 'Sistema',
+                    'flujo' => 'preoperacional',
+                    'id_preoperacional_relacionado' => $idPreopVinculado
+                ],
                 'id_preoperacional' => null,
                 'id_seguimiento_user' => null,
                 'id_vehiculo' => $idVehiculoActual,
@@ -1073,19 +1107,31 @@ class PreoperacionalService
                 $estadoGeneralSeguimiento = 'FUERA_DE_SERVICIO';
             }
 
-            $ultimoSeguimiento = $this->model->obtenerUltimoSeguimientoPorVehiculo($idVehiculo);
-            if ($ultimoSeguimiento
-                && ($ultimoSeguimiento['tipo_evento'] ?? '') === 'REVISION_SST'
-                && in_array($ultimoSeguimiento['estado_general'] ?? '', ['CON_NOVEDADES', 'FUERA_DE_SERVICIO'])) {
-                $estadoGeneralSeguimiento = $ultimoSeguimiento['estado_general'];
-                if (!empty($ultimoSeguimiento['observaciones'])) {
-                    $observacionSeguimiento = $ultimoSeguimiento['observaciones'];
+            // Metadata para el registro PREOPERACIONAL.
+            // Si hereda estado de una REVISION_SST activa, se preserva el linaje para auditoría.
+            $metadataPreop = null;
+
+            $revisionSST = $this->model->obtenerUltimoSeguimientoRevisionSST($idVehiculo);
+            if ($revisionSST
+                && in_array($revisionSST['estado_general'] ?? '', ['CON_NOVEDADES', 'FUERA_DE_SERVICIO'])) {
+                // El vehículo tiene una REVISION_SST activa con estado no-OPTIMO.
+                // El PREOPERACIONAL hereda este estado y su linaje.
+                $estadoGeneralSeguimiento = $revisionSST['estado_general'];
+                if (!empty($revisionSST['observaciones'])) {
+                    $observacionSeguimiento = $revisionSST['observaciones'];
                 }
+                $metadataPreop = [
+                    'origen' => 'preoperacional_diario',
+                    'hereda_estado_de' => 'REVISION_SST',
+                    'id_seguimiento_origen' => $revisionSST['id_seguimiento_vehiculo'] ?? null,
+                    'tipo_evento_origen' => $revisionSST['tipo_evento'] ?? null,
+                    'fecha_evento_origen' => $revisionSST['fecha_registro'] ?? null
+                ];
             }
 
             $datosSeg = [
                 'tipo_evento' => 'PREOPERACIONAL',
-                'metadata_evento' => null,
+                'metadata_evento' => $metadataPreop,
                 'id_preoperacional' => $idInsertado,
                 'id_seguimiento_user' => null,
                 'id_vehiculo' => $idVehiculo,
