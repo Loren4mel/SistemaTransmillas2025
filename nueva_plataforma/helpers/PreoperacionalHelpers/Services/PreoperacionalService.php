@@ -978,6 +978,21 @@ class PreoperacionalService
             }
 
             // Seguimiento vehiculo — registro del libro de vida del vehículo
+            // Si el vehículo tiene una novedad activa (REVISION_SST CON_NOVEDADES o FUERA_DE_SERVICIO),
+            // se conservan la observación y el estado de la novedad en lugar de recalcularlos
+            // desde las respuestas de la encuesta. Así el historial refleja la realidad del vehículo.
+            $observacionSeguimiento = $observaciones;
+            $estadoGeneralSeguimiento = $this->calcularEstadoGeneral($datosEncuesta);
+            $ultimoSeguimiento = $this->model->obtenerUltimoSeguimientoPorVehiculo($idVehiculo);
+            if ($ultimoSeguimiento
+                && ($ultimoSeguimiento['tipo_evento'] ?? '') === 'REVISION_SST'
+                && in_array($ultimoSeguimiento['estado_general'] ?? '', ['CON_NOVEDADES', 'FUERA_DE_SERVICIO'])) {
+                $estadoGeneralSeguimiento = $ultimoSeguimiento['estado_general'];
+                if (!empty($ultimoSeguimiento['observaciones'])) {
+                    $observacionSeguimiento = $ultimoSeguimiento['observaciones'];
+                }
+            }
+
             $datosSeg = [
                 'tipo_evento' => 'PREOPERACIONAL',
                 'metadata_evento' => null,
@@ -988,9 +1003,9 @@ class PreoperacionalService
                 'id_responsable' => $idUsuario,
                 'kilometraje' => $kilometraje,
                 'ubicacion' => $datosEncuesta['ubicacion'] ?? null,
-                'estado_general' => $this->calcularEstadoGeneral($datosEncuesta),
+                'estado_general' => $estadoGeneralSeguimiento,
                 'foto_evidencia' => $imagenKilo,
-                'observaciones' => $observaciones
+                'observaciones' => $observacionSeguimiento
             ];
             $this->guardarSeguimientoVehiculo($datosSeg);
         }
