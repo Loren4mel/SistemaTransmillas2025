@@ -884,8 +884,22 @@
     }
 
     /**
+     * Determina si el vehículo actual está FUERA_DE_SERVICIO.
+     * @returns {boolean}
+     */
+    function esVehiculoFueraDeServicio() {
+        if (typeof ESTADO_GENERAL_VEHICULO !== 'undefined' && ESTADO_GENERAL_VEHICULO === 'FUERA_DE_SERVICIO') {
+            return true;
+        }
+        var panel = document.getElementById('novedadPanel');
+        if (!panel) return false;
+        return panel.getAttribute('data-estado') === 'FUERA_DE_SERVICIO';
+    }
+
+    /**
      * Verifica el estado del vehículo asignado al cargar la página.
      * Si hay novedad, el panel ya está renderizado desde PHP.
+     * Si el vehículo está FUERA_DE_SERVICIO, auto-expande el formulario de novedad.
      */
     function verificarEstadoVehiculo() {
         var idVehiculo = document.getElementById('idvehiculo');
@@ -893,6 +907,37 @@
 
         var novedadPanel = document.getElementById('novedadPanel');
         if (novedadPanel) {
+            var estado = novedadPanel.getAttribute('data-estado');
+
+            if (estado === 'FUERA_DE_SERVICIO') {
+                // Auto-expandir el formulario de novedad
+                var actionsDiv = document.getElementById('novedadActions');
+                var inlineForm = document.getElementById('novedadInlineForm');
+                if (actionsDiv) actionsDiv.style.display = 'none';
+                if (inlineForm) inlineForm.style.display = '';
+
+                // Pre-seleccionar "No" si existe
+                var radioNo = document.querySelector('input[name="puede_operar"][value="no"]');
+                if (radioNo && !radioNo.checked) {
+                    radioNo.checked = true;
+                    radioNo.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                // Mostrar secciones condicionales
+                var secciones = ['novedadObservacionGroup', 'novedadVehiculoGroup',
+                                 'novedadFotoGeneralGroup', 'novedadSalidaPhotosGroup'];
+                for (var s = 0; s < secciones.length; s++) {
+                    var el = document.getElementById(secciones[s]);
+                    if (el) el.style.display = '';
+                }
+
+                // Ocultar secciones de vehículo inmediatamente
+                // (solo para FUERA_DE_SERVICIO, porque el formulario se auto-expande)
+                if (typeof ES_VALIDACION === 'undefined' || !ES_VALIDACION) {
+                    bloquearSeccionesVehiculo();
+                }
+            }
+
             initBotonReportarNovedad();
         }
     }
@@ -904,18 +949,25 @@
      */
     function bloquearSeccionesVehiculo() {
         var container = document.getElementById('vehiculoSectionsContainer');
-        if (!container) return;
+        var novedadInfo = document.getElementById('vehiculoNovedadActivaInfo');
+        var noVehicleInfo = document.getElementById('vehiculoNoSeleccionadoInfo');
 
-        // Deshabilitar todos los inputs, checkboxes, radios, selects y textareas
-        var inputs = container.querySelectorAll('input, select, textarea, button');
-        for (var i = 0; i < inputs.length; i++) {
-            var el = inputs[i];
-            if (el.tagName === 'BUTTON') continue; // No hay botones dentro, pero por si acaso
-            el.disabled = true;
-            el.classList.add('novedad-blocked');
+        // Ocultar secciones de vehículo
+        if (container) {
+            container.style.display = 'none';
         }
 
-        // Deshabilitar también el botón de guardar principal
+        // Mostrar mensaje de novedad activa
+        if (novedadInfo) {
+            novedadInfo.style.display = '';
+        }
+
+        // Ocultar info de no-vehículo (si estuviera visible)
+        if (noVehicleInfo) {
+            noVehicleInfo.style.display = 'none';
+        }
+
+        // Deshabilitar el botón de guardar principal
         var btnGuardar = document.getElementById('btnGuardar');
         if (btnGuardar) {
             btnGuardar.disabled = true;
@@ -935,9 +987,6 @@
                 'El vehículo presenta novedades. Debe reportar la novedad antes de continuar con el preoperacional.';
             alertaEl.style.display = '';
         }
-
-        // Agregar clase visual al contenedor
-        container.classList.add('vehiculo-section-blocked');
     }
 
     /**
@@ -946,13 +995,22 @@
      */
     function desbloquearSeccionesVehiculo() {
         var container = document.getElementById('vehiculoSectionsContainer');
-        if (!container) return;
+        var novedadInfo = document.getElementById('vehiculoNovedadActivaInfo');
+        var noVehicleInfo = document.getElementById('vehiculoNoSeleccionadoInfo');
 
-        // Reactivar todos los inputs
-        var inputs = container.querySelectorAll('input, select, textarea');
-        for (var i = 0; i < inputs.length; i++) {
-            inputs[i].disabled = false;
-            inputs[i].classList.remove('novedad-blocked');
+        // Mostrar secciones de vehículo
+        if (container) {
+            container.style.display = '';
+        }
+
+        // Ocultar mensaje de novedad activa
+        if (novedadInfo) {
+            novedadInfo.style.display = 'none';
+        }
+
+        // Ocultar info de no-vehículo
+        if (noVehicleInfo) {
+            noVehicleInfo.style.display = 'none';
         }
 
         // Reactivar botón de guardar
@@ -969,14 +1027,6 @@
                 alertaEl.style.display = 'none';
             }
         }
-
-        // Quitar clase visual
-        container.classList.remove('vehiculo-section-blocked');
-
-        // Asegurar que la info de no-vehículo esté oculta
-        var infoEl = document.getElementById('vehiculoNoSeleccionadoInfo');
-        if (infoEl) infoEl.style.display = 'none';
-        if (container) container.style.display = '';
     }
 
     /**
@@ -986,12 +1036,20 @@
     function ocultarSeccionesVehiculo() {
         var container = document.getElementById('vehiculoSectionsContainer');
         var infoEl = document.getElementById('vehiculoNoSeleccionadoInfo');
+        var novedadInfo = document.getElementById('vehiculoNovedadActivaInfo');
 
         // Ocultar secciones de vehículo
-        if (container) container.style.display = 'none';
+        if (container) {
+            container.style.display = 'none';
+        }
 
         // Mostrar info de no-vehículo
         if (infoEl) infoEl.style.display = '';
+
+        // Ocultar mensaje de novedad activa (si estuviera visible)
+        if (novedadInfo) {
+            novedadInfo.style.display = 'none';
+        }
 
         // Reactivar botón de guardar (solo aplica a secciones de usuario)
         var btnGuardar = document.getElementById('btnGuardar');
@@ -1125,6 +1183,76 @@
                 guardarNovedad(idVehiculo, datos);
             });
         }
+    }
+
+    /**
+     * Inicializa el botón de "Asignar Vehículo" en el panel cuando
+     * el usuario no tiene vehículo asignado.
+     */
+    function initBotonAsignarVehiculo() {
+        var btn = document.getElementById('btnAsignarVehiculo');
+        if (!btn) return;
+
+        btn.addEventListener('click', function() {
+            var select = document.getElementById('asignarVehiculoSelect');
+            var idVehiculo = select ? select.value : '';
+
+            if (!idVehiculo) {
+                Swal.fire({
+                    title: 'Seleccione un vehículo',
+                    text: 'Debe seleccionar un vehículo de la lista.',
+                    icon: 'warning',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('accion', 'asignar_vehiculo_inicial');
+            formData.append('idvehiculo', idVehiculo);
+            formData.append('id_usuario', document.getElementById('user') ? document.getElementById('user').value : '');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Asignando...';
+
+            fetch((window.APP_BASE_URL ? window.APP_BASE_URL + '/controller/PreoperacionalController.php' : window.location.pathname), {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Vehículo asignado',
+                        text: data.message + ' La página se recargará.',
+                        icon: 'success',
+                        confirmButtonText: 'Aceptar'
+                    }).then(function() {
+                        location.reload();
+                    });
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Asignar Vehículo';
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.message || 'Error al asignar el vehículo.',
+                        icon: 'error',
+                        confirmButtonText: 'Aceptar'
+                    });
+                }
+            })
+            .catch(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Asignar Vehículo';
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error de comunicación con el servidor.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+            });
+        });
     }
 
     /**
@@ -1310,6 +1438,28 @@
             e.preventDefault();
 
             var esValidacion = (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION);
+
+            // Defensa: si el vehículo está FUERA_DE_SERVICIO y las secciones siguen ocultas,
+            // el usuario no ha resuelto la novedad — bloquear envío
+            if (!esValidacion && esVehiculoFueraDeServicio()) {
+                var container = document.getElementById('vehiculoSectionsContainer');
+                var novedadInfo = document.getElementById('vehiculoNovedadActivaInfo');
+                if (container && container.style.display === 'none' && novedadInfo && novedadInfo.style.display !== 'none') {
+                    await Swal.fire({
+                        title: 'Vehículo Fuera de Servicio',
+                        html: '<div style="text-align:left; font-size:1.05em;">' +
+                            '<p><strong>El vehículo asignado se encuentra <span style="color:#dc3545;">FUERA DE SERVICIO</span>.</strong></p>' +
+                            '<p>Debe <strong>reportar la novedad</strong> y seleccionar otro vehículo antes de continuar con el preoperacional.</p>' +
+                            '</div>',
+                        icon: 'warning',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#dc3545',
+                        allowOutsideClick: false,
+                        width: '38em'
+                    });
+                    return;
+                }
+            }
 
             // En modo validación, omitir validaciones de checkboxes, fotos, firma y ubicación
             if (!esValidacion) {
@@ -1647,6 +1797,7 @@
             handleSubmitForm();
             cargarDatosPrecarga();
             verificarEstadoVehiculo();
+            initBotonAsignarVehiculo();
 
             var esLegado = !document.getElementById('ubicacion_container');
 

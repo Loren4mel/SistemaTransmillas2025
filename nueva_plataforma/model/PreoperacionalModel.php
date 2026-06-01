@@ -299,8 +299,26 @@ class PreoperacionalModel
         $sqlUpdate = "UPDATE vehiculos SET veh_kilactual = ?, veh_restankmaceite = ?, veh_faltaparacambioaceite = ? WHERE idvehiculos = ?";
         $stmtUpdate = $this->db->prepare($sqlUpdate);
         
-        return $stmtUpdate->bind_param("iiii", $kilometraje, $kmRecorridos, $nuevoRestante, $idVehiculo) 
+        return $stmtUpdate->bind_param("iiii", $kilometraje, $kmRecorridos, $nuevoRestante, $idVehiculo)
                && $stmtUpdate->execute();
+    }
+
+    /**
+     * Obtiene el kilometraje actual registrado para un vehículo.
+     *
+     * @param int $idVehiculo ID del vehículo
+     * @return int Kilometraje actual (0 si no existe o está vacío)
+     */
+    public function obtenerKilometrajeVehiculo($idVehiculo)
+    {
+        $sql = "SELECT veh_kilactual FROM vehiculos WHERE idvehiculos = ?";
+        $row = $this->executeQuery($sql, "i", [$idVehiculo]);
+
+        if (!$row || empty($row['veh_kilactual'])) {
+            return 0;
+        }
+
+        return (int) $row['veh_kilactual'];
     }
 
     // ==================== GESTIÓN DE IMÁGENES ====================

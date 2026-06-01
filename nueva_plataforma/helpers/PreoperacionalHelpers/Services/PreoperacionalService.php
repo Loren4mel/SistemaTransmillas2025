@@ -61,6 +61,17 @@ class PreoperacionalService
         }
         $idPre = (int) ($postData['id_preoperacional'] ?? 0);
 
+        // Detectar si el vehículo está FUERA_DE_SERVICIO (edge case)
+        $vehiculoFueraDeServicio = false;
+        if ($idVehiculo > 0) {
+            $estadoVehiculo = $this->obtenerEstadoVehiculo($idVehiculo);
+            $vehiculoFueraDeServicio = ($estadoVehiculo['estado_general'] ?? '') === 'FUERA_DE_SERVICIO';
+            if ($vehiculoFueraDeServicio) {
+                // Agregar nota informativa a las observaciones
+                $observaciones = trim($observaciones . "\n[ATENCIÓN: El vehículo se encontraba FUERA DE SERVICIO al momento del registro.]");
+            }
+        }
+
         // Al actualizar (validación), preservar la ubicación GPS original
         if ($idPre > 0 && !empty($dataJson)) {
             $registroOriginal = $this->model->obtenerRegistroPorId($idPre);
@@ -79,23 +90,46 @@ class PreoperacionalService
         $imagenInspeccion = $this->procesarImagenInspeccionInicial($files, $dataJson);
 
         // Validar que la imagen de kilometraje sea obligatoria (solo para vehículos CARRO/MOTO)
-        $requiereImagenKilo = in_array(strtoupper($tipoVehiculo), ['CARRO', 'MOTO']);
-        if ($requiereImagenKilo && empty($imagenKilo)) {
-            // Si es actualización, verificar si ya existe imagen previa
-            if ($idPre > 0) {
-                $registroExistente = $this->model->obtenerRegistroPorId($idPre);
-                if ($registroExistente && empty($registroExistente['pre_img_kilo'])) {
+        // EXCEPCIÓN: vehículo FUERA_DE_SERVICIO — el conductor será redirigido a otro vehículo
+        if (!$vehiculoFueraDeServicio) {
+            $requiereImagenKilo = in_array(strtoupper($tipoVehiculo), ['CARRO', 'MOTO']);
+            if ($requiereImagenKilo && empty($imagenKilo)) {
+                // Si es actualización, verificar si ya existe imagen previa
+                if ($idPre > 0) {
+                    $registroExistente = $this->model->obtenerRegistroPorId($idPre);
+                    if ($registroExistente && empty($registroExistente['pre_img_kilo'])) {
+                        return ['success' => false, 'message' => 'Debe subir una foto del kilometraje del vehículo.'];
+                    }
+                } else {
+                    // Nuevo registro: imagen obligatoria
                     return ['success' => false, 'message' => 'Debe subir una foto del kilometraje del vehículo.'];
                 }
-            } else {
-                // Nuevo registro: imagen obligatoria
-                return ['success' => false, 'message' => 'Debe subir una foto del kilometraje del vehículo.'];
             }
         }
 
         // Procesar firma base64
         $firmaBase64 = $postData['firma_preoperacional'] ?? '';
         $firmaProcesada = $this->procesarFirmaBase64($firmaBase64, $idUsuario);
+
+        // ==================== VALIDACIÓN DE KILOMETRAJE ====================
+        // Verifica que el kilometraje enviado no sea menor al actual del vehículo.
+        // FASE 1 (actual): solo warning no bloqueante — se permite guardar pero se notifica.
+        // FASE 2 (futura): descomentar el return con error para bloquear kilometrajes retroactivos
+        //                  una vez migrada completamente la infraestructura de vehículos.
+        $warningKilometraje = null;
+        if ($kilometraje > 0 && $idVehiculo > 0) {
+            $kmActual = $this->model->obtenerKilometrajeVehiculo($idVehiculo);
+            if ($kmActual > 0 && $kilometraje < $kmActual) {
+                $warningKilometraje = "El kilometraje ingresado ({$kilometraje} km) es menor al kilometraje "
+                    . "actual del vehículo ({$kmActual} km). Verifique que el valor sea correcto.";
+                error_log("PreoperacionalService: KM_ADVERTENCIA — Vehículo #{$idVehiculo}: "
+                    . "enviado={$kilometraje} < actual={$kmActual} (usuario={$idUsuario})");
+
+                // ===== BLOQUEO DURO (FASE 2 — descomentar cuando la infraestructura esté migrada) =====
+                // return ['success' => false, 'message' => $warningKilometraje];
+                // ====================================================================================
+            }
+        }
 
         if ($idPre > 0) {
             // Actualización (validación)
@@ -104,7 +138,9 @@ class PreoperacionalService
                 $accionCorrectiva, $responsable, $temperatura,
                 $kilometraje, $idVehiculo, $imagenKilo, $imagenInspeccion,
                 $firmaProcesada,
-                $files
+                $files,
+                $vehiculoFueraDeServicio,
+                $warningKilometraje
             );
         } else {
             // Nuevo registro
@@ -113,7 +149,9 @@ class PreoperacionalService
                 $dataJson, $observaciones, $accionCorrectiva,
                 $responsable, $temperatura, $kilometraje,
                 $limpiomaleta, $imagenKilo, $files, $imagenInspeccion,
-                $firmaProcesada
+                $firmaProcesada,
+                $vehiculoFueraDeServicio,
+                $warningKilometraje
             );
         }
     }
@@ -554,6 +592,43 @@ class PreoperacionalService
     }
 
     /**
+     * Asigna un vehículo a un usuario en el flujo inicial
+     * (cuando el usuario no tiene vehículo asignado).
+     *
+     * @param int $idVehiculo ID del vehículo a asignar
+     * @param int $idUsuario  ID del usuario
+     * @return array Resultado de la operación
+     */
+    public function asignarVehiculoInicial($idVehiculo, $idUsuario)
+    {
+        if ($idVehiculo <= 0 || $idUsuario <= 0) {
+            return ['success' => false, 'message' => 'Vehículo o usuario no válido.'];
+        }
+
+        // Verificar que el vehículo esté disponible (sin conductor asignado)
+        $disponibles = $this->model->obtenerVehiculosSinConductor();
+        $encontrado = false;
+        foreach ($disponibles as $v) {
+            if ((int) $v['idvehiculos'] === $idVehiculo) {
+                $encontrado = true;
+                break;
+            }
+        }
+
+        if (!$encontrado) {
+            return ['success' => false, 'message' => 'El vehículo seleccionado no está disponible.'];
+        }
+
+        $this->model->asignarVehiculoAUsuario($idVehiculo, $idUsuario);
+
+        return [
+            'success' => true,
+            'message' => 'Vehículo asignado correctamente.',
+            'redirect' => true
+        ];
+    }
+
+    /**
      * Procesa el reporte de novedad del vehículo.
      * Si el vehículo puede ser operado, crea un registro OPTIMO.
      * Si no, crea un registro FUERA_DE_SERVICIO y opcionalmente cambia el vehículo.
@@ -766,7 +841,9 @@ class PreoperacionalService
         $accionCorrectiva, $responsable, $temperatura,
         $kilometraje, $idVehiculo, $imagenKilo, $imagenInspeccion,
         $firmaProcesada = false,
-        $files = []
+        $files = [],
+        $vehiculoFueraDeServicio = false,
+        $warningKilometraje = null
     ) {
         global $_SESSION;
 
@@ -861,7 +938,11 @@ class PreoperacionalService
             }
         }
 
-        return ['success' => true, 'message' => 'Preoperacional actualizado correctamente'];
+        $resultado = ['success' => true, 'message' => 'Preoperacional actualizado correctamente'];
+        if ($warningKilometraje !== null) {
+            $resultado['warning'] = $warningKilometraje;
+        }
+        return $resultado;
     }
 
     /**
@@ -872,7 +953,9 @@ class PreoperacionalService
         $dataJson, $observaciones, $accionCorrectiva,
         $responsable, $temperatura, $kilometraje,
         $limpiomaleta, $imagenKilo, $files, $imagenInspeccion,
-        $firmaProcesada = false
+        $firmaProcesada = false,
+        $vehiculoFueraDeServicio = false,
+        $warningKilometraje = null
     ) {
 
         // Parsear el JSON del formulario para separar metadata de respuestas
@@ -983,6 +1066,13 @@ class PreoperacionalService
             // desde las respuestas de la encuesta. Así el historial refleja la realidad del vehículo.
             $observacionSeguimiento = $observaciones;
             $estadoGeneralSeguimiento = $this->calcularEstadoGeneral($datosEncuesta);
+
+            // Defensa: si el vehículo está FUERA_DE_SERVICIO, forzar el estado en el seguimiento
+            // independientemente de lo que diga la encuesta (el conductor debió cambiar de vehículo)
+            if ($vehiculoFueraDeServicio) {
+                $estadoGeneralSeguimiento = 'FUERA_DE_SERVICIO';
+            }
+
             $ultimoSeguimiento = $this->model->obtenerUltimoSeguimientoPorVehiculo($idVehiculo);
             if ($ultimoSeguimiento
                 && ($ultimoSeguimiento['tipo_evento'] ?? '') === 'REVISION_SST'
@@ -1010,7 +1100,11 @@ class PreoperacionalService
             $this->guardarSeguimientoVehiculo($datosSeg);
         }
 
-        return ['success' => true, 'message' => 'Preoperacional guardado correctamente'];
+        $resultado = ['success' => true, 'message' => 'Preoperacional guardado correctamente'];
+        if ($warningKilometraje !== null) {
+            $resultado['warning'] = $warningKilometraje;
+        }
+        return $resultado;
     }
 
     /**

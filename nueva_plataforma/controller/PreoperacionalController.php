@@ -81,6 +81,10 @@ function handleAjaxRequest($service)
                 $response = handleBuscarVehiculosDisponibles($service);
                 break;
 
+            case 'asignar_vehiculo_inicial':
+                $response = handleAsignarVehiculoInicial($service);
+                break;
+
             default:
                 $response['message'] = "Acción '$accion' no reconocida";
                 break;
@@ -159,6 +163,22 @@ function handleBuscarVehiculosDisponibles($service)
 {
     $vehiculos = $service->obtenerVehiculosDisponibles();
     return ['success' => true, 'data' => $vehiculos];
+}
+
+/**
+ * Asigna un vehículo a un usuario en el flujo inicial
+ * (cuando el usuario no tiene vehículo asignado)
+ */
+function handleAsignarVehiculoInicial($service)
+{
+    $idVehiculo = (int) ($_POST['idvehiculo'] ?? 0);
+    $idUsuario = (int) ($_POST['id_usuario'] ?? $_SESSION['usuario_id'] ?? 0);
+
+    if ($idVehiculo <= 0) {
+        return ['success' => false, 'message' => 'Debe seleccionar un vehículo.'];
+    }
+
+    return $service->asignarVehiculoInicial($idVehiculo, $idUsuario);
 }
 
 /**
@@ -289,13 +309,24 @@ function loadView($service)
     require_once __DIR__ . '/../helpers/PreoperacionalHelpers/PreoperacionalNovedadHelper.php';
     $novedadHelper = new PreoperacionalNovedadHelper();
 
+    // Siempre cargar vehículos disponibles (incluso sin vehículo asignado)
+    $vehiculosDisponibles = $novedadHelper->obtenerVehiculosDisponibles();
     $novedadVehiculo = null;
-    $vehiculosDisponibles = [];
 
-    if (!empty($datosVehiculo) && isset($datosVehiculo['idvehiculos']) && $datosVehiculo['idvehiculos'] > 0) {
+    $tieneVehiculoAsignado = !empty($datosVehiculo) && isset($datosVehiculo['idvehiculos']) && $datosVehiculo['idvehiculos'] > 0;
+
+    if ($tieneVehiculoAsignado) {
         $novedadVehiculo = $novedadHelper->verificarNovedadVehiculo($datosVehiculo['idvehiculos']);
-        // Siempre cargar vehículos disponibles para que el panel se muestre en cualquier estado
-        $vehiculosDisponibles = $novedadHelper->obtenerVehiculosDisponibles();
+    }
+
+    // Inicializar valores seguros para JS cuando no hay vehículo
+    if ($novedadVehiculo === null) {
+        $novedadVehiculo = [
+            'tieneNovedad' => false,
+            'estado_general' => 'OPTIMO',
+            'observaciones' => '',
+            'ultimoSeguimiento' => null
+        ];
     }
 
     // Determinar qué secciones mostrar basadas en el rol y tipo de vehículo

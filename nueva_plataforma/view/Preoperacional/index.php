@@ -180,8 +180,10 @@ if ($esRegistroRelacional) {
                         <input type="hidden" name="idvehiculo_seleccionado" id="idvehiculo_seleccionado" value="<?= $datosVehiculo['idvehiculos'] ?? 0 ?>">
 
                         <!-- ==================== PANEL DE ESTADO / NOVEDAD VEHICULAR ==================== -->
-                        <?php if (!empty($datosVehiculo) && isset($datosVehiculo['idvehiculos']) && $datosVehiculo['idvehiculos'] > 0): ?>
+                        <?php if ($tieneVehiculoAsignado): ?>
                             <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles) ?>
+                        <?php else: ?>
+                            <?= $novedadHelper->renderNoVehiclePanel($vehiculosDisponibles) ?>
                         <?php endif; ?>
 
                         <!-- ==================== CONTENEDOR DE TARJETAS ==================== -->
@@ -289,11 +291,28 @@ if ($esRegistroRelacional) {
                                         <div class="no-vehicle-message">
                                             <i class="fas fa-car-side no-vehicle-icon"></i>
                                             <p class="no-vehicle-text">
-                                                No se ha seleccionado vehículo, continúe con el preoperacional de usuario y guarde los cambios.
+                                                No tiene un vehículo asignado.
                                             </p>
                                             <p class="no-vehicle-warning">
                                                 <i class="fas fa-exclamation-triangle"></i>
                                                 <strong>Por favor notifique al jefe de operaciones antes de continuar.</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Info: Novedad vehicular activa (visible cuando hay novedad sin resolver) -->
+                            <div id="vehiculoNovedadActivaInfo" style="display:none;">
+                                <div class="preop-card novedad-active-info-card">
+                                    <div class="preop-card-header">
+                                        <i class="fas fa-exclamation-triangle"></i> NOVEDAD VEHICULAR ACTIVA
+                                    </div>
+                                    <div class="preop-card-body">
+                                        <div class="no-vehicle-message">
+                                            <i class="fas fa-clipboard-list no-vehicle-icon"></i>
+                                            <p class="no-vehicle-text">
+                                                Debe finalizar el flujo de observaciones antes de continuar con la inspección del vehículo.
                                             </p>
                                         </div>
                                     </div>
@@ -408,11 +427,28 @@ if ($esRegistroRelacional) {
                                         <div class="no-vehicle-message">
                                             <i class="fas fa-car-side no-vehicle-icon"></i>
                                             <p class="no-vehicle-text">
-                                                No se ha seleccionado vehículo, continúe con el preoperacional de usuario y guarde los cambios.
+                                                No tiene un vehículo asignado.
                                             </p>
                                             <p class="no-vehicle-warning">
                                                 <i class="fas fa-exclamation-triangle"></i>
                                                 <strong>Por favor notifique al jefe de operaciones antes de continuar.</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Info: Novedad vehicular activa (visible cuando hay novedad sin resolver) -->
+                            <div id="vehiculoNovedadActivaInfo" style="display:none;">
+                                <div class="preop-card novedad-active-info-card">
+                                    <div class="preop-card-header">
+                                        <i class="fas fa-exclamation-triangle"></i> NOVEDAD VEHICULAR ACTIVA
+                                    </div>
+                                    <div class="preop-card-body">
+                                        <div class="no-vehicle-message">
+                                            <i class="fas fa-clipboard-list no-vehicle-icon"></i>
+                                            <p class="no-vehicle-text">
+                                                Debe finalizar el flujo de observaciones antes de continuar con la inspección del vehículo.
                                             </p>
                                         </div>
                                     </div>
@@ -472,6 +508,8 @@ if ($esRegistroRelacional) {
         var ES_VALIDACION = <?= json_encode($esValidacion) ?>;
         var MOSTRAR_SECCION_VEHICULO = <?= json_encode(($mostrarSecciones['preoperacional_vehiculo'] ?? false) || ($mostrarSecciones['preoperacional_moto'] ?? false)) ?>;
         var TIENE_NOVEDAD_VEHICULAR = <?= json_encode($novedadVehiculo['tieneNovedad'] ?? false) ?>;
+        var ESTADO_GENERAL_VEHICULO = <?= json_encode($novedadVehiculo['estado_general'] ?? 'OPTIMO') ?>;
+        var TIENE_VEHICULO_ASIGNADO = <?= json_encode($tieneVehiculoAsignado) ?>;
         var URL_REDIRECT = <?= json_encode($esValidacion ? '' : '../../inicio.php?bandera=1') ?>;
         var UBICACION_GUARDADA = <?= json_encode($ubicacionGuardada) ?>;
     </script>

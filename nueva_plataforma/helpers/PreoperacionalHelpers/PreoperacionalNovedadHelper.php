@@ -60,6 +60,17 @@ class PreoperacionalNovedadHelper
     }
 
     /**
+     * Determina si la novedad es de tipo FUERA_DE_SERVICIO.
+     *
+     * @param array $novedad Resultado de verificarNovedadVehiculo()
+     * @return bool
+     */
+    public function esFueraDeServicio($novedad)
+    {
+        return ($novedad['estado_general'] ?? '') === 'FUERA_DE_SERVICIO';
+    }
+
+    /**
      * Obtiene la lista de vehículos disponibles (activos y sin conductor asignado).
      *
      * @return array Lista de vehículos [idvehiculos, veh_tipo, veh_placa, veh_marca, veh_modelo]
@@ -127,17 +138,30 @@ class PreoperacionalNovedadHelper
         if ($tieneNovedad && $observaciones) {
             $html .= '<p><strong>Última observación:</strong> ' . $observaciones . '</p>';
         }
+        // Alerta específica para FUERA_DE_SERVICIO
+        if ($estado === 'FUERA_DE_SERVICIO') {
+            $html .= '<div class="novedad-fuera-servicio-alert" style="background:#fff5f5; border:2px solid #dc3545; border-radius:10px; padding:16px; margin-top:14px;">';
+            $html .= '<p style="margin:0 0 8px 0; color:#dc3545; font-size:1.1em; font-weight:bold;">';
+            $html .= '<i class="fas fa-ban"></i> Este vehículo está FUERA DE SERVICIO</p>';
+            $html .= '<p style="margin:0; font-size:0.95em;">El vehículo no se encuentra en condiciones de operar. ';
+            $html .= 'Debe <strong>seleccionar otro vehículo</strong> del listado o continuar sin vehículo asignado.</p>';
+            $html .= '</div>';
+        }
+
         $html .= '</div>';
 
-        // Botón de reportar novedad
-        $html .= '<div class="novedad-actions" id="novedadActions">';
+        // Para FUERA_DE_SERVICIO el formulario se expande automáticamente
+        $expandirFormulario = ($estado === 'FUERA_DE_SERVICIO');
+
+        // Botón de reportar novedad (oculto en FUERA_DE_SERVICIO)
+        $html .= '<div class="novedad-actions" id="novedadActions"' . ($expandirFormulario ? ' style="display:none;"' : '') . '>';
         $html .= '<button type="button" class="btn btn-novedad-reportar" id="btnReportarNovedad">';
         $html .= '<i class="fas fa-clipboard-list"></i> Reportar Novedad';
         $html .= '</button>';
         $html .= '</div>';
 
-        // --- FORMULARIO INLINE (oculto inicialmente) ---
-        $html .= '<div class="novedad-inline-form" id="novedadInlineForm" style="display:none;">';
+        // --- FORMULARIO INLINE (expandido automáticamente en FUERA_DE_SERVICIO) ---
+        $html .= '<div class="novedad-inline-form" id="novedadInlineForm"' . ($expandirFormulario ? '' : ' style="display:none;"') . '>';
         $html .= '<hr class="novedad-divider">';
         $html .= '<div class="novedad-form-body">';
 
@@ -145,19 +169,28 @@ class PreoperacionalNovedadHelper
         $html .= '<div class="novedad-form-group">';
         $html .= '<label class="novedad-form-label"><strong>¿El vehículo puede ser operado?</strong></label>';
         $html .= '<div class="novedad-radio-group">';
-        $html .= '<label class="novedad-radio-label">';
-        $html .= '<input type="radio" name="puede_operar" value="si" class="novedad-radio-input"> ';
-        $html .= '<span class="novedad-radio-text">Sí — El vehículo está en condiciones</span>';
-        $html .= '</label>';
-        $html .= '<label class="novedad-radio-label">';
-        $html .= '<input type="radio" name="puede_operar" value="no" class="novedad-radio-input"> ';
-        $html .= '<span class="novedad-radio-text">No — El vehículo tiene problemas</span>';
-        $html .= '</label>';
+        if ($estado === 'FUERA_DE_SERVICIO') {
+            // FUERA_DE_SERVICIO: solo opción "No" disponible
+            $html .= '<label class="novedad-radio-label">';
+            $html .= '<input type="radio" name="puede_operar" value="no" class="novedad-radio-input" checked> ';
+            $html .= '<span class="novedad-radio-text">No — El vehículo está fuera de servicio</span>';
+            $html .= '</label>';
+            $html .= '<input type="hidden" name="puede_operar_fijo" value="no">';
+        } else {
+            $html .= '<label class="novedad-radio-label">';
+            $html .= '<input type="radio" name="puede_operar" value="si" class="novedad-radio-input"> ';
+            $html .= '<span class="novedad-radio-text">Sí — El vehículo está en condiciones</span>';
+            $html .= '</label>';
+            $html .= '<label class="novedad-radio-label">';
+            $html .= '<input type="radio" name="puede_operar" value="no" class="novedad-radio-input"> ';
+            $html .= '<span class="novedad-radio-text">No — El vehículo tiene problemas</span>';
+            $html .= '</label>';
+        }
         $html .= '</div>';
         $html .= '</div>';
 
-        // --- Foto de evidencia general (visible al seleccionar cualquier radio) ---
-        $html .= '<div class="novedad-photo-section" id="novedadFotoGeneralGroup" style="display:none;">';
+        // --- Foto de evidencia general (visible al seleccionar cualquier radio, o siempre en FUERA_DE_SERVICIO) ---
+        $html .= '<div class="novedad-photo-section" id="novedadFotoGeneralGroup"' . ($expandirFormulario ? '' : ' style="display:none;"') . '>';
         $html .= '<h5 class="entrega-section-label">';
         $html .= '<i class="fas fa-camera"></i> FOTO DE EVIDENCIA GENERAL';
         $html .= '</h5>';
@@ -176,8 +209,8 @@ class PreoperacionalNovedadHelper
         $html .= '</div>';
         $html .= '</div>';
 
-        // --- Fotos de salida / entrega FINAL (visible solo con NO) ---
-        $html .= '<div class="novedad-photo-section novedad-condicional" id="novedadSalidaPhotosGroup" style="display:none;">';
+        // --- Fotos de salida / entrega FINAL (visible con NO, o siempre en FUERA_DE_SERVICIO) ---
+        $html .= '<div class="novedad-photo-section novedad-condicional" id="novedadSalidaPhotosGroup"' . ($expandirFormulario ? '' : ' style="display:none;"') . '>';
         $html .= '<hr class="novedad-divider">';
         $html .= '<h5 class="entrega-section-label">';
         $html .= '<i class="fas fa-arrow-right-to-bracket"></i> ';
@@ -208,15 +241,19 @@ class PreoperacionalNovedadHelper
         $html .= '</div>';
         $html .= '</div>';
 
-        // Descripción del problema (visible solo si selecciona NO)
-        $html .= '<div class="novedad-form-group novedad-condicional" id="novedadObservacionGroup" style="display:none;">';
+        // Descripción del problema (visible con NO, o siempre en FUERA_DE_SERVICIO)
+        $html .= '<div class="novedad-form-group novedad-condicional" id="novedadObservacionGroup"' . ($expandirFormulario ? '' : ' style="display:none;"') . '>';
         $html .= '<label class="novedad-form-label" for="novedadObservacion"><strong>Descripción del problema:</strong></label>';
         $html .= '<textarea id="novedadObservacion" class="novedad-textarea" rows="3" placeholder="Describa el problema encontrado..."></textarea>';
         $html .= '</div>';
 
-        // Vehículo alternativo (visible solo si selecciona NO) — aparece DESPUÉS de las fotos de salida
-        $html .= '<div class="novedad-form-group novedad-condicional" id="novedadVehiculoGroup" style="display:none;">';
-        $html .= '<label class="novedad-form-label" for="novedadVehiculoSelect"><strong>Vehículo alternativo (opcional):</strong></label>';
+        // Vehículo alternativo (visible con NO, o siempre en FUERA_DE_SERVICIO)
+        $html .= '<div class="novedad-form-group novedad-condicional" id="novedadVehiculoGroup"' . ($expandirFormulario ? '' : ' style="display:none;"') . '>';
+        if ($estado === 'FUERA_DE_SERVICIO') {
+            $html .= '<label class="novedad-form-label" for="novedadVehiculoSelect"><strong>Seleccione un vehículo alternativo:</strong> <span style="color:#dc3545;">(requerido — el vehículo actual está fuera de servicio)</span></label>';
+        } else {
+            $html .= '<label class="novedad-form-label" for="novedadVehiculoSelect"><strong>Vehículo alternativo (opcional):</strong></label>';
+        }
         $html .= '<select id="novedadVehiculoSelect" class="novedad-select">';
         $html .= '<option value="">-- No seleccionar vehículo --</option>';
         foreach ($vehiculosDisponibles as $v) {
@@ -232,8 +269,8 @@ class PreoperacionalNovedadHelper
         $html .= '<small class="novedad-form-hint">Si no selecciona un vehículo, quedará sin vehículo asignado.</small>';
         $html .= '</div>';
 
-        // --- Fotos de entrada / entrega INICIAL (visible con NO + vehículo nuevo) ---
-        $html .= '<div class="novedad-photo-section novedad-condicional" id="novedadEntradaPhotosGroup" style="display:none;">';
+        // --- Fotos de entrada / entrega INICIAL (visible con NO + vehículo nuevo, o siempre en FUERA_DE_SERVICIO) ---
+        $html .= '<div class="novedad-photo-section novedad-condicional" id="novedadEntradaPhotosGroup"' . ($expandirFormulario ? '' : ' style="display:none;"') . '>';
         $html .= '<hr class="novedad-divider">';
         $html .= '<h5 class="entrega-section-label">';
         $html .= '<i class="fas fa-arrow-right-from-bracket"></i> ';
@@ -276,6 +313,73 @@ class PreoperacionalNovedadHelper
 
         $html .= '</div>'; // /novedad-form-body
         $html .= '</div>'; // /novedad-inline-form
+
+        $html .= '</div>'; // /preop-card-body
+        $html .= '</div>'; // /novedad-panel
+
+        return $html;
+    }
+
+    /**
+     * Genera el HTML del panel de asignación de vehículo cuando el usuario
+     * no tiene un vehículo asignado.
+     *
+     * @param array $vehiculosDisponibles Lista de vehículos disponibles
+     * @return string HTML del panel
+     */
+    public function renderNoVehiclePanel($vehiculosDisponibles)
+    {
+        $html = '<div class="preop-card novedad-panel novedad-no-vehiculo" id="novedadPanel" '
+              . 'data-idvehiculo="0" '
+              . 'data-estado="SIN_VEHICULO">';
+        $html .= '<div class="preop-card-header">';
+        $html .= '<i class="fas fa-car-side"></i> ';
+        $html .= '<strong>ASIGNACIÓN DE VEHÍCULO</strong>';
+        $html .= '</div>';
+        $html .= '<div class="preop-card-body">';
+
+        // Mensaje informativo
+        $html .= '<div class="novedad-vehicle-info">';
+        $html .= '<p><strong>No tiene un vehículo asignado.</strong></p>';
+        $html .= '<p>Seleccione un vehículo de la lista para iniciar el preoperacional.</p>';
+        $html .= '</div>';
+
+        if (empty($vehiculosDisponibles)) {
+            // Sin vehículos disponibles
+            $html .= '<div class="novedad-fuera-servicio-alert" style="background:#fffbf0; border:2px solid #ffc107; border-radius:10px; padding:16px; margin-top:14px;">';
+            $html .= '<p style="margin:0; color:#856404; font-size:1em; font-weight:bold;">';
+            $html .= '<i class="fas fa-exclamation-circle"></i> No hay vehículos disponibles</p>';
+            $html .= '<p style="margin:4px 0 0 0; font-size:0.9em; color:#856404;">';
+            $html .= 'Por favor contacte al administrador para que le asigne un vehículo.';
+            $html .= '</p>';
+            $html .= '</div>';
+        } else {
+            // Dropdown de vehículos disponibles
+            $html .= '<div class="novedad-form-group">';
+            $html .= '<label class="novedad-form-label" for="asignarVehiculoSelect">';
+            $html .= '<strong>Vehículos disponibles:</strong>';
+            $html .= '</label>';
+            $html .= '<select id="asignarVehiculoSelect" class="novedad-select">';
+            $html .= '<option value="">-- Seleccione un vehículo --</option>';
+            foreach ($vehiculosDisponibles as $v) {
+                $tipo = htmlspecialchars($v['veh_tipo'] ?? '');
+                $vPlaca = htmlspecialchars($v['veh_placa'] ?? '');
+                $vMarca = htmlspecialchars($v['veh_marca'] ?? '');
+                $vModelo = htmlspecialchars($v['veh_modelo'] ?? '');
+                $vid = (int) ($v['idvehiculos'] ?? 0);
+                $label = $tipo . ' - ' . $vPlaca . ' - ' . $vMarca . ' ' . $vModelo;
+                $html .= '<option value="' . $vid . '">' . htmlspecialchars($label) . '</option>';
+            }
+            $html .= '</select>';
+            $html .= '</div>';
+
+            // Botón de asignar
+            $html .= '<div class="novedad-form-buttons">';
+            $html .= '<button type="button" class="btn btn-novedad-guardar" id="btnAsignarVehiculo">';
+            $html .= '<i class="fas fa-check"></i> Asignar Vehículo';
+            $html .= '</button>';
+            $html .= '</div>';
+        }
 
         $html .= '</div>'; // /preop-card-body
         $html .= '</div>'; // /novedad-panel

@@ -1589,6 +1589,29 @@
     margin-right: 6px;
 }
 
+/* ==================== INFO: NOVEDAD VEHICULAR ACTIVA ==================== */
+
+.novedad-active-info-card {
+    border: 2px dashed #dc3545;
+    background: rgba(220, 53, 69, 0.04);
+}
+
+.novedad-active-info-card .preop-card-header {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: #fff;
+}
+
+/* ==================== PANEL: ASIGNACIÓN DE VEHÍCULO (SIN VEHÍCULO) ==================== */
+
+.novedad-panel.novedad-no-vehiculo {
+    border-color: #6c757d;
+}
+
+.novedad-panel.novedad-no-vehiculo .preop-card-header {
+    background: rgba(108, 117, 125, 0.12);
+    color: #495057;
+}
+
 .photo-hint {
     display: block;
     margin-top: 4px;
