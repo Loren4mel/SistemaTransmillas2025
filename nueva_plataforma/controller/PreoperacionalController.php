@@ -17,7 +17,7 @@ ErrorHandler::setup();
 require("../../login_autentica.php");
 
 // ==================== SERVICIO Y MODELO ====================
-require_once __DIR__ . '/../helpers/PreoperacionalHelpers/PreoperacionalService.php';
+require_once __DIR__ . '/../helpers/PreoperacionalHelpers/Services/PreoperacionalService.php';
 
 $service = new PreoperacionalService();
 
@@ -52,11 +52,37 @@ function handleAjaxRequest($service)
 
         switch ($accion) {
             case 'guardar':
+                // Validación de preoperacional: solo administradores (roles 1, 12)
+                // pueden validar registros, alineado con el sistema legacy (consulta_prevalidar.php).
+                $idPre = (int) ($_POST['id_preoperacional'] ?? $_POST['param11'] ?? 0);
+                if ($idPre > 0) {
+                    $rol = $_SESSION['usuario_rol'] ?? 0;
+                    if (!in_array($rol, [1, 12])) {
+                        $response = ['success' => false, 'message' => 'Solo administradores pueden validar registros preoperacionales'];
+                        break;
+                    }
+                }
                 $response = $service->guardarRegistro($_POST, $_FILES);
                 break;
 
             case 'buscarDatos':
                 $response = handleBuscarDatos($service);
+                break;
+
+            case 'verificar_estado_vehiculo':
+                $response = handleVerificarEstadoVehiculo($service);
+                break;
+
+            case 'reportar_novedad':
+                $response = handleReportarNovedad($service);
+                break;
+
+            case 'buscar_vehiculos_disponibles':
+                $response = handleBuscarVehiculosDisponibles($service);
+                break;
+
+            case 'asignar_vehiculo_inicial':
+                $response = handleAsignarVehiculoInicial($service);
                 break;
 
             default:
@@ -91,6 +117,71 @@ function handleBuscarDatos($service)
 }
 
 /**
+ * Verifica el estado actual del vehículo asignado al usuario
+ */
+function handleVerificarEstadoVehiculo($service)
+{
+    $idVehiculo = isset($_POST['idvehiculo']) ? (int) $_POST['idvehiculo'] : 0;
+    if ($idVehiculo <= 0) {
+        return ['success' => false, 'message' => 'No se encontró vehículo asignado.'];
+    }
+
+    $estado = $service->obtenerEstadoVehiculo($idVehiculo);
+    return ['success' => true, 'data' => $estado];
+}
+
+/**
+ * Procesa el reporte de novedad del vehículo
+ */
+function handleReportarNovedad($service)
+{
+    $idVehiculoActual = (int) ($_POST['idvehiculo_actual'] ?? 0);
+    $idUsuario = (int) ($_POST['id_usuario'] ?? $_SESSION['usuario_id'] ?? 0);
+    $puedeSerOperado = $_POST['puede_ser_operado'] ?? '';
+    $observaciones = $_POST['observaciones'] ?? '';
+    $idVehiculoNuevo = (int) ($_POST['idvehiculo_nuevo'] ?? 0);
+
+    if ($idVehiculoActual <= 0) {
+        return ['success' => false, 'message' => 'Vehículo no especificado.'];
+    }
+
+    $datos = [
+        'idvehiculo_actual' => $idVehiculoActual,
+        'id_usuario' => $idUsuario,
+        'puede_ser_operado' => $puedeSerOperado,
+        'observaciones' => $observaciones,
+        'idvehiculo_nuevo' => $idVehiculoNuevo
+    ];
+
+    return $service->procesarReporteNovedad($datos, $_FILES);
+}
+
+/**
+ * Busca vehículos disponibles sin conductor asignado
+ */
+function handleBuscarVehiculosDisponibles($service)
+{
+    $vehiculos = $service->obtenerVehiculosDisponibles();
+    return ['success' => true, 'data' => $vehiculos];
+}
+
+/**
+ * Asigna un vehículo a un usuario en el flujo inicial
+ * (cuando el usuario no tiene vehículo asignado)
+ */
+function handleAsignarVehiculoInicial($service)
+{
+    $idVehiculo = (int) ($_POST['idvehiculo'] ?? 0);
+    $idUsuario = (int) ($_POST['id_usuario'] ?? $_SESSION['usuario_id'] ?? 0);
+
+    if ($idVehiculo <= 0) {
+        return ['success' => false, 'message' => 'Debe seleccionar un vehículo.'];
+    }
+
+    return $service->asignarVehiculoInicial($idVehiculo, $idUsuario);
+}
+
+/**
  * Carga la vista principal del preoperacional
  */
 function loadView($service)
@@ -106,6 +197,17 @@ function loadView($service)
     // Determinar el modo de operación
     $esCovid = ($param4 == 'covid19');
     $esValidacion = ($preoperacional == 'validarpreoperacional' || $param5 == 'valida');
+
+    // Validación de preoperacional: solo administradores (roles 1, 12) pueden
+    // acceder a la página de validación, alineado con el sistema legacy.
+    if ($esValidacion) {
+        $rol = $_SESSION['usuario_rol'] ?? 0;
+        if (!in_array($rol, [1, 12])) {
+            http_response_code(403);
+            echo "<h2>Acceso denegado</h2><p>Solo administradores pueden validar registros preoperacionales.</p>";
+            exit;
+        }
+    }
 
     // Obtener datos del vehículo y usuario
     $datosVehiculo = $service->obtenerDatosVehiculoYUsuario($iduser, $idvehiculo);
@@ -181,8 +283,54 @@ function loadView($service)
         }
     }
 
+    // ==================== ESQUEMA RELACIONAL: Resolución de versiones ====================
+    $idVersionActiva = null;
+
+    // Cargar respuestas desde preop_respuestas si el registro usa esquema relacional
+    $valoresEncuestaRelacional = [];
+    $esRegistroRelacional = false;
+    if ($registroExistente && !empty($registroExistente['id_version'])) {
+        $valoresEncuestaRelacional = $service->obtenerRespuestasVersion(
+            $registroExistente['idpreoperacinal'],
+            $registroExistente['id_version']
+        );
+        $idVersionActiva = $registroExistente['id_version'];
+        $esRegistroRelacional = true;
+    }
+
+    // Para nuevos registros, siempre resolver la versión activa
+    if (!$idVersionActiva) {
+        $versionesActivas = $service->resolverVersionesAplicables($tipovehiculo, $nivel_acceso);
+        $versionPrincipal = $versionesActivas['version_vehiculo'] ?? $versionesActivas['version_usuario'] ?? null;
+        $idVersionActiva = $versionPrincipal ? $versionPrincipal['id_version'] : null;
+    }
+
+    // ==================== VERIFICACIÓN DE NOVEDAD VEHICULAR ====================
+    require_once __DIR__ . '/../helpers/PreoperacionalHelpers/PreoperacionalNovedadHelper.php';
+    $novedadHelper = new PreoperacionalNovedadHelper();
+
+    // Siempre cargar vehículos disponibles (incluso sin vehículo asignado)
+    $vehiculosDisponibles = $novedadHelper->obtenerVehiculosDisponibles();
+    $novedadVehiculo = null;
+
+    $tieneVehiculoAsignado = !empty($datosVehiculo) && isset($datosVehiculo['idvehiculos']) && $datosVehiculo['idvehiculos'] > 0;
+
+    if ($tieneVehiculoAsignado) {
+        $novedadVehiculo = $novedadHelper->verificarNovedadVehiculo($datosVehiculo['idvehiculos']);
+    }
+
+    // Inicializar valores seguros para JS cuando no hay vehículo
+    if ($novedadVehiculo === null) {
+        $novedadVehiculo = [
+            'tieneNovedad' => false,
+            'estado_general' => 'OPTIMO',
+            'observaciones' => '',
+            'ultimoSeguimiento' => null
+        ];
+    }
+
     // Determinar qué secciones mostrar basadas en el rol y tipo de vehículo
-    require_once __DIR__ . '/../helpers/PreoperacionalHelpers/PreoperacionalNuevaEncuestaViewHelper.php';
+    require_once __DIR__ . '/../helpers/PreoperacionalHelpers/Views/PreoperacionalNuevaEncuestaViewHelper.php';
 
     // Determinar si es conductor (CARRO)
     $esConductor = PreoperacionalNuevaEncuestaViewHelper::esConductor($tipovehiculo);
@@ -211,6 +359,9 @@ function loadView($service)
     // ==================== FIN DE SECCIONES POR ROL ====================
 
     // Limpiar buffer y cargar la vista
+    // Calcular ruta base de la aplicación desde el servidor
+    // Ej: /SistemaTransmillas2025/nueva_plataforma
+    $appBasePath = dirname(dirname($_SERVER['SCRIPT_NAME']));
     ob_clean();
     include __DIR__ . '/../view/Preoperacional/index.php';
 }
