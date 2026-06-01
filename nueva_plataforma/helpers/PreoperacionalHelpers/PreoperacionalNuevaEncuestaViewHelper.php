@@ -12,15 +12,6 @@ class PreoperacionalNuevaEncuestaViewHelper
 
     public static function getPreguntasAdministrativo()
     {
-        // DB-driven: siempre consultar primero, fallback a hardcoded
-        $rol = $_SESSION['usuario_rol'] ?? 0;
-        $tv = $_SESSION['usuario_tipovehiculo'] ?? '';
-        require_once __DIR__ . '/../PreoperacionalDBHelper.php';
-        $dbPreguntas = PreoperacionalDBHelper::cargarPreguntasUsuario($rol, $tv);
-        if (!empty($dbPreguntas)) {
-            return $dbPreguntas;
-        }
-        // Fallback: array hardcodeado
         return [
             ['admin_1', '¿Se siente físicamente en capacidad de desarrollar sus labores hoy?'],
             ['admin_2', '¿Presenta alguna molestia osteomuscular (dolor en espalda, cuello, hombros o muñecas) derivada de su jornada anterior?'],
@@ -34,15 +25,6 @@ class PreoperacionalNuevaEncuestaViewHelper
 
     public static function getPreguntasConductor()
     {
-        // DB-driven: siempre consultar primero, fallback a hardcoded
-        $rol = $_SESSION['usuario_rol'] ?? 0;
-        $tv = $_SESSION['usuario_tipovehiculo'] ?? 'CARRO';
-        require_once __DIR__ . '/../PreoperacionalDBHelper.php';
-        $dbPreguntas = PreoperacionalDBHelper::cargarPreguntasUsuario($rol, $tv);
-        if (!empty($dbPreguntas)) {
-            return $dbPreguntas;
-        }
-        // Fallback: array hardcodeado
         return [
             ['conductor_1', '¿Presenta signos de somnolencia o fatiga acumulada?', 2],
             ['conductor_2', '¿Reporta fatiga visual o irritación ocular o visión borrosa o dificultad para mantener la apertura ocular?', 2],
@@ -56,13 +38,6 @@ class PreoperacionalNuevaEncuestaViewHelper
 
     public static function getPreguntasVehiculoCarro()
     {
-        // DB-driven: siempre consultar primero, fallback a hardcoded
-        require_once __DIR__ . '/../PreoperacionalDBHelper.php';
-        $dbPreguntas = PreoperacionalDBHelper::cargarPreguntasVehiculo('CARRO');
-        if (!empty($dbPreguntas)) {
-            return $dbPreguntas;
-        }
-        // Fallback: array hardcodeado
         return [
             'inspeccion_inicial' => [
                 'titulo' => '🔍 INSPECCIÓN INICIAL',
@@ -127,15 +102,6 @@ class PreoperacionalNuevaEncuestaViewHelper
 
     public static function getPreguntasVehiculoPropio()
     {
-        // DB-driven: siempre consultar primero, fallback a hardcoded
-        $rol = $_SESSION['usuario_rol'] ?? 0;
-        $tv = $_SESSION['usuario_tipovehiculo'] ?? 'MOTO';
-        require_once __DIR__ . '/../PreoperacionalDBHelper.php';
-        $dbPreguntas = PreoperacionalDBHelper::cargarPreguntasUsuario($rol, $tv);
-        if (!empty($dbPreguntas)) {
-            return $dbPreguntas;
-        }
-        // Fallback: array hardcodeado
         return [
             ['moto_personal_1', '¿Presenta signos de somnolencia o fatiga acumulada?', 2],
             ['moto_personal_2', '¿Reporta fatiga visual o irritación ocular o visión borrosa o dificultad para mantener la apertura ocular?', 2],
@@ -153,13 +119,6 @@ class PreoperacionalNuevaEncuestaViewHelper
 
     public static function getPreguntasVehiculoMoto()
     {
-        // DB-driven: siempre consultar primero, fallback a hardcoded
-        require_once __DIR__ . '/../PreoperacionalDBHelper.php';
-        $dbPreguntas = PreoperacionalDBHelper::cargarPreguntasVehiculo('MOTO');
-        if (!empty($dbPreguntas)) {
-            return $dbPreguntas;
-        }
-        // Fallback: array hardcodeado
         return [
             'llantas_rines' => [
                 'titulo' => '🛞 LLANTAS Y RINES',
@@ -223,15 +182,6 @@ class PreoperacionalNuevaEncuestaViewHelper
 
     public static function getPreguntasAuxiliarCarga()
     {
-        // DB-driven: siempre consultar primero, fallback a hardcoded
-        $rol = $_SESSION['usuario_rol'] ?? 0;
-        $tv = $_SESSION['usuario_tipovehiculo'] ?? '';
-        require_once __DIR__ . '/../PreoperacionalDBHelper.php';
-        $dbPreguntas = PreoperacionalDBHelper::cargarPreguntasUsuario($rol, $tv);
-        if (!empty($dbPreguntas)) {
-            return $dbPreguntas;
-        }
-        // Fallback: array hardcodeado
         return [
             ['auxiliar_1', '¿Presenta actualmente algún dolor, inflamación o molestia en la zona lumbar (espalda baja)?'],
             ['auxiliar_2', '¿Siente debilidad, hormigueo o dolor en hombros, brazos o muñecas que dificulte el agarre de objetos?'],
@@ -465,24 +415,20 @@ class PreoperacionalNuevaEncuestaViewHelper
     public static function renderKilometrajeCard($registroExistente, $esValidacion = false)
     {
         $disabled = $esValidacion ? 'disabled' : '';
-        $registro = $registroExistente ?? [];
-        $tieneImagen = !empty($registro['pre_img_kilo']);
-        // Texto: requerido siempre en modo nuevo (no validación)
-        $requiredKm = !$esValidacion ? 'required' : '';
-        // Foto: requerida solo si no existe imagen previa
-        $requiredFoto = (!$esValidacion && !$tieneImagen) ? 'required' : '';
+        $tieneImagen = !empty($registroExistente['pre_img_kilo']);
+        $required = (!$esValidacion && !$tieneImagen) ? 'required' : '';
 
         $html = '<div class="preop-card kilometraje-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-tachometer-alt"></i> KILOMETRAJE ACTUAL</div>';
         $html .= '<div class="preop-card-body">';
         $html .= '<div style="margin-bottom:12px;">';
-        $html .= '<input name="kilometraje" id="kilometraje" value="' . htmlspecialchars($registro['pre_kilrecorridos'] ?? '') . '" class="form-input" placeholder="Ingrese kilometraje actual" ' . $requiredKm . ' ' . $disabled . '>';
+        $html .= '<input name="kilometraje" id="kilometraje" value="' . htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? '') . '" class="form-input" placeholder="Ingrese kilometraje actual" required ' . $disabled . '>';
         $html .= '</div>';
         $html .= '<div>';
         $html .= '<label style="font-weight:600;font-size:14px;color:#555;">Imagen Kilometraje:</label>';
-        $html .= '<input type="file" name="imagen_kilometraje" class="photo-input" ' . $requiredFoto . ' ' . $disabled . '>';
+        $html .= '<input type="file" name="imagen_kilometraje" class="photo-input" ' . $required . ' ' . $disabled . '>';
         if ($tieneImagen) {
-            $url = self::rutaAbsolutaAUrl($registro['pre_img_kilo']);
+            $url = self::rutaAbsolutaAUrl($registroExistente['pre_img_kilo']);
             $html .= '<br><a href="' . htmlspecialchars($url) . '" target="_blank" style="font-size:13px;">Ver imagen actual</a>';
         }
         // Hidden para indicar al JS si ya existe imagen previa (no exigir re-subida)

@@ -208,10 +208,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $Vehiculos   = $modelo->obtenerVehiculos();
     $Sedes       = $modelo->obtenerSedes();
     $operadoresActivos = $modelo->obtenerOperadoresActivos();
-    // Calcular ruta base de la aplicación desde el servidor
-    // Ej: /SistemaTransmillas2025/nueva_plataforma
-    $appBasePath = dirname(dirname($_SERVER['SCRIPT_NAME']));
-
     include "../view/Vehiculos/index.php";
 }   
 

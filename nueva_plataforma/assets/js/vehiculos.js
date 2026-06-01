@@ -1,7 +1,9 @@
 //const urlController = '/SistemaTransmillas2025/nueva_plataforma/controller/VehiculosController.php';
 
-// DESPUÉS — usa la ruta base calculada por el servidor (definida en index.php)
-const baseUrl = window.APP_BASE_URL || '/SistemaTransmillas2025/nueva_plataforma';
+// DESPUÉS — detecta automáticamente el entorno
+const baseUrl = window.location.hostname === 'localhost'
+    ? '/SistemaTransmillas2025/nueva_plataforma'
+    : '/nueva_plataforma';
 
 const urlController = `${baseUrl}/controller/VehiculosController.php`;
 

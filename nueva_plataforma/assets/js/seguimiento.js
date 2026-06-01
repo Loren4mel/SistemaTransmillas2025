@@ -314,8 +314,6 @@
             cargarOperarios('#lic_operario', $('#sede').val(), 'Seleccione operario', true);
         });
 
-        cargarModalBody('#modalNuevosEmpleados', '#nuevosEmpleadosModalBody', 'nuevos_empleados');
-
         // Select2 cambia con sede en modal de ingreso manual
         $(document).on('change', '#ing_sede', function () {
             var sede = $(this).val();
@@ -324,7 +322,7 @@
         });
 
         // Destruir Select2 al cerrar modales
-        $('#modalVacaciones, #modalLicencias, #modalNuevosEmpleados, #popupModal').on('hidden.bs.modal', function () {
+        $('#modalVacaciones, #modalLicencias, #popupModal').on('hidden.bs.modal', function () {
             $(this).find('select').each(function () {
                 if ($(this).data('select2')) {
                     $(this).select2('destroy');
@@ -456,19 +454,9 @@
         });
     }
 
-    function abrirModalFestivos() {
-        if (!hasDeletePermission) return;
-        $('#modalFestivos').modal('show');
-    }
-    function abrirModalVacaciones() {
-        if (!hasDeletePermission) return;
-        $('#modalVacaciones').modal('show');
-    }
-    function abrirModalLicencias() {
-        if (!hasDeletePermission) return;
-        $('#modalLicencias').modal('show');
-    }
-    function abrirModalNuevosEmpleados() { $('#modalNuevosEmpleados').modal('show'); }
+    function abrirModalFestivos() { $('#modalFestivos').modal('show'); }
+    function abrirModalVacaciones() { $('#modalVacaciones').modal('show'); }
+    function abrirModalLicencias() { $('#modalLicencias').modal('show'); }
 
     function guardarFestivos() {
         var fecha = $('#formFestivos [name="fecha"]').val();
@@ -614,7 +602,6 @@
     window.abrirModalFestivos = abrirModalFestivos;
     window.abrirModalVacaciones = abrirModalVacaciones;
     window.abrirModalLicencias = abrirModalLicencias;
-    window.abrirModalNuevosEmpleados = abrirModalNuevosEmpleados;
     window.guardarFestivos = guardarFestivos;
     window.guardarVacaciones = guardarVacaciones;
     window.guardarLicencias = guardarLicencias;
