@@ -394,8 +394,10 @@ if ($esRegistroRelacional) {
                                 <?= PreoperacionalEncuestaLegadoViewHelper::renderCarroSections($valoresEncuesta) ?>
                             <?php endif; ?>
 
-                            <!-- Kilometraje -->
-                            <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                            <!-- Kilometraje (solo si hay vehículo asignado de tipo CARRO o MOTO) -->
+                            <?php if ($mostrarVehiculo && ($tipovehiculo == 'CARRO' || $tipovehiculo == 'MOTO')): ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                            <?php endif; ?>
 
                             <!-- Observaciones -->
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>

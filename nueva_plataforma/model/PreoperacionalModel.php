@@ -786,6 +786,7 @@ class PreoperacionalModel
 
     /**
      * Obtiene vehículos activos que no tienen conductor asignado
+     * y cuyo último seguimiento NO es FUERA_DE_SERVICIO.
      *
      * @return array Lista de vehículos disponibles
      */
@@ -799,6 +800,16 @@ class PreoperacionalModel
                   AND v.idvehiculos NOT IN (
                       SELECT usu_vehiculo FROM usuarios
                       WHERE usu_vehiculo IS NOT NULL AND usu_vehiculo > 0
+                  )
+                  AND v.idvehiculos NOT IN (
+                      SELECT sv.id_vehiculo
+                      FROM seguimiento_vehiculo sv
+                      WHERE sv.estado_general = 'FUERA_DE_SERVICIO'
+                        AND sv.id_seguimiento_vehiculo = (
+                            SELECT MAX(sv2.id_seguimiento_vehiculo)
+                            FROM seguimiento_vehiculo sv2
+                            WHERE sv2.id_vehiculo = sv.id_vehiculo
+                        )
                   )
                 ORDER BY v.veh_tipo, v.veh_placa";
 

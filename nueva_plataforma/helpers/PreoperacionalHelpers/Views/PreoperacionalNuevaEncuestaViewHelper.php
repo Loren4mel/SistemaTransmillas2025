@@ -465,20 +465,24 @@ class PreoperacionalNuevaEncuestaViewHelper
     public static function renderKilometrajeCard($registroExistente, $esValidacion = false)
     {
         $disabled = $esValidacion ? 'disabled' : '';
-        $tieneImagen = !empty($registroExistente['pre_img_kilo']);
-        $required = (!$esValidacion && !$tieneImagen) ? 'required' : '';
+        $registro = $registroExistente ?? [];
+        $tieneImagen = !empty($registro['pre_img_kilo']);
+        // Texto: requerido siempre en modo nuevo (no validación)
+        $requiredKm = !$esValidacion ? 'required' : '';
+        // Foto: requerida solo si no existe imagen previa
+        $requiredFoto = (!$esValidacion && !$tieneImagen) ? 'required' : '';
 
         $html = '<div class="preop-card kilometraje-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-tachometer-alt"></i> KILOMETRAJE ACTUAL</div>';
         $html .= '<div class="preop-card-body">';
         $html .= '<div style="margin-bottom:12px;">';
-        $html .= '<input name="kilometraje" id="kilometraje" value="' . htmlspecialchars($registroExistente['pre_kilrecorridos'] ?? '') . '" class="form-input" placeholder="Ingrese kilometraje actual" required ' . $disabled . '>';
+        $html .= '<input name="kilometraje" id="kilometraje" value="' . htmlspecialchars($registro['pre_kilrecorridos'] ?? '') . '" class="form-input" placeholder="Ingrese kilometraje actual" ' . $requiredKm . ' ' . $disabled . '>';
         $html .= '</div>';
         $html .= '<div>';
         $html .= '<label style="font-weight:600;font-size:14px;color:#555;">Imagen Kilometraje:</label>';
-        $html .= '<input type="file" name="imagen_kilometraje" class="photo-input" ' . $required . ' ' . $disabled . '>';
+        $html .= '<input type="file" name="imagen_kilometraje" class="photo-input" ' . $requiredFoto . ' ' . $disabled . '>';
         if ($tieneImagen) {
-            $url = self::rutaAbsolutaAUrl($registroExistente['pre_img_kilo']);
+            $url = self::rutaAbsolutaAUrl($registro['pre_img_kilo']);
             $html .= '<br><a href="' . htmlspecialchars($url) . '" target="_blank" style="font-size:13px;">Ver imagen actual</a>';
         }
         // Hidden para indicar al JS si ya existe imagen previa (no exigir re-subida)
