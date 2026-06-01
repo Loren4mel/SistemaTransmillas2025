@@ -77,10 +77,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_entrega'])) {
         'ent_userregistra' => $_SESSION['usuario_nombre'],
         'ent_idusuario'    => intval($_POST['ent_idusuario']),
         'ent_tipoentrega'  => $_POST['ent_tipoentrega'], 
-        'ent_fecharegista' => date('Y-m-d'),
+        'ent_fecharegistra' => date('Y-m-d'),
         'ent_sede'         => $_POST['ent_sede'] ?? '', 
         'ent_equipo_carretera'=> $_POST['ent_equipo_carretera'] ?? '[]',
         'ent_observaciones'   => $_POST['ent_observaciones'] ?? '',
+        'ent_vehiculo_id'      => intval($_POST['ent_vehiculo_id'] ?? 0),
     ];
 
     $resultado = $modelo->guardarEntregaVehiculo($datos);
@@ -154,6 +155,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_comparendos_o
     exit;
 }
 
+// HISTORIAL DE CONDUCTORES POR VEHÍCULO
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_historial_conductores'])) {
+    $id         = intval($_POST['id']);
+    $fechaDesde = $_POST['fecha_desde'] ?? '';
+    $fechaHasta = $_POST['fecha_hasta'] ?? '';
+    $data       = $modelo->obtenerHistorialConductoresPorVehiculo($id, $fechaDesde, $fechaHasta);
+    echo json_encode($data);
+    exit;
+}
+
+// ACTUALIZAR DATOS ACEITE
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_aceite'])) {
+    $resultado = $modelo->actualizarDatosAceite($_POST);
+    echo json_encode([
+        'success' => $resultado,
+        'mensaje' => $resultado ? 'Datos de aceite actualizados' : 'Error al actualizar'
+    ]);
+    exit;
+}
+
+// ACTUALIZAR SOAT
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_soat'])) {
+    $resultado = $modelo->actualizarSoat($_POST);
+    echo json_encode([
+        'success' => $resultado,
+        'mensaje' => $resultado ? 'SOAT actualizado correctamente' : 'Error al actualizar'
+    ]);
+    exit;
+}
+
+// ACTUALIZAR TECNOMECÁNICA
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_tecnomecanica'])) {
+    $resultado = $modelo->actualizarTecnomecanica($_POST);
+    echo json_encode([
+        'success' => $resultado,
+        'mensaje' => $resultado ? 'Tecnomecánica actualizada correctamente' : 'Error al actualizar'
+    ]);
+    exit;
+}
+
+// OBTENER VEHÍCULOS PARA SELECTS (recargar dropdowns sin reload)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_vehiculos_select'])) {
+    $vehiculos = $modelo->obtenerVehiculos('', '1', '');
+    echo json_encode($vehiculos);
+    exit;
+}
+
 // CARGAR VISTA (GET)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $Dueños      = $modelo->obtenerDueños();
@@ -162,3 +210,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $operadoresActivos = $modelo->obtenerOperadoresActivos();
     include "../view/Vehiculos/index.php";
 }   
+
