@@ -560,8 +560,8 @@ class PreoperacionalService
     public function obtenerEstadoVehiculo($idVehiculo)
     {
         // PRIORIDAD 1: REVISION_SST es la fuente autoritativa del estado del vehículo.
-        // Los registros PREOPERACIONAL son validaciones diarias que heredan el estado
-        // de REVISION_SST, pero carecen del contexto original de la metadata.
+        // metadata_evento es exclusivo de REVISION_SST (único tipo que requiere datos de contexto).
+        // PREOPERACIONAL usa solo las columnas dedicadas de la tabla (estado_general, observaciones, etc.).
         $revision = $this->model->obtenerUltimoSeguimientoRevisionSST($idVehiculo);
 
         if ($revision) {
@@ -680,10 +680,9 @@ class PreoperacionalService
                 'metadata_evento' => [
                     'origen' => 'reporte_novedad',
                     'reportado_por' => $_SESSION['usuario_nombre'] ?? 'Sistema',
-                    'flujo' => 'preoperacional',
-                    'id_preoperacional_relacionado' => $idPreopVinculado
+                    'flujo' => 'preoperacional'
                 ],
-                'id_preoperacional' => null,
+                'id_preoperacional' => $idPreopVinculado,
                 'id_seguimiento_user' => null,
                 'id_vehiculo' => $idVehiculoActual,
                 'id_conductor' => $idUsuario,
@@ -743,10 +742,9 @@ class PreoperacionalService
                 'metadata_evento' => [
                     'origen' => 'reporte_novedad',
                     'reportado_por' => $_SESSION['usuario_nombre'] ?? 'Sistema',
-                    'flujo' => 'preoperacional',
-                    'id_preoperacional_relacionado' => $idPreopVinculado
+                    'flujo' => 'preoperacional'
                 ],
-                'id_preoperacional' => null,
+                'id_preoperacional' => $idPreopVinculado,
                 'id_seguimiento_user' => null,
                 'id_vehiculo' => $idVehiculoActual,
                 'id_conductor' => $idUsuario,
@@ -783,6 +781,12 @@ class PreoperacionalService
         if (isset($files[$fileKey]) && $files[$fileKey]['error'] === UPLOAD_ERR_OK) {
             $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $files[$fileKey]['name'];
             $rutaBase = dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
+
+            // Crear el directorio si no existe
+            if (!is_dir($rutaBase)) {
+                mkdir($rutaBase, 0777, true);
+            }
+
             $ruta = $rutaBase . $nombreArchivo;
 
             if (move_uploaded_file($files[$fileKey]['tmp_name'], $ruta)) {
@@ -1107,31 +1111,25 @@ class PreoperacionalService
                 $estadoGeneralSeguimiento = 'FUERA_DE_SERVICIO';
             }
 
-            // Metadata para el registro PREOPERACIONAL.
-            // Si hereda estado de una REVISION_SST activa, se preserva el linaje para auditoría.
-            $metadataPreop = null;
-
+            // NOTA: metadata_evento es exclusivo de REVISION_SST (que requiere más datos de contexto).
+            // PREOPERACIONAL usa las columnas dedicadas de la tabla seguimiento_vehiculo
+            // (id_preoperacional, estado_general, observaciones, kilometraje, ubicacion, foto_evidencia)
+            // para registrar los datos del preoperacional, sin duplicarlos en un JSON de metadata.
             $revisionSST = $this->model->obtenerUltimoSeguimientoRevisionSST($idVehiculo);
             if ($revisionSST
                 && in_array($revisionSST['estado_general'] ?? '', ['CON_NOVEDADES', 'FUERA_DE_SERVICIO'])) {
                 // El vehículo tiene una REVISION_SST activa con estado no-OPTIMO.
-                // El PREOPERACIONAL hereda este estado y su linaje.
+                // El PREOPERACIONAL hereda este estado — se usa la columna estado_general
+                // y observaciones para trazabilidad, sin necesidad de metadata JSON.
                 $estadoGeneralSeguimiento = $revisionSST['estado_general'];
                 if (!empty($revisionSST['observaciones'])) {
                     $observacionSeguimiento = $revisionSST['observaciones'];
                 }
-                $metadataPreop = [
-                    'origen' => 'preoperacional_diario',
-                    'hereda_estado_de' => 'REVISION_SST',
-                    'id_seguimiento_origen' => $revisionSST['id_seguimiento_vehiculo'] ?? null,
-                    'tipo_evento_origen' => $revisionSST['tipo_evento'] ?? null,
-                    'fecha_evento_origen' => $revisionSST['fecha_registro'] ?? null
-                ];
             }
 
             $datosSeg = [
                 'tipo_evento' => 'PREOPERACIONAL',
-                'metadata_evento' => $metadataPreop,
+                'metadata_evento' => null,
                 'id_preoperacional' => $idInsertado,
                 'id_seguimiento_user' => null,
                 'id_vehiculo' => $idVehiculo,

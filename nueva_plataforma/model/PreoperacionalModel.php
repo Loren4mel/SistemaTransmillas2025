@@ -776,7 +776,7 @@ class PreoperacionalModel
     public function actualizarSeguimientoVehiculoEstado($idPreoperacional, $estadoGeneral)
     {
         $sql = "UPDATE seguimiento_vehiculo SET estado_general = ?
-                WHERE id_preoperacional = ?
+                WHERE id_preoperacional = ? AND tipo_evento = 'PREOPERACIONAL'
                 ORDER BY fecha_registro DESC
                 LIMIT 1";
         $stmt = $this->db->prepare($sql);
