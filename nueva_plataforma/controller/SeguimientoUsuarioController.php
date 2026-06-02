@@ -30,20 +30,9 @@ function esAdmin()
 
 function puedeModificarSeguimiento($idSeguimiento)
 {
-    global $modelo;
-    if (esAdmin()) {
-        return true;
-    }
-    $sql = "SELECT u.usu_idsede FROM seguimiento_user s
-            INNER JOIN usuarios u ON u.idusuarios = s.seg_idusuario
-            WHERE s.idseguimiento_user = ?";
-    $stmt = $modelo->getDB()->prepare($sql);
-    $stmt->bind_param('i', $idSeguimiento);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_assoc();
-    $sedeOperario = $row['usu_idsede'] ?? 0;
-    $sedeUsuario = $_SESSION['usu_idsede'] ?? 0;
-    return ($sedeOperario == $sedeUsuario);
+    // Solo administradores (roles 1, 12) pueden modificar registros,
+    // alineado con el sistema legacy (seguimientouser.php).
+    return esAdmin();
 }
 
 function verificarPermiso($idSeguimiento, $mensaje = 'Permiso denegado')
@@ -145,6 +134,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 if ($esActualizacion) {
                     $error = verificarPermiso($idSeguimiento);
                     if ($error) { $response = $error; break; }
+                } else {
+                    // Solo administradores pueden crear nuevos registros (legacy: roles 1, 12)
+                    $error = verificarAdmin('Solo administradores pueden crear registros de ingreso');
+                    if ($error) { $response = $error; break; }
                 }
 
                 $data = [
@@ -233,6 +226,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
 
             // --- Guardar vacaciones ---
             case 'guardar_vacaciones':
+                $error = verificarAdmin('Solo administradores pueden registrar vacaciones');
+                if ($error) { $response = $error; break; }
                 $fechaIni = $_POST['fecha_ini'] ?? '';
                 $fechaFin = $_POST['fecha_fin'] ?? '';
                 $errorFecha = validarRangoFechas($fechaIni, $fechaFin);
@@ -247,6 +242,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
 
             // --- Guardar licencia ---
             case 'guardar_licencia':
+                $error = verificarAdmin('Solo administradores pueden registrar licencias');
+                if ($error) { $response = $error; break; }
                 $fechaLicIni = $_POST['fecha_ini'] ?? '';
                 $fechaLicFin = $_POST['fecha_fin'] ?? '';
                 $errorFecha = validarRangoFechas($fechaLicIni, $fechaLicFin);
@@ -313,6 +310,39 @@ if (isset($_GET['accion'])) {
                     sendJsonResponse(['error' => 'No tiene permiso'], 403);
                 }
                 sendJsonResponse($modelo->getDetallesParaEliminar($_GET['id_combinado'] ?? ''));
+                break;
+
+            case 'buscar_nuevos_empleados':
+                $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('-14 days'));
+                $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d');
+                $errorFecha = validarRangoFechas($fechaInicio, $fechaFin);
+                if ($errorFecha) {
+                    sendJsonResponse(['error' => $errorFecha], 400);
+                    break;
+                }
+                $empleados = $modelo->buscarNuevosEmpleados($fechaInicio, $fechaFin);
+                // Enriquecer cada fila con datos calculados
+                $hoy = new DateTime();
+                foreach ($empleados as &$emp) {
+                    if (!empty($emp['hoj_fechaingreso'])) {
+                        $fechaIng = new DateTime($emp['hoj_fechaingreso']);
+                        $emp['dias_desde_ingreso'] = (int)$hoy->diff($fechaIng)->days;
+                        $emp['hoj_fechaingreso_fmt'] = $fechaIng->format('d-m-Y');
+                    } else {
+                        $emp['dias_desde_ingreso'] = null;
+                        $emp['hoj_fechaingreso_fmt'] = '';
+                    }
+                    // Formatear estado
+                    $estado = $emp['hoj_estado'] ?? '';
+                    $emp['hoj_estado_fmt'] = $estado ?: 'Sin registro';
+                    $emp['hoj_estado_activo'] = ($estado === 'Activo');
+                    // Construir texto de alertas
+                    $alertas = [];
+                    if (!empty($emp['falta_cuenta'])) $alertas[] = 'Falta cuenta bancaria';
+                    if (!empty($emp['falta_arl']) && $emp['usu_tipocontrato'] === 'Empresa') $alertas[] = 'Falta ARL';
+                    $emp['alertas_texto'] = implode(', ', $alertas);
+                }
+                sendJsonResponse($empleados);
                 break;
 
             case 'ver_documento':
@@ -469,6 +499,9 @@ if (isset($_GET['accion'])) {
                         $data['companero_seleccionado'] = $companeroActual;
                         break;
 
+                    case 'nuevos_empleados':
+                        break;
+
                     case 'festivos':
                         $data['sedes'] = $modelo->getSedes();
                         break;
@@ -507,6 +540,11 @@ try {
     $motivos = $modelo->getMotivosIngreso();
     $tiposContrato = $modelo->getTiposContrato();
     ob_clean();
+    // Calcular ruta base de la aplicación desde el servidor
+    // Ej: /SistemaTransmillas2025/nueva_plataforma
+    $appBasePath = dirname(dirname($_SERVER['SCRIPT_NAME']));
+    $ajaxEndpoint = $appBasePath . '/controller/SeguimientoUsuarioController.php';
+
     include "../view/SeguimientoUsuario/index.php";
 } catch (Exception $e) {
     echo "<h1>Error al cargar la página</h1><pre>" . $e->getMessage() . "</pre>";

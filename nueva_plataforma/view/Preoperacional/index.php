@@ -11,15 +11,30 @@
  * FORMATO LEGADO: Mantiene COVID, fatiga, implementos de trabajo
  */
 
-require_once __DIR__ . '/../../helpers/PreoperacionalHelpers/PreoperacionalEncuestaLegadoViewHelper.php';
-require_once __DIR__ . '/../../helpers/PreoperacionalHelpers/PreoperacionalNuevaEncuestaViewHelper.php';
+require_once __DIR__ . '/../../helpers/PreoperacionalHelpers/Views/PreoperacionalEncuestaLegadoViewHelper.php';
+require_once __DIR__ . '/../../helpers/PreoperacionalHelpers/Views/PreoperacionalNuevaEncuestaViewHelper.php';
 
 $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
 
-// Extraer valores existentes de la encuesta JSON para precargar el formulario
+// Extraer valores de la encuesta para precargar el formulario
 $valoresEncuesta = [];
-if ($registroExistente && !empty($registroExistente['preencuesta'])) {
-    $valoresEncuesta = json_decode($registroExistente['preencuesta'], true) ?? [];
+if ($esRegistroRelacional) {
+    // Esquema relacional: respuestas desde preop_respuestas (fuente primaria)
+    $valoresEncuesta = $valoresEncuestaRelacional;
+    // Complementar con metadata desde preencuesta (ubicacion, doc IDs)
+    if ($registroExistente && !empty($registroExistente['preencuesta'])) {
+        $metadatosLegado = json_decode($registroExistente['preencuesta'], true) ?? [];
+        foreach (['ubicacion', 'firma_documento_id', 'inspeccion_documento_id', 'temperatura_documento_id'] as $clave) {
+            if (isset($metadatosLegado[$clave]) && !isset($valoresEncuesta[$clave])) {
+                $valoresEncuesta[$clave] = $metadatosLegado[$clave];
+            }
+        }
+    }
+} else {
+    // Esquema legacy: respuestas desde preencuesta JSON
+    if ($registroExistente && !empty($registroExistente['preencuesta'])) {
+        $valoresEncuesta = json_decode($registroExistente['preencuesta'], true) ?? [];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -28,7 +43,7 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
 <head>
     <meta charset="UTF-8">
     <title>Preoperacional - Transmillas</title>
-    <link rel="shortcut icon" href="../../images/Logo Google Nuevo.png">
+    <link rel="shortcut icon" href="<?= $appBasePath ?>/../images/Logo Google Nuevo.png">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -42,7 +57,10 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- Estilos personalizados -->
-    <link rel="stylesheet" href="../assets/css/preoperacional.css?<?= filemtime(__DIR__ . '/../../assets/css/preoperacional.css') ?>">
+    <script>
+        window.APP_BASE_URL = "<?= $appBasePath ?>";
+    </script>
+    <link rel="stylesheet" href="<?= $appBasePath ?>/assets/css/preoperacional.css?<?= filemtime(__DIR__ . '/../../assets/css/preoperacional.css') ?>">
     <style>
         body {
             background: linear-gradient(135deg, #f0f4f8 0%, #e8edf2 50%, #f5f0f0 100%);
@@ -150,12 +168,23 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                         <input type="hidden" name="data" id="data" value="">
                         <input type="hidden" name="tabla" value="<?= htmlspecialchars($preoperacional) ?>">
                         <input type="hidden" name="id_preoperacional" value="<?= $registroExistente['idpreoperacinal'] ?? '' ?>">
-                        <input type="hidden" name="idvehiculo" value="<?= $datosVehiculo['idvehiculos'] ?? 0 ?>">
+                        <input type="hidden" name="idvehiculo" id="idvehiculo" value="<?= $datosVehiculo['idvehiculos'] ?? 0 ?>">
                         <input type="hidden" name="tipo_vehiculo" value="<?= htmlspecialchars($tipovehiculo) ?>">
                         <input type="hidden" name="param3" value="<?= htmlspecialchars($tipovehiculo) ?>">
                         <input type="hidden" name="formato_encuesta" id="formato_encuesta" value="<?= $usarNuevoFormato ? 'nuevo' : 'legado' ?>">
                         <input type="hidden" name="vehiculo_bloquear" id="vehiculo_bloquear" value="<?= $mostrarAlertaVencidos ? '1' : '0' ?>">
                         <input type="hidden" name="vehiculo_alertas" id="vehiculo_alertas" value="<?= htmlspecialchars(json_encode($estadoDocumentos['alertas'] ?? [])) ?>">
+                        <input type="hidden" name="id_version" id="id_version" value="<?= htmlspecialchars($idVersionActiva ?? '') ?>">
+
+                        <!-- Campo oculto para vehículo seleccionado (puede cambiar por novedad) -->
+                        <input type="hidden" name="idvehiculo_seleccionado" id="idvehiculo_seleccionado" value="<?= $datosVehiculo['idvehiculos'] ?? 0 ?>">
+
+                        <!-- ==================== PANEL DE ESTADO / NOVEDAD VEHICULAR ==================== -->
+                        <?php if ($tieneVehiculoAsignado): ?>
+                            <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles) ?>
+                        <?php else: ?>
+                            <?= $novedadHelper->renderNoVehiclePanel($vehiculosDisponibles) ?>
+                        <?php endif; ?>
 
                         <!-- ==================== CONTENEDOR DE TARJETAS ==================== -->
                         <div class="preop-sections-wrapper">
@@ -203,6 +232,9 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                                 ) ?>
                             <?php endif; ?>
 
+                            <!-- ==================== CONTENEDOR DE SECCIONES DE VEHÍCULO ==================== -->
+                            <div id="vehiculoSectionsContainer">
+
                             <!-- ==================== SECCIÓN VEHÍCULO CARRO ==================== -->
                             <?php if ($mostrarSecciones['preoperacional_vehiculo'] ?? false): ?>
 
@@ -246,6 +278,46 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                                     <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente) ?>
                                 <?php endif; ?>
                             <?php endif; ?>
+
+                            </div><!-- /vehiculoSectionsContainer -->
+
+                            <!-- Info: No se ha seleccionado vehículo (visible solo cuando aplica) -->
+                            <div id="vehiculoNoSeleccionadoInfo" style="display:none;">
+                                <div class="preop-card no-vehicle-info-card">
+                                    <div class="preop-card-header">
+                                        <i class="fas fa-info-circle"></i> INFORMACIÓN DEL VEHÍCULO
+                                    </div>
+                                    <div class="preop-card-body">
+                                        <div class="no-vehicle-message">
+                                            <i class="fas fa-car-side no-vehicle-icon"></i>
+                                            <p class="no-vehicle-text">
+                                                No tiene un vehículo asignado.
+                                            </p>
+                                            <p class="no-vehicle-warning">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                <strong>Por favor notifique al jefe de operaciones antes de continuar.</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Info: Novedad vehicular activa (visible cuando hay novedad sin resolver) -->
+                            <div id="vehiculoNovedadActivaInfo" style="display:none;">
+                                <div class="preop-card novedad-active-info-card">
+                                    <div class="preop-card-header">
+                                        <i class="fas fa-exclamation-triangle"></i> NOVEDAD VEHICULAR ACTIVA
+                                    </div>
+                                    <div class="preop-card-body">
+                                        <div class="no-vehicle-message">
+                                            <i class="fas fa-clipboard-list no-vehicle-icon"></i>
+                                            <p class="no-vehicle-text">
+                                                Debe finalizar el flujo de observaciones antes de continuar con la inspección del vehículo.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- DECLARACIÓN -->
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderDeclaracionCard() ?>
@@ -308,6 +380,9 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                                 <?= PreoperacionalEncuestaLegadoViewHelper::renderCovidCard($valoresEncuesta, $registroExistente) ?>
                             <?php endif; ?>
 
+                            <!-- ==================== CONTENEDOR DE SECCIONES DE VEHÍCULO ==================== -->
+                            <div id="vehiculoSectionsContainer">
+
                             <!-- Datos del vehículo -->
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
                             <?= $alertasVehiculoHtml ?>
@@ -319,6 +394,21 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                                 <?= PreoperacionalEncuestaLegadoViewHelper::renderCarroSections($valoresEncuesta) ?>
                             <?php endif; ?>
 
+                            <!-- Kilometraje (solo si hay vehículo asignado de tipo CARRO o MOTO) -->
+                            <?php if ($mostrarVehiculo && ($tipovehiculo == 'CARRO' || $tipovehiculo == 'MOTO')): ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                            <?php endif; ?>
+
+                            <!-- Observaciones -->
+                            <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
+
+                            <?php if ($esValidacion): ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente) ?>
+                            <?php endif; ?>
+
+                            </div><!-- /vehiculoSectionsContainer -->
+
                             <!-- Fatiga -->
                             <?php if ($mostrarFatiga): ?>
                                 <?= PreoperacionalEncuestaLegadoViewHelper::renderFatigaCard($valoresEncuesta) ?>
@@ -329,16 +419,43 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                                 <?= PreoperacionalEncuestaLegadoViewHelper::renderImplementosCards($valoresEncuesta, $registroExistente['pre_limpiomaleta'] ?? null) ?>
                             <?php endif; ?>
 
-                            <!-- Kilometraje -->
-                            <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                            <!-- Info: No se ha seleccionado vehículo (visible solo cuando aplica) -->
+                            <div id="vehiculoNoSeleccionadoInfo" style="display:none;">
+                                <div class="preop-card no-vehicle-info-card">
+                                    <div class="preop-card-header">
+                                        <i class="fas fa-info-circle"></i> INFORMACIÓN DEL VEHÍCULO
+                                    </div>
+                                    <div class="preop-card-body">
+                                        <div class="no-vehicle-message">
+                                            <i class="fas fa-car-side no-vehicle-icon"></i>
+                                            <p class="no-vehicle-text">
+                                                No tiene un vehículo asignado.
+                                            </p>
+                                            <p class="no-vehicle-warning">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                <strong>Por favor notifique al jefe de operaciones antes de continuar.</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                            <!-- Observaciones -->
-                            <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
-
-                            <?php if ($esValidacion): ?>
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente) ?>
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente) ?>
-                            <?php endif; ?>
+                            <!-- Info: Novedad vehicular activa (visible cuando hay novedad sin resolver) -->
+                            <div id="vehiculoNovedadActivaInfo" style="display:none;">
+                                <div class="preop-card novedad-active-info-card">
+                                    <div class="preop-card-header">
+                                        <i class="fas fa-exclamation-triangle"></i> NOVEDAD VEHICULAR ACTIVA
+                                    </div>
+                                    <div class="preop-card-body">
+                                        <div class="no-vehicle-message">
+                                            <i class="fas fa-clipboard-list no-vehicle-icon"></i>
+                                            <p class="no-vehicle-text">
+                                                Debe finalizar el flujo de observaciones antes de continuar con la inspección del vehículo.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Compromiso y declaración (legado) -->
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderCompromisoCard() ?>
@@ -371,6 +488,11 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
                         </div>
                         <?php endif; ?>
 
+                        <!-- ==================== SECCIÓN DE ENTREGA DE VEHÍCULO (SOLO VALIDACIÓN) ==================== -->
+                        <?php if ($esValidacion && !empty($datosVehiculo)): ?>
+                            <?= $novedadHelper->renderSeccionEntregaValidacion($datosVehiculo, $datosVehiculo) ?>
+                        <?php endif; ?>
+
                         <!-- Botón guardar -->
                         <div class="mt-4">
                             <button type="submit" class="btn btn-guardar" id="btnGuardar">
@@ -387,12 +509,15 @@ if ($registroExistente && !empty($registroExistente['preencuesta'])) {
     <script>
         var ES_VALIDACION = <?= json_encode($esValidacion) ?>;
         var MOSTRAR_SECCION_VEHICULO = <?= json_encode(($mostrarSecciones['preoperacional_vehiculo'] ?? false) || ($mostrarSecciones['preoperacional_moto'] ?? false)) ?>;
+        var TIENE_NOVEDAD_VEHICULAR = <?= json_encode($novedadVehiculo['tieneNovedad'] ?? false) ?>;
+        var ESTADO_GENERAL_VEHICULO = <?= json_encode($novedadVehiculo['estado_general'] ?? 'OPTIMO') ?>;
+        var TIENE_VEHICULO_ASIGNADO = <?= json_encode($tieneVehiculoAsignado) ?>;
         var URL_REDIRECT = <?= json_encode($esValidacion ? '' : '../../inicio.php?bandera=1') ?>;
         var UBICACION_GUARDADA = <?= json_encode($ubicacionGuardada) ?>;
     </script>
 
     <!-- JavaScript del formulario -->
-    <script src="../assets/js/preoperacional.js?v=<?= filemtime(__DIR__ . '/../../assets/js/preoperacional.js') ?>"></script>
+    <script src="<?= $appBasePath ?>/assets/js/preoperacional.js?v=<?= filemtime(__DIR__ . '/../../assets/js/preoperacional.js') ?>"></script>
 
 </body>
 </html>
