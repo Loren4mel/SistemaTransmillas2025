@@ -294,6 +294,26 @@ public function guardarEntregaVehiculo($datos) {
     $ent_img_frente  = $this->guardarImagen($_FILES['ent_img_frente'],  "uploads/vehiculos");
     $ent_img_trasera = $this->guardarImagen($_FILES['ent_img_trasera'], "uploads/vehiculos");
 
+// Procesar fotos individuales de herramientas
+$equipoJson = $datos['ent_equipo_carretera'] ?? '[]';
+$equipo = json_decode($equipoJson, true) ?? [];
+
+foreach ($equipo as $idx => &$herramienta) {
+    // Limpiar foto_key — no se guarda en BD
+    unset($herramienta['foto_key']);
+    
+    $key = "ent_herramienta_foto_{$idx}";
+    if (isset($_FILES[$key]) && is_uploaded_file($_FILES[$key]['tmp_name'])) {
+        $rutaFoto = $this->guardarImagen($_FILES[$key], 'uploads/vehiculos/herramientas');
+        if ($rutaFoto) {
+            $herramienta['foto'] = $rutaFoto;
+        }
+    }
+}
+unset($herramienta);
+
+$datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
+
     $idUsuario = intval($datos['ent_idusuario']);
     $sqlCedula = "SELECT usu_identificacion FROM usuarios WHERE idusuarios = ? LIMIT 1";
     $stmtCedula = $this->dbname->prepare($sqlCedula);
@@ -324,7 +344,7 @@ public function guardarEntregaVehiculo($datos) {
         $firmaData    = str_replace('data:image/png;base64,', '', $firmaData);
         $firmaData    = str_replace(' ', '+', $firmaData);
         $firmaDecoded = base64_decode($firmaData);
-        $rutaFirmas   = $_SERVER['DOCUMENT_ROOT'] . '/SistemaTransmillas2025/nueva_plataforma/uploads/firmas_entrega/';
+        $rutaFirmas = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'firmas_entrega' . DIRECTORY_SEPARATOR;
         if (!is_dir($rutaFirmas)) mkdir($rutaFirmas, 0777, true);
         $nombreFirma    = 'firma_entrega_' . date('Y-m-d-H-i-s') . '_' . uniqid() . '.png';
         file_put_contents($rutaFirmas . $nombreFirma, $firmaDecoded);
@@ -385,6 +405,15 @@ public function guardarEntregaVehiculo($datos) {
     $stmtUpd->execute();
     $stmtUpd->close();
 }
+
+    if (!empty($datos['ent_vehiculo_id']) && !empty($datos['ent_equipo_carretera'])) {
+        $idVehiculo     = intval($datos['ent_vehiculo_id']);
+        $equipoEscapado = $this->dbname->real_escape_string($datos['ent_equipo_carretera']);
+
+        $sqlEquipo = "UPDATE vehiculos SET veh_equipo_carretera = '$equipoEscapado' 
+                      WHERE idvehiculos = $idVehiculo";
+        $this->dbname->query($sqlEquipo);
+    }
 
     return true;
 }
@@ -552,20 +581,23 @@ public function obtenerHistorialConductoresPorVehiculo($idVehiculo) {
     $placa = $this->dbname->real_escape_string($rowPlaca['veh_placa']);
 
     $sql = "SELECT 
-                e.identregavehiculo,
-                e.ent_tipoentrega,
-                e.ent_fechaentrega,
-                e.ent_userregistra,
-                e.ent_observaciones,
-                e.ent_equipo_carretera,
-                e.ent_img_frente,
-                e.ent_img_trasera,
-                e.ent_firma,
-                u.usu_nombre AS conductor_nombre
-            FROM entregavehiculo e
-            LEFT JOIN usuarios u ON e.ent_idusuario = u.idusuarios
-            WHERE e.ent_vehiculo LIKE '%$placa%'
-            ORDER BY e.ent_fechaentrega DESC, e.identregavehiculo DESC";
+            e.identregavehiculo,
+            e.ent_tipoentrega,
+            e.ent_fechaentrega,
+            e.ent_fecharegistra,        
+            e.ent_userregistra,
+            e.ent_sede, 
+            e.ent_observaciones,
+            e.ent_equipo_carretera,
+            e.ent_img_frente,
+            e.ent_img_trasera,
+            e.ent_firma,
+            u.usu_nombre AS conductor_nombre
+        FROM entregavehiculo e
+        LEFT JOIN usuarios u ON e.ent_idusuario = u.idusuarios
+        WHERE e.ent_vehiculo LIKE '%$placa%'
+        AND e.ent_fechaentrega >= '2026-06-01'
+        ORDER BY e.ent_fechaentrega DESC, e.identregavehiculo DESC";
 
     $result = $this->dbname->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
@@ -619,5 +651,60 @@ public function actualizarTecnomecanica($datos) {
 
 }
 
+public function actualizarEntrega($datos) {
+    $id     = intval($datos['ent_id']);
+    $fecha  = $this->dbname->real_escape_string($datos['ent_fechaentrega']);
+    $fecharegist = $this->dbname->real_escape_string($datos['ent_fecharegistra'] ?? '');
+    $sede   = $this->dbname->real_escape_string($datos['ent_sede']);
+    $obs    = $this->dbname->real_escape_string($datos['ent_observaciones'] ?? '');
+    
+    // ✅ Procesar fotos de herramientas antes de serializar
+    $equipoJson = $datos['ent_equipo_carretera'] ?? '[]';
+    $equipo = json_decode($equipoJson, true) ?? [];
+
+    foreach ($equipo as $idx => &$herramienta) {
+        $key = "ent_herramienta_foto_{$idx}";
+        if (isset($_FILES[$key]) && is_uploaded_file($_FILES[$key]['tmp_name'])) {
+            $rutaFoto = $this->guardarImagen($_FILES[$key], 'uploads/vehiculos/herramientas');
+            if ($rutaFoto) $herramienta['foto'] = $rutaFoto;
+        }
+    }
+    unset($herramienta);
+
+    $equipo = $this->dbname->real_escape_string(
+        json_encode($equipo, JSON_UNESCAPED_UNICODE)
+    );
+
+    $sqlImgs = '';
+    if (isset($_FILES['ent_img_frente']) && 
+        is_uploaded_file($_FILES['ent_img_frente']['tmp_name'])) {
+        $ruta = $this->guardarImagen($_FILES['ent_img_frente'], 'uploads/vehiculos');
+        if ($ruta) $sqlImgs .= ", ent_img_frente = '" . 
+                               $this->dbname->real_escape_string($ruta) . "'";
+    }
+    if (isset($_FILES['ent_img_respaldo']) && 
+        is_uploaded_file($_FILES['ent_img_respaldo']['tmp_name'])) {
+        $ruta = $this->guardarImagen($_FILES['ent_img_respaldo'], 'uploads/vehiculos');
+        if ($ruta) $sqlImgs .= ", ent_img_trasera = '" . 
+                               $this->dbname->real_escape_string($ruta) . "'";
+    }
+
+    $sql = "UPDATE entregavehiculo SET
+                ent_fechaentrega      = '$fecha',
+                ent_fecharegistra     = '$fecharegist',
+                ent_sede              = '$sede',
+                ent_observaciones     = '$obs',
+                ent_equipo_carretera  = '$equipo'
+                {$sqlImgs}
+            WHERE identregavehiculo = $id";
+
+    return $this->dbname->query($sql) ? true : ['error' => $this->dbname->error];
+}
+
+public function eliminarEntrega($id) {
+    $id  = intval($id);
+    $sql = "DELETE FROM entregavehiculo WHERE identregavehiculo = $id";
+    return $this->dbname->query($sql) ? true : ['error' => $this->dbname->error];
+}
 
 }

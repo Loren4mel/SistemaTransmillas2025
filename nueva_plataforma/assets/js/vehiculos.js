@@ -802,10 +802,11 @@ function serializarHerramientasEdit() {
 }
 
 // EQUIPO DE CARRETERA (modal ENTREGA VEHICULO)
-function crearFilaHerramientaEntrega(nombre = '', existe = 'si') {
+function crearFilaHerramientaEntrega(nombre = '', existe = 'si', fotoExistente = '') {
     const div = document.createElement('div');
-    div.className = 'd-flex align-items-center gap-2 mb-2';
+    div.className = 'd-flex align-items-center gap-2 mb-2 herramienta-entrega-row';
     const checked = (existe === 'si') ? 'checked' : '';
+
     div.innerHTML = `
         <input type="text" class="form-control form-control-sm herramienta-nombre-entrega"
                placeholder="Nombre de la herramienta" value="${nombre}" style="flex:2">
@@ -816,12 +817,45 @@ function crearFilaHerramientaEntrega(nombre = '', existe = 'si') {
                 ${existe === 'si' ? '✅' : '❌'}
             </label>
         </div>
+        <div class="d-flex align-items-center gap-1" style="flex:0 0 auto;">
+            <label class="btn btn-sm btn-outline-secondary mb-0" title="Adjuntar foto a esta herramienta" style="cursor:pointer;">
+                <i class="fas fa-camera"></i>
+                <input type="file" class="herramienta-foto-entrega d-none" accept=".jpg,.jpeg,.png">
+            </label>
+            <div class="herramienta-foto-preview" style="width:36px; height:36px;">
+                ${fotoExistente
+            ? `<img src="${baseUrl}/${fotoExistente}" 
+                           style="width:36px;height:36px;object-fit:cover;border-radius:4px;
+                                  border:1px solid #dee2e6;cursor:pointer;"
+                           onclick="window.open('${baseUrl}/${fotoExistente}','_blank')">`
+            : ''}
+            </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-danger btn-eliminar-herramienta-entrega">
+            <i class="fas fa-trash-alt"></i>
+        </button>
     `;
-    // Actualizar label dinámicamente al cambiar
+
+    // Toggle label al cambiar switch
     const cb = div.querySelector('.herramienta-existe-entrega');
     const lbl = div.querySelector('.herramienta-check-label');
     cb.addEventListener('change', function () {
         lbl.textContent = this.checked ? '✅' : '❌';
+    });
+
+    // Preview de foto al seleccionar
+    const inputFoto = div.querySelector('.herramienta-foto-entrega');
+    const preview = div.querySelector('.herramienta-foto-preview');
+    inputFoto.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+            const url = URL.createObjectURL(this.files[0]);
+            preview.innerHTML = `<img src="${url}" 
+                style="width:36px;height:36px;object-fit:cover;border-radius:4px;
+                       border:1px solid #dee2e6;cursor:pointer;"
+                onclick="window.open('${url}','_blank')">`;
+        } else {
+            preview.innerHTML = '';
+        }
     });
 
     div.querySelector('.btn-eliminar-herramienta-entrega').addEventListener('click', function () {
@@ -837,17 +871,23 @@ $(document).on('click', '#btnAgregarHerramientaEntrega', function () {
 
 // SERIALIZAR JSON antes de guardar (modal ENTREGA VEHICULO)
 function serializarHerramientasEntrega() {
-    const filas = document.querySelectorAll('#listaHerramientasEntrega .d-flex');
+    const filas = document.querySelectorAll('#listaHerramientasEntrega .herramienta-entrega-row');
     const herramientas = [];
-    filas.forEach(fila => {
+    const formData = window._entregaFormData || null; // se usa abajo en el click
+
+    filas.forEach((fila, idx) => {
         const nombreEl = fila.querySelector('.herramienta-nombre-entrega');
         const checkEl = fila.querySelector('.herramienta-existe-entrega');
         if (!nombreEl || !checkEl) return;
         const nombre = nombreEl.value.trim();
         const existe = checkEl.checked ? 'si' : 'no';
-        if (nombre !== '') herramientas.push({ nombre, existe });
+        if (nombre !== '') {
+            herramientas.push({ nombre, existe, foto_key: `ent_herramienta_foto_${idx}` });
+        }
     });
+
     document.getElementById('ent_equipo_carretera').value = JSON.stringify(herramientas);
+    return herramientas;
 }
 
 // Al seleccionar vehículo cargar su equipo automáticamente
@@ -981,6 +1021,15 @@ $('#btnGuardarEntrega').on('click', function () {
 
     serializarHerramientasEntrega();
     datos.append('ent_equipo_carretera', document.getElementById('ent_equipo_carretera').value);
+
+    // Adjuntar fotos individuales de herramientas
+    const filasHerramienta = document.querySelectorAll('#listaHerramientasEntrega .herramienta-entrega-row');
+    filasHerramienta.forEach((fila, idx) => {
+        const inputFoto = fila.querySelector('.herramienta-foto-entrega');
+        if (inputFoto && inputFoto.files && inputFoto.files[0]) {
+            datos.append(`ent_herramienta_foto_${idx}`, inputFoto.files[0]);
+        }
+    });
 
     if (!firmaEntregaRealizada) {
         Swal.fire('Error', 'Debe firmar antes de guardar la entrega', 'error');
@@ -1537,7 +1586,7 @@ $(document).on('click', '.btn-ver-historial', function () {
     $('#tituloPlacaHistorial').text(_historialVehiculoPlaca);
     $('#historial_total_registros').text('');
     $('#cuerpoTablaHistorial').html(
-        '<tr><td colspan="11" class="text-muted">Cargando...</td></tr>'
+        '<tr><td colspan="13" class="text-muted">Cargando...</td></tr>'
     );
     $('#modalHistorialConductores').modal('show');
 
@@ -1553,7 +1602,7 @@ function cargarHistorial(idVehiculo) {
         success: function (res) { renderizarHistorial(res); },
         error: function () {
             $('#cuerpoTablaHistorial').html(
-                '<tr><td colspan="11" class="text-danger">Error de conexión</td></tr>'
+                '<tr><td colspan="13" class="text-danger">Error de conexión</td></tr>'
             );
         }
     });
@@ -1568,14 +1617,14 @@ function renderizarHistorial(res) {
     try {
         lista = typeof res === 'object' ? res : JSON.parse(res);
     } catch (e) {
-        $tbody.html('<tr><td colspan="11" class="text-danger">Error al procesar los datos</td></tr>');
+        $tbody.html('<tr><td colspan="13" class="text-danger">Error al procesar los datos</td></tr>');
         return;
     }
 
     if (!lista || lista.length === 0) {
         $('#historial_total_registros').text('');
         $tbody.html(
-            `<tr><td colspan="11" class="text-muted py-3">
+            `<tr><td colspan="13" class="text-muted py-3">
                 <i class="fas fa-inbox me-1"></i> Sin entregas registradas para este vehículo.
              </td></tr>`
         );
@@ -1598,22 +1647,21 @@ function renderizarHistorial(res) {
                </span>`;
 
         //Conductor
-        const nombreConductor = e.conductor_nombre || e.ent_userregistra || '—';
+        const nombreConductor = e.conductor_nombre || '—';
         const conductorLabel = `<span class="fw-semibold">${nombreConductor}</span>`;
 
         //Recibido por
         const recibidoPor = `<span style="font-size:12px;">${e.ent_userregistra || '—'}</span>`;
 
-        //Fecha Inicio (solo si tipo = inicial)
+        //Fecha Inicio (ent_fechaentrega — cuando el conductor recibe el vehículo)
         const fechaInicio = e.ent_tipoentrega === 'inicial'
             ? `<span class="fw-semibold text-primary">${e.ent_fechaentrega || '—'}</span>`
             : '<span class="text-muted">—</span>';
 
-        //Fecha Final (solo si tipo = final)
+        //Fecha Final (ent_fecharegista — cuando el conductor devuelve el vehículo)
         const fechaFinal = e.ent_tipoentrega === 'final'
-            ? `<span class="fw-semibold text-warning">${e.ent_fechaentrega || '—'}</span>`
+            ? `<span class="fw-semibold text-warning">${e.ent_fecharegista || '—'}</span>`
             : '<span class="text-muted">—</span>';
-
         //Checklist equipo
         let equipoHtml = '<span class="text-muted" style="font-size:11px;">Sin equipo</span>';
         if (e.ent_equipo_carretera) {
@@ -1629,13 +1677,20 @@ function renderizarHistorial(res) {
                             </div>
                             <ul class="list-unstyled mb-0 ps-1">
                                 ${equipo.map(h => `
-                                    <li class="d-flex align-items-center gap-2 py-1 border-bottom"
-                                        style="font-size:12px;">
-                                        <span>${h.existe === 'si' ? '✅' : '❌'}</span>
-                                        <span class="${h.existe !== 'si' ? 'text-muted text-decoration-line-through' : ''}">
-                                            ${h.nombre}
-                                        </span>
-                                    </li>`).join('')}
+    <li class="d-flex align-items-center gap-2 py-1 border-bottom"
+        style="font-size:12px;">
+        <span>${h.existe === 'si' ? '✅' : '❌'}</span>
+        <span class="${h.existe !== 'si' ? 'text-muted text-decoration-line-through' : ''}" style="flex:1;">
+            ${h.nombre}
+        </span>
+        ${h.foto
+                            ? `<a href="${baseUrl}/${h.foto}" target="_blank">
+                <img src="${baseUrl}/${h.foto}"
+                     style="width:28px;height:28px;object-fit:cover;border-radius:3px;
+                            border:1px solid #dee2e6;" title="Ver foto de ${h.nombre}">
+               </a>`
+                            : ''}
+    </li>`).join('')}
                             </ul>
                         </div>`;
                 }
@@ -1676,6 +1731,11 @@ function renderizarHistorial(res) {
                </span>`
             : '<span class="text-muted">—</span>';
 
+        // Sede   
+        const sede = e.ent_sede
+            ? `<span style="font-size:12px;">${e.ent_sede}</span>`
+            : '<span class="text-muted">—</span>';
+
         $tbody.append(`
             <tr>
                 <td class="fw-bold text-muted">${i + 1}</td>
@@ -1684,11 +1744,36 @@ function renderizarHistorial(res) {
                 <td>${recibidoPor}</td>
                 <td>${fechaInicio}</td>
                 <td>${fechaFinal}</td>
+                <td>${sede}</td>
                 <td>${equipoHtml}</td>
                 <td>${fotoFrente}</td>
                 <td>${fotoRespaldo}</td>
                 <td>${firma}</td>
                 <td style="max-width:160px;">${observaciones}</td>
+                <td>
+    <button class="btn btn-sm btn-outline-primary btn-editar-entrega"
+        title="Editar entrega"
+        data-id="${e.identregavehiculo}"
+        data-tipoentrega="${e.ent_tipoentrega}"
+        data-fechaentrega="${e.ent_fechaentrega}"
+        data-fecharegist="${e.ent_fecharegistra ?? ''}"
+        data-sede="${e.ent_sede ?? ''}"
+        data-observaciones="${(e.ent_observaciones ?? '').replace(/"/g, '&quot;')}"
+        data-conductor="${e.conductor_nombre ?? ''}"
+        data-userregistra="${e.ent_userregistra ?? ''}"
+        data-imgfrente="${e.ent_img_frente ?? ''}"
+        data-imgrespaldo="${e.ent_img_trasera ?? ''}"
+        data-equipo="${(e.ent_equipo_carretera ?? '').replace(/"/g, '&quot;')}">
+        <i class="fas fa-edit"></i>
+    </button>
+</td>
+<td>
+    <button class="btn btn-sm btn-danger btn-eliminar-entrega"
+        title="Eliminar entrega"
+        data-id="${e.identregavehiculo}">
+        <i class="fas fa-trash-alt"></i>
+    </button>
+</td>
             </tr>
         `);
     });
@@ -1985,3 +2070,335 @@ function recargarSelectsVehiculos() {
         }
     });
 }
+
+let _editEntregaData = null;
+let _editEntregaTipo = '';
+
+document.getElementById('modalEditarEntrega').addEventListener('shown.bs.modal', function () {
+    if (!_editEntregaData) return;
+    const d = _editEntregaData;
+    _editEntregaData = null;
+
+    $('#edit_ent_tipoentrega').val(d.tipoentrega);
+    $('#edit_ent_fechaentrega').val(d.fechaentrega);
+    $('#edit_ent_fecharegistra').val(d.fecharegistra);
+
+    if (d.tipoentrega === 'final') {
+        $('#edit_label_fecha').text('📅 Fecha Final');
+    } else {
+        $('#edit_label_fecha').text('📅 Fecha Inicio');
+    }
+});
+
+$(document).on('click', '.btn-editar-entrega', function () {
+    const id = $(this).data('id');
+    const tipoentrega = $(this).data('tipoentrega');
+    const fechaentrega = $(this).data('fechaentrega');
+    const fecharegistra = $(this).data('fecharegistra');
+    const sede = $(this).data('sede');
+    const observaciones = $(this).data('observaciones');
+    const conductor = $(this).data('conductor');
+    const userregistra = $(this).data('userregistra');
+    const imgfrente = $(this).data('imgfrente');
+    const imgrespaldo = $(this).data('imgrespaldo');
+
+    // Leer equipo con .attr() para evitar caché de jQuery
+    const equipoRaw = $(this).attr('data-equipo') || '';
+    let equipo = [];
+    try { equipo = JSON.parse(equipoRaw); } catch (e) { equipo = []; }
+
+    _editEntregaData = { tipoentrega, fechaentrega, fecharegistra };
+    _editEntregaTipo = tipoentrega;
+
+    // Campos básicos
+    $('#edit_ent_id').val(id);
+    $('#edit_ent_sede').val(sede);
+    $('#edit_ent_observaciones').val(observaciones);
+
+    // Labels y valores conductor/recibido según tipo
+    if (tipoentrega === 'inicial') {
+        $('#edit_label_conductor').text('Conductor (recibe)');
+        $('#edit_label_recibido_entregado').text('Entregado por');
+    } else {
+        $('#edit_label_conductor').text('Conductor (entrega)');
+        $('#edit_label_recibido_entregado').text('Recibido por');
+    }
+    $('#edit_ent_conductor').val(conductor || '—');
+    $('#edit_ent_userregistra').val(userregistra || '—');
+
+    // Preview fotos
+    $('#preview_edit_ent_frente').html(imgfrente
+        ? `<a href="${baseUrl}/${imgfrente}" target="_blank">
+               <img src="${baseUrl}/${imgfrente}"
+                    style="max-height:60px;border-radius:4px;border:1px solid #dee2e6;">
+           </a>
+           <small class="text-muted d-block">Sube una nueva para reemplazar</small>`
+        : '<small class="text-muted">Sin imagen</small>');
+
+    $('#preview_edit_ent_respaldo').html(imgrespaldo
+        ? `<a href="${baseUrl}/${imgrespaldo}" target="_blank">
+               <img src="${baseUrl}/${imgrespaldo}"
+                    style="max-height:60px;border-radius:4px;border:1px solid #dee2e6;">
+           </a>
+           <small class="text-muted d-block">Sube una nueva para reemplazar</small>`
+        : '<small class="text-muted">Sin imagen</small>');
+
+    // Cargar herramientas
+    const lista = document.getElementById('listaHerramientasEditEntrega');
+    lista.innerHTML = '';
+    if (Array.isArray(equipo) && equipo.length > 0) {
+        equipo.forEach(h => {
+            lista.appendChild(crearFilaHerramientaEditEntrega(
+                h.nombre, h.existe, h.foto || ''
+            ));
+        });
+    }
+
+    // Abrir modal y asignar tipo + fechas DESPUÉS de que Bootstrap lo active
+    const modalEl = document.getElementById('modalEditarEntrega');
+    modalEl._editData = { tipoentrega, fechaentrega };
+
+    modalEl.addEventListener('show.bs.modal', function onShow() {
+        modalEl.removeEventListener('show.bs.modal', onShow);
+        const d = modalEl._editData;
+
+        $('#edit_ent_tipoentrega').val(d.tipoentrega);
+
+        if (d.tipoentrega === 'final') {
+            $('#wrap_edit_fecha_inicio').hide();
+            $('#wrap_edit_fecha_final').show();
+            $('#edit_ent_fechafinal').val(d.fechaentrega);
+            $('#edit_ent_fechaentrega').val(d.fechaentrega);
+        } else {
+            $('#wrap_edit_fecha_inicio').show();
+            $('#wrap_edit_fecha_final').hide();
+            $('#edit_ent_fechaentrega').val(d.fechaentrega);
+        }
+    });
+
+    new bootstrap.Modal(modalEl).show();
+});
+
+// Agregar herramienta en modal editar entrega
+$(document).on('click', '#btnAgregarHerramientaEditEntrega', function () {
+    document.getElementById('listaHerramientasEditEntrega')
+        .appendChild(crearFilaHerramientaEditEntrega());
+});
+
+// Crear fila de herramienta para modal editar entrega
+function crearFilaHerramientaEditEntrega(nombre = '', existe = 'si', fotoExistente = '') {
+    const div = document.createElement('div');
+    div.className = 'd-flex align-items-center gap-2 mb-2 herramienta-editentrega-row';
+    const checked = (existe === 'si') ? 'checked' : '';
+
+    div.innerHTML = `
+        <input type="text" class="form-control form-control-sm herramienta-nombre-editentrega"
+               placeholder="Nombre de la herramienta" value="${nombre}" style="flex:2">
+        <div class="form-check form-switch d-flex align-items-center gap-2 mb-0" 
+             style="flex:1; min-width:120px;">
+            <input class="form-check-input herramienta-existe-editentrega" type="checkbox"
+                   role="switch" style="width:2.5em; height:1.4em; cursor:pointer;" ${checked}>
+            <label class="form-check-label herramienta-check-label-editentrega mb-0">
+                ${existe === 'si' ? '✅' : '❌'}
+            </label>
+        </div>
+        <div class="d-flex align-items-center gap-1" style="flex:0 0 auto;">
+            <label class="btn btn-sm btn-outline-secondary mb-0" 
+                   title="Adjuntar foto" style="cursor:pointer;">
+                <i class="fas fa-camera"></i>
+                <input type="file" class="herramienta-foto-editentrega d-none" 
+                       accept=".jpg,.jpeg,.png">
+            </label>
+            <div class="herramienta-foto-preview-editentrega" style="width:36px;height:36px;">
+                ${fotoExistente
+            ? `<img src="${baseUrl}/${fotoExistente}"
+                           style="width:36px;height:36px;object-fit:cover;border-radius:4px;
+                                  border:1px solid #dee2e6;cursor:pointer;"
+                           onclick="window.open('${baseUrl}/${fotoExistente}','_blank')">`
+            : ''}
+            </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-danger btn-eliminar-herramienta-editentrega">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    `;
+
+    const cb = div.querySelector('.herramienta-existe-editentrega');
+    const lbl = div.querySelector('.herramienta-check-label-editentrega');
+    cb.addEventListener('change', function () {
+        lbl.textContent = this.checked ? '✅' : '❌';
+    });
+
+    const inputFoto = div.querySelector('.herramienta-foto-editentrega');
+    const preview = div.querySelector('.herramienta-foto-preview-editentrega');
+    inputFoto.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+            const url = URL.createObjectURL(this.files[0]);
+            preview.innerHTML = `<img src="${url}"
+                style="width:36px;height:36px;object-fit:cover;border-radius:4px;
+                       border:1px solid #dee2e6;cursor:pointer;"
+                onclick="window.open('${url}','_blank')">`;
+        } else {
+            preview.innerHTML = '';
+        }
+    });
+
+    div.querySelector('.btn-eliminar-herramienta-editentrega').addEventListener('click', function () {
+        div.remove();
+    });
+
+    return div;
+}
+
+// Serializar herramientas del modal editar entrega
+function serializarHerramientasEditEntrega() {
+    const filas = document.querySelectorAll(
+        '#listaHerramientasEditEntrega .herramienta-editentrega-row'
+    );
+    const herramientas = [];
+    filas.forEach((fila) => {
+        const nombre = fila.querySelector('.herramienta-nombre-editentrega').value.trim();
+        const existe = fila.querySelector('.herramienta-existe-editentrega').checked
+            ? 'si' : 'no';
+        if (nombre === '') return;
+
+        const obj = { nombre, existe };
+
+        // ✅ Preservar foto existente si no se sube una nueva
+        const preview = fila.querySelector('.herramienta-foto-preview-editentrega img');
+        const inputFoto = fila.querySelector('.herramienta-foto-editentrega');
+        const tieneNuevaFoto = inputFoto && inputFoto.files && inputFoto.files.length > 0;
+
+        if (!tieneNuevaFoto && preview) {
+            // Extraer ruta relativa del src (quitar baseUrl)
+            const src = preview.getAttribute('src') || '';
+            const ruta = src.replace(baseUrl + '/', '');
+            if (ruta) obj.foto = ruta;
+        }
+
+        herramientas.push(obj);
+    });
+    document.getElementById('edit_ent_equipo_carretera').value =
+        JSON.stringify(herramientas);
+}
+
+// GUARDAR edición de entrega
+$(document).on('click', '#btnGuardarEditarEntrega', function () {
+    const fecha = $('#edit_ent_fechaentrega').val();
+    const fecharegistra = $('#edit_ent_fecharegistra').val();
+    const sede = $('#edit_ent_sede').val().trim();
+    const id = $('#edit_ent_id').val();
+    const tipo = $('#edit_ent_tipoentrega').val() || _editEntregaTipo;
+
+    // TEMPORAL — ver qué tiene cada campo
+    console.log('=== DATOS EDITAR ENTREGA ===');
+    console.log('id:', id);
+    console.log('tipo:', tipo);
+    console.log('fecha entrega:', fecha);
+    console.log('fecha registra:', fecharegistra);
+    console.log('sede:', sede);
+
+    if (!fecha) { Swal.fire('Error', 'Ingrese la fecha de entrega', 'error'); return; }
+    if (!sede) { Swal.fire('Error', 'Seleccione la sede', 'error'); return; }
+
+    serializarHerramientasEditEntrega();
+
+    const datos = new FormData(document.getElementById('formEditarEntrega'));
+
+    // ✅ Forzar valores que jQuery asignó después de abrir el modal
+    datos.set('ent_tipoentrega', tipo);
+    datos.set('ent_fechaentrega', fecha);
+    datos.set('ent_fecharegistra', fecharegistra);
+
+    datos.append('actualizar_entrega', true);
+
+    Swal.fire({
+        title: 'Guardando...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    $.ajax({
+        url: urlController,
+        type: 'POST',
+        data: datos,
+        cache: false,
+        contentType: false,
+        processData: false,
+        success: function (res) {
+            Swal.close();
+            try {
+                const r = typeof res === 'object' ? res : JSON.parse(res);
+                if (r.success) {
+                    Swal.fire({
+                        icon: 'success', title: '¡Actualizado!', text: r.mensaje,
+                        timer: 2000, showConfirmButton: false
+                    });
+                    bootstrap.Modal.getInstance(
+                        document.getElementById('modalEditarEntrega')).hide();
+                    if (_historialVehiculoId) cargarHistorial(_historialVehiculoId);
+                } else {
+                    Swal.fire('Error', r.mensaje, 'error');
+                }
+            } catch (e) {
+                Swal.fire('Error', 'Error en la respuesta del servidor', 'error');
+            }
+        },
+        error: function () {
+            Swal.close();
+            Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+        }
+    });
+});
+
+//BOTON ELIMINAR ENTREGA
+$(document).on('click', '.btn-eliminar-entrega', function () {
+    const id = $(this).data('id');
+
+    Swal.fire({
+        title: '¿Eliminar entrega?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d33'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: urlController,
+                type: 'POST',
+                data: { eliminar_entrega: true, id: id },
+                success: function (res) {
+                    try {
+                        const r = typeof res === 'object' ? res : JSON.parse(res);
+                        if (r.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Eliminado!',
+                                text: r.mensaje,
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                            if (_historialVehiculoId) cargarHistorial(_historialVehiculoId);
+                        } else {
+                            Swal.fire('Error', r.mensaje, 'error');
+                        }
+                    } catch (e) {
+                        Swal.fire('Error', 'Error en la respuesta del servidor', 'error');
+                    }
+                },
+                error: function () {
+                    Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+                }
+            });
+        }
+    });
+});
+
+// Limpiar modal al cerrar
+document.getElementById('modalEditarEntrega').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('listaHerramientasEditEntrega').innerHTML = '';
+    document.getElementById('edit_ent_equipo_carretera').value = '';
+    document.getElementById('formEditarEntrega').reset();
+});
