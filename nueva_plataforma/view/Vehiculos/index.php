@@ -560,7 +560,7 @@
 
                         <div class="col-md-6 mb-3">
                             <label id="label_recibido" class="form-label fw-bold text-secondary">Recibido por</label>
-    
+                        
                         <div id="wrapper_recibido_fijo">
                             <input type="text" class="form-control bg-light" 
                              value="<?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Sin sesión') ?>" readonly>
@@ -598,7 +598,7 @@
                             <?php endforeach; ?>
                             </select>
                         </div>
-
+                        
                         <div id="wrapper_entregado_fijo" style="display:none;">
                             <input type="text" class="form-control bg-light" 
                                 value="<?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Sin sesión') ?>" readonly>
@@ -654,6 +654,31 @@
                             </label>
                             <input type="file" name="ent_img_respaldo" class="form-control" required>
                         </div>
+
+                        <div class="col-md-12 mb-3 px-3">
+                               <label class="form-label fw-bold text-secondary">
+                                    <i class="fas fa-link me-1"></i> Link de referencia
+                               </label>
+                           <div class="input-group">
+                            <span class="input-group-text bg-light">
+                               <i class="fas fa-link text-secondary"></i>
+                            </span>
+                            <input type="url" 
+                                   class="form-control" 
+                                   name="ent_link_referencia" 
+                                   id="ent_link_referencia"
+                                   placeholder="https://...">
+                                <button type="button" 
+                                    class="btn btn-outline-secondary" 
+                                    title="Copiar link"
+                                    onclick="navigator.clipboard.writeText(document.getElementById('ent_link_referencia').value).then(() => { this.innerHTML='<i class=\'fas fa-check\'></i>'; setTimeout(() => this.innerHTML='<i class=\'fas fa-copy\'></i>', 1500); })">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                                <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>Pega aquí el enlace relacionado al vehículo.
+                                </small>
+                            </div>
 
                         <!-- SECCIÓN EQUIPO DE CARRETERA -->
                         <div class="col-md-12 mb-3">
@@ -1043,22 +1068,176 @@
                                 <th>Recibido por</th>
                                 <th>Fecha Inicio</th>
                                 <th>Fecha Final</th>
+                                <th>Sede</th>
                                 <th>Equipo de Prevención y Seguridad Vial</th>
                                 <th>Foto Frente</th>
                                 <th>Foto Respaldo</th>
                                 <th>Firma</th>
                                 <th>Observaciones</th>
+                                <th>Editar</th>
+                                <th>Eliminar</th>
                             </tr>
                         </thead>
                         <tbody id="cuerpoTablaHistorial">
                             <tr>
-                                <td colspan="11" class="text-muted py-3">Cargando...</td>
+                                <td colspan="13" class="text-muted py-3">Cargando...</td>
                             </tr>
                         </tbody>
                     </table>          
                 </div>
 
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EDITAR ENTREGA -->
+<div class="modal fade" id="modalEditarEntrega" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i> Editar Entrega
+                </h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formEditarEntrega" enctype="multipart/form-data">
+                    <input type="hidden" id="edit_ent_id" name="ent_id">
+
+                    <div class="row">
+
+                        <!-- TIPO DE ENTREGA -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Tipo de Entrega
+                            </label>
+                            <select class="form-control" id="edit_ent_tipoentrega" name="ent_tipoentrega">
+                                <option value="">Seleccionar...</option>
+                                <option value="inicial">Inicial</option>
+                                <option value="final">Final</option> 
+                            </select>
+                        </div>
+
+                        <!-- CONDUCTOR -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary"
+                                   id="edit_label_conductor">
+                                Conductor
+                            </label>
+                            <input type="text" id="edit_ent_conductor"
+                                   class="form-control bg-light" readonly>
+                        </div>
+
+                        <!-- RECIBIDO POR / ENTREGADO POR -->
+                        <div class="col-md-6 mb-3">
+                            <label id="edit_label_recibido_entregado"
+                                   class="form-label fw-bold text-secondary">
+                                Recibido por
+                            </label>
+                            <input type="text" id="edit_ent_userregistra"
+                                   class="form-control bg-light" readonly>
+                        </div>
+
+                        <!-- FECHA ENTREGA -->
+                        <div class="col-md-6 mb-3" id="wrap_edit_fecha_inicio">
+                            <label class="form-label fw-bold text-secondary" id="edit_label_fecha">
+                                📅 Fecha Entrega
+                            </label>
+                            <input type="date" id="edit_ent_fechaentrega"
+                                   name="ent_fechaentrega" class="form-control">
+                        </div>
+
+                        <!-- FECHA REGISTRO -->
+                        <div class="col-md-6 mb-3" id="wrap_edit_fecha_final">
+                            <label class="form-label fw-bold text-secondary">
+                               📅 Fecha Registro
+                            </label>
+                            <input type="date" id="edit_ent_fecharegistra"
+                                   name="ent_fecharegistra" class="form-control">
+                        </div>
+
+                        <!-- SEDE -->
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Sede
+                            </label>
+                            <select id="edit_ent_sede" name="ent_sede"
+                                    class="form-control">
+                                <option value="">Seleccionar...</option>
+                                <?php foreach ($Sedes as $sede): ?>
+                                <option value="<?= $sede['sed_nombre'] ?>">
+                                    <?= htmlspecialchars($sede['sed_nombre']) ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <!-- FOTOS -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📷 Foto actual del vehículo (Frente)
+                            </label>
+                            <div id="preview_edit_ent_frente" class="mb-2"></div>
+                            <input type="file" name="ent_img_frente"
+                                   class="form-control" accept=".jpg,.jpeg,.png">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📷 Foto actual del vehículo (Respaldo)
+                            </label>
+                            <div id="preview_edit_ent_respaldo" class="mb-2"></div>
+                            <input type="file" name="ent_img_respaldo"
+                                   class="form-control" accept=".jpg,.jpeg,.png">
+                        </div>
+
+                        <!-- EQUIPO -->
+                        <div class="col-md-12 mb-3">
+                            <div class="d-flex align-items-center justify-content-between
+                                        px-3 py-2 rounded"
+                                 style="background-color: #1a3a5c;">
+                                <span class="text-white fw-bold">
+                                    <i class="fas fa-toolbox me-2"></i>
+                                    Equipo de Prevención y Seguridad Vial
+                                </span>
+                                <button type="button" class="btn btn-sm btn-light"
+                                        id="btnAgregarHerramientaEditEntrega">
+                                    <i class="fas fa-plus"></i> Agregar
+                                </button>
+                            </div>
+                            <div id="listaHerramientasEditEntrega" class="mt-2"></div>
+                            <input type="hidden" name="ent_equipo_carretera"
+                                   id="edit_ent_equipo_carretera">
+                        </div>
+
+                        <!-- OBSERVACIONES -->
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Observaciones
+                            </label>
+                            <textarea id="edit_ent_observaciones" name="ent_observaciones"
+                                      class="form-control" rows="3"
+                                      placeholder="Detalles adicionales sobre la entrega...">
+                            </textarea>
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnGuardarEditarEntrega"
+                        class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i> Actualizar
+                </button>
+            </div>
+
         </div>
     </div>
 </div>

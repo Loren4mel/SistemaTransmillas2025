@@ -82,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_entrega'])) {
         'ent_equipo_carretera'=> $_POST['ent_equipo_carretera'] ?? '[]',
         'ent_observaciones'   => $_POST['ent_observaciones'] ?? '',
         'ent_vehiculo_id'      => intval($_POST['ent_vehiculo_id'] ?? 0),
+        'ent_firma_base64'     => $_POST['ent_firma_base64'] ?? '',
     ];
 
     $resultado = $modelo->guardarEntregaVehiculo($datos);
@@ -199,6 +200,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_tecnomecan
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_vehiculos_select'])) {
     $vehiculos = $modelo->obtenerVehiculos('', '1', '');
     echo json_encode($vehiculos);
+    exit;
+}
+
+// ACTUALIZAR ENTREGA
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_entrega'])) {
+    $resultado = $modelo->actualizarEntrega($_POST);
+    if (ob_get_length()) ob_clean();
+    echo json_encode($resultado === true
+        ? ['success' => true,  'mensaje' => 'Entrega actualizada correctamente']
+        : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al actualizar']
+    );
+    exit;
+}
+
+if (isset($_POST['eliminar_entrega'])) {
+    $resultado = $modelo->eliminarEntrega($_POST['id']);
+    echo json_encode($resultado === true
+        ? ['success' => true,  'mensaje' => 'Entrega eliminada correctamente']
+        : ['success' => false, 'mensaje' => $resultado['error']]
+    );
     exit;
 }
 
