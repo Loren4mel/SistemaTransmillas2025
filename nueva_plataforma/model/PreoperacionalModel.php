@@ -142,14 +142,16 @@ class PreoperacionalModel
         $sql = "INSERT INTO `pre-operacional`
                 (prevehiculo, pretipovehiculo, prefechaingreso, preidusuario, preencuesta,
                  pre_obsevaciones, pre_correctiva, pre_responsable, pre_temperatura, pre_kilrecorridos,
-                 pre_limpiomaleta, pre_img_kilo, preestado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
+                 pre_limpiomaleta, pre_img_kilo, preestado, pre_ubicacion, pre_firma)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
         $stmt = $this->db->prepare($sql);
         $vehiculo = $datos['prevehiculo'] ?? 0;
-        
+        $preUbicacion = $datos['pre_ubicacion'] ?? null;
+        $preFirma = $datos['pre_firma'] ?? null;
+
         $stmt->bind_param(
-            "ississsssiiss",
+            "ississsssiisssi",
             $vehiculo,
             $datos['pretipovehiculo'],
             $datos['prefechaingreso'],
@@ -162,7 +164,9 @@ class PreoperacionalModel
             $datos['pre_kilrecorridos'],
             $datos['pre_limpiomaleta'],
             $datos['pre_img_kilo'],
-            $datos['preestado']
+            $datos['preestado'],
+            $preUbicacion,
+            $preFirma
         );
         
         if ($stmt->execute()) {
@@ -229,7 +233,8 @@ class PreoperacionalModel
             'preencuesta', 'predatosvalidados', 'pre_descvalidada', 'preestado',
             'pre_correctiva', 'pre_responsable', 'pre_temperatura', 'pre_kilrecorridos',
             'pre_limpiomaleta', 'pre_img_kilo', 'pre_obsevaciones',
-            'prefechavalidacion', 'pre_iduservalida', 'id_version'
+            'prefechavalidacion', 'pre_iduservalida', 'id_version',
+            'pre_ubicacion', 'pre_firma'
         ];
 
         $setParts = [];
@@ -672,9 +677,9 @@ class PreoperacionalModel
         $sql = "INSERT INTO seguimiento_vehiculo
                 (tipo_evento, metadata_evento, id_preoperacional, id_seguimiento_user,
                  id_vehiculo, id_conductor, id_responsable, kilometraje, ubicacion,
-                 estado_general, foto_evidencia, observaciones,
+                 estado_general, foto_evidencia, img_kilometraje, observaciones,
                  entrega_final_usuario, entrega_inicial_usuario)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $this->db->prepare($sql);
         $metadataJson = !empty($datos['metadata_evento']) ? json_encode($datos['metadata_evento']) : null;
@@ -690,12 +695,13 @@ class PreoperacionalModel
         $ubicacion          = $datos['ubicacion'] ?? null;
         $estadoGeneral      = $datos['estado_general'] ?? '';
         $fotoEvidencia      = $datos['foto_evidencia'] ?? null;
+        $imgKilometraje     = $datos['img_kilometraje'] ?? null;
         $observaciones      = $datos['observaciones'] ?? null;
         $entregaFinal       = $datos['entrega_final_usuario'] ?? null;
         $entregaInicial     = $datos['entrega_inicial_usuario'] ?? null;
 
         $stmt->bind_param(
-            "ssiiiiiissssii",
+            "ssiiiiiisssssii",
             $tipoEvento,
             $metadataJson,
             $idPreoperacional,
@@ -707,6 +713,7 @@ class PreoperacionalModel
             $ubicacion,
             $estadoGeneral,
             $fotoEvidencia,
+            $imgKilometraje,
             $observaciones,
             $entregaFinal,
             $entregaInicial
@@ -865,11 +872,11 @@ class PreoperacionalModel
     public function insertarEntregaVehiculo($datos)
     {
         $sql = "INSERT INTO entregavehiculo (
-                    ent_fechaentrega, ent_vehiculo, ent_userregistra, ent_idusuario,
-                    ent_tipoentrega, ent_fecharegistra, ent_idhojadevida, ent_sede,
+                    ent_fechaentrega, ent_vehiculo, ent_idvehiculo, ent_userregistra, ent_idusuario,
+                    ent_idusuarioencargado, ent_tipoentrega, ent_fecharegistra, ent_idhojadevida, ent_sede,
                     ent_img_frente, ent_img_trasera, ent_equipo_carretera,
                     ent_observaciones, ent_firma
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $this->db->prepare($sql);
         if (!$stmt) {
@@ -877,11 +884,13 @@ class PreoperacionalModel
         }
 
         $stmt->bind_param(
-            "sssississssss",
+            "ssisiisssisssss",
             $datos['ent_fechaentrega'],
             $datos['ent_vehiculo'],
+            $datos['ent_idvehiculo'],
             $datos['ent_userregistra'],
             $datos['ent_idusuario'],
+            $datos['ent_idusuarioencargado'],
             $datos['ent_tipoentrega'],
             $datos['ent_fecharegistra'],
             $datos['ent_idhojadevida'],
@@ -921,17 +930,20 @@ class PreoperacionalModel
      *
      * @param int $id ID del registro en entregavehiculo
      * @param array $datos Campos a actualizar (ent_firma, ent_observaciones,
-     *                     ent_img_frente, ent_img_trasera, ent_equipo_carretera)
+     *                     ent_img_frente, ent_img_trasera, ent_equipo_carretera,
+     *                     ent_idvehiculo, ent_idusuarioencargado)
      * @return bool True si se actualizó correctamente
      */
     public function actualizarEntregaVehiculo($id, $datos)
     {
         $permitidos = [
-            'ent_firma'            => 's',
-            'ent_observaciones'    => 's',
-            'ent_img_frente'       => 's',
-            'ent_img_trasera'      => 's',
-            'ent_equipo_carretera' => 's',
+            'ent_firma'               => 's',
+            'ent_observaciones'       => 's',
+            'ent_img_frente'          => 's',
+            'ent_img_trasera'         => 's',
+            'ent_equipo_carretera'    => 's',
+            'ent_idvehiculo'          => 'i',
+            'ent_idusuarioencargado'  => 'i',
         ];
 
         $sets = [];

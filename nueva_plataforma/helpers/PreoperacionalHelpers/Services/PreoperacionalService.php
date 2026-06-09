@@ -1019,7 +1019,9 @@ class PreoperacionalService
             'pre_kilrecorridos' => $kilometraje,
             'pre_limpiomaleta' => $limpiomaleta,
             'pre_img_kilo' => $imagenKilo,
-            'preestado' => 'pendiente'
+            'preestado' => 'pendiente',
+            'pre_ubicacion' => $datosEncuesta['ubicacion'] ?? null,
+            'pre_firma' => null  // Se actualizará después de guardar la firma
         ];
 
         // Si hay imagen de inspección, agregarla a observaciones
@@ -1072,11 +1074,17 @@ class PreoperacionalService
             }
 
             // Actualizar preencuesta con metadata + IDs de documentos
+            // y pre_firma con el ID del documento de firma
+            $camposUpdate = [];
             if (!empty($idsDocumentos)) {
                 $metadatosConDocs = $this->agregarIdsDocumentosAlJson($metadatosJson, $idsDocumentos);
-                $this->model->actualizarCamposPreoperacional($idInsertado, [
-                    'preencuesta' => $metadatosConDocs
-                ]);
+                $camposUpdate['preencuesta'] = $metadatosConDocs;
+            }
+            if ($firmaDocId) {
+                $camposUpdate['pre_firma'] = $firmaDocId;
+            }
+            if (!empty($camposUpdate)) {
+                $this->model->actualizarCamposPreoperacional($idInsertado, $camposUpdate);
             }
 
             if ($kilometraje > 0 && $idVehiculo > 0) {
@@ -1139,6 +1147,7 @@ class PreoperacionalService
                 'ubicacion' => $datosEncuesta['ubicacion'] ?? null,
                 'estado_general' => $estadoGeneralSeguimiento,
                 'foto_evidencia' => $imagenKilo,
+                'img_kilometraje' => $imagenKilo,
                 'observaciones' => $observacionSeguimiento
             ];
             $this->guardarSeguimientoVehiculo($datosSeg);
@@ -1268,8 +1277,10 @@ class PreoperacionalService
             $datosFinal = [
                 'ent_fechaentrega' => $fechaHoy,
                 'ent_vehiculo' => $entVehiculo,
+                'ent_idvehiculo' => $idVehiculo,
                 'ent_userregistra' => $nombreValidador,
                 'ent_idusuario' => $idUsuario,
+                'ent_idusuarioencargado' => $_SESSION['usuario_id'] ?? null,
                 'ent_tipoentrega' => 'final',
                 'ent_fecharegistra' => $fechaHoy,
                 'ent_idhojadevida' => $idHojaDeVida,
@@ -1314,8 +1325,10 @@ class PreoperacionalService
             $datosInicial = [
                 'ent_fechaentrega' => $fechaHoy,
                 'ent_vehiculo' => $entVehiculo,
+                'ent_idvehiculo' => $idVehiculo,
                 'ent_userregistra' => $nombreValidador,
                 'ent_idusuario' => $idUsuario,
+                'ent_idusuarioencargado' => $_SESSION['usuario_id'] ?? null,
                 'ent_tipoentrega' => 'inicial',
                 'ent_fecharegistra' => $fechaHoy,
                 'ent_idhojadevida' => $idHojaDeVida,
@@ -1428,19 +1441,21 @@ class PreoperacionalService
         $equipoJson = !empty($equipoCarretera) ? json_encode($equipoCarretera) : '[]';
 
         $datos = [
-            'ent_fechaentrega'    => $fechaHoy,
-            'ent_vehiculo'        => $entVehiculo,
-            'ent_userregistra'    => $nombreValidador,
-            'ent_idusuario'       => $idUsuario,
-            'ent_tipoentrega'     => $tipoEntrega,
-            'ent_fecharegistra'   => $fechaHoy,
-            'ent_idhojadevida'    => $idHojaDeVida,
-            'ent_sede'            => '',
-            'ent_img_frente'      => $fotoFrente,
-            'ent_img_trasera'     => $fotoTrasera,
-            'ent_equipo_carretera'=> $equipoJson,
-            'ent_observaciones'   => $observaciones,
-            'ent_firma'           => '' // Se llenará en validación
+            'ent_fechaentrega'      => $fechaHoy,
+            'ent_vehiculo'          => $entVehiculo,
+            'ent_idvehiculo'        => $idVehiculo,
+            'ent_userregistra'      => $nombreValidador,
+            'ent_idusuario'         => $idUsuario,
+            'ent_idusuarioencargado'=> $_SESSION['usuario_id'] ?? null,
+            'ent_tipoentrega'       => $tipoEntrega,
+            'ent_fecharegistra'     => $fechaHoy,
+            'ent_idhojadevida'      => $idHojaDeVida,
+            'ent_sede'              => '',
+            'ent_img_frente'        => $fotoFrente,
+            'ent_img_trasera'       => $fotoTrasera,
+            'ent_equipo_carretera'  => $equipoJson,
+            'ent_observaciones'     => $observaciones,
+            'ent_firma'             => '' // Se llenará en validación
         ];
 
         $resultado = $this->model->insertarEntregaVehiculo($datos);
