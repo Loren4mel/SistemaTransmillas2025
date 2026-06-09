@@ -458,12 +458,14 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Frente)</label>
                             <div id="preview_actual_frente" class="mb-1"></div>   
+                            <input type="hidden" name="eliminar_veh_img_actual_frente" value="0">
                             <input type="file" name="veh_img_actual_frente" class="form-control" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Respaldo)</label>
                             <div id="preview_actual_trasera" class="mb-1"></div>
+                            <input type="hidden" name="eliminar_veh_img_actual_trasera" value="0">
                             <input type="file" name="veh_img_actual_trasera" class="form-control" required>
                         </div>
 
@@ -494,12 +496,14 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Frente)</label>
                             <div id="preview_anverso" class="mb-1"></div>
+                            <input type="hidden" name="eliminar_veh_img_anverso" value="0">
                             <input type="file" name="veh_img_anverso" class="form-control">
                         </div>
  
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Respaldo)</label>
                             <div id="preview_reverso" class="mb-1"></div>
+                            <input type="hidden" name="eliminar_veh_img_reverso" value="0">
                             <input type="file" name="veh_img_reverso" class="form-control">
                         </div>
                     </div>

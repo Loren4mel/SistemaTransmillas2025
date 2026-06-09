@@ -637,10 +637,10 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
 
                 // Vista previa de imágenes
 
-                mostrarPreviewEditar('preview_anverso', v.veh_img_anverso);
-                mostrarPreviewEditar('preview_reverso', v.veh_img_reverso);
-                mostrarPreviewEditar('preview_actual_frente', v.veh_img_actual_frente);
-                mostrarPreviewEditar('preview_actual_trasera', v.veh_img_actual_trasera);
+                mostrarPreviewEditar('preview_anverso', v.veh_img_anverso, 'veh_img_anverso');
+                mostrarPreviewEditar('preview_reverso', v.veh_img_reverso, 'veh_img_reverso');
+                mostrarPreviewEditar('preview_actual_frente', v.veh_img_actual_frente, 'veh_img_actual_frente');
+                mostrarPreviewEditar('preview_actual_trasera', v.veh_img_actual_trasera, 'veh_img_actual_trasera');
 
                 $('#modalEditarVehiculo').modal('show');
 
@@ -654,8 +654,9 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
     });
 });
 
-function mostrarPreviewEditar(containerId, ruta) {
+function mostrarPreviewEditar(containerId, ruta, campoImagen) {
     const div = document.getElementById(containerId);
+    $(`#formEditarVehiculo input[name="eliminar_${campoImagen}"]`).val('0');
     if (ruta) {
         const urlCompleta = `${baseUrl}/` + ruta;
         div.innerHTML = `
@@ -665,6 +666,12 @@ function mostrarPreviewEditar(containerId, ruta) {
                            margin-bottom:4px; cursor:pointer;"
                     onerror="this.style.display='none'">
             </a>
+            <button type="button"
+                    class="btn btn-sm btn-outline-danger btn-eliminar-img-editar ms-2"
+                    data-campo="${campoImagen}"
+                    data-preview="${containerId}">
+                Eliminar
+            </button>
             <small class="text-muted d-block">
                 <a href="${urlCompleta}" target="_blank">🔍 Ver imagen actual</a> 
                 — Sube una nueva para reemplazar
@@ -675,6 +682,21 @@ function mostrarPreviewEditar(containerId, ruta) {
 }
 
 // EDITAR VEHÍCULO - Guardar cambios
+$(document).on('click', '.btn-eliminar-img-editar', function () {
+    const campoImagen = $(this).data('campo');
+    const previewId = $(this).data('preview');
+
+    $(`#formEditarVehiculo input[name="eliminar_${campoImagen}"]`).val('1');
+    $(`#formEditarVehiculo input[name="${campoImagen}"]`).val('');
+    $(`#${previewId}`).html('<small class="text-danger">Imagen marcada para eliminar. Guarda los cambios para confirmar.</small>');
+});
+
+$('#formEditarVehiculo input[type="file"]').on('change', function () {
+    if (this.files && this.files.length > 0) {
+        $(`#formEditarVehiculo input[name="eliminar_${this.name}"]`).val('0');
+    }
+});
+
 $('#btnActualizar').on('click', function (e) {
     e.preventDefault();
 
@@ -1017,7 +1039,7 @@ $('#btnGuardarEntrega').on('click', function () {
     }
 
     if (inputFrente && inputFrente.files.length > 0) datos.append('ent_img_frente', inputFrente.files[0]);
-    if (inputTrasera && inputTrasera.files.length > 0) datos.append('ent_img_trasera', inputTrasera.files[0]);
+    if (inputTrasera && inputTrasera.files.length > 0) datos.append('ent_img_respaldo', inputTrasera.files[0]);
 
     serializarHerramientasEntrega();
     datos.append('ent_equipo_carretera', document.getElementById('ent_equipo_carretera').value);

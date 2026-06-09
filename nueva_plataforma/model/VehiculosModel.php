@@ -219,16 +219,24 @@ public function obtenerVehiculoPorId($id) {
 
 //Funcion para actualizar vehículo con validación de fechas y manejo de imágenes
 public function actualizarVehiculo($datos) {
-    $veh_img_anverso        = $this->guardarImagen($_FILES['veh_img_anverso'],        "uploads/vehiculos");
-    $veh_img_reverso        = $this->guardarImagen($_FILES['veh_img_reverso'],        "uploads/vehiculos");
-    $veh_img_actual_frente  = $this->guardarImagen($_FILES['veh_img_actual_frente'],  "uploads/vehiculos");
-    $veh_img_actual_trasera = $this->guardarImagen($_FILES['veh_img_actual_trasera'], "uploads/vehiculos");
-
     $sqlImgs = "";
-    if ($veh_img_anverso)        $sqlImgs .= ", veh_img_anverso = '$veh_img_anverso'";
-    if ($veh_img_reverso)        $sqlImgs .= ", veh_img_reverso = '$veh_img_reverso'";
-    if ($veh_img_actual_frente)  $sqlImgs .= ", veh_img_actual_frente = '$veh_img_actual_frente'";
-    if ($veh_img_actual_trasera) $sqlImgs .= ", veh_img_actual_trasera = '$veh_img_actual_trasera'";
+    $camposImagen = [
+        'veh_img_anverso',
+        'veh_img_reverso',
+        'veh_img_actual_frente',
+        'veh_img_actual_trasera',
+    ];
+
+    foreach ($camposImagen as $campoImagen) {
+        if (isset($_FILES[$campoImagen]) && ($_FILES[$campoImagen]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            $rutaImagen = $this->guardarImagen($_FILES[$campoImagen], "uploads/vehiculos");
+            if ($rutaImagen) {
+                $sqlImgs .= ", {$campoImagen} = '" . $this->dbname->real_escape_string($rutaImagen) . "'";
+            }
+        } elseif (($datos["eliminar_{$campoImagen}"] ?? '0') === '1') {
+            $sqlImgs .= ", {$campoImagen} = ''";
+        }
+    }
 
     $id = intval($datos['veh_id']);
 
