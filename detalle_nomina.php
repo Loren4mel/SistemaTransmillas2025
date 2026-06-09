@@ -233,31 +233,6 @@ if($param37=="Prestacion de Servicios"){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
  
 $sql="SELECT `idhojadevida`,  `hoj_nombre`, `hoj_apellido`,hoj_cargo, `hoj_tipocontrato`,`hoj_cedula`,`hoj_fechaingreso`, `sed_nombre`,`hoj_fechanacimiento`, `hoj_cedula`,`hoj_direccion`, `hoj_celular`, `hoj_estado`,hoj_fechatermino,hoj_sede,hoj_retegarantia,hoj_firma,hoj_valorRetegarantia FROM hojadevida
   INNER JOIN sedes ON hoj_sede = idsedes
@@ -385,9 +360,9 @@ $sql="SELECT `idhojadevida`,  `hoj_nombre`, `hoj_apellido`,hoj_cargo, `hoj_tipoc
 				$DB1->Execute($sitrabajo);
 				while($rw4=mysqli_fetch_row($DB1->Consulta_ID))
 				{
-						if ($rw1[0]==807) {
-							$rw4[0]=2;
-							echo'aqui';
+						if ($rw1[0]==158) {
+						$rw4[0]=5;
+						// 	echo'aqui';
 						}
 						$diassitrabajo=$rw4[0];
 						$diassitrabajoParaMostrar=$rw4[0];
@@ -1230,10 +1205,7 @@ ORDER BY hoj_nombre ASC";
 
 							$diassitrabajo=0;
 						}else{
-							if ($rw1[0]==770) {
-                                $rw4[0]=9;
-								
-                            }
+		
 
 
 							if($fin==31 and $param36=='Segunda' or $fin==31 and $param36=='Completo' ){
@@ -1511,8 +1483,9 @@ ORDER BY hoj_nombre ASC";
 				//dias vacaBasicos
 				$diasVacaBasic="SELECT count(*) FROM `seguimiento_user`  where seg_motivo ='Festivo en vacaciones' and seg_fechaingreso>='$fechaAhora' and seg_fechaingreso<='$fechafin'  and seg_idusuario='$idusuario' ";
 				$DB1->Execute($diasVacaBasic);
-				$rw11=mysqli_fetch_row($DB1->Consulta_ID);
-				$valorDiasBasico=$rw11[0]*$cargosaldo[2];
+				$rw12=mysqli_fetch_row($DB1->Consulta_ID);
+				$vacacionesFestivos=$rw12[0];
+				
 
 
 
@@ -1530,7 +1503,7 @@ ORDER BY hoj_nombre ASC";
 
 
 
-				$valorDiasVacaciones=($diasvalor)*($diasVacaciones);
+				$valorDiasVacaciones=(($diasvalor)*($diasVacaciones+$vacacionesFestivos));
 
 				$valorDiasVacaciones_formateado = number_format($valorDiasVacaciones, 0, ',', '.');
 
@@ -1600,7 +1573,8 @@ ORDER BY hoj_nombre ASC";
 					//auxilio
 					$auxilioPorDia=$cargosaldo[3]/30;
 					//Total auxilio 15na
-					$totalauxilio=$auxilioPorDia*($diassitrabajoParaSumar);
+					$totalauxilio=$auxilioPorDia*($diassitrabajoParaSumar+$vacacionesFestivos);
+					$totalauxilio_formateado = number_format($totalauxilio, 0, ',', '.');
 
 					//Total horas
 					$valorHora=11140;
@@ -1656,7 +1630,7 @@ ORDER BY hoj_nombre ASC";
 
 
 
-					$tabla.="<td>$".$totalauxilio."</td>";//total auxilio segun dias
+					$tabla.="<td>$".$totalauxilio_formateado."</td>";//total auxilio segun dias
 
 					$tabla.="<td>".$diasnotrabajo."</td>";
 
@@ -1667,7 +1641,8 @@ ORDER BY hoj_nombre ASC";
 
 		
 
-					$tabla.="<td>$diasVacaciones</td>"; //VACACIONES
+					$totalDiasVacaciones=$diasVacaciones+$vacacionesFestivos;
+					$tabla.="<td>".$totalDiasVacaciones."</td>"; //VACACIONES
 
 					$tabla.="<td>$valorDiasVacaciones_formateado</td>";//VACACIONES
 

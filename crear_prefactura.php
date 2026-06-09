@@ -4,11 +4,15 @@ include("declara.php");
 $idUserActual=$_SESSION['usuario_id'];
 $fechainicio=$_POST['param4'];
 $fechaactual=$_POST['param5'];
-$idguias=$_POST['guias'];
+$idguias=isset($_POST['guias']) ? trim($_POST['guias']) : '';
 
 $param3="EXTERNOS";
 
-		$idguias = substr($idguias, 0, -1);
+		$idguias = trim($idguias, ',');
+		if ($idguias=='') {
+			echo "No hay guias para pre-facturar.";
+			exit;
+		}
 		 $variable=date("Y").date("m").date("d").date("h").date("i").date("s");
 		  $variableunica=$variable;
 		$fechafactura='DE: '.$fechainicio.' Hasta '.$fechaactual;

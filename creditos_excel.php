@@ -42,7 +42,7 @@ if($param5!=''){  $fechaactual=$param5;}
 
 
 if($param1==""){ $param1="ser_prioridad"; } 
-if($param3!=''){ $conde3 =" and rel_nom_credito like '%$param3%'";  }
+if($param3!='' and $param3!='EXTERNOS'){ $conde3 =" and rel_nom_credito like '%$param3%'";  }
 	
  ?>
      <div>
@@ -103,9 +103,9 @@ if($opcion==4){
 	$DB->Execute($sql1); 
 	$resul=mysqli_fetch_row($DB->Consulta_ID);
 	$prefac=$resul[0]; 
-	 $credito=$resul[1]; 
-	 $prefac2=$resul[2]; 
-	 $estado=$resul[3]; 
+		$credito=$resul[1]; 
+	 	$prefac2=$resul[2]; 
+	 	$estado=$resul[3]; 
 
 	if($estado!='Pre-Facturado'){
 

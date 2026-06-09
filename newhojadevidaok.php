@@ -1,10 +1,24 @@
 <?php
 require("login_autentica.php");
 include("declara.php");
+require_once __DIR__ . "/nueva_plataforma/model/PendientesModel.php";
 
 @$accion=$_REQUEST["accion"];
 $fechatiempo=date("Y-m-d H:i:s");
 $fecha=date("Y-m-d");
+
+function sincronizarPendientesFijosHojaVida(string $cedula, string $origen): void
+{
+	try {
+		$modeloPendientes = new PendientesModel();
+		$resultado = $modeloPendientes->sincronizarPendientesFijosPorCedula($cedula);
+		$linea = '[' . date('Y-m-d H:i:s') . '] ' . $origen . ' | cedula=' . $cedula . ' | ' . json_encode($resultado, JSON_UNESCAPED_UNICODE) . PHP_EOL;
+		@file_put_contents(__DIR__ . "/nueva_plataforma/logs/pendientes_hojadevida.log", $linea, FILE_APPEND);
+	} catch (Throwable $e) {
+		$linea = '[' . date('Y-m-d H:i:s') . '] ' . $origen . ' | cedula=' . $cedula . ' | ERROR: ' . $e->getMessage() . PHP_EOL;
+		@file_put_contents(__DIR__ . "/nueva_plataforma/logs/pendientes_hojadevida.log", $linea, FILE_APPEND);
+	}
+}
 
 
 if($accion==1){
@@ -45,6 +59,7 @@ if($accion==1){
 
 		 $caso='datosvehiculo';	
 		 $idhojadevida=$vinculo;
+		 sincronizarPendientesFijosHojaVida((string) $param5, 'crear_hoja_vida');
 
 
 }else{
@@ -97,6 +112,7 @@ switch ($condecion)
 	
 		$sql1="UPDATE hojadevida set `hoj_fechaingreso`='$param1',`hoj_nombre`='$param2', `hoj_apellido`='$param3', `hoj_fechanacimiento`='$param4', `hoj_cedula`='$param5',`hoj_celular`='$param6', `hoj_sede`='$param7', `hoj_cargo`='$param35', `hoj_pep`='$param36', `hoj_pas`='$param37', `hoj_cuen`='$param38', `hoj_banco`='$param39', `hoj_tcuenta`='$param40', `hoj_foto`='$imagen',hoj_cerCuen='$imagen1',hoj_firma='$imagen2',hoj_confibanco='$param81',hoj_confiNumCuenta='$param80', `hoj_confiCedula`='$param82', `hoj_conTipoCuenta`='$param83'   where idhojadevida='$idhojadevida' ";
 		$DB1->Execute($sql1);
+		sincronizarPendientesFijosHojaVida((string) $param5, 'actualizar_datos_personales');
 
 		// if($_FILES["param101"]!=''){
 	
@@ -126,6 +142,10 @@ switch ($condecion)
 	
 			 $sql1="UPDATE hojadevida set `hoj_fechacontrato`='$param40',`hoj_tipocontrato`='$param39',`hoj_area`='$param41',`hoj_turnos`='$param43',`hoj_retegarantia`='$param45',`hoj_valorRetegarantia`='$param46',hoj_fech_año_act='$param100',hoj_tipo_pago='$param112' where idhojadevida='$idhojadevida' ";
 			$DB1->Execute($sql1);
+			$sqlCedulaPendientes="SELECT hoj_cedula FROM hojadevida WHERE idhojadevida='$idhojadevida' LIMIT 1";
+			$DB1->Execute($sqlCedulaPendientes);
+			$rwCedulaPendientes=mysqli_fetch_row($DB1->Consulta_ID);
+			sincronizarPendientesFijosHojaVida((string) ($rwCedulaPendientes[0] ?? ''), 'actualizar_datos_contrato');
 		
 		
 		if($_FILES["param109"]!=''){

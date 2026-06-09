@@ -7,6 +7,8 @@ $conde=" ";
 $conde2=" ";
 $conde3=" ";
 $conde4=" ";
+$conde6=" ";
+$conde7=" ";
 $actualizar = $_GET['accion'];
 
 
@@ -24,17 +26,19 @@ if($param35!=''){ $id_sedes=$param35;
 	  $conde2=" and (cue_idciudadori in $idcidades )"; 	
 	}	
 }
-echo $param38;
-// if($param38!=''){  
-	
-// 	$idcidadesdes=ciudadesedes($param38,$DB);
-// 	if($idcidadesdes=='0'){
-// 		$conde4="";
 
-// 	}else {
-// 	  $conde4=" and (ser_ciudadentrega in $idcidadesdes )"; 	
-// 	}	
-// }
+if($param43!=0 or $param45!=0){ 
+	if($param43==1){ $conde7=" and ser_numerofactura<>'' "; }else if ($param43==2){ $conde7=" and ser_numerofactura IS NULL ";}
+	if($param45==1){ $conde7.=" and ser_valor<='19000' "; }else if($param45==2){$conde7.=" and ser_valor>='19000' ";}
+	
+	$conde6 =" and (ser_estado='10' or ser_clasificacion='1') and ser_clasificacion!='2'";
+}
+
+if($param44!=''){
+	$conde7.=" and ser_transporta='$param44' ";
+}
+
+
 if ($param38 != '') {
     // Separar los IDs que llegan en la cadena
     $ids = explode(',', $param38);
@@ -67,6 +71,9 @@ $FB->titulo_azul1("Fecha Recogida ",1,0,0);
 $FB->titulo_azul1("Fecha Entrega",1,0,0); 
 $FB->titulo_azul1("#Guia",1,0,0); 
 $FB->titulo_azul1("Pre-guia",1,0,0); 
+if ($param43==1) {
+	$FB->titulo_azul1("Factura",1,0,0);
+}
 
 $FB->titulo_azul1("Contado+%",1,0,0); 
 $FB->titulo_azul1("Credito+%",1,0,0); 
@@ -94,14 +101,9 @@ if($param32!="" and $param31!=""){
  $conde1="and $param31 like '%$param32%' "; 
   }else { $conde1="  "; } 
 
-//if($param1==""){ $param1="ser_prioridad"; } c  `cue_idoperador`, `cue_idoperentrega`
 
-//if($param33!=''){ $conde3 =" and (cue_idoperador='$param9' or cue_idoperentrega='$param9'  )"; }
-//if($param8!=''){ $conde3 =" and $param8='$param9'"; }
-
-
-$sql="SELECT `idservicios`,cue_fecharecogida,`cue_fecha`,ser_consecutivo,ser_guiare,cue_tipoevento, `cue_valorflete`, `cue_prestamo`,`cue_porprestamo`,`cue_vrdeclarado`, `cue_pordeclarado`,  `cue_abono`,cue_tipopago,cue_validar,cue_usuvalido,ciu_nombre,ser_manifiesto,ser_peso,ser_telefonocontacto
- FROM servicios inner join cuentaspromotor on cue_idservicio=idservicios inner join ciudades on ser_ciudadentrega=idciudades  where date(cue_fecharecogida)>='$fechaactual' and  date(cue_fecharecogida)<='$fechainicial' $conde $conde1 $conde2   $conde3 $conde4 $conde5 ORDER BY ser_guiare  $asc ";
+$sql="SELECT `idservicios`,cue_fecharecogida,`cue_fecha`,ser_consecutivo,ser_guiare,cue_tipoevento, `cue_valorflete`, `cue_prestamo`,`cue_porprestamo`,`cue_vrdeclarado`, `cue_pordeclarado`,  `cue_abono`,cue_tipopago,cue_validar,cue_usuvalido,ciu_nombre,ser_manifiesto,ser_peso,ser_telefonocontacto,ser_numerofactura
+ FROM servicios inner join cuentaspromotor on cue_idservicio=idservicios inner join ciudades on ser_ciudadentrega=idciudades  where date(cue_fecharecogida)>='$fechaactual' and  date(cue_fecharecogida)<='$fechainicial' $conde $conde1 $conde2   $conde3 $conde4 $conde5 $conde6 $conde7 ORDER BY ser_guiare  $asc ";
 
 $DB->Execute($sql); 
 
@@ -148,6 +150,9 @@ if($param40=='' && $param41=''){
 		<td>".$rw1[3]."</td>
 		<td>".$rw1[4]."</td>
 		";
+		if ($param43==1) {
+			echo "<td>".$rw1[19]."</td>";
+		}
 
 		if($rw1[5]==1){  //contado
 		$contado=$rw1[6]+$rw1[10];
@@ -261,6 +266,9 @@ if($param40=='' && $param41=''){
 	$FB->titulo_azul1(" Datos:$va",1,0,0); 
 	$FB->titulo_azul1(" ",1,0,0); 
 	$FB->titulo_azul1(" ",1,0,0); 
+	if ($param43==1) {
+		$FB->titulo_azul1(" ",1,0,0);
+	}
 	$FB->titulo_azul1("$ $totalcontado",1,0,0); 
 	$FB->titulo_azul1("$ $totalcredito",1,0,0); 
 	$FB->titulo_azul1("$ $totalalcobro",1,0,0); 

@@ -127,21 +127,20 @@ $guias=0;
 		//<td>".$rw1[7]."</td>
 		//echo "<td align='center' ><a  onclick='pop_dis5($id_p,\"facturarcreditos\")';  style='cursor: pointer;' title='Recogidas' >$rw1[7]</a></td>";
 		if($rw1[2]=='EXTERNOS'){
-
-			$html.=  "<td colspan='1' width='0' align='center' ><a id='link'  onclick='pop_dis16(\"$id_p\",\"cambiarfactura\",\"$nufactura\")';  title='cambiar Factura' >$rw1[7]
-			<a id='link'  onclick='editarfactura(\"param36=$id_p&param32=$numero&metodo=Editar\")';  title='Facturar' >Editar</td>";
-
-		}else{
-
 			
-				if($rw1[7]=='Facturar'){
-					$html.=  "<td colspan='1' width='0' align='center' ><a id='link'  onclick='window.open(\"crearfacturacredito.php?param6=$id_p&param3=$rw1[2]&metodo=Crear\",\"_self\")';  title='Facturar' >$rw1[7]</td>";
-				}else{			
-					$html.=  "<td colspan='1' width='0' align='center' ><a id='link'  onclick='pop_dis16(\"$id_p\",\"cambiarfactura\",\"$nufactura\")';  title='cambiar Factura' >$rw1[7]
-					<a id='link'  onclick='window.open(\"crearfacturacredito.php?param6=$id_p&param3=$rw1[2]&param2=$numero&metodo=Editar\",\"_self\")';  title='Facturar' >Editar</td>";
-
-				}
-
+			if($rw1[7]=='Facturar'){
+				$html.=  "<td colspan='1' width='0' align='center' ><a id='link'  onclick='window.open(\"crearfactura.php?param6=$id_p&param3=$rw1[2]&param2=$numero&metodo=EditarPrefa\",\"_self\")';  title='Facturar' >$rw1[7]</td>";
+			}else{	
+				$html.=  "<td colspan='1' width='0' align='center' ><a id='link'  onclick='pop_dis16(\"$id_p\",\"cambiarfactura\",\"$nufactura\")';  title='cambiar Factura' >hola$rw1[7]
+				<a id='link'  onclick='editarfactura(\"param36=$id_p&param32=$numero&metodo=Editar\")';  title='Facturar' >Editar</td>";
+			}
+		}else{	
+			if($rw1[7]=='Facturar'){
+				$html.=  "<td colspan='1' width='0' align='center' ><a id='link'  onclick='window.open(\"crearfacturacredito.php?param6=$id_p&param3=$rw1[2]&metodo=Crear\",\"_self\")';  title='Facturar' >$rw1[7]</td>";
+			}else{			
+				$html.=  "<td colspan='1' width='0' align='center' ><a id='link'  onclick='pop_dis16(\"$id_p\",\"cambiarfactura\",\"$nufactura\")';  title='cambiar Factura' >$rw1[7]
+				<a id='link'  onclick='window.open(\"crearfacturacredito.php?param6=$id_p&param3=$rw1[2]&param2=$numero&metodo=Editar\",\"_self\")';  title='Facturar' >Editar</td>";
+			}
 		}
 	if($rw1[17]=='0000-00-00'){
 		$html.=  "<td colspan='1' width='0' align='center' ><a id='link'  onclick='pop_dis16($id_p,\"subirFactura\",\"$rw1[3]\")';  title='Factura' >Subir Factura</td>";

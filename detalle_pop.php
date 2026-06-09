@@ -18,7 +18,27 @@ if (isset($_REQUEST["dir"])) {
     $dir = "";
 }
 $fechatiempo = date("Y-m-d H:i:s");
+$fechaactualBase = (isset($fechaactual) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaactual)) ? $fechaactual : date("Y-m-d");
+$fechaactualInicio = $fechaactualBase . " 00:00:00";
+$fechaactualFin = date("Y-m-d", strtotime($fechaactualBase . " +1 day")) . " 00:00:00";
 $id_sedes = $_SESSION['usu_idsede'];
+
+if (!function_exists('resaltarHorarioMensaje')) {
+    function resaltarHorarioMensaje($mensaje)
+    {
+        $mensajeSeguro = htmlspecialchars($mensaje, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $palabraHorario = '(?:antes|ant|desp\.?|despues|despu[eé]s)';
+        $hora = '(?:\d{1,2}(?:[:\.,]\d{1,2})?|(?:una?|otra)\s+hora|hora)';
+        $patron = '/\b' . $palabraHorario . '\b\.?\s*(?:de\s+)?(?:las?\s+)?' . $hora .
+            '(?:\s*(?:-|,|y|o)?\s*\b' . $palabraHorario . '\b\.?\s*(?:de\s+)?(?:las?\s+)?' . $hora . ')?/iu';
+
+        return preg_replace(
+            $patron,
+            '<span style="color:#ffd166; text-decoration: underline; text-decoration-color:#ffb703; font-weight: bold;">$0</span>',
+            $mensajeSeguro
+        );
+    }
+}
 ?>	
 
 <div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button><h4 class="modal-title"><?php echo $tabla; ?></h4></div>
@@ -525,26 +545,12 @@ terrorismo, secuestro, lavado de activos, financiación del terrorismo, administ
 
     
     
-    
-    // $FB->llena_texto("Descripcion:", 5, 1, $DB, "", "", "", 2, 0);
-    // $FB->llena_texto("Zona:", 6, 2, $DB, "(SELECT `idzonatrabajo`,`zon_nombre` FROM zonatrabajo where idzonatrabajo>0 )", "", "", 2, 0);
-    // $FB->llena_texto("Prueba de Alcohol:", 7, 82, $DB, "", "", "", 2, 1);
-    // $FB->llena_texto("Imagen", 8, 6, $DB, "", "", "", 1, 0);
+
 }elseif ($tabla == "Editar conductor") {
 
     $conductor = "SELECT `condid`, `cond_nombre`, `cond_celular`, `cond_whatsapp`, `cond_cedula`, `cond_foto_celula`, `cond_num_licen`, `cond_foto_licen`, `cond_foto_conductor`, `cond_firma`,cond_lugar_expedi,con_antec FROM `conductor_mani` where condid=$id_param ";
     $DB1->Execute($conductor);
     $rw2 = mysqli_fetch_array($DB1->Consulta_ID);
-
-    // echo "<td>".$rw2[0]."</td>";
-    // $parametro = $_GET['parametro'];
-    // $miArray = json_decode(urldecode($parametro));
-    // print_r($miArray);
-    // if ($nivel_acceso != '1' and $nivel_acceso != '12') {
-    //     $cond = "and idsedes=$id_sedes";
-    // }
-    // echo$idsede = $_REQUEST["ide"];
-    // $FB->llena_texto("Sede:", 1, 2, $DB, "(SELECT `idsedes`,`sed_nombre` FROM sedes where idsedes>0 $cond  )", "", "$idsede", 2, 1);
     $FB->llena_texto("Nombres y apellidos :", 1, 1, $DB, "", "", "$rw2[1]", 2, 0);
     $FB->llena_texto("Celular:", 2, 1, $DB, "", "", "$rw2[2]", 2, 0);
     $FB->llena_texto("Whatsapp:", 3, 1, $DB, "", "", "$rw2[3]", 2, 0);
@@ -568,7 +574,7 @@ terrorismo, secuestro, lavado de activos, financiación del terrorismo, administ
     if ($nivel_acceso != '1' and $nivel_acceso != '12') {
         $cond = "and idsedes=$id_sedes";
     }
-    echo$idsede = $_REQUEST["ide"];
+    $idsede = $_REQUEST["ide"];
    
     $FB->llena_texto("Conductor:", 1, 2, $DB, "SELECT `condid`, `cond_nombre` FROM `conductor_mani` ", "", "$rw2[1]", 2, 1);
     // $FB->llena_texto("Sede:", 1, 2, $DB, "(SELECT `idsedes`,`sed_nombre` FROM sedes where idsedes>0 $cond  )", "", "$idsede", 2, 1);
@@ -3337,26 +3343,58 @@ print_r($pagadas);
 
 
  } 
- else if ($tabla == "seguimientoruta") {
+ else if ($tabla == "seguimientoruta"){
 
         $mensaje=$_REQUEST["mensaje"];
+        $mensajeResaltado=resaltarHorarioMensaje($mensaje);
         echo '<div class="containerruta2">';
         echo '<div class="headingruta">¡Direccion anterior: </div>';
-        echo '<div class="messageruta">'. $mensaje.'</div>';
-      echo '</div>';
+        echo '<div class="messageruta">'. $mensajeResaltado.'</div>';
+        echo '</div>';
         echo "<h1>¿A Donde se dirije?</h1>";
-       $idestadoguia="SELECT  seg_idservicio  as id FROM seguimientoruta where `seg_idusuario`='$id_usuario' and seg_fecha like '%$fechaactual%'  and (seg_estado='En ruta' or seg_tipo='opcionruta')  order by `seg_fechaestado` desc limit 1";
+       $idestadoguia="SELECT  seg_idservicio  as id FROM seguimientoruta where `seg_idusuario`='$id_usuario' and seg_fecha >= '$fechaactualInicio' and seg_fecha < '$fechaactualFin'  and (seg_estado='En ruta' or seg_tipo='opcionruta')  order by `seg_fechaestado` desc limit 1";
         $DB->Execute($idestadoguia);
         $idservicioguia=$DB->recogedato(0);
         if($idservicioguia=='6'){ $idservicioguia=0; }
        
-        // echo"SELECT  CONCAT(id,'|',tipo,'|',nombre) as iddatos,nombre FROM (SELECT idseguimientoruta as id, seg_direccion as nombre,seg_tipo as tipo,orden FROM seguimientoruta inner join ord_recoentregas on orden_idservicio=seg_idservicio WHERE seg_idusuario =$id_usuario and seg_fecha like '$fechaactual%' and seg_idservicio!='$idservicioguia' and seg_estado!='completado' and seg_estado!='Reasignada'  and seg_estado!='Cambioruta' and seg_estado!='NO Recogida' and seg_estado!='NO entregado' and orden_fechadiaejecucion='$fechaactual'   UNION SELECT idopcionruta as id, `opc_nombre` as nombre,'opcionruta' as tipo,(1000+idopcionruta) as orden FROM `opcionruta` where  idopcionruta!='$idservicioguia' order by orden) as datos UNION (SELECT CONCAT(idservicios,'|', UPPER('pendiente x cobrar'), '|',cli_direccion) as iddatos, CONCAT( UPPER('pendiente x cobrar'), '|',cli_direccion) as nombre FROM `clientes` inner join clientesservicios on cli_idclientes=idclientes inner join rel_sercli on idclientesdir=ser_idclientes inner join servicios on ser_idservicio=idservicios inner join cuentaspromotor on cue_idservicio=idservicios where ser_pendientecobrar=1 and ser_estado!=100 and cue_idoperpendiente=$id_usuario ORDER BY ser_fechaentrega ASC)";
-       $FB->llena_texto("Seleccione", 1, 2, $DB, "SELECT  CONCAT(id,'|',tipo,'|',nombre) as iddatos,nombre FROM (SELECT idseguimientoruta as id, seg_direccion as nombre,seg_tipo as tipo,orden FROM seguimientoruta inner join ord_recoentregas on orden_idservicio=seg_idservicio WHERE seg_idusuario =$id_usuario and seg_fecha like '$fechaactual%' and seg_idservicio!='$idservicioguia' and seg_estado!='completado' and seg_estado!='Reasignada'  and seg_estado!='Cambioruta' and seg_estado!='NO Recogida' and seg_estado!='NO entregado' and orden_fechadiaejecucion='$fechaactual'   UNION SELECT idopcionruta as id, `opc_nombre` as nombre,'opcionruta' as tipo,(1000+idopcionruta) as orden FROM `opcionruta` where  idopcionruta!='$idservicioguia' order by orden) as datos UNION (SELECT CONCAT(idservicios,'|', UPPER('pendiente x cobrar'), '|',cli_direccion) as iddatos, CONCAT( UPPER('pendiente x cobrar'), '|',cli_direccion) as nombre FROM `clientes` inner join clientesservicios on cli_idclientes=idclientes inner join rel_sercli on idclientesdir=ser_idclientes inner join servicios on ser_idservicio=idservicios inner join cuentaspromotor on cue_idservicio=idservicios where ser_pendientecobrar=1 and ser_estado!=100 and cue_idoperpendiente=$id_usuario ORDER BY ser_fechaentrega ASC)", "", "", 17, 1);   
+       $sqlOpcionesRuta = "SELECT CONCAT(id,'|',tipo,'|',nombre) as iddatos,nombre
+            FROM (
+                SELECT idseguimientoruta as id, seg_direccion as nombre,seg_tipo as tipo,orden
+                FROM seguimientoruta
+                inner join ord_recoentregas on orden_idservicio=seg_idservicio
+                WHERE seg_idusuario =$id_usuario
+                  and seg_fecha >= '$fechaactualInicio'
+                  and seg_fecha < '$fechaactualFin'
+                  and seg_idservicio!='$idservicioguia'
+                  and seg_estado!='completado'
+                  and seg_estado!='Reasignada'
+                  and seg_estado!='Cambioruta'
+                  and seg_estado!='NO Recogida'
+                  and seg_estado!='NO entregado'
+                  and orden_fechadiaejecucion='$fechaactual'
+                UNION ALL
+                SELECT idopcionruta as id, `opc_nombre` as nombre,'opcionruta' as tipo,(1000+idopcionruta) as orden
+                FROM `opcionruta`
+                where idopcionruta!='$idservicioguia'
+            ) as datos
+            UNION ALL
+            SELECT CONCAT(idservicios,'|', UPPER('pendiente x cobrar'), '|',cli_direccion) as iddatos,
+                   CONCAT( UPPER('pendiente x cobrar'), '|',cli_direccion) as nombre
+            FROM `clientes`
+            inner join clientesservicios on cli_idclientes=idclientes
+            inner join rel_sercli on idclientesdir=ser_idclientes
+            inner join servicios on ser_idservicio=idservicios
+            inner join cuentaspromotor on cue_idservicio=idservicios
+            where ser_pendientecobrar=1
+              and ser_estado!=100
+              and cue_idoperpendiente=$id_usuario";
+       $FB->llena_texto("Seleccione", 1, 2, $DB, $sqlOpcionesRuta, "", "", 17, 1);   
 
-} 
- else if ($tabla == "cambiarruta") {
+}
+else if ($tabla == "cambiarruta") {
          $mensaje=$_REQUEST["mensaje"];
-         $idestadoguia="SELECT  seg_idservicio as id, idseguimientoruta ,seg_tipo  FROM seguimientoruta where `seg_idusuario`='$id_usuario' and seg_fecha like '%$fechaactual%' and seg_estado!='Cambioruta' order by `seg_fechaestado` desc limit 1";
+         $mensajeResaltado=resaltarHorarioMensaje($mensaje);
+         $idestadoguia="SELECT  seg_idservicio as id, idseguimientoruta ,seg_tipo  FROM seguimientoruta where `seg_idusuario`='$id_usuario' and seg_fecha >= '$fechaactualInicio' and seg_fecha < '$fechaactualFin' and seg_estado!='Cambioruta' order by `seg_fechaestado` desc limit 1";
          $DB->Execute($idestadoguia);
          $rw1=mysqli_fetch_row($DB->Consulta_ID);
          $idservicioguia=$rw1[0];
@@ -3374,7 +3412,7 @@ print_r($pagadas);
 
          echo '<div class="containerruta">';
          echo '<div class="headingruta">¡Usted se dirige a: </div>';
-         echo '<div class="headingruta">'. $mensaje.'</div>';
+         echo '<div class="headingruta">'. $mensajeResaltado.'</div>';
          echo '<div class="messageruta">¡Que tenga un buen viaje! <a href="'.$url.'"  target="_blank">📍ir</a> </div>';
                                                     
          
@@ -3438,8 +3476,38 @@ print_r($pagadas);
                 echo "</div>";
             }
         }
-    //    echo"SELECT  CONCAT(id,'|',tipo,'|',nombre) as iddatos,nombre FROM (SELECT idseguimientoruta as id, seg_direccion as nombre,seg_tipo as tipo,orden FROM seguimientoruta inner join ord_recoentregas on orden_idservicio=seg_idservicio WHERE seg_idusuario =$id_usuario and seg_fecha like '$fechaactual%' and seg_idservicio!='$idservicioguia' and seg_estado!='completado' and seg_estado!='Cambioruta'  and seg_estado!='Reasignada' and seg_estado!='NO Recogida' and seg_estado!='NO entregado' and orden_fechadiaejecucion='$fechaactual'   UNION SELECT idopcionruta as id, `opc_nombre` as nombre,'opcionruta' as tipo,(1000+idopcionruta) as orden FROM `opcionruta` where  idopcionruta!='$idservicioguia' order by orden) as datos ";
-         $FB->llena_texto("CAMBIAR RUTA",1, 2, $DB, "SELECT  CONCAT(id,'|',tipo,'|',nombre) as iddatos,nombre FROM (SELECT idseguimientoruta as id, seg_direccion as nombre,seg_tipo as tipo,orden FROM seguimientoruta inner join ord_recoentregas on orden_idservicio=seg_idservicio WHERE seg_idusuario =$id_usuario and seg_fecha like '$fechaactual%' and seg_idservicio!='$idservicioguia' and seg_estado!='completado' and seg_estado!='Cambioruta'  and seg_estado!='Reasignada' and seg_estado!='NO Recogida' and seg_estado!='NO entregado' and orden_fechadiaejecucion='$fechaactual'   UNION SELECT idopcionruta as id, `opc_nombre` as nombre,'opcionruta' as tipo,(1000+idopcionruta) as orden FROM `opcionruta` where  idopcionruta!='$idservicioguia' order by orden) as datos UNION (SELECT CONCAT(idservicios,'|', UPPER('pendiente x cobrar'), '|',cli_direccion) as iddatos, CONCAT( UPPER('pendiente x cobrar'), '|',cli_direccion) as nombre FROM `clientes` inner join clientesservicios on cli_idclientes=idclientes inner join rel_sercli on idclientesdir=ser_idclientes inner join servicios on ser_idservicio=idservicios inner join cuentaspromotor on cue_idservicio=idservicios where ser_pendientecobrar=1 and ser_estado!=100 and cue_idoperpendiente=$id_usuario ORDER BY ser_fechaentrega ASC)", "", "", 17, 1);
+         $sqlCambiarRuta = "SELECT CONCAT(id,'|',tipo,'|',nombre) as iddatos,nombre
+            FROM (
+                SELECT idseguimientoruta as id, seg_direccion as nombre,seg_tipo as tipo,orden
+                FROM seguimientoruta
+                inner join ord_recoentregas on orden_idservicio=seg_idservicio
+                WHERE seg_idusuario =$id_usuario
+                  and seg_fecha >= '$fechaactualInicio'
+                  and seg_fecha < '$fechaactualFin'
+                  and seg_idservicio!='$idservicioguia'
+                  and seg_estado!='completado'
+                  and seg_estado!='Cambioruta'
+                  and seg_estado!='Reasignada'
+                  and seg_estado!='NO Recogida'
+                  and seg_estado!='NO entregado'
+                  and orden_fechadiaejecucion='$fechaactual'
+                UNION ALL
+                SELECT idopcionruta as id, `opc_nombre` as nombre,'opcionruta' as tipo,(1000+idopcionruta) as orden
+                FROM `opcionruta`
+                where idopcionruta!='$idservicioguia'
+            ) as datos
+            UNION ALL
+            SELECT CONCAT(idservicios,'|', UPPER('pendiente x cobrar'), '|',cli_direccion) as iddatos,
+                   CONCAT( UPPER('pendiente x cobrar'), '|',cli_direccion) as nombre
+            FROM `clientes`
+            inner join clientesservicios on cli_idclientes=idclientes
+            inner join rel_sercli on idclientesdir=ser_idclientes
+            inner join servicios on ser_idservicio=idservicios
+            inner join cuentaspromotor on cue_idservicio=idservicios
+            where ser_pendientecobrar=1
+              and ser_estado!=100
+              and cue_idoperpendiente=$id_usuario";
+         $FB->llena_texto("CAMBIAR RUTA",1, 2, $DB, $sqlCambiarRuta, "", "", 17, 1);
          $FB->llena_texto("MOTIVO :",2,9, $DB, "", "","" ,1, 0);
          $FB->llena_texto("Imagen", 4, 6, $DB, "", "", "", 1, 0);
          $FB->llena_texto("param3", 1, 13, $DB, "", "", "$idseguimiento", 5, 0);
@@ -3616,10 +3684,10 @@ else if ($tabla == "Editar datos") {
 
     $dir = $_REQUEST["dir"];
     $sql = "SELECT `idclientes`, `cli_iddocumento`, `cli_telefono`, `cli_email`, `cli_idciudad`, `cli_direccion`, `cli_nombre`, `ser_iddocumento`,`ser_telefonocontacto`, `ser_destinatario`, `ser_direccioncontacto`,`ser_ciudadentrega`,
- `ser_tipopaquete`, `ser_paquetedescripcion`, `ser_fechaentrega`,`ser_prioridad`,  `ser_valorprestamo`, `ser_valorabono`, `ser_valorseguro`, `idservicios`,cli_retorno,idclientesdir,ser_descllamada,date(ser_fecharegistro) 
- ,`ser_peso`,`ser_guiare`,ser_volumen,`ser_piezas`,ser_descripcion,ser_verificado,ser_tipopaq,ser_clasificacion,`ser_valor`, `ser_estado`,`ser_fechafinal`, `ser_fechaentrega`, `ser_prioridad`,  `ser_recogida`, `ser_motivo`,
- `ser_fechaconfirmacion`, `ser_fechaasignacion`, `ser_estado`,ser_devolverreci,ser_idverificadopeso,ser_descentrega,ser_pendientecobrar
- FROM  serviciosdia  where idservicios=$id_param ";
+        `ser_tipopaquete`, `ser_paquetedescripcion`, `ser_fechaentrega`,`ser_prioridad`,  `ser_valorprestamo`, `ser_valorabono`, `ser_valorseguro`, `idservicios`,cli_retorno,idclientesdir,ser_descllamada,date(ser_fecharegistro) 
+        ,`ser_peso`,`ser_guiare`,ser_volumen,`ser_piezas`,ser_descripcion,ser_verificado,ser_tipopaq,ser_clasificacion,`ser_valor`, `ser_estado`,`ser_fechafinal`, `ser_fechaentrega`, `ser_prioridad`,  `ser_recogida`, `ser_motivo`,
+        `ser_fechaconfirmacion`, `ser_fechaasignacion`, `ser_estado`,ser_devolverreci,ser_idverificadopeso,ser_descentrega,ser_pendientecobrar
+        FROM  serviciosdia  where idservicios=$id_param ";
  //van 30 datos consultados
     $DB->Execute($sql);
     $rw = mysqli_fetch_array($DB->Consulta_ID);

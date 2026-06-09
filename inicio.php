@@ -73,6 +73,67 @@ function llena_datos(ex, nivel, ordby, asc)
 	location.href=destino;
 }
 
+function ajustarIframePreoperacional(iframe)
+{
+	function calcularAltura() {
+		try {
+			var doc = iframe.contentDocument || iframe.contentWindow.document;
+			if (!doc) {
+				return;
+			}
+
+			if (doc.documentElement) {
+				doc.documentElement.style.overflow = 'hidden';
+			}
+			if (doc.body) {
+				doc.body.style.overflow = 'hidden';
+			}
+
+			var altura = Math.max(
+				doc.body ? doc.body.scrollHeight : 0,
+				doc.body ? doc.body.offsetHeight : 0,
+				doc.documentElement ? doc.documentElement.scrollHeight : 0,
+				doc.documentElement ? doc.documentElement.offsetHeight : 0
+			);
+
+			if (altura > 0) {
+				iframe.style.height = (altura + 20) + 'px';
+			}
+		} catch (error) {
+			iframe.style.height = '1200px';
+		}
+	}
+
+	calcularAltura();
+	setTimeout(calcularAltura, 300);
+	setTimeout(calcularAltura, 1000);
+
+	try {
+		var doc = iframe.contentDocument || iframe.contentWindow.document;
+		if (doc && 'ResizeObserver' in window && !iframe.__preopResizeObserver) {
+			var observer = new ResizeObserver(calcularAltura);
+			observer.observe(doc.documentElement);
+			if (doc.body) {
+				observer.observe(doc.body);
+			}
+			iframe.__preopResizeObserver = observer;
+		}
+		if (iframe.contentWindow && !iframe.__preopResizeListener) {
+			iframe.contentWindow.addEventListener('resize', calcularAltura);
+			iframe.__preopResizeListener = true;
+		}
+	} catch (error) {
+		// Si el navegador bloquea el acceso al contenido, dejamos la altura de respaldo.
+	}
+}
+
+window.addEventListener('resize', function() {
+	var iframes = document.querySelectorAll('.iframe-preoperacional');
+	for (var i = 0; i < iframes.length; i++) {
+		ajustarIframePreoperacional(iframes[i]);
+	}
+});
+
 </script>
 <?php 
 if($nivel_acceso==6){
@@ -500,7 +561,7 @@ if($nivel_acceso==6){
 				$param4='covid19';
 				$campo='preencuesta';
 				$preoperacional='preoperacional';
-				// if (in_array((int)$nivel_acceso, [1, 2], true)) {
+				if (in_array((int)$nivel_acceso, [1, 2,4,5,7,8,9,10,11,12,13,14], true)) {
 					$preoperacionalUrl = "nueva_plataforma/controller/PreoperacionalController.php"
 						. "?param4=" . urlencode($param4)
 						. "&param5=nuevo"
@@ -509,11 +570,11 @@ if($nivel_acceso==6){
 						. "&iduser=" . urlencode($id_usuario)
 						. "&fecha=" . urlencode($fechaactual);
 
-					echo "<iframe src='$preoperacionalUrl' style='width:100%; min-height:900px; border:0;' loading='lazy'></iframe>";
+					echo "<iframe class='iframe-preoperacional' src='$preoperacionalUrl' style='width:100%; height:1200px; border:0; display:block; overflow:hidden;' loading='lazy' scrolling='no' onload='ajustarIframePreoperacional(this)'></iframe>";
 					
-				// }else{
-				// 	include("preoperacional.php");
-				// }
+				}else{
+					include("preoperacional.php");
+				}
 				
 			
 			}
@@ -573,7 +634,16 @@ if($nivel_acceso==6){
 			$param5='nuevo';
 			$campo='preencuesta';
 			$preoperacional='preoperacional';
-			include("preoperacional.php");
+			// include("preoperacional.php");
+			 $preoperacionalUrl = "nueva_plataforma/controller/PreoperacionalController.php"
+						. "?param4=" . urlencode($param4)
+						. "&param5=" . urlencode($param5)
+						. "&campo=" . urlencode($campo)
+						. "&preoperacional=" . urlencode($preoperacional)
+						. "&iduser=" . urlencode($id_usuario)
+						. "&fecha=" . urlencode($fechaactual);
+
+					echo "<iframe class='iframe-preoperacional' src='$preoperacionalUrl' style='width:100%; height:1200px; border:0; display:block; overflow:hidden;' loading='lazy' scrolling='no' onload='ajustarIframePreoperacional(this)'></iframe>";
 		}  
 	//include("recogidasentregas.php");	
 }
