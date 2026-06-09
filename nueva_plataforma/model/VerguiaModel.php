@@ -45,6 +45,7 @@ class VerguiaModel
                     s.ser_verificado,
                     s.ser_prioridad,
                     s.ser_guiare,
+                    ser_original.ser_manifiesto,
                     s.ser_estado,
                     s.ser_devolverreci,
                     s.ser_fecharegistro,
@@ -54,6 +55,7 @@ class VerguiaModel
                     g.gui_fecharecogio,
                     g.gui_fechaentrega
                 FROM serviciosdia s
+                LEFT JOIN servicios ser_original ON ser_original.idservicios = s.idservicios
                 LEFT JOIN guias g         ON g.gui_idservicio   = s.idservicios
                 LEFT JOIN ciudades ciu_dest ON ciu_dest.idciudades = s.ser_ciudadentrega
                 LEFT JOIN ciudades ciu_ori  ON ciu_ori.idciudades  = s.cli_idciudad

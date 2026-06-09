@@ -1,5 +1,5 @@
 <?php
-require_once "../config/database.php";
+require_once __DIR__ . "/../config/database.php";
 
 class PendientesModel
 {
@@ -169,6 +169,58 @@ class PendientesModel
         return $pendientes;
     }
 
+    public function sincronizarPendientesFijosPorCedula(string $cedula): array
+    {
+        $cedula = trim($cedula);
+        if ($cedula === '') {
+            return ['success' => false, 'message' => 'Cedula vacia.', 'asignados' => 0];
+        }
+
+        $sql = "SELECT idusuarios, roles_idroles, usu_tipocontrato
+                FROM usuarios
+                WHERE usu_identificacion = ?
+                  AND usu_estado = 1
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'No fue posible preparar la consulta de usuario.', 'asignados' => 0];
+        }
+
+        $stmt->bind_param("s", $cedula);
+        $stmt->execute();
+        $usuario = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$usuario) {
+            $this->log('sincronizarPendientesFijosPorCedula sin usuario activo', ['cedula' => $cedula]);
+            return ['success' => false, 'message' => 'No se encontro un usuario activo para esta cedula.', 'asignados' => 0];
+        }
+
+        $idUsuario = (int) $usuario['idusuarios'];
+        $rolUsuario = (int) $usuario['roles_idroles'];
+        $tipoContrato = (string) ($usuario['usu_tipocontrato'] ?? '');
+
+        if ($idUsuario <= 0 || $rolUsuario <= 0 || trim($tipoContrato) === '') {
+            $this->log('sincronizarPendientesFijosPorCedula datos incompletos', [
+                'cedula' => $cedula,
+                'idUsuario' => $idUsuario,
+                'rolUsuario' => $rolUsuario,
+                'tipoContrato' => $tipoContrato,
+            ]);
+            return ['success' => false, 'message' => 'El usuario no tiene rol o tipo de contrato definido.', 'asignados' => 0];
+        }
+
+        $asignados = $this->sincronizarPendientesPorRol($idUsuario, $rolUsuario, $tipoContrato);
+
+        return [
+            'success' => true,
+            'message' => 'Pendientes fijos sincronizados.',
+            'asignados' => $asignados,
+            'usuario_id' => $idUsuario,
+        ];
+    }
+
     public function obtenerRoles(): array
     {
         $sql = "SELECT idroles, rol_nombre FROM roles ORDER BY rol_nombre";
@@ -204,6 +256,7 @@ class PendientesModel
                     pc.pen_documento,
                     pc.pen_link_documento,
                     pc.pen_modo_firma,
+                    pc.pen_fijo,
                     pc.pen_fecha_creacion,
                     pc.pen_estado,
                     u.usu_nombre AS creador_nombre
@@ -232,6 +285,7 @@ class PendientesModel
                 'es_formulario' => $formularioToken !== '',
                 'formulario_id' => 0,
                 'modo_firma' => $this->normalizarModoFirma((string) ($row['pen_modo_firma'] ?? 'individual')),
+                'fijo' => (int) ($row['pen_fijo'] ?? 0),
                 'fecha_creacion' => $row['pen_fecha_creacion'],
                 'creador_nombre' => $row['creador_nombre'] ?? 'Sin nombre',
                 'estado' => (int) $row['pen_estado'],
@@ -435,6 +489,7 @@ class PendientesModel
         $linkDocumento = trim($data['documento_link'] ?? '');
         $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
         $modoFirma = $this->normalizarModoFirma((string) ($data['modo_firma'] ?? 'individual'));
+        $fijo = isset($data['fijo']) && (string) $data['fijo'] === '1' ? 1 : 0;
         $usuariosEspecificosIds = $this->normalizarUsuariosEspecificos($data['usuarios_especificos_ids'] ?? ($data['usuario_especifico_id'] ?? []));
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
@@ -484,12 +539,13 @@ class PendientesModel
                     pen_descripcion = ?,
                     pen_documento = ?,
                     pen_link_documento = ?,
-                    pen_modo_firma = ?
+                    pen_modo_firma = ?,
+                    pen_fijo = ?
                 WHERE id = ?
                   AND pen_creado_por = ?";
 
             $stmtPendiente = $this->db->prepare($sqlPendiente);
-            $stmtPendiente->bind_param("sssssii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $pendienteId, $creadorId);
+            $stmtPendiente->bind_param("sssssiii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $fijo, $pendienteId, $creadorId);
             $stmtPendiente->execute();
             $stmtPendiente->close();
 
@@ -512,10 +568,12 @@ class PendientesModel
             $stmtDeleteTipos->execute();
             $stmtDeleteTipos->close();
 
-            $stmtDeleteUsuarios = $this->db->prepare("DELETE FROM pendientes_creados_usuarios WHERE pendiente_id = ?");
-            $stmtDeleteUsuarios->bind_param("i", $pendienteId);
-            $stmtDeleteUsuarios->execute();
-            $stmtDeleteUsuarios->close();
+            $stmtDesactivarUsuarios = $this->db->prepare("UPDATE pendientes_creados_usuarios
+                SET pu_estado = 0
+                WHERE pendiente_id = ?");
+            $stmtDesactivarUsuarios->bind_param("i", $pendienteId);
+            $stmtDesactivarUsuarios->execute();
+            $stmtDesactivarUsuarios->close();
 
             if ($modoAsignacion === 'usuario') {
                 $this->insertarUsuariosPendiente($pendienteId, $usuariosEspecificos);
@@ -597,6 +655,7 @@ class PendientesModel
         $linkDocumento = trim($data['documento_link'] ?? '');
         $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
         $modoFirma = $this->normalizarModoFirma((string) ($data['modo_firma'] ?? 'individual'));
+        $fijo = isset($data['fijo']) && (string) $data['fijo'] === '1' ? 1 : 0;
         $usuariosEspecificosIds = $this->normalizarUsuariosEspecificos($data['usuarios_especificos_ids'] ?? ($data['usuario_especifico_id'] ?? []));
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
@@ -611,6 +670,7 @@ class PendientesModel
             'tipos_contrato' => $tiposContrato,
             'modo_asignacion' => $modoAsignacion,
             'modo_firma' => $modoFirma,
+            'fijo' => $fijo,
             'usuarios_especificos_ids' => $usuariosEspecificosIds,
             'file_error' => $file['error'] ?? null,
             'file_name' => $file['name'] ?? null,
@@ -671,14 +731,14 @@ class PendientesModel
 
         try {
             $sqlPendiente = "INSERT INTO pendientes_creados
-                (pen_titulo, pen_descripcion, pen_documento, pen_link_documento, pen_modo_firma, pen_creado_por, pen_fecha_creacion, pen_estado)
-                VALUES (?, ?, ?, ?, ?, ?, NOW(), 1)";
+                (pen_titulo, pen_descripcion, pen_documento, pen_link_documento, pen_modo_firma, pen_fijo, pen_creado_por, pen_fecha_creacion, pen_estado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 1)";
 
             $stmtPendiente = $this->db->prepare($sqlPendiente);
             if (!$stmtPendiente) {
                 throw new Exception('Error preparando INSERT pendientes_creados: ' . $this->db->error);
             }
-            $stmtPendiente->bind_param("sssssi", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $creadorId);
+            $stmtPendiente->bind_param("sssssii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $fijo, $creadorId);
             $stmtPendiente->execute();
             $pendienteId = (int) $stmtPendiente->insert_id;
             $stmtPendiente->close();
@@ -1084,6 +1144,7 @@ class PendientesModel
             pen_documento VARCHAR(255) NOT NULL,
             pen_link_documento VARCHAR(255) NULL,
             pen_modo_firma VARCHAR(20) NOT NULL DEFAULT 'individual',
+            pen_fijo TINYINT(1) NOT NULL DEFAULT 0,
             pen_creado_por INT NOT NULL,
             pen_fecha_creacion DATETIME NOT NULL,
             pen_estado TINYINT(1) NOT NULL DEFAULT 1
@@ -1131,6 +1192,11 @@ class PendientesModel
             'pendientes_creados',
             'pen_modo_firma',
             "ALTER TABLE pendientes_creados ADD COLUMN pen_modo_firma VARCHAR(20) NOT NULL DEFAULT 'individual' AFTER pen_documento"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'pendientes_creados',
+            'pen_fijo',
+            "ALTER TABLE pendientes_creados ADD COLUMN pen_fijo TINYINT(1) NOT NULL DEFAULT 0 AFTER pen_modo_firma"
         );
         $this->agregarColumnaSiNoExiste(
             'pendientes_creados_usuarios',
@@ -1241,17 +1307,7 @@ class PendientesModel
             VALUES (?, ?, ?, 1, 0, NOW())
             ON DUPLICATE KEY UPDATE
                 rol_id = VALUES(rol_id),
-                pu_estado = 1,
-                pu_confirmacion = NULL,
-                pu_observacion = NULL,
-                pu_documento_abierto = 0,
-                pu_fecha_documento_abierto = NULL,
-                pu_fecha_confirmacion = NULL,
-                pu_firma_ruta = NULL,
-                pu_fecha_firma = NULL,
-                pu_pdf_firmado_ruta = NULL,
-                pu_fecha_pdf_firmado = NULL,
-                pu_fecha_asignacion = NOW()");
+                pu_estado = 1");
 
         if (!$stmtUsuario) {
             throw new Exception('Error preparando INSERT pendientes_creados_usuarios: ' . $this->db->error);
@@ -1267,7 +1323,7 @@ class PendientesModel
         $stmtUsuario->close();
     }
 
-    private function sincronizarPendientesPorRol(int $idUsuario, int $rolUsuario, string $tipoContratoUsuario): void
+    private function sincronizarPendientesPorRol(int $idUsuario, int $rolUsuario, string $tipoContratoUsuario): int
     {
         $sql = "INSERT INTO pendientes_creados_usuarios
                     (pendiente_id, usuario_id, rol_id, pu_documento_abierto, pu_fecha_asignacion)
@@ -1287,18 +1343,25 @@ class PendientesModel
                     ON ptc.pendiente_id = pc.id
                 WHERE pr.rol_id = ?
                   AND pc.pen_estado = 1
+                  AND pc.pen_fijo = 1
                   AND (ptc.tipo_contrato IS NULL OR ptc.tipo_contrato = ?)
-                  AND pu.id IS NULL";
+                  AND pu.id IS NULL
+                ON DUPLICATE KEY UPDATE
+                    rol_id = VALUES(rol_id),
+                    pu_estado = 1";
 
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("iiiis", $idUsuario, $rolUsuario, $idUsuario, $rolUsuario, $tipoContratoUsuario);
         $stmt->execute();
+        $asignados = max(0, (int) $stmt->affected_rows);
         $stmt->close();
+
+        return $asignados;
     }
 
     private function obtenerPendientePorId(int $pendienteId, int $creadorId): ?array
     {
-        $sql = "SELECT id, pen_documento, pen_link_documento
+        $sql = "SELECT id, pen_documento, pen_link_documento, pen_fijo
                 FROM pendientes_creados
                 WHERE id = ?
                   AND pen_creado_por = ?

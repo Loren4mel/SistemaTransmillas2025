@@ -231,7 +231,7 @@ if (isset($_GET['excel'])) {
             
             <td>{$row['ciudad_origen']}</td>
             <td>{$row['ciudad_destino']}</td>
-            <td class='precios'>{$row['pre_preciokilo']}</td>
+            <td class='precios'>{$row['pre_kilo']}</td>
             <td>{$row['precio_6_20']}</td>
             <td>{$row['precio_21_50']}</td>
             <td>{$row['precio_51_100']}</td>

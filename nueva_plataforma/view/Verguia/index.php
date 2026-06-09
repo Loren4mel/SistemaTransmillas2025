@@ -18,6 +18,23 @@ if (!function_exists('formatearFechaHoraGuia')) {
         return date('Y-m-d h:i A', $timestamp);
     }
 }
+
+if (!function_exists('separarManifiestoGuia')) {
+    function separarManifiestoGuia($valor)
+    {
+        $resultado = ['N/D', 'N/D'];
+        $partes = explode('-', trim((string)$valor), 2);
+
+        if (trim($partes[0]) !== '') {
+            $resultado[0] = trim($partes[0]);
+        }
+        if (isset($partes[1]) && trim($partes[1]) !== '') {
+            $resultado[1] = trim($partes[1]);
+        }
+
+        return $resultado;
+    }
+}
 ?>
 <!doctype html>
 <html lang="es">
@@ -277,6 +294,7 @@ if (!function_exists('formatearFechaHoraGuia')) {
             No se encontraron datos para la guía solicitada.
         </div>
     <?php else: ?>
+    <?php list($numeroManifiesto, $numeroRemesa) = separarManifiestoGuia($guia['ser_manifiesto'] ?? null); ?>
 
     <div class="card-guia mt-2" id="ticket-guia">
         <div class="p-3 p-md-4">
@@ -284,7 +302,7 @@ if (!function_exists('formatearFechaHoraGuia')) {
             <!-- Encabezado interno de la guía -->
             <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-3">
                 <div>
-                    <div class="small-label mb-1">Remesa / Guía</div>
+                    <div class="small-label mb-1">Guía</div>
                     <div class="d-flex flex-wrap align-items-center gap-2">
                         <h4 class="mb-0">
                             #<?= htmlspecialchars($guia['ser_consecutivo'] ?? $guia['ser_guiare']) ?>
@@ -302,6 +320,16 @@ if (!function_exists('formatearFechaHoraGuia')) {
                         <?= htmlspecialchars($guia['ciudad_origen'] ?? 'N/D') ?>
                         · Destino:
                         <?= htmlspecialchars($guia['ciudad_destino'] ?? 'N/D') ?>
+                    </div>
+                    <div class="d-flex flex-wrap gap-4 mt-2">
+                        <div>
+                            <div class="small-label">Manifiesto de carga</div>
+                            <div class="value-text"><?= htmlspecialchars($numeroManifiesto) ?></div>
+                        </div>
+                        <div>
+                            <div class="small-label">Número de remesa</div>
+                            <div class="value-text"><?= htmlspecialchars($numeroRemesa) ?></div>
+                        </div>
                     </div>
                 </div>
                 <div class="text-md-end">

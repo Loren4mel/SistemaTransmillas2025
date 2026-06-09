@@ -30,8 +30,8 @@ pendientesViewLog('Inicio vista Pendientes', [
 ]);
 
 $puedeAdministrarPendientes = ($rolUsuario ?? 0) === 1;
-$puedeAdministrarFormularios = in_array((int) ($rolUsuario ?? 0), [1, 12], true);
-$puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], true);
+$puedeAdministrarFormularios = in_array((int) ($rolUsuario ?? 0), [1, 4, 12], true);
+$puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 4, 12], true);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -331,6 +331,11 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                           <span class="meta-pendiente">
                             Firma: <?= htmlspecialchars(($pendienteCreado['modo_firma'] ?? 'individual') === 'multiple' ? 'Multiple' : 'Individual') ?>
                           </span>
+                          <?php if ((int) ($pendienteCreado['fijo'] ?? 0) === 1): ?>
+                            <span class="badge bg-warning text-dark">
+                              <i class="bi bi-pin-angle-fill"></i> Fijo para usuarios nuevos
+                            </span>
+                          <?php endif; ?>
                           <span class="meta-pendiente">
                             Estado general: <?= (int) $pendienteCreado['estado'] === 1 ? 'Activo' : 'Inactivo' ?>
                           </span>
@@ -364,6 +369,7 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                             data-tipos-contrato='<?= htmlspecialchars(json_encode($pendienteCreado['tipos_contrato']), ENT_QUOTES, 'UTF-8') ?>'
                             data-modo-asignacion="<?= htmlspecialchars($pendienteCreado['modo_asignacion']) ?>"
                             data-modo-firma="<?= htmlspecialchars($pendienteCreado['modo_firma'] ?? 'individual') ?>"
+                            data-fijo="<?= (int) ($pendienteCreado['fijo'] ?? 0) ?>"
                             data-usuario-objetivo-id="<?= (int) $pendienteCreado['usuario_objetivo_id'] ?>"
                             data-usuarios-objetivo-ids='<?= htmlspecialchars(json_encode($pendienteCreado['usuarios_objetivo_ids'] ?? []), ENT_QUOTES, 'UTF-8') ?>'
                           >
@@ -703,6 +709,18 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                   </div>
                 </div>
 
+                <div class="col-12">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="fijo" name="fijo" value="1">
+                    <label class="form-check-label" for="fijo">
+                      Fijar pendiente para usuarios nuevos
+                      <span class="meta-pendiente d-block">
+                        Si alguien nuevo coincide con los roles y tipo de contrato seleccionados, este pendiente se le asignara automaticamente.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
                 <div class="col-md-4">
                   <label for="modo_asignacion" class="form-label">Asignar por</label>
                   <select class="form-select" id="modo_asignacion" name="modo_asignacion" required>
@@ -872,6 +890,18 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                   <label class="form-label">Como funciona</label>
                   <div class="hint-card" id="hintModoFirmaEditar">
                     Cada usuario firma su propia constancia y confirma con la logica actual.
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="editar_fijo" name="fijo" value="1">
+                    <label class="form-check-label" for="editar_fijo">
+                      Fijar pendiente para usuarios nuevos
+                      <span class="meta-pendiente d-block">
+                        Si alguien nuevo coincide con los roles y tipo de contrato seleccionados, este pendiente se le asignara automaticamente.
+                      </span>
+                    </label>
                   </div>
                 </div>
 
@@ -1078,9 +1108,11 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
       $('#bloqueUsuarioEspecifico').toggle(esUsuario);
       $('#bloqueRolesContratoCrear').toggle(!esUsuario);
       $('#bloqueTiposContratoCrear').toggle(!esUsuario);
+      $('#fijo').prop('disabled', esUsuario);
       if (esUsuario) {
         $('#formCrearPendiente input[name="roles[]"]').prop('checked', false);
         $('#formCrearPendiente input[name="tipos_contrato[]"]').prop('checked', false);
+        $('#fijo').prop('checked', false);
       } else {
         $('#formCrearPendiente input[name="usuarios_especificos_ids[]"]').prop('checked', false);
         $('#filtro_usuarios_texto').val('');
@@ -1119,9 +1151,11 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
       $('#bloqueEditarUsuarioEspecifico').toggle(esUsuario);
       $('#bloqueEditarRolesContrato').toggle(!esUsuario);
       $('#bloqueEditarTiposContrato').toggle(!esUsuario);
+      $('#editar_fijo').prop('disabled', esUsuario);
       if (esUsuario) {
         $('#formEditarPendiente input[name="roles[]"]').prop('checked', false);
         $('#formEditarPendiente input[name="tipos_contrato[]"]').prop('checked', false);
+        $('#editar_fijo').prop('checked', false);
       } else {
         $('#formEditarPendiente input[name="usuarios_especificos_ids[]"]').prop('checked', false);
         $('#editar_filtro_usuarios_texto').val('');
@@ -1346,6 +1380,7 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
       $('#editar_descripcion').val($boton.data('descripcion'));
       $('#editar_modo_asignacion').val($boton.data('modo-asignacion'));
       $('#editar_modo_firma').val($boton.data('modo-firma') || 'individual');
+      $('#editar_fijo').prop('checked', String($boton.data('fijo')) === '1');
       let usuariosObjetivoIds = [];
       try {
         usuariosObjetivoIds = JSON.parse($boton.attr('data-usuarios-objetivo-ids') || '[]');

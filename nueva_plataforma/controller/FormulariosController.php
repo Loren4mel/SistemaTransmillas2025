@@ -9,7 +9,7 @@ try {
     $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
     $nombreUsuario = $_SESSION['usuario_nombre'] ?? '';
     $rolUsuario = (int) ($_SESSION['usuario_rol'] ?? 0);
-    $puedeAdministrar = in_array($rolUsuario, [1, 12], true);
+    $puedeAdministrar = in_array($rolUsuario, [1, 4, 12], true);
 
     if ($idUsuario <= 0) {
         http_response_code(401);

@@ -400,6 +400,7 @@ class RecogidasMovilModel {
    ========================================================== */
     public function guardarRecogidaConLogicaVieja(array $data, array $files, array $session)
     {
+                $transaccionIniciada = false;
                 try {
 
                         // $this->logServicio('INICIO guardarRecogida', [
@@ -515,6 +516,10 @@ class RecogidasMovilModel {
                         // ]);
                         return ['ok' => false, 'mensaje' => 'Ya existe un registro', 'guia' => $ya];
                     }
+
+                    $this->db->begin_transaction();
+                    $transaccionIniciada = true;
+
                     // --------------------------------------------------
                     // 2) Normalizaciones como viejo
                     // --------------------------------------------------
@@ -558,7 +563,7 @@ class RecogidasMovilModel {
                                         2,
                                         '" . $this->escape($fechatiempo) . "'
                                     )";
-                        $idclientes = $this->insert($sqlInsCli);
+                        $idclientes = $this->insertOrThrow($sqlInsCli, 'No se pudo guardar el cliente remitente');
 
                         // Insert clientesdir
                         $sqlInsDir = "INSERT INTO clientesdir (cli_nombre, cli_telefono, cli_idciudad, cli_direccion, cli_idclientes, cli_principal)
@@ -570,7 +575,7 @@ class RecogidasMovilModel {
                                         '" . (int)$idclientes . "',
                                         1
                                     )";
-                        $idclientesdir = $this->insert($sqlInsDir);
+                        $idclientesdir = $this->insertOrThrow($sqlInsDir, 'No se pudo guardar la direccion del remitente');
 
                         $id_param  = (int)$idclientes;
                         $id_param2 = (int)$idclientesdir;
@@ -585,7 +590,7 @@ class RecogidasMovilModel {
                                         cli_fecharegistro='" . $this->escape($fechatiempo) . "',
                                         cli_retorno='" . $this->escape($param25) . "'
                                     WHERE idclientes='" . (int)$id_param . "'";
-                        $this->db->query($sqlUpCli);
+                        $this->execOrThrow($sqlUpCli, 'No se pudo actualizar el cliente remitente');
 
                         // Update clientesdir
                         $sqlUpDir = "UPDATE clientesdir SET
@@ -596,7 +601,7 @@ class RecogidasMovilModel {
                                         cli_idclientes='" . (int)$id_param . "',
                                         cli_principal=1
                                     WHERE idclientesdir='" . (int)$id_param2 . "'";
-                        $this->db->query($sqlUpDir);
+                        $this->execOrThrow($sqlUpDir, 'No se pudo actualizar la direccion del remitente');
                     }
                     // $this->logServicio('CLIENTE REMITENTE', [
                     //     'idclientes' => $id_param,
@@ -613,7 +618,7 @@ class RecogidasMovilModel {
                                     '" . (int)$id_param . "',
                                     1
                                 )";
-                    $idcli2 = $this->insert($sqlCliServ);
+                    $idcli2 = $this->insertOrThrow($sqlCliServ, 'No se pudo guardar el cliente del servicio');
 
                     // --------------------------------------------------
                     // 5) Guardar/Actualizar destinatario si hay teléfono (igual)
@@ -630,7 +635,7 @@ class RecogidasMovilModel {
                             // Inserta cliente "tipo 0"
                             $sqlInsCliD = "INSERT INTO clientes (cli_tipo, cli_iddocumento, cli_email, cli_fecharegistro)
                                         VALUES (0, '', '', '" . $this->escape($fechatiempo) . "')";
-                            $idcliDest = $this->insert($sqlInsCliD);
+                            $idcliDest = $this->insertOrThrow($sqlInsCliD, 'No se pudo guardar el cliente destinatario');
 
                             $sqlInsDirD = "INSERT INTO clientesdir (cli_nombre, cli_telefono, cli_idciudad, cli_direccion, cli_idclientes, cli_principal)
                                         VALUES (
@@ -641,7 +646,7 @@ class RecogidasMovilModel {
                                             '" . (int)$idcliDest . "',
                                             0
                                         )";
-                            $this->insert($sqlInsDirD);
+                            $this->insertOrThrow($sqlInsDirD, 'No se pudo guardar la direccion del destinatario');
 
                         } else {
                             // Update cliente
@@ -650,7 +655,7 @@ class RecogidasMovilModel {
                                             cli_fecharegistro='" . $this->escape($fechatiempo) . "',
                                             cli_iddocumento=''
                                         WHERE idclientes='" . (int)$valorinser . "'";
-                            $this->db->query($sqlUpCliD);
+                            $this->execOrThrow($sqlUpCliD, 'No se pudo actualizar el cliente destinatario');
 
                             // Update clientesdir
                             $sqlUpDirD = "UPDATE clientesdir SET
@@ -660,7 +665,7 @@ class RecogidasMovilModel {
                                             cli_direccion='" . $this->escape($dirDes) . "',
                                             cli_principal=0
                                         WHERE cli_idclientes='" . (int)$valorinser . "'";
-                            $this->db->query($sqlUpDirD);
+                            $this->execOrThrow($sqlUpDirD, 'No se pudo actualizar la direccion del destinatario');
                         }
                     }
                     // $this->logServicio('DESTINATARIO PROCESADO', [
@@ -678,28 +683,47 @@ class RecogidasMovilModel {
                                 FROM conf_fac
                                 INNER JOIN ciudades ON idciudad=inner_sedes
                                 WHERE idciudades='" . $this->escape($param4) . "'
-                                LIMIT 1";
+                                LIMIT 1
+                                FOR UPDATE";
                     $rw1 = $this->fetchOne($sqlConf);
 
                     
 
-                    if ($rw1) {
-                        $planilla = ($rw1['prefijo'] ?? '') . ($rw1['idconsecutivo'] ?? '');
-                        $idconsecutivo = ((int)($rw1['idconsecutivo'] ?? 0)) + 1;
+                    if (!$rw1) {
+                        throw new Exception('No existe configuracion de consecutivo para la ciudad origen.');
+                    }
 
-                        if ($idconsecutivo >= 10) {
-                            $sqlUpConf = "UPDATE conf_fac c
-                                        INNER JOIN ciudades cc ON c.idciudad=cc.inner_sedes
-                                        SET c.idconsecutivo=" . (int)$idconsecutivo . "
-                                        WHERE cc.idciudades='" . $this->escape($param4) . "'";
-                            $this->db->query($sqlUpConf);
-                        } else {
-                            $planilla = ""; // igual que viejo
-                        }
+                    $prefijo = trim((string)($rw1['prefijo'] ?? ''));
+                    $consecutivoActual = (int)($rw1['idconsecutivo'] ?? 0);
+
+                    if ($prefijo === '' || $consecutivoActual <= 0) {
+                        throw new Exception('Configuracion de consecutivo invalida para la ciudad origen.');
+                    }
+
+                    $planilla = $prefijo . $consecutivoActual;
+                    $idconsecutivo = $consecutivoActual + 1;
+
+                    if (trim($planilla) === '') {
+                        throw new Exception('No se pudo generar el numero de guia.');
+                    }
+
+                    $sqlUpConf = "UPDATE conf_fac c
+                                INNER JOIN ciudades cc ON c.idciudad=cc.inner_sedes
+                                SET c.idconsecutivo=" . (int)$idconsecutivo . "
+                                WHERE cc.idciudades='" . $this->escape($param4) . "'
+                                AND c.idconfac='" . (int)$rw1['idconfac'] . "'";
+                    $this->execOrThrow($sqlUpConf, 'No se pudo actualizar el consecutivo de la guia');
+
+                    if ($this->db->affected_rows < 1) {
+                        throw new Exception('No se actualizo el consecutivo de la guia.');
                     }
 
                     if ($param16 == '') {
                         $param16 = $planilla; // igual
+                    }
+
+                    if (trim((string)$param16) === '' || trim((string)$planilla) === '') {
+                        throw new Exception('La guia no puede guardarse sin numero de guia.');
                     }
 
                     // $this->logServicio('PLANILLA', [
@@ -759,7 +783,7 @@ class RecogidasMovilModel {
                     )";
 
                 
-                    $idser = $this->insert($sqlServ);
+                    $idser = $this->insertOrThrow($sqlServ, 'No se pudo guardar el servicio');
                     // 📍 Guardar ubicación GPS de la recogida
                     $this->guardarUbicacionServicio($idser, $id_usuario, "RECOGIDA",$data);
 
@@ -774,7 +798,7 @@ class RecogidasMovilModel {
                     // --------------------------------------------------
                     $sqlRel = "INSERT INTO rel_sercli (ser_idclientes, ser_idservicio, ser_fechaingreso)
                             VALUES (" . (int)$idcli2 . ", " . (int)$idser . ", '" . $this->escape($fechatiempo) . "')";
-                    $this->db->query($sqlRel);
+                    $this->execOrThrow($sqlRel, 'No se pudo relacionar el cliente con el servicio');
 
                     // --------------------------------------------------
                     // 11) Insert guias (igual)
@@ -789,7 +813,7 @@ class RecogidasMovilModel {
                         '" . $this->escape($id_nombre) . "', '" . $this->escape($fechatiempo) . "',
                         '" . $this->escape($id_nombre) . "', '" . $this->escape($fechatiempo) . "'
                     )";
-                    $this->db->query($sqlGuia);
+                    $this->execOrThrow($sqlGuia, 'No se pudo guardar la guia');
 
                     // --------------------------------------------------
                     // 12) Abono (igual)
@@ -804,7 +828,7 @@ class RecogidasMovilModel {
                                     " . (int)$id_sedes . ",
                                     'abono'
                                 )";
-                        $this->db->query($sqlAbo);
+                        $this->execOrThrow($sqlAbo, 'No se pudo guardar el abono');
                     }
 
                     // --------------------------------------------------
@@ -820,12 +844,12 @@ class RecogidasMovilModel {
                         $nombrecredito = $this->fetchValue($sqlNom);
 
                         // borrar previos (igual)
-                        $this->db->query("DELETE FROM rel_sercre WHERE idservicio=" . (int)$idser);
+                        $this->execOrThrow("DELETE FROM rel_sercre WHERE idservicio=" . (int)$idser, 'No se pudo limpiar la relacion de credito');
 
                         if (!empty($nombrecredito)) {
                             $sqlRelCre = "INSERT INTO rel_sercre (idservicio, rel_nom_credito)
                                         VALUES (" . (int)$idser . ", '" . $this->escape($nombrecredito) . "')";
-                            $this->db->query($sqlRelCre);
+                            $this->execOrThrow($sqlRelCre, 'No se pudo guardar la relacion de credito');
                         }
                         if ($param28 === '2') {
                             // $this->logServicio('SERVICIO A CRÉDITO', [
@@ -880,17 +904,14 @@ class RecogidasMovilModel {
 
 
 
-                    $this->db->query($sqlCuenta);
+                    $this->execOrThrow($sqlCuenta, 'No se pudo guardar la cuenta del promotor');
 
                     if ($metodo_pago=="DV" or $metodo_pago=="NQ") {
                         $fotoTrans = "";
                         if ($param40 && isset($param40['tmp_name']) && is_uploaded_file($param40['tmp_name'])) {
                             $fotoTrans = $this->uploadFile($param40, __DIR__ . "/../../img_transacciones/");
                             if ($fotoTrans === false || $fotoTrans === "") {
-                                return [
-                                    'ok' => false,
-                                    'mensaje' => 'No se pudo guardar la imagen de la transaccion.'
-                                ];
+                                throw new Exception('No se pudo guardar la imagen de la transaccion.');
                             }
                         }
 
@@ -925,7 +946,7 @@ class RecogidasMovilModel {
                                 '" . $this->escape($fotoTrans) . "'
                             )";
 
-                        $this->db->query($sqlPagoCuenta);
+                        $this->execOrThrow($sqlPagoCuenta, 'No se pudo guardar el pago en cuenta');
                     }
 
                     // --------------------------------------------------
@@ -944,7 +965,7 @@ class RecogidasMovilModel {
                                     1,
                                     '" . (int)$id_usuario . "'
                                 )";
-                    $this->db->query($sqlFirma);
+                    $this->execOrThrow($sqlFirma, 'No se pudo guardar los datos de firma');
 
 
                     
@@ -1001,6 +1022,9 @@ class RecogidasMovilModel {
                     // ===============================
                     // RESPUESTA RÁPIDA
                     // ===============================
+                    $this->db->commit();
+                    $transaccionIniciada = false;
+
                     return [
                         'ok' => true,
                         'idservicio' => (int)$idser,
@@ -1027,6 +1051,10 @@ class RecogidasMovilModel {
 
             } catch (\Throwable $e) {
 
+            if ($transaccionIniciada) {
+                $this->db->rollback();
+            }
+
             // $this->logServicio('ERROR CRÍTICO guardarRecogida', [
             //     'mensaje' => $e->getMessage(),
             //     'archivo' => $e->getFile(),
@@ -1036,7 +1064,7 @@ class RecogidasMovilModel {
 
             return [
                 'ok' => false,
-                'mensaje' => 'Error interno. Revisa logs.'
+                'mensaje' => $e->getMessage()
             ];
         }
     }
@@ -1118,6 +1146,24 @@ class RecogidasMovilModel {
         if (!$res) return null;
         $row = $res->fetch_row();
         return $row[0] ?? null;
+    }
+
+    private function execOrThrow($sql, $mensaje = 'Error ejecutando consulta')
+    {
+        if (!$this->db->query($sql)) {
+            throw new Exception($mensaje . ': ' . $this->db->error);
+        }
+        return true;
+    }
+
+    private function insertOrThrow($sql, $mensaje = 'Error insertando registro')
+    {
+        $this->execOrThrow($sql, $mensaje);
+        $id = (int)$this->db->insert_id;
+        if ($id <= 0) {
+            throw new Exception($mensaje . ': no se genero ID.');
+        }
+        return $id;
     }
 
     private function insert($sql)
@@ -1578,4 +1624,3 @@ class RecogidasMovilModel {
             return $this->db;
         }
 }
-

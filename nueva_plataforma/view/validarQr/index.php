@@ -1,3 +1,8 @@
+<?php
+$datosManifiesto = explode('-', trim((string)($guia['ser_manifiesto'] ?? '')), 2);
+$numeroManifiesto = trim($datosManifiesto[0] ?? '') ?: 'N/D';
+$numeroRemesa = trim($datosManifiesto[1] ?? '') ?: 'N/D';
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -61,9 +66,26 @@
       </div>
     </div>
 
-    <!-- Piezas -->
+    <!-- Identificación de carga y piezas -->
     <div class="row mt-4">
-      <div class="col-12">
+      <div class="col-md-8 mb-4 mb-md-0">
+        <div class="card shadow h-100">
+          <div class="card-header mi-header">
+            <i class="bi bi-file-earmark-text me-2"></i> Identificación de Carga
+          </div>
+          <div class="card-body row align-items-center text-center">
+            <div class="col-sm-6 mb-3 mb-sm-0">
+              <p class="text-muted mb-1">Manifiesto de carga</p>
+              <h4 class="fw-bold mb-0"><?php echo htmlspecialchars($numeroManifiesto); ?></h4>
+            </div>
+            <div class="col-sm-6">
+              <p class="text-muted mb-1">Número de remesa</p>
+              <h4 class="fw-bold mb-0"><?php echo htmlspecialchars($numeroRemesa); ?></h4>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
         <div class="card shadow text-center">
           <div class="card-header" style="background:#0d6efd; color:white;">
             <i class="bi bi-box-seam me-2"></i> Cantidad de Piezas

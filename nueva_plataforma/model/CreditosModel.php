@@ -1,38 +1,23 @@
 <?php
 require_once "../config/database.php";
 
-class  ClientesModel{
+class CreditosModel {
     private $db;
 
     public function __construct() {
         $this->db = (new Database())->connect();
     }
 
-    public function contarClientes($search = '', $fecha = '', $tipo = '') {
-        $sql = "SELECT COUNT(*) AS total
-                FROM creditos cd
-                -- INNER JOIN clientes c ON cd.cli_idclientes = c.idclientes
-                -- INNER JOIN ciudades ciu ON cd.cli_idciudad = ciu.idciudades
-                WHERE cd.idcreditos > 0";
-
+    public function contarCreditos($search = '') {
+        $sql = "SELECT COUNT(*) AS total FROM creditos WHERE idcreditos > 0";
         $params = [];
         $types = "";
 
-        // if (!empty($search)) {
-        //     if (is_numeric($search)) {
-        //     $sql .= " AND (cd.cli_telefono LIKE ?)";
-        //     $like = "%$search%";
-        //     $params = [$like];
-        //     $types = "s";
-
-        //     }else {
-        //     $sql .= " AND (cd.cli_nombre LIKE ? OR c.cli_iddocumento LIKE ? )";
-        //     $like = "%$search%";
-        //     $params = [$like, $like];
-        //     $types = "ss";
-        //     }
-
-        // }
+        if ($search !== '') {
+            $sql .= " AND cre_nombre LIKE ?";
+            $params[] = "%$search%";
+            $types .= "s";
+        }
 
         $stmt = $this->db->prepare($sql);
         if (!empty($params)) {
@@ -42,173 +27,102 @@ class  ClientesModel{
         $result = $stmt->get_result()->fetch_assoc();
         return $result['total'] ?? 0;
     }
-    public function obtenerClientesPaginado($start, $length, $search = '', $fecha = '', $ciudad = '') {
-        $sql = "SELECT 
-            cd.idcreditos,
-            cd.cre_nombre,
-            cd.cre_estado,
-            cd.cre_estado_final
-        FROM creditos cd ";
 
+    public function obtenerCreditosPaginado($start, $length, $search = '') {
+        $sql = "SELECT idcreditos, cre_nombre, cre_estado, cre_estado_final
+                FROM creditos
+                WHERE idcreditos > 0";
         $params = [];
         $types = "";
 
-        // if (!empty($search)) {
-        //     if (is_numeric($search)) {
-        //     $sql .= " AND ( cd.cli_telefono LIKE ?)";
-        //     $like = "%$search%";
-        //     $params = [$like];
-        //     $types = "s";
+        if ($search !== '') {
+            $sql .= " AND cre_nombre LIKE ?";
+            $params[] = "%$search%";
+            $types .= "s";
+        }
 
-        //     }else {
-        //     $sql .= " AND (cd.cli_nombre LIKE ? OR c.cli_iddocumento LIKE ? )";
-        //     $like = "%$search%";
-        //     $params = [$like, $like];
-        //     $types = "ss";
-        //     }
-
-        // }
-
-        // if ($ciudad!="") {
-        //     $sql .= " AND cd.cli_idciudad = ?)";
-        //     $params = [$ciudad];
-        //     $types = "s";
-        // }
-
-        $sql .= " ORDER BY cd.idcreditos DESC LIMIT ?, ?";
+        $sql .= " ORDER BY idcreditos DESC LIMIT ?, ?";
         $params[] = intval($start);
         $params[] = intval($length);
         $types .= "ii";
 
         $stmt = $this->db->prepare($sql);
-        if (!empty($params)) {
-            $stmt->bind_param($types, ...$params);
-        }
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
         return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     }
-    public function obtenerRoles() {
-        $sql = "SELECT idroles, rol_nombre FROM roles ORDER BY rol_nombre";
-        $result = $this->db->query($sql);
-        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
-    }
 
+    public function crearCredito($nombre) {
+        $nombre = trim($nombre);
 
+        if ($nombre === '') {
+            return [
+                'success' => false,
+                'message' => 'El nombre del credito es obligatorio.'
+            ];
+        }
 
-    public function obtenerCiudades() {
-        $sql = "SELECT `idciudades`, `ciu_nombre` FROM `ciudades`  where inner_estados=1 ";
-        $result = $this->db->query($sql);
-        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
-    }
-    public function obtenerCreditos() {
-        $sql = "SELECT `idcreditos`, `cre_nombre` FROM `creditos` ";
-        $result = $this->db->query($sql);
-        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
-    }
-    // public function buscarClientePorTelefono($telefono) {
-    //     $sql = "SELECT * FROM clientesdir WHERE cli_telefono = ? LIMIT 1";
-    //     $stmt = $this->db->prepare($sql);
-    //     $stmt->bind_param("s", $telefono); // "s" = string
-    //     $stmt->execute();
-    //     $result = $stmt->get_result();
+        $sqlExiste = "SELECT idcreditos FROM creditos WHERE cre_nombre = ? LIMIT 1";
+        $stmtExiste = $this->db->prepare($sqlExiste);
+        $stmtExiste->bind_param("s", $nombre);
+        $stmtExiste->execute();
+        $existe = $stmtExiste->get_result()->fetch_assoc();
+        $stmtExiste->close();
 
-    //     return $result ? $result->fetch_assoc() : null;
-    // }
-    public function buscarClientePorTelefono($telefono) {
-        $sql = "SELECT 
-                cd.*, 
-                COUNT(c.idrelcrecli) AS total_creditos, 
-                GROUP_CONCAT(c.idrelcrecli) AS creditos_asociados,
-                GROUP_CONCAT(cr.cre_nombre SEPARATOR ', ') AS nombres_creditos
-            FROM clientesdir cd
-            LEFT JOIN rel_crecli c ON cd.idclientesdir = c.rel_idcliente
-            LEFT JOIN creditos cr ON c.rel_idcredito = cr.idcreditos
-            WHERE cd.cli_telefono = ?
-            GROUP BY cd.idclientesdir;";
+        if ($existe) {
+            return [
+                'success' => false,
+                'message' => 'Ya existe un credito con ese nombre.'
+            ];
+        }
 
+        $estado = 'Activo';
+        $sql = "INSERT INTO creditos (cre_nombre, cre_estado, cre_estado_final) VALUES (?, ?, ?)";
         $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("s", $telefono);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        return $result ? $result->fetch_assoc() : null;
-    }
-    public function actualizarCliente($data) {
-        $sql = "UPDATE clientesdir SET 
-                    
-                    cli_telefono = ?, 
-                    cli_whatsap = ?, 
-                    cli_idciudad = ?, 
-                    cli_nombre = ?, 
-                    cli_direccion = ?, 
-                    cli_correo = ?
-                WHERE cli_telefono = ?";
-
-        $stmt = $this->db->prepare($sql);
-
         if (!$stmt) {
-            // Error al preparar la sentencia
-            $error = "Error al preparar UPDATE: " . $this->db->error;
-            error_log($error, 3, __DIR__ . '/error.log'); // Guarda en logs/error.log
-            return false;
+            return [
+                'success' => false,
+                'message' => 'No se pudo preparar el registro del credito.'
+            ];
         }
 
-        $direccion = $data['direccion'] . '&' . $data['restodireccion'] . '&' . $data['lugar_recogida'] . '&' . $data['barrio'];
+        $stmt->bind_param("sss", $nombre, $estado, $estado);
+        $ok = $stmt->execute();
+        $stmt->close();
 
-        if (!$stmt->bind_param(
-            "sssssss",
-            
-            $data['telefonos'],
-            $data['whatsapp'],
-            $data['ciudad'],
-            $data['nombre_cliente'],
-            $direccion,
-            $data['email'],
-            $data['telefonos']
-        )) {
-            // Error al bindear parámetros
-            $error = "Error al bindear parámetros: " . $stmt->error;
-            error_log($error, 3, __DIR__ . '/error.log');
-            return false;
-        }
-
-        if (!$stmt->execute()) {
-            // Error al ejecutar la sentencia
-            $error = "Error al ejecutar UPDATE: " . $stmt->error;
-            error_log($error, 3, __DIR__ . '/error.log');
-            return false;
-        }
-        
-        // Obtener id del cliente actualizado
-        $sqlId = "SELECT idclientesdir FROM clientesdir WHERE cli_telefono = ?";
-        $stmtId = $this->db->prepare($sqlId);
-        $stmtId->bind_param("s", $data['telefonos']);
-        $stmtId->execute();
-        $result = $stmtId->get_result();
-        $row = $result->fetch_assoc();
-        $idCliente = $row ? $row['idclientesdir'] : null;
-        $stmtId->close();
-        if (!empty($data['creditos_asignados']) && $idCliente) {
-            $creditos = explode(",", $data['creditos_asignados']); // array de IDs
-
-            $sqlInsert = "INSERT INTO rel_crecli (rel_idcredito, rel_idcliente) VALUES (?, ?)";
-            $stmtInsert = $this->db->prepare($sqlInsert);
-
-            foreach ($creditos as $idCredito) {
-                $idCredito = trim($idCredito); // limpiar espacios
-                if ($idCredito !== "") {
-                    $stmtInsert->bind_param("ii", $idCredito, $idCliente);
-                    $stmtInsert->execute();
-                }
-            }
-
-            $stmtInsert->close();
-        }
-
-        return true; // Si todo salió bien
+        return [
+            'success' => $ok,
+            'message' => $ok ? 'Credito creado correctamente.' : 'No se pudo crear el credito.'
+        ];
     }
 
-    // Función para registrar logs
- 
-    
+    public function actualizarEstadoCredito($idCredito, $estado) {
+        $idCredito = intval($idCredito);
+        $estadosPermitidos = ['Activo', 'Inactivo'];
+
+        if ($idCredito <= 0 || !in_array($estado, $estadosPermitidos, true)) {
+            return [
+                'success' => false,
+                'message' => 'Datos invalidos para actualizar el estado.'
+            ];
+        }
+
+        $sql = "UPDATE creditos SET cre_estado = ?, cre_estado_final = ? WHERE idcreditos = ?";
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            return [
+                'success' => false,
+                'message' => 'No se pudo preparar la actualizacion del estado.'
+            ];
+        }
+
+        $stmt->bind_param("ssi", $estado, $estado, $idCredito);
+        $ok = $stmt->execute();
+        $stmt->close();
+
+        return [
+            'success' => $ok,
+            'message' => $ok ? 'Estado actualizado correctamente.' : 'No se pudo actualizar el estado.'
+        ];
+    }
 }

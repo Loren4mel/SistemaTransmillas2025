@@ -127,6 +127,33 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
     .row-alerta-td:hover {
       /* nada especial, pero evita que hover cambie el color a algo feo */
     }
+
+    .form-label.invisible {
+      display: none !important;
+    }
+
+    .badge-preasignada {
+      background: #fff3cd;
+      border: 1px solid #f0c36d;
+      color: #7a5200;
+      font-size: 0.72rem;
+      font-weight: 600;
+      margin-left: 0.35rem;
+      padding: 0.18rem 0.4rem;
+      border-radius: 0.35rem;
+      white-space: nowrap;
+    }
+
+    .row-seleccion-guia td {
+      box-shadow: inset 3px 0 0 #ffc107;
+    }
+
+    @media (min-width: 2200px) {
+      .tabla-validacion-col {
+        flex: 0 0 auto;
+        width: 33.333333%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -151,7 +178,7 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
             <input type="date" id="fechaBusqueda" class="form-control" value="<?= date('Y-m-d') ?>">
           </div> -->
 
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <label class="form-label">Sede Destino (*)</label>
                 <select name="sedeDestino" id="sedeDestino" class="form-select" >
                 <option value="">Seleccione...</option>
@@ -164,7 +191,7 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
                 <?php endforeach; ?>
                 </select>
             </div>
-          <div class="col-md-3">
+          <div class="col-md-6">
             <label class="form-label">Sede Origen</label>
             <select id="sedeOrigen" class="form-select">
               <option>Seleccione...</option>
@@ -179,16 +206,28 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
           </div>
 
 
-            <div class="col-md-4 text-end">
+            <div class="col-md-3">
             <label class="form-label d-block invisible">Botón</label>
             <button class="btn btn-success text-white w-100" data-bs-toggle="modal" data-bs-target="#modalEscaneo">
                 <i class="bi bi-qr-code-scan me-1"></i> Validar Guía
             </button>
             </div>
-            <div class="col-md-4 text-end">
+            <div class="col-md-3">
             <label class="form-label d-block invisible">Botón</label>
             <button class="btn btn-primary text-white w-100" data-bs-toggle="modal" data-bs-target="#modalEscaneo1">
                 <i class="bi bi-qr-code-scan me-1"></i> Ratificar Guía
+            </button>
+            </div>
+            <div class="col-md-3">
+            <label class="form-label d-block invisible">Boton</label>
+            <button class="btn btn-warning text-dark w-100" data-bs-toggle="modal" data-bs-target="#modalPreAsignar">
+                <i class="bi bi-person-check me-1"></i> Pre-asignar
+            </button>
+            </div>
+            <div class="col-md-3">
+            <label class="form-label d-block invisible">Boton</label>
+            <button class="btn btn-outline-danger w-100" id="btnDeshacerPreAsignar">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Deshacer pre-asignacion
             </button>
             </div>
         </div>
@@ -198,15 +237,15 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
     <!-- TABLAS -->
     <div class="row">
       <!-- Guías x Validar -->
-        <div class="col-lg-4">
+        <div class="col-12 tabla-validacion-col">
         <div class="card shadow mb-4">
             <div class="card-header d-flex justify-content-between align-items-center" style="background:#9da300; color:white;">
                 <h5 class="mb-0">Guías X Validar</h5>
 
                 <div class="d-flex align-items-center" style="gap:5px;">
                     <input type="text" id="inputGuia" class="form-control form-control-sm" placeholder="Número de guía..." style="width:180px;">
-                    <input type="hidden" id="hiddenIdUsuario" value="<?= $_SESSION['id_usuario'] ?>">
-                    <input type="hidden" id="hiddenIdNombre" value="<?= $_SESSION['id_nombre'] ?>">
+                    <input type="hidden" id="hiddenIdUsuario" value="<?= htmlspecialchars($idUsuario ?? ($_SESSION['id_usuario'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" id="hiddenIdNombre" value="<?= htmlspecialchars($usuario ?? ($_SESSION['id_nombre'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" id="hiddenTipoVehiculo" value="Bus">
 
                     <button id="btnTraerGuia" class="btn btn-sm btn-primary">
@@ -226,11 +265,14 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
             <table id="tablaXValidar" class="table table-hover table-bordered text-center align-middle">
                 <thead class="azul-blanco">
                 <tr>
+                    <th></th>
                     <th>Fecha</th>
                     <th>Guía</th>
                     <th>Paquete</th>
                     <th>Descripción</th>
                     <th>Piezas</th>
+                    <th>Dirección entrega</th>
+                    <th>¿Enviado por?</th>
                     <th>Llego</th>
                     
                 </tr>
@@ -244,7 +286,7 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
         </div>
 
       <!-- Guías Validadas -->
-      <div class="col-lg-4">
+      <div class="col-12 tabla-validacion-col">
         <div class="card shadow mb-4">
           <div class="card-header  d-flex justify-content-between align-items-center" style="background:#00a33a; color:white;">
             <div class="d-flex align-items-center" style="gap:5px;">
@@ -272,7 +314,7 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
       </div>
 
       <!-- Guías Mal Enviadas -->
-      <div class="col-lg-4">
+      <div class="col-12 tabla-validacion-col">
         <div class="card shadow mb-4">
           <div class="card-header d-flex justify-content-between align-items-center" style="background:#0d6efd;  color:white;">
             <div class="d-flex align-items-center" style="gap:5px;">
@@ -312,6 +354,32 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
 
 
 
+
+<div class="modal fade" id="modalPreAsignar" tabindex="-1" aria-labelledby="modalPreAsignarLabel" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header mi-header">
+        <h5 class="modal-title" id="modalPreAsignarLabel">Pre-asignar</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertaPreAsignar" class="alert alert-warning d-none"></div>
+        <div class="mb-3">
+          <label for="operadorPreAsignar" class="form-label">Operador</label>
+          <select id="operadorPreAsignar" class="form-select">
+            <option value="">Cargando operadores...</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-warning text-dark" id="btnConfirmarPreAsignar">
+          Pre-asignar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="modal fade" id="modalEscaneo" tabindex="-1" aria-labelledby="modalEscaneoLabel" aria-hidden="true">
   <div class="modal-dialog modal-fullscreen"> 
@@ -418,6 +486,49 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
   </div>
 </div>
 
+
+<div class="modal fade" id="modalIncautada" tabindex="-1" aria-labelledby="modalIncautadaLabel" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title" id="modalIncautadaLabel">Registrar Incautada</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertaIncautada" class="alert alert-warning d-none"></div>
+        <div class="mb-3">
+          <label for="fechaIncautada" class="form-label">Fecha</label>
+          <input type="date" id="fechaIncautada" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label for="sedeIncautada" class="form-label">Sede</label>
+          <select id="sedeIncautada" class="form-select">
+            <option value="">Seleccione...</option>
+            <?php foreach($ciudades as $c): ?>
+              <option value="<?= $c['idsedes'] ?>"><?= $c['sed_nombre'] ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="archivoIncautada" class="form-label">Archivo</label>
+          <input type="file" id="archivoIncautada" class="form-control" accept="image/*,.pdf">
+        </div>
+        <div class="mb-3">
+          <label for="comentarioIncautada" class="form-label">Comentario</label>
+          <textarea id="comentarioIncautada" class="form-control" rows="3"></textarea>
+        </div>
+        <input type="hidden" id="incautadaIdGuia">
+        <input type="hidden" id="incautadaPieza">
+        <input type="hidden" id="incautadaPiezas">
+        <input type="hidden" id="incautadaGuia">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-warning text-dark" id="btnConfirmarIncautada">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Modal asignacion -->
 <!-- Modal asignacion -->
@@ -528,6 +639,8 @@ if (!isset($_POST['sede']) || !isset($_POST['acceso'])) {
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 <script>
 $(document).ready(function () {
+  const guiasSeleccionadas = new Set();
+
   const tabla = $('#tablaXValidar').DataTable({
     ajax: {
       url: '/nueva_plataforma/controller/ValidarGuiasController.php',
@@ -545,11 +658,40 @@ $(document).ready(function () {
     },
 
     columns: [
+        {
+            data: null,
+            orderable: false,
+            searchable: false,
+            render: function(data, type, row) {
+              const checked = guiasSeleccionadas.has(String(row.ser_consecutivo)) ? 'checked' : '';
+              return `
+                <input type="checkbox"
+                       class="form-check-input check-guia-validar"
+                       value="${row.ser_consecutivo}"
+                       data-pieza="${row.numeropieza}"
+                       ${checked}>`;
+            }
+        },
         { data: 'ser_fechaguia' },
-        { data: 'ser_consecutivo' },
+        {
+            data: null,
+            render: function(data, type, row) {
+              const guia = row.ser_consecutivo || '';
+              const preasignada = Number(row.esta_preasignada) === 1;
+              return `${guia}${preasignada ? '<span class="badge-preasignada">Pre-asignada</span>' : ''}`;
+            }
+        },
         { data: 'ser_tipopaquete' },
         { data: 'ser_paquetedescripcion' },
         { data: 'numeropieza' },
+        {
+            data: 'ser_direccioncontacto',
+            defaultContent: '',
+            render: function(data) {
+              return data ? String(data).replace(/&/g, ' ') : '';
+            }
+        },
+        { data: 'transporta' },
         { 
             data: null,
             render: function(data, type, row) {
@@ -559,10 +701,10 @@ $(document).ready(function () {
                         data-pieza="${row.numeropieza}">
                   <option value="">Seleccione...</option>
                   <option value="SI">Validar</option>
+                  <option value="Incautada">Incautada</option>
                 </select>`;
             }
-        }, 
-        { data: 'tiene_piezas_llegadas', visible: false } // oculta columna
+        }
     ],
 
     // se ejecuta cada vez que se dibuja la fila
@@ -578,13 +720,39 @@ $(document).ready(function () {
             $('td', row).removeClass('row-alerta-td');
         }
 
+        $(row).toggleClass('row-seleccion-guia', guiasSeleccionadas.has(String(data.ser_consecutivo)));
+
         // opcional: para depuración en consola
         // console.log('fila', index, 'consecutivo', data.ser_consecutivo, 'flag', flag);
     }
   });
 
+  $('#tablaXValidar').on('change', '.check-guia-validar', function () {
+    const guia = String(this.value);
+    const seleccionada = this.checked;
+
+    if (seleccionada) {
+      guiasSeleccionadas.add(guia);
+    } else {
+      guiasSeleccionadas.delete(guia);
+    }
+
+    tabla.rows().every(function () {
+      const data = this.data();
+
+      if (String(data.ser_consecutivo) === guia) {
+        const rowNode = this.node();
+        $(rowNode)
+          .toggleClass('row-seleccion-guia', seleccionada)
+          .find('.check-guia-validar')
+          .prop('checked', seleccionada);
+      }
+    });
+  });
+
   // recarga cuando cambias sedes
   $('#sedeOrigen,#sedeDestino').on('change', function () {
+    guiasSeleccionadas.clear();
     tabla.ajax.reload();
   });
 
@@ -631,10 +799,26 @@ $(document).ready(function () {
         }
     },
     columns: [
-        { data: 'idgastos' },
+      { data: 'idgastos' },
         { data: 'sede_origen' },
         { data: 'sede_destino' },
+        // {
+        // data: null,
+        // render: function (data) {
+        //     return data.gas_empresa + ' ' + data.gas_bus;
+        // }
+        // },
+        // { data: 'gas_telconductor' },
+        // { data: 'gas_pagar' },
+        // { data: 'gas_descripcion' },
+        // 
         { data: 'gas_piezas' },
+        // { data: 'gas_usucom' },
+        // { data: 'gas_valor' },
+        
+        // { data: 'gas_feccom' },
+        // { data: 'gas_cantcom' },
+        // { data: 'gas_fecrecogida' },
         { data: 'usuario_recoge' },
         {
             data: null,
@@ -666,6 +850,118 @@ $(document).ready(function () {
     });
     $('#sedeDestino,#filtroOperador').on('change', function () {
     tablaRemesas.ajax.reload();
+  });
+
+  $('#modalPreAsignar').on('show.bs.modal', function () {
+    const $select = $('#operadorPreAsignar');
+    $('#alertaPreAsignar').addClass('d-none').text('');
+    $select.html('<option value="">Cargando operadores...</option>');
+
+    $.ajax({
+      url: '/nueva_plataforma/controller/ValidarGuiasController.php',
+      type: 'POST',
+      dataType: 'json',
+      data: {
+        accion: 'obtenerOperadoresTrabajando',
+        ciudad: $('#sedeDestino').val()
+      },
+      success: function (operadores) {
+        let opciones = '<option value="">Seleccione operador...</option>';
+
+        if (Array.isArray(operadores) && operadores.length > 0) {
+          operadores.forEach(op => {
+            opciones += `<option value="${op.idusuarios}">${op.usu_nombre}</option>`;
+          });
+        } else {
+          opciones = '<option value="">No hay operadores trabajando hoy</option>';
+        }
+
+        $select.html(opciones);
+      },
+      error: function () {
+        $select.html('<option value="">Error cargando operadores</option>');
+      }
+    });
+  });
+
+  $('#btnConfirmarPreAsignar').on('click', function () {
+    const operador = $('#operadorPreAsignar').val();
+    const seleccionadas = guiasSeleccionadas.size;
+
+    if (!operador) {
+      $('#alertaPreAsignar').removeClass('d-none').text('Seleccione un operador.');
+      return;
+    }
+
+    if (seleccionadas === 0) {
+      $('#alertaPreAsignar').removeClass('d-none').text('Seleccione al menos una guia de la tabla.');
+      return;
+    }
+
+    const guias = Array.from(guiasSeleccionadas);
+
+    $.ajax({
+      url: '/nueva_plataforma/controller/ValidarGuiasController.php',
+      type: 'POST',
+      dataType: 'json',
+      data: {
+        accion: 'preAsignarGuias',
+        operador: operador,
+        guias: guias,
+        id_usuario: $('#hiddenIdUsuario').val(),
+        id_nombre: $('#hiddenIdNombre').val()
+      },
+      success: function (respuesta) {
+        if (respuesta && respuesta.success) {
+          $('#modalPreAsignar').modal('hide');
+          guiasSeleccionadas.clear();
+          tabla.ajax.reload(null, false);
+          tablaValidadas.ajax.reload(null, false);
+          alert(respuesta.message || 'Guias pre-asignadas correctamente.');
+        } else {
+          $('#alertaPreAsignar').removeClass('d-none').text(respuesta.message || 'No fue posible pre-asignar.');
+        }
+      },
+      error: function () {
+        $('#alertaPreAsignar').removeClass('d-none').text('Error guardando la pre-asignacion.');
+      }
+    });
+  });
+
+  $('#btnDeshacerPreAsignar').on('click', function () {
+    const seleccionadas = guiasSeleccionadas.size;
+
+    if (seleccionadas === 0) {
+      alert('Seleccione al menos una guia pre-asignada de la tabla.');
+      return;
+    }
+
+    if (!confirm('Desea deshacer la pre-asignacion de las guias seleccionadas?')) {
+      return;
+    }
+
+    $.ajax({
+      url: '/nueva_plataforma/controller/ValidarGuiasController.php',
+      type: 'POST',
+      dataType: 'json',
+      data: {
+        accion: 'deshacerPreAsignacionGuias',
+        guias: Array.from(guiasSeleccionadas)
+      },
+      success: function (respuesta) {
+        if (respuesta && respuesta.success) {
+          guiasSeleccionadas.clear();
+          tabla.ajax.reload(null, false);
+          tablaValidadas.ajax.reload(null, false);
+          alert(respuesta.message || 'Pre-asignacion deshecha correctamente.');
+        } else {
+          alert((respuesta && respuesta.message) || 'No fue posible deshacer la pre-asignacion.');
+        }
+      },
+      error: function () {
+        alert('Error deshaciendo la pre-asignacion.');
+      }
+    });
   });
  
 
@@ -817,6 +1113,48 @@ function actualizarTituloModal(guia,pieza) {
   titulo.textContent = `📦 Validar Guía ${guia} / ${pieza}`;
 }
 // 2. Ejecutar validación al confirmar
+function abrirModalIncautada(guia, pieza) {
+  $("#alertaIncautada").addClass("d-none").text("");
+  $("#archivoIncautada").val("");
+  $("#comentarioIncautada").val("");
+  $("#fechaIncautada").val(new Date().toISOString().slice(0, 10));
+  $("#sedeIncautada").val($("#sedeDestino").val());
+  $("#modalIncautadaLabel").text(`Registrar Incautada ${guia} / ${pieza}`);
+
+  $.ajax({
+    url: "../controller/ValidarGuiasController.php",
+    type: "GET",
+    dataType: "json",
+    data: {
+      accion: "buscarServicioConGuia",
+      id: guia,
+      pieza: pieza
+    },
+    success: function (servicio) {
+      if (!servicio) {
+        $("#alertaIncautada").removeClass("d-none").text("No se encontrÃ³ la informaciÃ³n del servicio.");
+        $("#modalIncautada").modal("show");
+        return;
+      }
+
+      if (servicio.guiallega == 1) {
+        $("#modalVerificado").modal("show");
+        return;
+      }
+
+      $("#incautadaIdGuia").val(servicio.idservicios);
+      $("#incautadaPiezas").val(servicio.ser_piezas);
+      $("#incautadaPieza").val(pieza);
+      $("#incautadaGuia").val(guia);
+      $("#modalIncautada").modal("show");
+    },
+    error: function () {
+      $("#alertaIncautada").removeClass("d-none").text("Error al buscar la informaciÃ³n del servicio.");
+      $("#modalIncautada").modal("show");
+    }
+  });
+}
+
 $("#btnConfirmarValidacion").on("click", function () {
   let id = $("#hiddenIdGuia").val();
   let pieza = $("#hiddenPieza").val();
@@ -834,9 +1172,51 @@ $("#btnConfirmarValidacion").on("click", function () {
   $("#modalValidarGuia").modal("hide");
 });
 
+$("#btnConfirmarIncautada").on("click", function () {
+  const fecha = $("#fechaIncautada").val();
+  const sede = $("#sedeIncautada").val();
+  const sedeTexto = $("#sedeIncautada option:selected").text();
+  const archivo = $("#archivoIncautada")[0].files[0];
+  const comentario = $("#comentarioIncautada").val();
+
+  if (!fecha) {
+    $("#alertaIncautada").removeClass("d-none").text("Seleccione la fecha.");
+    return;
+  }
+
+  if (!sede) {
+    $("#alertaIncautada").removeClass("d-none").text("Seleccione la sede.");
+    return;
+  }
+
+  if (!archivo) {
+    $("#alertaIncautada").removeClass("d-none").text("Suba el archivo de soporte.");
+    return;
+  }
+
+  const descripcion = `Incautada | Fecha: ${fecha} | Sede: ${sedeTexto} | Comentario: ${comentario}`;
+
+  ValidaGuiaEscaner(
+    $("#incautadaIdGuia").val(),
+    $("#incautadaPieza").val(),
+    descripcion,
+    "Incautada",
+    $("#incautadaGuia").val(),
+    archivo,
+    $("#incautadaPiezas").val(),
+    {
+      fecha: fecha,
+      sede: sede,
+      comentario: comentario
+    }
+  );
+
+  $("#modalIncautada").modal("hide");
+});
+
 
 // Enviar para efectuar escaneo
-function ValidaGuiaEscaner(id, pieza, descripcion, llego, guia, archivo,piezasg) {
+function ValidaGuiaEscaner(id, pieza, descripcion, llego, guia, archivo,piezasg, incautacion = null) {
   console.log("ID:", id, "Pieza:", pieza);
 
   let id_usuario = "<?= $_POST['id_usuario'] ?>";
@@ -853,6 +1233,12 @@ function ValidaGuiaEscaner(id, pieza, descripcion, llego, guia, archivo,piezasg)
   formData.append("guia", guia);
   formData.append("id_usuario", id_usuario);
   formData.append("id_nombre", id_nombre);
+
+  if (incautacion) {
+    formData.append("inc_fecha", incautacion.fecha || "");
+    formData.append("inc_idsede", incautacion.sede || "");
+    formData.append("inc_comentario", incautacion.comentario || "");
+  }
 
   // Adjuntar imagen solo si se seleccionó
   if (archivo) {
@@ -887,6 +1273,15 @@ function ValidaGuiaEscaner(id, pieza, descripcion, llego, guia, archivo,piezasg)
 // Captura cualquier cambio en selects de la tabla
 $('#tablaXValidar').on('change', '.select-validar', function () {
   const valor = $(this).val();
+
+  if (valor === "Incautada") {
+    const id = $(this).data("id");
+    const pieza = $(this).data("pieza");
+
+    abrirModalIncautada(id, pieza);
+    $(this).val("");
+    return;
+  }
 
   if (valor === "SI") {
     const id = $(this).data("id");        // ser_consecutivo
