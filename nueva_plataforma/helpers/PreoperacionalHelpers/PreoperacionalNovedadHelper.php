@@ -489,9 +489,9 @@ class PreoperacionalNovedadHelper
         $html .= '</label>';
 
         if (!empty($rutaRelativa)) {
-            // La ruta es relativa al project root (ej: uploads/vehiculos/xxx.png)
-            // Construir URL navegable desde el contexto de la aplicación
-            $rutaAbsoluta = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rutaRelativa);
+            // La ruta es relativa a nueva_plataforma (ej: uploads/vehiculos/xxx.png)
+            // Consistente con VehiculosModel::guardarImagen() y PreoperacionalService::procesarImagenEntrega()
+            $rutaAbsoluta = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rutaRelativa);
             if (file_exists($rutaAbsoluta)) {
                 $url = '../../' . $rutaRelativa;
                 $html .= '<a href="' . htmlspecialchars($url) . '" target="_blank" style="display:block;">';
