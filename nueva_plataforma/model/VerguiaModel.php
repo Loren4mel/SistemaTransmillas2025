@@ -47,6 +47,12 @@ class VerguiaModel
                     s.ser_guiare,
                     ser_original.ser_manifiesto,
                     s.ser_estado,
+                    CASE WHEN EXISTS (
+                        SELECT 1
+                        FROM incautaciones_guias ig
+                        WHERE ig.inc_idservicio = s.idservicios
+                        LIMIT 1
+                    ) THEN 1 ELSE 0 END AS tiene_incautacion,
                     s.ser_devolverreci,
                     s.ser_fecharegistro,
                     s.ser_descripcion,

@@ -231,7 +231,18 @@ if (!function_exists('separarManifiestoGuia')) {
 </div>
 
 <div class="ticket-wrapper">
-    <?php if (isset($guia['ser_estado']) && (int)$guia['ser_estado'] === 100): ?>
+    <?php
+    $estadoGuia = isset($guia['ser_estado']) ? (int)$guia['ser_estado'] : null;
+    $tieneIncautacion = !empty($guia['tiene_incautacion']);
+    $selloGuiaTexto = null;
+
+    if ($estadoGuia === 100) {
+        $selloGuiaTexto = 'Gu&iacute;a Cancelada';
+    } elseif ($estadoGuia === 17 || $tieneIncautacion) {
+        $selloGuiaTexto = 'Gu&iacute;a Incautada';
+    }
+    ?>
+    <?php if ($selloGuiaTexto): ?>
 <style>
 .sello-cancelada {
     position: fixed;
@@ -282,7 +293,7 @@ if (!function_exists('separarManifiestoGuia')) {
 }
 </style>
 
-<div class="sello-cancelada">Guía Cancelada</div>
+<div class="sello-cancelada"><?= $selloGuiaTexto ?></div>
 <?php endif; ?>
 
     <?php if (isset($error)): ?>

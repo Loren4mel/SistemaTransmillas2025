@@ -425,7 +425,8 @@ function  buscarnotificaciones(tipo){
             });
            // console.log('josee111');
             clearTimeout(timer2);
-    timer2=setTimeout(function(){buscarnotificaciones(tipo)},1200000); // 3000ms = 3s
+    // Polling desactivado para reducir carga recurrente en MySQL.
+    // timer2=setTimeout(function(){buscarnotificaciones(tipo)},1200000);
 
 }
 

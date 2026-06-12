@@ -32,21 +32,23 @@ class ValidarGuiaModel{
         s.cli_idciudad,
         p.transporta,
         s.ser_direccioncontacto AS ser_direccioncontacto, 
-        CASE WHEN pl.numeroguia IS NULL THEN 0 ELSE 1 END AS tiene_piezas_llegadas,
-        CASE WHEN spa.seg_idservicio IS NULL THEN 0 ELSE 1 END AS esta_preasignada
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM piezasguia pl
+            WHERE pl.numeroguia = s.ser_consecutivo
+            AND pl.guiallega = 1
+            LIMIT 1
+        ) THEN 1 ELSE 0 END AS tiene_piezas_llegadas,
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM seguimientoruta spa
+            WHERE spa.seg_idservicio = s.idservicios
+            AND spa.seg_tipo = 'Entrega'
+            AND spa.seg_estado = 'Pre-asignada'
+            LIMIT 1
+        ) THEN 1 ELSE 0 END AS esta_preasignada
         FROM serviciosdia s 
         INNER JOIN piezasguia p ON s.ser_consecutivo = p.numeroguia 
-        LEFT JOIN (
-            SELECT DISTINCT numeroguia
-            FROM piezasguia
-            WHERE guiallega = 1
-        ) pl ON pl.numeroguia = s.ser_consecutivo
-        LEFT JOIN (
-            SELECT DISTINCT seg_idservicio
-            FROM seguimientoruta
-            WHERE seg_tipo = 'Entrega'
-            AND seg_estado = 'Pre-asignada'
-        ) spa ON spa.seg_idservicio = s.idservicios
         WHERE s.ser_estado IN ('6','7') 
         AND p.guiallega = 0 
         $conde2 
@@ -179,6 +181,19 @@ class ValidarGuiaModel{
         $this->db->begin_transaction();
 
         try {
+            $serviciosPreAsignados = [];
+            $sqlPreAsignados = "SELECT DISTINCT seg_idservicio
+                                FROM seguimientoruta
+                                WHERE seg_idservicio IN ($idsSql)
+                                AND seg_tipo = 'Entrega'
+                                AND seg_estado = 'Pre-asignada'";
+            $resultPreAsignados = $this->db->query($sqlPreAsignados);
+            if ($resultPreAsignados) {
+                while ($rowPre = $resultPreAsignados->fetch_assoc()) {
+                    $serviciosPreAsignados[(int)$rowPre['seg_idservicio']] = true;
+                }
+            }
+
             $sqlCuentas = "UPDATE cuentaspromotor
                            SET cue_idoperentrega = $operador,
                                cue_fecha = '$fecha'
@@ -204,6 +219,19 @@ class ValidarGuiaModel{
                 throw new Exception($this->db->error);
             }
 
+            if (count($serviciosPreAsignados) > 0) {
+                $idsPreAsignadosSql = implode(',', array_keys($serviciosPreAsignados));
+                $sqlActualizarPreAsignadas = "UPDATE seguimientoruta
+                                              SET seg_fecha = '$fecha',
+                                                  seg_idusuario = $operador
+                                              WHERE seg_idservicio IN ($idsPreAsignadosSql)
+                                              AND seg_tipo = 'Entrega'
+                                              AND seg_estado = 'Pre-asignada'";
+                if (!$this->db->query($sqlActualizarPreAsignadas)) {
+                    throw new Exception($this->db->error);
+                }
+            }
+
             $stmtSeguimiento = $this->db->prepare(
                 "INSERT INTO seguimientoruta
                     (seg_fecha, seg_idservicio, seg_direccion, seg_tipo, seg_estado, seg_idusuario, seg_guia, seg_descripcion)
@@ -216,6 +244,10 @@ class ValidarGuiaModel{
 
             foreach ($servicios as $servicio) {
                 $idServicio = (int)$servicio['idservicios'];
+                if (isset($serviciosPreAsignados[$idServicio])) {
+                    continue;
+                }
+
                 $direccion = 'Entrega ' . str_replace('&', ' ', (string)$servicio['ser_direccioncontacto']);
                 $guia = (string)$servicio['ser_consecutivo'];
                 $descripcion = 'Pre-asignada desde validacion de guias|ser_fechaguia_anterior=' . (string)($servicio['ser_fechaguia'] ?? '');
@@ -852,7 +884,7 @@ public function validarGuiaYPiezas($guia, $id_usuario, $id_nombre, $tipoVehiculo
                  FROM piezasguia 
                  WHERE numeroguia = '$guia' AND numeropieza = '$pieza'";
 
-        file_put_contents($logPath, "[" . date("Y-m-d H:i:s") . "] SQL: $sql2\n", FILE_APPEND);
+        // file_put_contents($logPath, "[" . date("Y-m-d H:i:s") . "] SQL: $sql2\n", FILE_APPEND);
 
         $stmt2 = $this->db->prepare($sql2);
         $stmt2->execute();
