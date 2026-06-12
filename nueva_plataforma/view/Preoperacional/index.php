@@ -19,17 +19,12 @@ $usarNuevoFormato = ($formatoEncuesta === 'nuevo');
 // Extraer valores de la encuesta para precargar el formulario
 $valoresEncuesta = [];
 if ($esRegistroRelacional) {
-    // Esquema relacional: respuestas desde preop_respuestas (fuente primaria)
+    // Esquema relacional: respuestas desde preop_respuestas (fuente primaria).
+    // La metadata (ubicacion, firma_documento_id, inspeccion_documento_id,
+    // temperatura_documento_id) ya fue cargada en el controlador desde las
+    // columnas dedicadas de la tabla, la tabla documentos, y el JSON legacy
+    // de preencuesta como último recurso.
     $valoresEncuesta = $valoresEncuestaRelacional;
-    // Complementar con metadata desde preencuesta (ubicacion, doc IDs)
-    if ($registroExistente && !empty($registroExistente['preencuesta'])) {
-        $metadatosLegado = json_decode($registroExistente['preencuesta'], true) ?? [];
-        foreach (['ubicacion', 'firma_documento_id', 'inspeccion_documento_id', 'temperatura_documento_id'] as $clave) {
-            if (isset($metadatosLegado[$clave]) && !isset($valoresEncuesta[$clave])) {
-                $valoresEncuesta[$clave] = $metadatosLegado[$clave];
-            }
-        }
-    }
 } else {
     // Esquema legacy: respuestas desde preencuesta JSON
     if ($registroExistente && !empty($registroExistente['preencuesta'])) {
@@ -111,19 +106,9 @@ if ($esRegistroRelacional) {
             color: #fff;
         }
 
-        /* Modo validación: controles deshabilitados sin opacidad */
-        #formPreoperacional .obtener:disabled,
-        #formPreoperacional input:disabled,
-        #formPreoperacional select:disabled {
-            opacity: 1 !important;
-            cursor: default;
-        }
-
-        #formPreoperacional .validation-disabled {
-            opacity: 1 !important;
-            pointer-events: none;
-            cursor: default;
-        }
+        /* En modo validación, el formulario completo está en modo solo-lectura.
+           La clase .modo-validacion en <form> gobierna TODO el comportamiento
+           visual; los estilos están en preoperacional.css. */
     </style>
 </head>
 
@@ -157,7 +142,7 @@ if ($esRegistroRelacional) {
                 </div>
 
                 <div class="card-body">
-                    <form id="formPreoperacional" enctype="multipart/form-data">
+                    <form id="formPreoperacional" enctype="multipart/form-data" class="<?= $esValidacion ? 'modo-validacion' : '' ?>">
                         <!-- Campos ocultos -->
                         <input type="hidden" name="accion" value="guardar">
                         <input type="hidden" name="ajax" value="1">
@@ -181,7 +166,11 @@ if ($esRegistroRelacional) {
 
                         <!-- ==================== PANEL DE ESTADO / NOVEDAD VEHICULAR ==================== -->
                         <?php if ($tieneVehiculoAsignado): ?>
-                            <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles) ?>
+                            <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles, $esValidacion) ?>
+
+                            <!-- Datos del vehículo + alertas de documentos (centralizado: visible cuando hay vehículo asignado) -->
+                            <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
+                            <?= $alertasVehiculoHtml ?>
                         <?php else: ?>
                             <?= $novedadHelper->renderNoVehiclePanel($vehiculosDisponibles) ?>
                         <?php endif; ?>
@@ -198,7 +187,8 @@ if ($esRegistroRelacional) {
                                     PreoperacionalNuevaEncuestaViewHelper::getPreguntasAdministrativo(),
                                     '👤 EVALUACIÓN PERSONAL ADMINISTRATIVO',
                                     'administrativo',
-                                    $valoresEncuesta
+                                    $valoresEncuesta,
+                                    $esValidacion
                                 ) ?>
                             <?php endif; ?>
 
@@ -208,7 +198,8 @@ if ($esRegistroRelacional) {
                                     PreoperacionalNuevaEncuestaViewHelper::getPreguntasConductor(),
                                     '🚗 EVALUACIÓN PERSONAL CONDUCTOR',
                                     'conductor',
-                                    $valoresEncuesta
+                                    $valoresEncuesta,
+                                    $esValidacion
                                 ) ?>
                             <?php endif; ?>
 
@@ -218,7 +209,8 @@ if ($esRegistroRelacional) {
                                     PreoperacionalNuevaEncuestaViewHelper::getPreguntasVehiculoPropio(),
                                     '🏍️ EVALUACIÓN VEHÍCULO PROPIO (MOTO)',
                                     'vehiculo-propio',
-                                    $valoresEncuesta
+                                    $valoresEncuesta,
+                                    $esValidacion
                                 ) ?>
                             <?php endif; ?>
 
@@ -228,7 +220,8 @@ if ($esRegistroRelacional) {
                                     PreoperacionalNuevaEncuestaViewHelper::getPreguntasAuxiliarCarga(),
                                     '📦 EVALUACIÓN AUXILIAR DE CARGA',
                                     'auxiliar-carga',
-                                    $valoresEncuesta
+                                    $valoresEncuesta,
+                                    $esValidacion
                                 ) ?>
                             <?php endif; ?>
 
@@ -238,12 +231,8 @@ if ($esRegistroRelacional) {
                             <!-- ==================== SECCIÓN VEHÍCULO CARRO ==================== -->
                             <?php if ($mostrarSecciones['preoperacional_vehiculo'] ?? false): ?>
 
-                                <!-- Datos del vehículo -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
-                                <?= $alertasVehiculoHtml ?>
-
                                 <!-- Subsecciones del vehículo como tarjetas individuales -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($valoresEncuesta) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($valoresEncuesta, $esValidacion) ?>
 
                                 <!-- Kilometraje -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
@@ -260,12 +249,8 @@ if ($esRegistroRelacional) {
                             <!-- ==================== SECCIÓN VEHÍCULO MOTO ==================== -->
                             <?php if ($mostrarSecciones['preoperacional_moto'] ?? false): ?>
 
-                                <!-- Datos del vehículo -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
-                                <?= $alertasVehiculoHtml ?>
-
                                 <!-- Subsecciones de la moto como tarjetas individuales -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($valoresEncuesta) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($valoresEncuesta, $esValidacion) ?>
 
                                 <!-- Kilometraje -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
@@ -488,9 +473,12 @@ if ($esRegistroRelacional) {
                         </div>
                         <?php endif; ?>
 
-                        <!-- ==================== SECCIÓN DE ENTREGA DE VEHÍCULO (SOLO VALIDACIÓN) ==================== -->
-                        <?php if ($esValidacion && !empty($datosVehiculo)): ?>
-                            <?= $novedadHelper->renderSeccionEntregaValidacion($datosVehiculo, $datosVehiculo) ?>
+                        <!-- ==================== SECCIÓN DE ENTREGA DE VEHÍCULO ==================== -->
+                        <!-- Solo se muestra en validación cuando existen entregas pendientes
+                             (FINAL del vehículo antiguo + INICIAL del nuevo) vinculadas a una
+                             REVISION_SST reportada por el conductor. -->
+                        <?php if ($esValidacion && !empty($entregasPendientes['seguimiento'])): ?>
+                            <?= $novedadHelper->renderSeccionEntregaValidacion($entregasPendientes) ?>
                         <?php endif; ?>
 
                         <!-- Botón guardar -->

@@ -250,10 +250,11 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Renderiza una pregunta individual con checkboxes SÍ/NO
      */
-    private static function renderQuestionItem($name, $texto, $valoresExistentes = null, $requirePhoto = false, $expectedAnswer = null)
+    private static function renderQuestionItem($name, $texto, $valoresExistentes = null, $requirePhoto = false, $expectedAnswer = null, $esValidacion = false)
     {
         $checkedSi = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '1') ? 'checked' : '';
         $checkedNo = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '2') ? 'checked' : '';
+        $disabled = $esValidacion ? 'disabled' : '';
 
         // Determinar si la respuesta precargada es negativa (contraria a la esperada)
         $respuestaNegativa = false;
@@ -266,12 +267,12 @@ class PreoperacionalNuevaEncuestaViewHelper
         $html .= '<div class="question-options">';
         // SÍ
         $html .= '<label class="checkbox-label checkbox-si">';
-        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-si-input" value="1" data-name="' . $name . '" data-binary-group="' . $name . '" data-expected="' . ($expectedAnswer ?? '') . '" ' . $checkedSi . '>';
+        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-si-input" value="1" data-name="' . $name . '" data-binary-group="' . $name . '" data-expected="' . ($expectedAnswer ?? '') . '" ' . $checkedSi . ' ' . $disabled . '>';
         $html .= '<span class="checkbox-text">SÍ</span>';
         $html .= '</label>';
         // NO
         $html .= '<label class="checkbox-label checkbox-no">';
-        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-no-input" value="2" data-name="' . $name . '" data-binary-group="' . $name . '" data-expected="' . ($expectedAnswer ?? '') . '" ' . $checkedNo . '>';
+        $html .= '<input type="checkbox" name="' . $name . '" class="obtener checkbox-binary checkbox-no-input" value="2" data-name="' . $name . '" data-binary-group="' . $name . '" data-expected="' . ($expectedAnswer ?? '') . '" ' . $checkedNo . ' ' . $disabled . '>';
         $html .= '<span class="checkbox-text">NO</span>';
         $html .= '</label>';
         $html .= '</div>';
@@ -286,8 +287,8 @@ class PreoperacionalNuevaEncuestaViewHelper
             $html .= '</div>';
         }
 
-        // Foto si es requerida
-        if ($requirePhoto) {
+        // Foto si es requerida (solo en modo nuevo, no en validación)
+        if ($requirePhoto && !$esValidacion) {
             $html .= '<div class="photo-row" id="' . $name . '_photo_row" style="display:none;">';
             $html .= '<div class="photo-upload-container">';
             $html .= '<label class="photo-label"><i class="fas fa-camera"></i> Subir fotografía del problema</label>';
@@ -303,7 +304,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Genera tarjeta para preguntas personales (Administrativo, Conductor, Vehículo Propio, Auxiliar)
      */
-    public static function renderPreguntasPersonales($preguntas, $titulo, $cardClass, $valoresExistentes = null)
+    public static function renderPreguntasPersonales($preguntas, $titulo, $cardClass, $valoresExistentes = null, $esValidacion = false)
     {
         // Determinar si esta sección es de conductor (para mostrar banner de bloqueo)
         $esSeccionConductor = ($cardClass === 'conductor' || $cardClass === 'vehiculo-propio');
@@ -313,7 +314,7 @@ class PreoperacionalNuevaEncuestaViewHelper
         $html .= '<div class="preop-card-body">';
 
         // Banner de advertencia global para secciones de conductor
-        if ($esSeccionConductor) {
+        if ($esSeccionConductor && !$esValidacion) {
             $html .= '<div class="driver-block-banner" id="' . $cardClass . '_block_banner" style="display:none;">';
             $html .= '<i class="fas fa-ban"></i> ';
             $html .= '<strong>PRECAUTELADO:</strong> ' . htmlspecialchars(self::MSG_BLOQUEO_CONDUCTOR);
@@ -324,7 +325,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             $name = $preg[0];
             $texto = $preg[1];
             $expectedAnswer = $preg[2] ?? null;
-            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, false, $expectedAnswer);
+            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, false, $expectedAnswer, $esValidacion);
         }
 
         $html .= '</div></div>';
@@ -334,7 +335,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Genera tarjeta para una subsección de vehículo (checkboxes SÍ/NO)
      */
-    public static function renderSeccionVehiculoCheckboxes($titulo, $preguntas, $subsectionCss, $valoresExistentes = null)
+    public static function renderSeccionVehiculoCheckboxes($titulo, $preguntas, $subsectionCss, $valoresExistentes = null, $esValidacion = false)
     {
         $html = '<div class="preop-card ' . $subsectionCss . '">';
         $html .= '<div class="preop-card-header">' . $titulo . '</div>';
@@ -344,7 +345,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             $name = $preg[0];
             $texto = $preg[1];
             $requirePhoto = isset($preg['require_photo']) && $preg['require_photo'];
-            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, $requirePhoto);
+            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, $requirePhoto, null, $esValidacion);
         }
 
         $html .= '</div></div>';
@@ -354,7 +355,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Renderiza las secciones de vehículo carro como tarjetas individuales
      */
-    public static function renderVehiculoCarroSections($valoresExistentes = null)
+    public static function renderVehiculoCarroSections($valoresExistentes = null, $esValidacion = false)
     {
         $preguntas = self::getPreguntasVehiculoCarro();
         $html = '';
@@ -365,16 +366,18 @@ class PreoperacionalNuevaEncuestaViewHelper
                 $seccion['titulo'],
                 $seccion['preguntas'],
                 $subsectionCss,
-                $valoresExistentes
+                $valoresExistentes,
+                $esValidacion
             );
         }
 
-        // Mensaje de advertencia
-        $html .= '<div class="preop-card warning-card">';
-        $html .= '<div class="preop-card-header">⚠️ AVISO IMPORTANTE</div>';
-        $html .= '<div class="preop-card-body">';
-        $html .= '<p style="margin:0;font-size:14px;">Si marca <strong>NO</strong> en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS. Para la inspección inicial, debe subir fotografía y contactar a administrativos.</p>';
-        $html .= '</div></div>';
+        if (!$esValidacion) {
+            $html .= '<div class="preop-card warning-card">';
+            $html .= '<div class="preop-card-header">⚠️ AVISO IMPORTANTE</div>';
+            $html .= '<div class="preop-card-body">';
+            $html .= '<p style="margin:0;font-size:14px;">Si marca <strong>NO</strong> en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS. Para la inspección inicial, debe subir fotografía y contactar a administrativos.</p>';
+            $html .= '</div></div>';
+        }
 
         return $html;
     }
@@ -382,7 +385,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Renderiza las secciones de vehículo moto como tarjetas individuales
      */
-    public static function renderVehiculoMotoSections($valoresExistentes = null)
+    public static function renderVehiculoMotoSections($valoresExistentes = null, $esValidacion = false)
     {
         $preguntas = self::getPreguntasVehiculoMoto();
         $html = '';
@@ -393,16 +396,18 @@ class PreoperacionalNuevaEncuestaViewHelper
                 $seccion['titulo'],
                 $seccion['preguntas'],
                 $subsectionCss,
-                $valoresExistentes
+                $valoresExistentes,
+                $esValidacion
             );
         }
 
-        // Mensaje de advertencia
-        $html .= '<div class="preop-card warning-card">';
-        $html .= '<div class="preop-card-header">⚠️ AVISO IMPORTANTE</div>';
-        $html .= '<div class="preop-card-body">';
-        $html .= '<p style="margin:0;font-size:14px;">Si marca <strong>NO</strong> en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS.</p>';
-        $html .= '</div></div>';
+        if (!$esValidacion) {
+            $html .= '<div class="preop-card warning-card">';
+            $html .= '<div class="preop-card-header">⚠️ AVISO IMPORTANTE</div>';
+            $html .= '<div class="preop-card-body">';
+            $html .= '<p style="margin:0;font-size:14px;">Si marca <strong>NO</strong> en cualquier pregunta, debe reportar inmediatamente al Jefe de Operaciones de TRANSMILLAS.</p>';
+            $html .= '</div></div>';
+        }
 
         return $html;
     }

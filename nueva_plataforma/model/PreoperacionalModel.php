@@ -23,6 +23,21 @@ class PreoperacionalModel
     // ==================== CONSULTAS ====================
 
     /**
+     * Obtiene el tipo de vehículo del perfil del usuario (usu_tipovehiculo).
+     * Útil cuando el usuario no tiene vehículo asignado pero su perfil
+     * indica que es conductor (Carro) o motociclista (Moto).
+     *
+     * @param int $idUsuario
+     * @return string|null 'Carro', 'Moto' o null
+     */
+    public function obtenerTipoVehiculoUsuario($idUsuario)
+    {
+        $sql = "SELECT usu_tipovehiculo FROM usuarios WHERE idusuarios = ? LIMIT 1";
+        $row = $this->executeQuery($sql, "i", [$idUsuario]);
+        return $row ? ($row['usu_tipovehiculo'] ?: null) : null;
+    }
+
+    /**
      * Obtiene los datos del vehículo y usuario.
      * Si $idVehiculo es null, devuelve el primer vehículo asignado al usuario.
      * 
@@ -632,36 +647,65 @@ class PreoperacionalModel
     }
 
     /**
-     * Obtiene las respuestas individuales de un preoperacional,
-     * formateadas como array clave-valor compatible con $valoresEncuesta.
+     * Obtiene TODAS las respuestas de un preoperacional, sin filtrar por versión.
+     * Crucial para el read path: el registro almacena solo un id_version (el primario
+     * de vehículo), pero las respuestas existen en múltiples versiones (vehículo + usuario).
      *
      * @param int $idPreoperacional
-     * @param int $idVersion
      * @return array [codigo_interno => respuesta_dada]
      */
-    public function obtenerRespuestasVersion($idPreoperacional, $idVersion)
+    public function obtenerTodasRespuestas($idPreoperacional)
     {
         $sql = "SELECT p.codigo_interno, r.respuesta_dada, r.ruta_foto
                 FROM preop_respuestas r
                 INNER JOIN preop_preguntas p ON r.id_pregunta = p.id_pregunta
-                INNER JOIN preop_secciones s ON p.id_seccion = s.id_seccion
-                WHERE r.id_preoperacional = ?
-                  AND s.id_version = ?";
+                WHERE r.id_preoperacional = ?";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("ii", $idPreoperacional, $idVersion);
+        $stmt->bind_param("i", $idPreoperacional);
         $stmt->execute();
         $result = $stmt->get_result();
 
         $respuestas = [];
         while ($row = $result->fetch_assoc()) {
             $respuestas[$row['codigo_interno']] = $row['respuesta_dada'];
-            // Si hay foto, guardarla también
             if (!empty($row['ruta_foto'])) {
                 $respuestas[$row['codigo_interno'] . '_foto'] = $row['ruta_foto'];
             }
         }
         return $respuestas;
+    }
+
+    /**
+     * Obtiene los IDs de documentos asociados a un preoperacional, indexados
+     * por su clave semántica (firma_documento_id, inspeccion_documento_id,
+     * temperatura_documento_id). Sustituye la dependencia del JSON de
+     * preencuesta para registros del esquema relacional.
+     *
+     * @param int $idPreoperacional
+     * @return array [clave_semantica => iddocumentos]
+     */
+    public function obtenerDocumentosPorPreoperacional($idPreoperacional)
+    {
+        $sql = "SELECT iddocumentos, doc_version
+                FROM documentos
+                WHERE doc_idviene = ? AND doc_tabla = 'pre-operacional'";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idPreoperacional);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $docs = [];
+        while ($row = $result->fetch_assoc()) {
+            switch ((int) $row['doc_version']) {
+                case 2: $docs['temperatura_documento_id'] = (int) $row['iddocumentos']; break;
+                case 3: $docs['inspeccion_documento_id']  = (int) $row['iddocumentos']; break;
+                case 4: $docs['firma_documento_id']       = (int) $row['iddocumentos']; break;
+                // otros tipos de documento no se mapean automáticamente
+            }
+        }
+        return $docs;
     }
 
     // ==================== SEGUIMIENTO VEHICULAR ====================
@@ -843,6 +887,52 @@ class PreoperacionalModel
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("ii", $idVehiculo, $idUsuario);
         return $stmt->execute();
+    }
+
+    /**
+     * Busca las entregas de vehículo pendientes de validación para un usuario
+     * (conductor). Busca el último REVISION_SST que tenga entregas vinculadas
+     * para cualquier vehículo que haya usado este conductor.
+     *
+     * @param int $idUsuario ID del conductor
+     * @return array ['final' => entrega|null, 'inicial' => entrega|null, 'seguimiento' => array|null]
+     */
+    public function obtenerEntregasPendientesPorUsuario($idUsuario)
+    {
+        // Buscar el último REVISION_SST que tenga entregas vinculadas y
+        // cuyo conductor sea este usuario.
+        $sql = "SELECT sv.*
+                FROM seguimiento_vehiculo sv
+                WHERE sv.id_conductor = ?
+                  AND sv.tipo_evento = 'REVISION_SST'
+                  AND (sv.entrega_final_usuario IS NOT NULL OR sv.entrega_inicial_usuario IS NOT NULL)
+                ORDER BY sv.fecha_registro DESC
+                LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idUsuario);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $seguimiento = $result->fetch_assoc();
+
+        if (!$seguimiento) {
+            return ['final' => null, 'inicial' => null, 'seguimiento' => null];
+        }
+
+        $entregaFinal = null;
+        $entregaInicial = null;
+
+        if (!empty($seguimiento['entrega_final_usuario'])) {
+            $entregaFinal = $this->obtenerEntregaVehiculoPorId((int) $seguimiento['entrega_final_usuario']);
+        }
+        if (!empty($seguimiento['entrega_inicial_usuario'])) {
+            $entregaInicial = $this->obtenerEntregaVehiculoPorId((int) $seguimiento['entrega_inicial_usuario']);
+        }
+
+        return [
+            'final' => $entregaFinal,
+            'inicial' => $entregaInicial,
+            'seguimiento' => $seguimiento
+        ];
     }
 
     /**
