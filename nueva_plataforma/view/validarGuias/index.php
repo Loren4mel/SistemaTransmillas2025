@@ -885,6 +885,11 @@ $(document).ready(function () {
   });
 
   $('#btnConfirmarPreAsignar').on('click', function () {
+    const $btn = $(this);
+    if ($btn.prop('disabled')) {
+      return;
+    }
+
     const operador = $('#operadorPreAsignar').val();
     const seleccionadas = guiasSeleccionadas.size;
 
@@ -899,6 +904,7 @@ $(document).ready(function () {
     }
 
     const guias = Array.from(guiasSeleccionadas);
+    $btn.prop('disabled', true).text('Guardando...');
 
     $.ajax({
       url: '/nueva_plataforma/controller/ValidarGuiasController.php',
@@ -924,11 +930,19 @@ $(document).ready(function () {
       },
       error: function () {
         $('#alertaPreAsignar').removeClass('d-none').text('Error guardando la pre-asignacion.');
+      },
+      complete: function () {
+        $btn.prop('disabled', false).text('Pre-asignar');
       }
     });
   });
 
   $('#btnDeshacerPreAsignar').on('click', function () {
+    const $btn = $(this);
+    if ($btn.prop('disabled')) {
+      return;
+    }
+
     const seleccionadas = guiasSeleccionadas.size;
 
     if (seleccionadas === 0) {
@@ -940,6 +954,7 @@ $(document).ready(function () {
       return;
     }
 
+    $btn.prop('disabled', true);
     $.ajax({
       url: '/nueva_plataforma/controller/ValidarGuiasController.php',
       type: 'POST',
@@ -960,6 +975,9 @@ $(document).ready(function () {
       },
       error: function () {
         alert('Error deshaciendo la pre-asignacion.');
+      },
+      complete: function () {
+        $btn.prop('disabled', false);
       }
     });
   });
