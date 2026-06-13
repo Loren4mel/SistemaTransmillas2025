@@ -22,8 +22,11 @@ class VehiculosModel {
      WHERE com_vehiculo_id = idvehiculos) AS total_comparendos,
     (SELECT COUNT(*) FROM comparendos 
      WHERE com_vehiculo_id = idvehiculos 
-     AND com_estado = 'Pendiente') AS comparendos_pendientes
-     FROM `vehiculos` LEFT JOIN usuarios ON veh_dueño = idusuarios
+     AND com_estado = 'Pendiente') AS comparendos_pendientes,
+     (SELECT rev_fecha_consulta FROM revision_comparendos 
+     WHERE rev_vehiculo_id = idvehiculos 
+     ORDER BY rev_fecha_consulta DESC LIMIT 1) AS ultima_revision
+    FROM `vehiculos` LEFT JOIN usuarios ON veh_dueño = idusuarios
      WHERE 1=1";
     if ($filtroTipovehiculo !== '') {
         $sql .= " AND veh_tipo = '" . $this->dbname->real_escape_string($filtroTipovehiculo) . "'";
@@ -75,6 +78,25 @@ class VehiculosModel {
     $veh_img_tecnomecanica  = $this->guardarImagen($_FILES['veh_img_tecnomecanica'],  "uploads/vehiculos");
     $veh_img_actual_frente  = $this->guardarImagen($_FILES['veh_img_actual_frente'],  "uploads/vehiculos");
     $veh_img_actual_trasera = $this->guardarImagen($_FILES['veh_img_actual_trasera'], "uploads/vehiculos");
+
+// Procesar fotos de herramientas
+$equipoJson = $datos['veh_equipo_carretera'] ?? '[]';
+$equipo = json_decode($equipoJson, true) ?? [];
+
+foreach ($equipo as $idx => &$herramienta) {
+    unset($herramienta['foto_key']);
+    $key = "veh_herramienta_foto_{$idx}";
+    if (isset($_FILES[$key]) && is_uploaded_file($_FILES[$key]['tmp_name'])) {
+        $rutaFoto = $this->guardarImagen($_FILES[$key], 'uploads/vehiculos/herramientas');
+        if ($rutaFoto) $herramienta['foto'] = $rutaFoto;
+    }
+}
+unset($herramienta);
+$datos['veh_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
+
+
+
+
 
     $sql = "INSERT INTO vehiculos (
         veh_tipo, veh_marca, veh_placa, veh_modelo, veh_color,
@@ -224,6 +246,21 @@ public function actualizarVehiculo($datos) {
     $veh_img_actual_frente  = $this->guardarImagen($_FILES['veh_img_actual_frente'],  "uploads/vehiculos");
     $veh_img_actual_trasera = $this->guardarImagen($_FILES['veh_img_actual_trasera'], "uploads/vehiculos");
 
+// Procesar fotos de herramientas
+$equipoJson = $datos['veh_equipo_carretera'] ?? '[]';
+$equipo = json_decode($equipoJson, true) ?? [];
+
+foreach ($equipo as $idx => &$herramienta) {
+    $key = "veh_herramienta_foto_edit_{$idx}";
+    if (isset($_FILES[$key]) && is_uploaded_file($_FILES[$key]['tmp_name'])) {
+        $rutaFoto = $this->guardarImagen($_FILES[$key], 'uploads/vehiculos/herramientas');
+        if ($rutaFoto) $herramienta['foto'] = $rutaFoto;
+    }
+    unset($herramienta['foto_key']);
+}
+unset($herramienta);
+$datos['veh_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
+
     $sqlImgs = "";
     if ($veh_img_anverso)        $sqlImgs .= ", veh_img_anverso = '$veh_img_anverso'";
     if ($veh_img_reverso)        $sqlImgs .= ", veh_img_reverso = '$veh_img_reverso'";
@@ -351,18 +388,20 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
         $ent_firma_path = 'uploads/firmas_entrega/' . $nombreFirma;
     }
 
+    $ent_video_url = $this->dbname->real_escape_string($datos['ent_video_url'] ?? '');
+
     $sql = "INSERT INTO entregavehiculo (
-                ent_fechaentrega, ent_vehiculo, ent_userregistra, ent_idusuario,
-                ent_tipoentrega, ent_fecharegistra, ent_idhojadevida, ent_sede,
-                ent_img_frente, ent_img_trasera, ent_equipo_carretera,
-                ent_observaciones, ent_firma 
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            ent_fechaentrega, ent_vehiculo, ent_userregistra, ent_idusuario,
+            ent_tipoentrega, ent_fecharegistra, ent_idhojadevida, ent_sede,
+            ent_img_frente, ent_img_trasera, ent_equipo_carretera,
+            ent_observaciones, ent_firma, ent_video_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = $this->dbname->prepare($sql);
     if (!$stmt) return ['error' => 'Prepare falló: ' . $this->dbname->error];
 
     $stmt->bind_param(
-        "sssississssss",
+        "sssississsssss",
         $datos['ent_fechaentrega'],
         $datos['ent_vehiculo'],
         $datos['ent_userregistra'],
@@ -375,7 +414,8 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
         $ent_img_trasera,
         $datos['ent_equipo_carretera'],
         $datos['ent_observaciones'],
-        $ent_firma_path
+        $ent_firma_path,
+        $ent_video_url
     );
 
     $resultado = $stmt->execute();
@@ -592,6 +632,7 @@ public function obtenerHistorialConductoresPorVehiculo($idVehiculo) {
             e.ent_img_frente,
             e.ent_img_trasera,
             e.ent_firma,
+            e.ent_video_url,
             u.usu_nombre AS conductor_nombre
         FROM entregavehiculo e
         LEFT JOIN usuarios u ON e.ent_idusuario = u.idusuarios
@@ -704,6 +745,41 @@ public function actualizarEntrega($datos) {
 public function eliminarEntrega($id) {
     $id  = intval($id);
     $sql = "DELETE FROM entregavehiculo WHERE identregavehiculo = $id";
+    return $this->dbname->query($sql) ? true : ['error' => $this->dbname->error];
+}
+
+// Guardar revisión de comparendos
+public function guardarRevisionComparendo($datos) {
+    $evidencia = '';
+    if (isset($_FILES['rev_evidencia']) && is_uploaded_file($_FILES['rev_evidencia']['tmp_name'])) {
+        $evidencia = $this->guardarImagen($_FILES['rev_evidencia'], 'uploads/revisiones_comparendos');
+    }
+
+    $idVehiculo = intval($datos['rev_vehiculo_id']);
+    $fecha      = $this->dbname->real_escape_string($datos['rev_fecha_consulta']);
+    $usuario    = $this->dbname->real_escape_string($datos['rev_usuario']);
+    $evidencia  = $this->dbname->real_escape_string($evidencia);
+
+    $sql = "INSERT INTO revision_comparendos 
+                (rev_vehiculo_id, rev_fecha_consulta, rev_evidencia, rev_usuario)
+            VALUES ($idVehiculo, '$fecha', '$evidencia', '$usuario')";
+
+    return $this->dbname->query($sql) ? true : ['error' => $this->dbname->error];
+}
+
+// Obtener revisiones de un vehículo
+public function obtenerRevisionesPorVehiculo($idVehiculo) {
+    $id  = intval($idVehiculo);
+    $sql = "SELECT * FROM revision_comparendos 
+            WHERE rev_vehiculo_id = $id 
+            ORDER BY rev_fecha_creacion DESC";
+    $result = $this->dbname->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+}
+
+public function eliminarRevision($id) {
+    $id  = intval($id);
+    $sql = "DELETE FROM revision_comparendos WHERE idrevision = $id";
     return $this->dbname->query($sql) ? true : ['error' => $this->dbname->error];
 }
 

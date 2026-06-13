@@ -217,7 +217,6 @@ $(document).ready(function () {
                 }
             },
 
-
             {
                 data: 'veh_img_anverso',
                 orderable: false,
@@ -225,6 +224,17 @@ $(document).ready(function () {
                 render: function (data, type, row) {
                     if (!data) return '<span class="text-muted" style="font-size:11px;">Sin imagen</span>';
                     const ruta = `${baseUrl}/` + data;
+                    if (data.toLowerCase().endsWith('.pdf')) {
+                        return `<a href="${ruta}" target="_blank" 
+           style="display:inline-flex; align-items:center; gap:4px;
+                  border:1px solid #c0392b; color:#c0392b; border-radius:5px;
+                  padding:2px 8px; font-size:11px; font-weight:600;
+                  text-decoration:none; white-space:nowrap; transition: all 0.2s;"
+           onmouseover="this.style.background='#c0392b'; this.style.color='#fff';"
+           onmouseout="this.style.background='transparent'; this.style.color='#c0392b';">
+            <i class="fas fa-file-pdf" style="font-size:11px;"></i> Ver PDF
+        </a>`;
+                    }
                     return `<img src="${ruta}" 
                     style="height:50px; width:75px; object-fit:cover; 
                            border-radius:4px; border:1px solid #dee2e6; cursor:pointer;"
@@ -239,11 +249,100 @@ $(document).ready(function () {
                 render: function (data, type, row) {
                     if (!data) return '<span class="text-muted" style="font-size:11px;">Sin imagen</span>';
                     const ruta = `${baseUrl}/` + data;
+                    if (data.toLowerCase().endsWith('.pdf')) {
+                        return `<a href="${ruta}" target="_blank" 
+           style="display:inline-flex; align-items:center; gap:4px;
+                  border:1px solid #c0392b; color:#c0392b; border-radius:5px;
+                  padding:2px 8px; font-size:11px; font-weight:600;
+                  text-decoration:none; white-space:nowrap; transition: all 0.2s;"
+           onmouseover="this.style.background='#c0392b'; this.style.color='#fff';"
+           onmouseout="this.style.background='transparent'; this.style.color='#c0392b';">
+            <i class="fas fa-file-pdf" style="font-size:11px;"></i> Ver PDF
+        </a>`;
+                    }
                     return `<img src="${ruta}" 
                     style="height:50px; width:75px; object-fit:cover; 
                            border-radius:4px; border:1px solid #dee2e6; cursor:pointer;"
                     onclick="window.open('${ruta}', '_blank')"
                     title="Ver imagen completa">`;
+                }
+            },
+
+
+
+            // Revisión de Comparendos
+            {
+                data: null,
+                orderable: false,
+                searchable: false,
+                render: function (data, type, row) {
+                    let alertaHtml = '';
+                    const hoy = new Date();
+                    hoy.setHours(0, 0, 0, 0);
+
+                    if (!row.ultima_revision) {
+                        alertaHtml = `
+                <span style="background:#c0392b; color:#fff; font-size:11px; font-weight:bold;
+                    padding:3px 7px; border-radius:5px; display:inline-block;
+                    white-space:nowrap; margin-top:4px;">
+                    Si revision 
+                </span>`;
+                    } else {
+                        const partes = row.ultima_revision.split('-');
+                        const fechaRevision = new Date(
+                            parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2])
+                        );
+                        const dias = Math.floor((hoy - fechaRevision) / (1000 * 60 * 60 * 24));
+
+                        if (dias >= 15) {
+                            alertaHtml = `
+                    <span style="background:#c0392b; color:#fff; font-size:11px; font-weight:bold;
+                        padding:3px 7px; border-radius:5px; display:inline-block;
+                        white-space:nowrap; margin-top:4px;">
+                        SIMIT vencido
+                    </span>`;
+                        } else {
+                            alertaHtml = `
+                    <span style="background:#27ae60; color:#fff; font-size:11px; font-weight:bold;
+                        padding:3px 7px; border-radius:5px; display:inline-block;
+                        white-space:nowrap; margin-top:4px;">
+                        Revisado: ${row.ultima_revision}
+                    </span>`;
+                        }
+                    }
+
+                    return `
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                <div style="display:flex; flex-direction:row; gap:6px; align-items:center;">
+                    <button class="btn-cargar-revision"
+        data-bs-toggle="tooltip" data-bs-placement="top"
+        title="Cargar revisión"
+        data-id="${row.idvehiculos}"
+        data-placa="${row.veh_placa}"
+        data-marca="${row.veh_marca}"
+        data-modelo="${row.veh_modelo}"
+        style="background:transparent; border:1px solid #1a7a4a; color:#1a7a4a;
+               border-radius:6px; padding:6px 10px; font-size:16px; cursor:pointer;
+               transition: all 0.2s;"
+        onmouseover="this.style.background='#20965b'; this.style.color='#fff';"
+        onmouseout="this.style.background='transparent'; this.style.color='#20965b';">
+    <i class="fas fa-upload"></i>
+</button>
+<button class="btn-ver-revisiones"
+        data-bs-toggle="tooltip" data-bs-placement="top"
+        title="Ver historial"
+        data-id="${row.idvehiculos}"
+        data-placa="${row.veh_placa}"
+        style="background:transparent; border:1px solid #74c6f5; color:#0c6ea8;
+               border-radius:6px; padding:6px 10px; font-size:16px; cursor:pointer;
+               transition: all 0.2s;"
+        onmouseover="this.style.background='#5cd1f5'; this.style.color='#131212';"
+        onmouseout="this.style.background='transparent'; this.style.color='#5cd1f5';">
+    <i class="fas fa-history"></i>
+</button>
+                </div>
+                ${alertaHtml}
+            </div>`;
                 }
             },
 
@@ -272,6 +371,8 @@ $(document).ready(function () {
             </button>`;
                 }
             },
+
+
 
             // Columna Historial de Conductores
             {
@@ -496,6 +597,15 @@ $(document).ready(function () {
         let datos = new FormData(formulario);
         datos.append("guardar_vehiculo", true);
 
+        // Adjuntar fotos de herramientas
+        const filasHerramienta = document.querySelectorAll('#listaHerramientas .d-flex');
+        filasHerramienta.forEach((fila, idx) => {
+            const inputFoto = fila.querySelector('.herramienta-foto');
+            if (inputFoto && inputFoto.files && inputFoto.files[0]) {
+                datos.append(`veh_herramienta_foto_${idx}`, inputFoto.files[0]);
+            }
+        });
+
         Swal.fire({
             title: 'Guardando...',
             text: 'Subiendo información e imágenes al servidor',
@@ -621,7 +731,7 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
                     try {
                         const herramientas = JSON.parse(v.veh_equipo_carretera);
                         herramientas.forEach(h => {
-                            listaEdit.appendChild(crearFilaHerramientaEdit(h.nombre, h.existe));
+                            listaEdit.appendChild(crearFilaHerramientaEdit(h.nombre, h.existe, h.foto || ''));
                         });
                     } catch (e) { }
                 }
@@ -684,6 +794,15 @@ $('#btnActualizar').on('click', function (e) {
     const datos = new FormData(formulario);
     datos.append('actualizar_vehiculo', true);
 
+    // Adjuntar fotos de herramientas
+    const filasHerramientaEdit = document.querySelectorAll('#listaHerramientasEdit .d-flex');
+    filasHerramientaEdit.forEach((fila, idx) => {
+        const inputFoto = fila.querySelector('.herramienta-foto-edit');
+        if (inputFoto && inputFoto.files && inputFoto.files[0]) {
+            datos.append(`veh_herramienta_foto_edit_${idx}`, inputFoto.files[0]);
+        }
+    });
+
     Swal.fire({
         title: 'Actualizando...',
         text: 'Guardando cambios en el servidor',
@@ -738,10 +857,32 @@ function crearFilaHerramienta(nombre = '', existe = 'si') {
             <option value="si" ${existe === 'si' ? 'selected' : ''}>✅ Activo</option>
             <option value="no" ${existe === 'no' ? 'selected' : ''}>❌ Inactivo</option>
         </select>
+        <div class="d-flex align-items-center gap-1" style="flex:0 0 auto;">
+            <label class="btn btn-sm btn-outline-secondary mb-0" title="Adjuntar foto" style="cursor:pointer;">
+                <i class="fas fa-camera"></i>
+                <input type="file" class="herramienta-foto d-none" accept=".jpg,.jpeg,.png">
+            </label>
+            <div class="herramienta-foto-preview" style="width:36px; height:36px;"></div>
+        </div>
         <button type="button" class="btn btn-sm btn-danger btn-eliminar-herramienta">
             <i class="fas fa-trash-alt"></i>
         </button>
     `;
+
+    const inputFoto = div.querySelector('.herramienta-foto');
+    const preview = div.querySelector('.herramienta-foto-preview');
+    inputFoto.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+            const url = URL.createObjectURL(this.files[0]);
+            preview.innerHTML = `<img src="${url}" 
+                style="width:36px;height:36px;object-fit:cover;border-radius:4px;
+                       border:1px solid #dee2e6;cursor:pointer;"
+                onclick="window.open('${url}','_blank')">`;
+        } else {
+            preview.innerHTML = '';
+        }
+    });
+
     div.querySelector('.btn-eliminar-herramienta').addEventListener('click', function () {
         div.remove();
     });
@@ -753,7 +894,7 @@ document.getElementById('btnAgregarHerramienta').addEventListener('click', funct
 });
 
 // EQUIPO DE CARRETERA (modal EDITAR)
-function crearFilaHerramientaEdit(nombre = '', existe = 'si') {
+function crearFilaHerramientaEdit(nombre = '', existe = 'si', fotoExistente = '') {
     const div = document.createElement('div');
     div.className = 'd-flex align-items-center gap-2 mb-2';
     div.innerHTML = `
@@ -763,10 +904,39 @@ function crearFilaHerramientaEdit(nombre = '', existe = 'si') {
             <option value="si" ${existe === 'si' ? 'selected' : ''}>✅ Activo</option>
             <option value="no" ${existe === 'no' ? 'selected' : ''}>❌ Inactivo</option>
         </select>
+        <div class="d-flex align-items-center gap-1" style="flex:0 0 auto;">
+            <label class="btn btn-sm btn-outline-secondary mb-0" title="Adjuntar foto" style="cursor:pointer;">
+                <i class="fas fa-camera"></i>
+                <input type="file" class="herramienta-foto-edit d-none" accept=".jpg,.jpeg,.png">
+            </label>
+            <div class="herramienta-foto-preview-edit" style="width:36px; height:36px;">
+                ${fotoExistente
+            ? `<img src="${baseUrl}/${fotoExistente}"
+                           style="width:36px;height:36px;object-fit:cover;border-radius:4px;
+                                  border:1px solid #dee2e6;cursor:pointer;"
+                           onclick="window.open('${baseUrl}/${fotoExistente}','_blank')">`
+            : ''}
+            </div>
+        </div>
         <button type="button" class="btn btn-sm btn-danger btn-eliminar-herramienta-edit">
             <i class="fas fa-trash-alt"></i>
         </button>
     `;
+
+    const inputFoto = div.querySelector('.herramienta-foto-edit');
+    const preview = div.querySelector('.herramienta-foto-preview-edit');
+    inputFoto.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+            const url = URL.createObjectURL(this.files[0]);
+            preview.innerHTML = `<img src="${url}" 
+                style="width:36px;height:36px;object-fit:cover;border-radius:4px;
+                       border:1px solid #dee2e6;cursor:pointer;"
+                onclick="window.open('${url}','_blank')">`;
+        } else {
+            preview.innerHTML = '';
+        }
+    });
+
     div.querySelector('.btn-eliminar-herramienta-edit').addEventListener('click', function () {
         div.remove();
     });
@@ -779,24 +949,41 @@ document.getElementById('btnAgregarHerramientaEdit').addEventListener('click', f
 
 // SERIALIZAR JSON antes de guardar (modal AGREGAR)
 function serializarHerramientas() {
-    const filas = document.querySelectorAll('#listaHerramientas .d-flex');
+    const filas = document.querySelectorAll('#listaHerramientas > .d-flex');
     const herramientas = [];
-    filas.forEach(fila => {
+    filas.forEach((fila, idx) => {
         const nombre = fila.querySelector('.herramienta-nombre').value.trim();
         const existe = fila.querySelector('.herramienta-existe').value;
-        if (nombre !== '') herramientas.push({ nombre, existe });
+        if (nombre !== '') herramientas.push({ nombre, existe, foto_key: `veh_herramienta_foto_${idx}` });
     });
     document.getElementById('veh_equipo_carretera').value = JSON.stringify(herramientas);
 }
 
 // SERIALIZAR JSON antes de guardar (modal EDITAR)
 function serializarHerramientasEdit() {
-    const filas = document.querySelectorAll('#listaHerramientasEdit .d-flex');
+    const filas = document.querySelectorAll('#listaHerramientasEdit > .d-flex');
     const herramientas = [];
-    filas.forEach(fila => {
+    filas.forEach((fila, idx) => {
         const nombre = fila.querySelector('.herramienta-nombre-edit').value.trim();
         const existe = fila.querySelector('.herramienta-existe-edit').value;
-        if (nombre !== '') herramientas.push({ nombre, existe });
+        if (nombre === '') return;
+
+        const obj = { nombre, existe };
+
+        // Preservar foto existente si no se sube una nueva
+        const preview = fila.querySelector('.herramienta-foto-preview-edit img');
+        const inputFoto = fila.querySelector('.herramienta-foto-edit');
+        const tieneNuevaFoto = inputFoto && inputFoto.files && inputFoto.files.length > 0;
+
+        if (!tieneNuevaFoto && preview) {
+            const src = preview.getAttribute('src') || '';
+            const ruta = src.replace(baseUrl + '/', '');
+            if (ruta) obj.foto = ruta;
+        } else if (tieneNuevaFoto) {
+            obj.foto_key = `veh_herramienta_foto_edit_${idx}`;
+        }
+
+        herramientas.push(obj);
     });
     document.getElementById('edit_veh_equipo_carretera').value = JSON.stringify(herramientas);
 }
@@ -1006,6 +1193,10 @@ $('#btnGuardarEntrega').on('click', function () {
     datos.append('ent_sede', sede);
     datos.append('ent_observaciones', $('[name="ent_observaciones"]').val());
 
+    // Adjuntar URL del video si ya fue subido
+    const videoUrl = document.getElementById('ent_video_url').value;
+    if (videoUrl) datos.append('ent_video_url', videoUrl);
+
     if (tipoEntrega.value === 'inicial') {
         // Quien recibe es el conductor seleccionado
         const conductorRecibe = document.getElementById('ent_idusuario_recibe');
@@ -1179,6 +1370,12 @@ document.getElementById('modalEntregaVehiculo').addEventListener('hidden.bs.moda
     }
     firmaEntregaRealizada = false;
     firmaEntregaDrawing = false;
+
+    // Limpiar video
+    document.getElementById('ent_video_file').value = '';
+    document.getElementById('ent_video_url').value = '';
+    $('#ent_video_progress').hide();
+    $('#ent_video_preview').hide();
 });
 
 // COMPARENDOS - Al seleccionar operador mostrar info de hoja de vida
@@ -1749,8 +1946,13 @@ function renderizarHistorial(res) {
                 <td>${fotoFrente}</td>
                 <td>${fotoRespaldo}</td>
                 <td>${firma}</td>
+                <td>${e.ent_video_url
+                ? `<a href="${e.ent_video_url}" target="_blank" class="btn btn-sm btn-outline-primary">
+                       <i class="fas fa-play-circle me-1"></i>Ver video
+                       </a>`
+                : '<span class="text-muted" style="font-size:11px;">Sin video</span>'
+            }</td>
                 <td style="max-width:160px;">${observaciones}</td>
-                <td>
     <button class="btn btn-sm btn-outline-primary btn-editar-entrega"
         title="Editar entrega"
         data-id="${e.identregavehiculo}"
@@ -2401,4 +2603,344 @@ document.getElementById('modalEditarEntrega').addEventListener('hidden.bs.modal'
     document.getElementById('listaHerramientasEditEntrega').innerHTML = '';
     document.getElementById('edit_ent_equipo_carretera').value = '';
     document.getElementById('formEditarEntrega').reset();
+});
+
+// ============================================================
+// VIDEO — SUBIDA AL SERVIDOR EXTERNO
+// ============================================================
+
+const VIDEO_UPLOAD_URL = 'https://bot.transmillas.com/filesTransmillas/upload_video.php';
+const VIDEO_BASE_URL = 'https://bot.transmillas.com/filesTransmillas/';
+const VIDEO_MAX_SECONDS = 180; // 3 minutos
+const VIDEO_MAX_MB = 200; // ajusta según config del servidor
+
+// Al seleccionar un video, validar duración antes de subirlo
+document.getElementById('ent_video_file').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+
+    // Validar tipo
+    if (!file.type.startsWith('video/')) {
+        Swal.fire('Error', 'Solo se permiten archivos de video', 'error');
+        this.value = '';
+        return;
+    }
+
+    // Validar tamaño
+    if (file.size > VIDEO_MAX_MB * 1024 * 1024) {
+        Swal.fire('Error', `El video supera el tamaño máximo de ${VIDEO_MAX_MB} MB`, 'error');
+        this.value = '';
+        return;
+    }
+
+    // Validar duración con elemento <video> temporal
+    const videoTmp = document.createElement('video');
+    videoTmp.preload = 'metadata';
+    videoTmp.src = URL.createObjectURL(file);
+
+    videoTmp.onloadedmetadata = function () {
+        URL.revokeObjectURL(videoTmp.src);
+
+        if (videoTmp.duration > VIDEO_MAX_SECONDS) {
+            const minutos = Math.floor(videoTmp.duration / 60);
+            const segundos = Math.round(videoTmp.duration % 60);
+            Swal.fire(
+                'Video muy largo',
+                `El video dura ${minutos}m ${segundos}s. El máximo permitido es 3 minutos.`,
+                'error'
+            );
+            document.getElementById('ent_video_file').value = '';
+            return;
+        }
+
+        // Todo ok — subir al servidor
+        subirVideoEntrega(file);
+    };
+
+    videoTmp.onerror = function () {
+        Swal.fire('Error', 'No se pudo leer el archivo de video', 'error');
+        document.getElementById('ent_video_file').value = '';
+    };
+});
+
+function subirVideoEntrega(file) {
+    // Generar nombre único
+    const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
+    const rand = Math.random().toString(36).substring(2, 8);
+    const ext = file.name.split('.').pop().toLowerCase();
+    const nombreUnico = `entrega_${timestamp}_${rand}.${ext}`;
+
+    const formData = new FormData();
+    formData.append('video', file, nombreUnico);
+
+    // Mostrar barra de progreso
+    const $progress = $('#ent_video_progress');
+    const $progressBar = $('#ent_video_progress_bar');
+    const $progressText = $('#ent_video_progress_text');
+    const $preview = $('#ent_video_preview');
+
+    $preview.hide();
+    $progress.show();
+    $progressBar.css('width', '0%');
+    $progressText.text('Subiendo video...');
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            $progressBar.css('width', pct + '%');
+            $progressText.text(`Subiendo video... ${pct}%`);
+        }
+    };
+
+    xhr.onload = function () {
+        $progress.hide();
+        try {
+            const res = JSON.parse(xhr.responseText);
+            if (res.success && res.url) {
+                const url = res.url;
+                document.getElementById('ent_video_url').value = url;
+
+                // Mostrar preview
+                document.getElementById('ent_video_preview_src').src = url;
+                document.getElementById('ent_video_url_text').textContent = '✅ Video subido: ' + url;
+                $preview.show();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Video subido!',
+                    text: 'El video se guardó correctamente.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire('Error', res.mensaje || 'No se pudo subir el video', 'error');
+                document.getElementById('ent_video_file').value = '';
+            }
+        } catch (e) {
+            Swal.fire('Error', 'Respuesta inesperada del servidor de videos', 'error');
+        }
+    };
+
+    xhr.onerror = function () {
+        $progress.hide();
+        Swal.fire('Error', 'No se pudo conectar con el servidor de videos', 'error');
+    };
+
+    xhr.open('POST', VIDEO_UPLOAD_URL);
+    xhr.send(formData);
+}
+
+// REVISIÓN DE COMPARENDOS
+
+$(document).on('click', '.btn-cargar-revision', function () {
+    const id = $(this).data('id');
+    const placa = $(this).data('placa');
+    const marca = $(this).data('marca');
+    const modelo = $(this).data('modelo');
+
+    $('#rev_vehiculo_id').val(id);
+    $('#rev_vehiculo_texto').val(`${placa} — ${marca} ${modelo}`);
+    $('#rev_fecha_consulta').val(new Date().toISOString().split('T')[0]);
+    document.getElementById('formCargarRevision').reset();
+    $('#rev_vehiculo_id').val(id);
+    $('#rev_vehiculo_texto').val(`${placa} — ${marca} ${modelo}`);
+
+    new bootstrap.Modal(document.getElementById('modalCargarRevision')).show();
+});
+
+// Guardar revisión
+$(document).on('click', '#btnGuardarRevision', function () {
+    const fecha = $('#rev_fecha_consulta').val();
+    const evidencia = document.getElementById('rev_evidencia');
+
+    if (!fecha) {
+        Swal.fire('Error', 'Debe ingresar la fecha de consulta', 'error'); return;
+    }
+    if (!evidencia.files || evidencia.files.length === 0) {
+        Swal.fire('Error', 'Debe subir la evidencia de la consulta', 'error'); return;
+    }
+
+    const archivo = evidencia.files[0];
+    if (!/(\.jpg|\.jpeg|\.png|\.pdf)$/i.test(archivo.name)) {
+        Swal.fire('Error', 'El archivo debe ser JPG, PNG o PDF', 'error'); return;
+    }
+    if (archivo.size > 5 * 1024 * 1024) {
+        Swal.fire('Error', 'El archivo es muy pesado (máx 5MB)', 'error'); return;
+    }
+
+    const datos = new FormData(document.getElementById('formCargarRevision'));
+    datos.append('guardar_revision', true);
+
+    Swal.fire({
+        title: 'Guardando...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    $.ajax({
+        url: urlController,
+        type: 'POST',
+        data: datos,
+        cache: false,
+        contentType: false,
+        processData: false,
+        success: function (res) {
+            Swal.close();
+            try {
+                const r = typeof res === 'object' ? res : JSON.parse(res);
+                if (r.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Revisión guardada!',
+                        text: r.mensaje,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    const modalRevision = bootstrap.Modal.getInstance(
+                        document.getElementById('modalCargarRevision'));
+
+                    document.getElementById('modalCargarRevision')
+                        .addEventListener('hidden.bs.modal', function recargarTrasRevision() {
+                            document.getElementById('modalCargarRevision')
+                                .removeEventListener('hidden.bs.modal', recargarTrasRevision);
+                            $('#tablaVehiculos').DataTable().ajax.reload(null, false);
+                        });
+
+                    modalRevision.hide();
+
+                } else {
+                    Swal.fire('Error', r.mensaje, 'error');
+                }
+            } catch (e) {
+                Swal.fire('Error', 'Error en la respuesta del servidor', 'error');
+            }
+        },
+        error: function () {
+            Swal.close();
+            Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+        }
+    });
+});
+
+// Abrir modal historial de revisiones
+$(document).on('click', '.btn-ver-revisiones', function () {
+    const id = $(this).data('id');
+    const placa = $(this).data('placa');
+
+    $('#tituloPlacaRevision').text(placa);
+    $('#cuerpoTablaRevisiones').html(
+        '<tr><td colspan="6" class="text-muted">Cargando...</td></tr>'
+    );
+    new bootstrap.Modal(document.getElementById('modalHistorialRevisiones')).show();
+
+    $.ajax({
+        url: urlController,
+        type: 'POST',
+        data: { obtener_revisiones: true, id: id },
+        success: function (res) {
+            try {
+                const lista = typeof res === 'object' ? res : JSON.parse(res);
+                const $tbody = $('#cuerpoTablaRevisiones');
+                $tbody.empty();
+
+                if (!lista || lista.length === 0) {
+                    $tbody.html(
+                        '<tr><td colspan="6" class="text-muted">Sin revisiones registradas</td></tr>'
+                    );
+                    return;
+                }
+
+                lista.forEach(function (r, i) {
+                    const evidencia = r.rev_evidencia
+                        ? r.rev_evidencia.toLowerCase().endsWith('.pdf')
+                            ? `<a href="${baseUrl}/${r.rev_evidencia}" target="_blank"
+                                  class="btn btn-sm btn-outline-danger">
+                                  <i class="fas fa-file-pdf"></i> Ver PDF
+                               </a>`
+                            : `<img src="${baseUrl}/${r.rev_evidencia}"
+                                    style="height:48px;width:72px;object-fit:cover;
+                                           border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
+                                    onclick="window.open('${baseUrl}/${r.rev_evidencia}','_blank')"
+                                    title="Ver evidencia">`
+                        : '<span class="text-muted" style="font-size:11px;">Sin evidencia</span>';
+
+                    $tbody.append(`
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td>${r.rev_fecha_consulta}</td>
+                            <td>${evidencia}</td>
+                            <td>${r.rev_usuario}</td>
+                            <td>${r.rev_fecha_creacion}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger btn-eliminar-revision"
+                                       title="Eliminar revisión"
+                                       data-id="${r.idrevision}">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `);
+                });
+
+            } catch (e) {
+                $('#cuerpoTablaRevisiones').html(
+                    '<tr><td colspan="6" class="text-danger">Error al cargar los datos</td></tr>'
+                );
+            }
+        },
+        error: function () {
+            $('#cuerpoTablaRevisiones').html(
+                '<tr><td colspan="6" class="text-danger">Error de conexión</td></tr>'
+            );
+        }
+    });
+});
+
+// ELIMINAR REVISIÓN DE COMPARENDO
+$(document).on('click', '.btn-eliminar-revision', function () {
+    const id = $(this).data('id');
+    const $fila = $(this).closest('tr');
+    const $vehiculo = $('#tituloPlacaRevision').text();
+
+    Swal.fire({
+        title: '¿Eliminar revisión?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d33'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: urlController,
+                type: 'POST',
+                data: { eliminar_revision: true, id: id },
+                success: function (res) {
+                    try {
+                        const r = typeof res === 'object' ? res : JSON.parse(res);
+                        if (r.success) {
+                            $fila.fadeOut(300, function () { $(this).remove(); });
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Eliminado!',
+                                text: r.mensaje,
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire('Error', r.mensaje, 'error');
+                        }
+                    } catch (e) {
+                        Swal.fire('Error', 'Error en la respuesta del servidor', 'error');
+                    }
+                },
+                error: function () {
+                    Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+                }
+            });
+        }
+    });
 });
