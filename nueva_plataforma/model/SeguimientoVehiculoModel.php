@@ -278,10 +278,19 @@ class SeguimientoVehiculoModel
                     GROUP BY id_vehiculo
                 ) sv2 ON sv.id_vehiculo = sv2.id_vehiculo AND sv.fecha_registro = sv2.max_fecha";
         $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("cargarUltimosEventos prepare error: " . $this->db->error);
+            return [];
+        }
         $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
-        $stmt->execute();
+        $ok = $stmt->execute();
+        if (!$ok) {
+            error_log("cargarUltimosEventos execute error: " . $stmt->error);
+            return [];
+        }
+        $result = $stmt->get_result();
         $index = [];
-        while ($row = $stmt->get_result()->fetch_assoc()) {
+        while ($row = $result->fetch_assoc()) {
             $index[$row['id_vehiculo']] = $row;
         }
         return $index;
@@ -304,10 +313,19 @@ class SeguimientoVehiculoModel
                     GROUP BY prevehiculo
                 ) po2 ON po1.prevehiculo = po2.prevehiculo AND po1.prefechaingreso = po2.max_fecha";
         $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("cargarUltimosPreoperacionales prepare error: " . $this->db->error);
+            return [];
+        }
         $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
-        $stmt->execute();
+        $ok = $stmt->execute();
+        if (!$ok) {
+            error_log("cargarUltimosPreoperacionales execute error: " . $stmt->error . " — SQL: " . $sql . " — IDs: " . json_encode($ids));
+            return [];
+        }
+        $result = $stmt->get_result();
         $index = [];
-        while ($row = $stmt->get_result()->fetch_assoc()) {
+        while ($row = $result->fetch_assoc()) {
             $index[$row['prevehiculo']] = $row;
         }
         return $index;
@@ -330,10 +348,19 @@ class SeguimientoVehiculoModel
                     GROUP BY ace_idvehiculo
                 ) a2 ON a1.ace_idvehiculo = a2.ace_idvehiculo AND a1.ace_fechacambio = a2.max_fecha";
         $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("cargarUltimosAceites prepare error: " . $this->db->error);
+            return [];
+        }
         $stmt->bind_param(str_repeat('s', count($strIds)), ...$strIds);
-        $stmt->execute();
+        $ok = $stmt->execute();
+        if (!$ok) {
+            error_log("cargarUltimosAceites execute error: " . $stmt->error);
+            return [];
+        }
+        $result = $stmt->get_result();
         $index = [];
-        while ($row = $stmt->get_result()->fetch_assoc()) {
+        while ($row = $result->fetch_assoc()) {
             $index[$row['ace_idvehiculo']] = $row;
         }
         return $index;
@@ -351,10 +378,19 @@ class SeguimientoVehiculoModel
                 WHERE com_vehiculo_id IN ($placeholders) AND com_estado = 'Pendiente'
                 GROUP BY com_vehiculo_id";
         $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("cargarComparendosPendientes prepare error: " . $this->db->error);
+            return [];
+        }
         $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
-        $stmt->execute();
+        $ok = $stmt->execute();
+        if (!$ok) {
+            error_log("cargarComparendosPendientes execute error: " . $stmt->error);
+            return [];
+        }
+        $result = $stmt->get_result();
         $index = [];
-        while ($row = $stmt->get_result()->fetch_assoc()) {
+        while ($row = $result->fetch_assoc()) {
             $index[$row['com_vehiculo_id']] = $row['cnt'];
         }
         return $index;
@@ -380,10 +416,19 @@ class SeguimientoVehiculoModel
                 FROM hojadevida
                 WHERE hoj_cedula IN ($placeholders) AND hoj_estado = 'Activo'";
         $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("cargarHojavidaConductores prepare error: " . $this->db->error);
+            return [];
+        }
         $stmt->bind_param(str_repeat('s', count($cedulasUnicas)), ...$cedulasUnicas);
-        $stmt->execute();
+        $ok = $stmt->execute();
+        if (!$ok) {
+            error_log("cargarHojavidaConductores execute error: " . $stmt->error);
+            return [];
+        }
+        $result = $stmt->get_result();
         $index = [];
-        while ($row = $stmt->get_result()->fetch_assoc()) {
+        while ($row = $result->fetch_assoc()) {
             $index[$row['hoj_cedula']] = $row;
         }
         return $index;
