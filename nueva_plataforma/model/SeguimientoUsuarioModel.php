@@ -155,6 +155,33 @@ class SeguimientoUsuarioModel
     }
 
     /**
+     * Busca empleados retirados (con fecha de terminación) dentro de un rango de fechas.
+     *
+     * @param string $fechaInicio Fecha inicio del rango (Y-m-d)
+     * @param string $fechaFin    Fecha fin del rango (Y-m-d)
+     * @return array Lista de retiros con sus datos relevantes
+     */
+    public function buscarRetiros(string $fechaInicio, string $fechaFin): array
+    {
+        $sql = "SELECT u.idusuarios, u.usu_nombre, u.usu_identificacion, u.usu_tipocontrato,
+                       u.usu_idsede, s.sed_nombre,
+                       h.hoj_fechatermino, h.hoj_cargo, h.hoj_estado,
+                       h.hoj_fechaingreso
+                FROM usuarios u
+                LEFT JOIN hojadevida h ON h.hoj_cedula = u.usu_identificacion
+                LEFT JOIN sedes s ON s.idsedes = u.usu_idsede
+                WHERE u.roles_idroles != 6
+                  AND h.hoj_fechatermino BETWEEN ? AND ?
+                ORDER BY h.hoj_fechatermino DESC, u.usu_nombre ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("ss", $fechaInicio, $fechaFin);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    }
+
+    /**
      * Obtiene los tipos de contrato disponibles.
      *
      * @return array

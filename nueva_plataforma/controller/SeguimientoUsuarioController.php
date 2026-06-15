@@ -345,6 +345,41 @@ if (isset($_GET['accion'])) {
                 sendJsonResponse($empleados);
                 break;
 
+            case 'buscar_retiros':
+                $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('-14 days'));
+                $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d');
+                $errorFecha = validarRangoFechas($fechaInicio, $fechaFin);
+                if ($errorFecha) {
+                    sendJsonResponse(['error' => $errorFecha], 400);
+                    break;
+                }
+                $retiros = $modelo->buscarRetiros($fechaInicio, $fechaFin);
+                // Enriquecer cada fila con datos calculados
+                $hoy = new DateTime();
+                foreach ($retiros as &$ret) {
+                    if (!empty($ret['hoj_fechatermino'])) {
+                        $fechaTer = new DateTime($ret['hoj_fechatermino']);
+                        $ret['dias_desde_retiro'] = (int)$hoy->diff($fechaTer)->days;
+                        $ret['hoj_fechatermino_fmt'] = $fechaTer->format('d-m-Y');
+                    } else {
+                        $ret['dias_desde_retiro'] = null;
+                        $ret['hoj_fechatermino_fmt'] = '';
+                    }
+                    // Formatear estado
+                    $estado = $ret['hoj_estado'] ?? '';
+                    $ret['hoj_estado_fmt'] = $estado ?: 'Sin registro';
+                    $ret['hoj_estado_activo'] = ($estado === 'Activo');
+                    // Formatear fecha de ingreso como referencia
+                    if (!empty($ret['hoj_fechaingreso'])) {
+                        $fechaIng = new DateTime($ret['hoj_fechaingreso']);
+                        $ret['hoj_fechaingreso_fmt'] = $fechaIng->format('d-m-Y');
+                    } else {
+                        $ret['hoj_fechaingreso_fmt'] = '';
+                    }
+                }
+                sendJsonResponse($retiros);
+                break;
+
             case 'ver_documento':
                 $id = intval($_GET['id'] ?? 0);
                 $ruta = $modelo->getRutaDocumento($id);
