@@ -157,22 +157,26 @@ class SeguimientoVehiculoModel
         $types = "";
         $this->buildFiltroWhere($sql, $params, $types, $filtros, $search);
 
-        $sql .= " ORDER BY FIELD(v.idvehiculos IN (
-                    SELECT sv.id_vehiculo FROM seguimiento_vehiculo sv
-                    INNER JOIN (
-                        SELECT sv2.id_vehiculo, MAX(sv2.fecha_registro) as max_fecha
-                        FROM seguimiento_vehiculo sv2 GROUP BY sv2.id_vehiculo
-                    ) sv3 ON sv.id_vehiculo = sv3.id_vehiculo AND sv.fecha_registro = sv3.max_fecha
-                    WHERE sv.estado_general = 'FUERA_DE_SERVICIO'
-                ), 1, 0) DESC,
-                FIELD(v.idvehiculos IN (
-                    SELECT sv.id_vehiculo FROM seguimiento_vehiculo sv
-                    INNER JOIN (
-                        SELECT sv2.id_vehiculo, MAX(sv2.fecha_registro) as max_fecha
-                        FROM seguimiento_vehiculo sv2 GROUP BY sv2.id_vehiculo
-                    ) sv3 ON sv.id_vehiculo = sv3.id_vehiculo AND sv.fecha_registro = sv3.max_fecha
-                    WHERE sv.estado_general = 'CON_NOVEDADES'
-                ), 1, 0) DESC,
+        $sql .= " ORDER BY
+                CASE
+                    WHEN v.idvehiculos IN (
+                        SELECT sv.id_vehiculo FROM seguimiento_vehiculo sv
+                        INNER JOIN (
+                            SELECT id_vehiculo, MAX(fecha_registro) as max_fecha
+                            FROM seguimiento_vehiculo GROUP BY id_vehiculo
+                        ) sv2 ON sv.id_vehiculo = sv2.id_vehiculo AND sv.fecha_registro = sv2.max_fecha
+                        WHERE sv.estado_general = 'FUERA_DE_SERVICIO'
+                    ) THEN 0
+                    WHEN v.idvehiculos IN (
+                        SELECT sv.id_vehiculo FROM seguimiento_vehiculo sv
+                        INNER JOIN (
+                            SELECT id_vehiculo, MAX(fecha_registro) as max_fecha
+                            FROM seguimiento_vehiculo GROUP BY id_vehiculo
+                        ) sv2 ON sv.id_vehiculo = sv2.id_vehiculo AND sv.fecha_registro = sv2.max_fecha
+                        WHERE sv.estado_general = 'CON_NOVEDADES'
+                    ) THEN 1
+                    ELSE 2
+                END ASC,
                 v.veh_placa ASC";
         $sql .= " LIMIT ? OFFSET ?";
         $params[] = $length;
@@ -224,16 +228,33 @@ class SeguimientoVehiculoModel
 
         // Filtro de estado general
         if (!empty($filtros['estado_general'])) {
-            $sql .= " AND v.idvehiculos IN (
-                SELECT sv.id_vehiculo FROM seguimiento_vehiculo sv
-                INNER JOIN (
-                    SELECT id_vehiculo, MAX(fecha_registro) as max_fecha
-                    FROM seguimiento_vehiculo GROUP BY id_vehiculo
-                ) sv2 ON sv.id_vehiculo = sv2.id_vehiculo AND sv.fecha_registro = sv2.max_fecha
-                WHERE sv.estado_general = ?
-            )";
-            $params[] = $filtros['estado_general'];
-            $types .= "s";
+            $estado = $filtros['estado_general'];
+            if ($estado === 'OPTIMO') {
+                // ÓPTIMO = vehículos sin registros en seguimiento_vehiculo
+                //           O cuyo último estado sea OPTIMO
+                $sql .= " AND (
+                    v.idvehiculos NOT IN (SELECT DISTINCT id_vehiculo FROM seguimiento_vehiculo)
+                    OR v.idvehiculos IN (
+                        SELECT sv.id_vehiculo FROM seguimiento_vehiculo sv
+                        INNER JOIN (
+                            SELECT id_vehiculo, MAX(fecha_registro) as max_fecha
+                            FROM seguimiento_vehiculo GROUP BY id_vehiculo
+                        ) sv2 ON sv.id_vehiculo = sv2.id_vehiculo AND sv.fecha_registro = sv2.max_fecha
+                        WHERE sv.estado_general = 'OPTIMO'
+                    )
+                )";
+            } else {
+                $sql .= " AND v.idvehiculos IN (
+                    SELECT sv.id_vehiculo FROM seguimiento_vehiculo sv
+                    INNER JOIN (
+                        SELECT id_vehiculo, MAX(fecha_registro) as max_fecha
+                        FROM seguimiento_vehiculo GROUP BY id_vehiculo
+                    ) sv2 ON sv.id_vehiculo = sv2.id_vehiculo AND sv.fecha_registro = sv2.max_fecha
+                    WHERE sv.estado_general = ?
+                )";
+                $params[] = $estado;
+                $types .= "s";
+            }
         }
 
         // Filtro de sede
