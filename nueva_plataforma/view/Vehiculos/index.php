@@ -101,6 +101,7 @@
                 <th>Limite Km cambio aceite</th>
                 <th>Tarjeta de Propiedad (Frente)</th>
                 <th>Tarjeta de Propiedad (Respaldo)</th>
+                <th>Revision Comparendos</th>
                 <th>Comparendos</th>
                 <th>Historial Entrega</th>
                 <th>Estado</th>
@@ -294,14 +295,14 @@
                             <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Frente) 
                                 <span class="text-danger">*</span>
                             </label>
-                            <input type="file" name="veh_img_actual_frente" class="form-control" required>
+                            <input type="file" name="veh_img_actual_frente" class="form-control" accept=".jpg,.jpeg,.png,.pdf" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Respaldo) 
                                 <span class="text-danger">*</span>
                             </label>
-                            <input type="file" name="veh_img_actual_trasera" class="form-control" required>
+                            <input type="file" name="veh_img_actual_trasera" class="form-control" accept=".jpg,.jpeg,.png,.pdf" required>
                         </div>
 
                         <!-- SECCIÓN EQUIPO DE CARRETERA -->
@@ -330,18 +331,18 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Frente) 
-                                <span class="text-danger">*</span>
-                            </label>
-                            <input type="file" name="veh_img_anverso" class="form-control" required>
-                        </div>
+    <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Frente) 
+        <span class="text-danger">*</span>
+    </label>
+    <input type="file" name="veh_img_anverso" class="form-control" accept=".jpg,.jpeg,.png,.pdf" required>
+</div>
 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Respaldo) 
-                                <span class="text-danger">*</span>
-                            </label>
-                            <input type="file" name="veh_img_reverso" class="form-control" required>
-                        </div>
+<div class="col-md-6 mb-3">
+    <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Respaldo) 
+        <span class="text-danger">*</span>
+    </label>
+    <input type="file" name="veh_img_reverso" class="form-control" accept=".jpg,.jpeg,.png,.pdf" required>
+</div>
                     </div>
                 </form>
             </div>
@@ -458,14 +459,12 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Frente)</label>
                             <div id="preview_actual_frente" class="mb-1"></div>   
-                            <input type="hidden" name="eliminar_veh_img_actual_frente" value="0">
                             <input type="file" name="veh_img_actual_frente" class="form-control" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Respaldo)</label>
                             <div id="preview_actual_trasera" class="mb-1"></div>
-                            <input type="hidden" name="eliminar_veh_img_actual_trasera" value="0">
                             <input type="file" name="veh_img_actual_trasera" class="form-control" required>
                         </div>
 
@@ -497,14 +496,14 @@
                             <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Frente)</label>
                             <div id="preview_anverso" class="mb-1"></div>
                             <input type="hidden" name="eliminar_veh_img_anverso" value="0">
-                            <input type="file" name="veh_img_anverso" class="form-control">
+                            <input type="file" name="veh_img_anverso" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
                         </div>
  
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Respaldo)</label>
                             <div id="preview_reverso" class="mb-1"></div>
                             <input type="hidden" name="eliminar_veh_img_reverso" value="0">
-                            <input type="file" name="veh_img_reverso" class="form-control">
+                            <input type="file" name="veh_img_reverso" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
                         </div>
                     </div>
  
@@ -664,29 +663,31 @@
                         </div>
 
                         <div class="col-md-12 mb-3 px-3">
-                               <label class="form-label fw-bold text-secondary">
-                                    <i class="fas fa-link me-1"></i> Link de referencia
-                               </label>
-                           <div class="input-group">
-                            <span class="input-group-text bg-light">
-                               <i class="fas fa-link text-secondary"></i>
-                            </span>
-                            <input type="url" 
-                                   class="form-control" 
-                                   name="ent_link_referencia" 
-                                   id="ent_link_referencia"
-                                   placeholder="https://...">
-                                <button type="button" 
-                                    class="btn btn-outline-secondary" 
-                                    title="Copiar link"
-                                    onclick="navigator.clipboard.writeText(document.getElementById('ent_link_referencia').value).then(() => { this.innerHTML='<i class=\'fas fa-check\'></i>'; setTimeout(() => this.innerHTML='<i class=\'fas fa-copy\'></i>', 1500); })">
-                                    <i class="fas fa-copy"></i>
-                                </button>
+                            <label class="form-label fw-bold text-secondary">
+                                <i class="fas fa-video me-1"></i> Video del vehículo
+                                <span class="text-muted fw-normal" style="font-size:12px;">
+                                (máx. 3 minutos)
+                                </span>
+                            </label>
+                                <input type="file" 
+                                       id="ent_video_file" 
+                                       name="ent_video_file" 
+                                       class="form-control" 
+                                       accept="video/*">
+                        <div class="progress" style="height:8px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                 id="ent_video_progress_bar" 
+                                 role="progressbar" style="width:0%"></div>
                             </div>
-                                <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>Pega aquí el enlace relacionado al vehículo.
-                                </small>
-                            </div>
+                        </div>
+                        <div id="ent_video_preview" class="mt-2" style="display:none;">
+                            <video controls style="max-width:100%; border-radius:6px; border:1px solid #dee2e6; max-height:200px;">
+                                <source id="ent_video_preview_src" src="" type="video/mp4">
+                            </video>
+                            <small class="text-muted d-block mt-1" id="ent_video_url_text"></small>
+                        </div>
+                            <input type="hidden" id="ent_video_url" name="ent_video_url">
+                        </div>
 
                         <!-- SECCIÓN EQUIPO DE CARRETERA -->
                         <div class="col-md-12 mb-3">
@@ -888,6 +889,111 @@
     </div>
 </div>
 
+<!-- MODAL CARGAR REVISIÓN DE COMPARENDOS -->
+<div class="modal fade" id="modalCargarRevision" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    Cargar Revisión de Comparendos
+                </h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formCargarRevision" enctype="multipart/form-data">
+                    <input type="hidden" id="rev_vehiculo_id" name="rev_vehiculo_id">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary">
+                            Vehículo
+                        </label>
+                        <input type="text" id="rev_vehiculo_texto"
+                               class="form-control bg-light" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary">
+                            📅 Fecha de Consulta <span class="text-danger">*</span>
+                        </label>
+                        <input type="date" name="rev_fecha_consulta"
+                               id="rev_fecha_consulta"
+                               class="form-control"
+                               value="<?= date('Y-m-d') ?>" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary">
+                            📷 Evidencia / Pantallazo <span class="text-danger">*</span>
+                        </label>
+                        <input type="file" name="rev_evidencia"
+                               id="rev_evidencia"
+                               class="form-control"
+                               accept=".jpg,.jpeg,.png,.pdf" required>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Sube el pantallazo de la consulta en SIMIT u otra entidad.
+                        </small>
+                    </div>
+
+                </form>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary"
+                        id="btnGuardarRevision">
+                        Guardar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- MODAL HISTORIAL DE REVISIONES -->
+<div class="modal fade" id="modalHistorialRevisiones" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    Historial de Revisiones —
+                    <span id="tituloPlacaRevision" class="fw-bold"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle text-center">
+                        <thead class="thead-modern">
+                            <tr>
+                                <th>#</th>
+                                <th>Fecha Consulta</th>
+                                <th>Evidencia</th>
+                                <th>Usuario</th>
+                                <th>Fecha Registro</th>   
+                                <th>Eliminar</th>                             
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaRevisiones">
+                            <tr>
+                                <td colspan="6" class="text-muted">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <!-- MODAL VER COMPARENDOS DEL VEHÍCULO -->
 <div class="modal fade" id="modalVerComparendos" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl">
@@ -1052,7 +1158,6 @@
 
             <div class="modal-header mi-header text-white">
                 <h5 class="modal-title">
-                    <i class="fas fa-history me-2"></i>
                     Historial de Conductores -
                     <span id="tituloPlacaHistorial" class="fw-bold"></span>
                 </h5>
@@ -1081,6 +1186,7 @@
                                 <th>Foto Frente</th>
                                 <th>Foto Respaldo</th>
                                 <th>Firma</th>
+                                <th>Video</th>
                                 <th>Observaciones</th>
                                 <th>Editar</th>
                                 <th>Eliminar</th>
