@@ -20,7 +20,10 @@
         window.APP_BASE_URL = "<?= $appBasePath ?>";
     </script>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <!-- Estilos pastel compartidos con SeguimientoUsuario -->
+    <link rel="stylesheet" href="<?= $appBasePath ?>/assets/css/usuarios.css">
     <style>
+        /* === Puntos de alerta y dropdowns (específicos de vehículos) === */
         .warning-dot {
             display: inline-block;
             width: 16px;
@@ -31,8 +34,8 @@
             animation: moderateFlash 1s infinite;
             border: 2px solid #333;
         }
-        .warning-orange { background-color: #FF9800; }
-        .warning-red { background-color: #F44336; }
+        .warning-orange { background-color: #F0AD4E; }
+        .warning-red { background-color: #D9534F; }
         @keyframes moderateFlash {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.2; }
@@ -47,10 +50,10 @@
             display: none;
             position: absolute;
             background-color: white;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-shadow: 0px 4px 12px rgba(0,0,0,0.25);
-            padding: 10px 14px;
+            border: 1px solid var(--gris-borde);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+            padding: 12px 16px;
             left: 0;
             top: 100%;
             margin-top: 4px;
@@ -59,15 +62,33 @@
             z-index: 99999;
         }
         #tablaVehiculos td { overflow: visible !important; }
-        .mi-header {
-            background-color: #2E86C1;
-            color: white;
-        }
-        .thead-modern {
-            background-color: #2E86C1;
-            color: white;
-        }
         .badge { font-size: 0.8rem; }
+
+        /* === Estados de vehículo (pastel) === */
+        .estado-optimo {
+            background-color: #e8f2ec !important;
+            color: #1e7f4f !important;
+            border: 1px solid #b7dfc7;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-weight: 600;
+        }
+        .estado-novedades {
+            background-color: #fff4e5 !important;
+            color: #b54708 !important;
+            border: 1px solid #f6d7a7;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-weight: 600;
+        }
+        .estado-fuera-servicio {
+            background-color: #fdecec !important;
+            color: #b42318 !important;
+            border: 1px solid #f5b5b5;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-weight: 600;
+        }
     </style>
 </head>
 

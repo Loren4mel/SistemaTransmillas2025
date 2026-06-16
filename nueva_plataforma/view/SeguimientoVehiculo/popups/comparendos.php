@@ -5,7 +5,7 @@
     <div class="alert alert-success">No hay comparendos registrados para este vehículo.</div>
 <?php else: ?>
     <table class="table table-sm table-hover">
-        <thead class="table-dark">
+        <thead>
             <tr>
                 <th>Fecha</th>
                 <th>N° Comparendo</th>

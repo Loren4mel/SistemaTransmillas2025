@@ -501,8 +501,8 @@ class SeguimientoVehiculoModel
         // Comparendos
         $row['comparendos_pendientes'] = $comparendos;
         $row['comparendos_html'] = $comparendos > 0
-            ? "<span class='badge bg-danger'>$comparendos pend.</span>"
-            : "<span class='badge bg-success'>0</span>";
+            ? "<span class='estado-fuera-servicio'>$comparendos pend.</span>"
+            : "<span class='estado-optimo'>0</span>";
 
         // Conductor
         $row['conductor_nombre'] = $row['conductor_nombre'] ?? 'Sin asignar';
@@ -515,7 +515,7 @@ class SeguimientoVehiculoModel
 
         // Color de fila
         $row['row_color'] = $this->determinarColorFila($row, $estadoGeneral);
-        $row['row_text_color'] = ($row['row_color'] === '#922B21') ? '#FFFFFF' : '#000000';
+        $row['row_text_color'] = '#333333';
 
         // Acciones
         $row['acciones_html'] = $this->generarAccionesHTML($row);
@@ -533,11 +533,11 @@ class SeguimientoVehiculoModel
     {
         switch ($estado) {
             case 'OPTIMO':
-                return '<span class="badge bg-success">ÓPTIMO</span>';
+                return '<span class="estado-optimo">ÓPTIMO</span>';
             case 'CON_NOVEDADES':
-                return '<span class="badge bg-warning text-dark">CON NOVEDADES</span>';
+                return '<span class="estado-novedades">CON NOVEDADES</span>';
             case 'FUERA_DE_SERVICIO':
-                return '<span class="badge bg-danger">FUERA DE SERVICIO</span>';
+                return '<span class="estado-fuera-servicio">FUERA DE SERVICIO</span>';
             default:
                 return '<span class="badge bg-secondary">' . htmlspecialchars($estado) . '</span>';
         }
@@ -568,13 +568,13 @@ class SeguimientoVehiculoModel
         $dias = $this->diasHasta($hoy, $fecha);
         if ($dias === null) return $fechaFmt;
         if ($dias < 0) {
-            return "<span style='background-color:#F44336; color:white; padding:2px 6px; border-radius:3px;'>$fechaFmt (vencido)</span>";
+            return "<span style='background-color:#fdecec; color:#b42318; padding:3px 8px; border-radius:12px; font-weight:600;'>$fechaFmt (vencido)</span>";
         }
         if ($dias <= 7) {
-            return "<span style='background-color:#F44336; color:white; padding:2px 6px; border-radius:3px;'>$fechaFmt ($dias d)</span>";
+            return "<span style='background-color:#fdecec; color:#b42318; padding:3px 8px; border-radius:12px; font-weight:600;'>$fechaFmt ($dias d)</span>";
         }
         if ($dias <= 30) {
-            return "<span style='background-color:#FF9800; color:white; padding:2px 6px; border-radius:3px;'>$fechaFmt ($dias d)</span>";
+            return "<span style='background-color:#fff4e5; color:#b54708; padding:3px 8px; border-radius:12px; font-weight:600;'>$fechaFmt ($dias d)</span>";
         }
         return $fechaFmt;
     }
@@ -601,9 +601,9 @@ class SeguimientoVehiculoModel
 
             $severity = 0;
             $color = '#555';
-            if ($dias < 0) { $severity = 3; $color = '#F44336'; $texto = "$nombre: expirado hace " . abs($dias) . "d"; }
-            elseif ($dias <= 7) { $severity = 2; $color = '#F44336'; $texto = "$nombre: expira en $dias d"; }
-            elseif ($dias <= 30) { $severity = 1; $color = '#FF9800'; $texto = "$nombre: expira en $dias d"; }
+            if ($dias < 0) { $severity = 3; $color = '#b42318'; $texto = "$nombre: expirado hace " . abs($dias) . "d"; }
+            elseif ($dias <= 7) { $severity = 2; $color = '#b42318'; $texto = "$nombre: expira en $dias d"; }
+            elseif ($dias <= 30) { $severity = 1; $color = '#b54708'; $texto = "$nombre: expira en $dias d"; }
             else { $texto = "$nombre: " . date('d-m-Y', strtotime($fecha)) . " ($dias d)"; }
 
             $dropdownItems[] = "<li style='color:$color; padding:2px 0;'>" . htmlspecialchars($texto) . "</li>";
@@ -647,7 +647,7 @@ class SeguimientoVehiculoModel
         $restantes = $aceiteKil - $kmRecorridos;
 
         if ($restantes <= 0) {
-            return "<span style='background-color:#FF9800; color:white; padding:2px 6px; border-radius:3px;'>Cambie aceite, excede " . number_format(abs($restantes), 0, ',', '.') . " km</span>";
+            return "<span style='background-color:#fff4e5; color:#b54708; padding:3px 8px; border-radius:12px; font-weight:600;'>Cambie aceite, excede " . number_format(abs($restantes), 0, ',', '.') . " km</span>";
         }
         return number_format($restantes, 0, ',', '.') . " km restantes de " . number_format($aceiteKil, 0, ',', '.');
     }
@@ -657,8 +657,8 @@ class SeguimientoVehiculoModel
      */
     private function determinarColorFila(array $row, string $estadoGeneral): string
     {
-        if ($estadoGeneral === 'FUERA_DE_SERVICIO') return '#922B21';
-        if ($estadoGeneral === 'CON_NOVEDADES') return '#FEF5E7';
+        if ($estadoGeneral === 'FUERA_DE_SERVICIO') return '#fdecec';
+        if ($estadoGeneral === 'CON_NOVEDADES') return '#fff8ee';
 
         // Verificar vencimientos
         $vencido = false;
@@ -669,10 +669,10 @@ class SeguimientoVehiculoModel
                 if ($dias !== null && $dias < 0) { $vencido = true; break; }
             }
         }
-        if ($vencido) return '#922B21';
+        if ($vencido) return '#fdecec';
 
-        // Alternar blanco/gris
-        return ($row['idvehiculos'] % 2 == 0) ? '#FFFFFF' : '#EFEFEF';
+        // Alternar blanco/gris suave
+        return ($row['idvehiculos'] % 2 == 0) ? '#FFFFFF' : '#fafbfc';
     }
 
     /**
@@ -684,16 +684,16 @@ class SeguimientoVehiculoModel
         $html = '';
 
         // Cambiar estado (solo admin)
-        $html .= "<button class='btn btn-sm btn-outline-warning me-1' onclick='abrirCambiarEstado($id)' title='Cambiar estado'><i class='fas fa-edit'></i></button>";
+        $html .= "<button class='btn btn-sm btn-outline-primary me-1' onclick='abrirCambiarEstado($id)' title='Cambiar estado'><i class='fas fa-edit'></i></button>";
 
         // Registrar evento
-        $html .= "<button class='btn btn-sm btn-outline-info me-1' onclick='abrirRegistroEvento($id)' title='Registrar evento'><i class='fas fa-plus-circle'></i></button>";
+        $html .= "<button class='btn btn-sm btn-outline-primary me-1' onclick='abrirRegistroEvento($id)' title='Registrar evento'><i class='fas fa-plus-circle'></i></button>";
 
         // Historial kilómetros
-        $html .= "<button class='btn btn-sm btn-outline-secondary me-1' onclick='abrirHistorialKm($id)' title='Historial km'><i class='fas fa-tachometer-alt'></i></button>";
+        $html .= "<button class='btn btn-sm btn-outline-primary me-1' onclick='abrirHistorialKm($id)' title='Historial km'><i class='fas fa-tachometer-alt'></i></button>";
 
         // Comparendos
-        $html .= "<button class='btn btn-sm btn-outline-danger me-1' onclick='abrirComparendos($id)' title='Comparendos'><i class='fas fa-ticket-alt'></i></button>";
+        $html .= "<button class='btn btn-sm btn-outline-primary me-1' onclick='abrirComparendos($id)' title='Comparendos'><i class='fas fa-ticket-alt'></i></button>";
 
         // Detalle
         $html .= "<button class='btn btn-sm btn-outline-primary' onclick='abrirDetalleVehiculo($id)' title='Ver detalle'><i class='fas fa-info-circle'></i></button>";

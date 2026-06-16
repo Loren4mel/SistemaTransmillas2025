@@ -44,7 +44,7 @@ $revisiones = $detalle['revisiones'] ?? [];
     <p class="text-muted">Sin registros.</p>
 <?php else: ?>
     <table class="table table-sm table-hover">
-        <thead class="table-dark"><tr><th>Fecha</th><th>Fuente</th><th>Km</th><th>Detalle</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Fuente</th><th>Km</th><th>Detalle</th></tr></thead>
         <tbody>
             <?php foreach (array_slice($historialKm, 0, 10) as $h): ?>
             <tr>
@@ -64,7 +64,7 @@ $revisiones = $detalle['revisiones'] ?? [];
     <p class="text-muted">Sin revisiones registradas.</p>
 <?php else: ?>
     <table class="table table-sm table-hover">
-        <thead class="table-dark"><tr><th>Fecha</th><th>Ingreso</th><th>Usuario</th><th>Registrado por</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Ingreso</th><th>Usuario</th><th>Registrado por</th></tr></thead>
         <tbody>
             <?php foreach ($revisiones as $r): ?>
             <tr>
@@ -84,7 +84,7 @@ $revisiones = $detalle['revisiones'] ?? [];
     <p class="text-muted">Sin entregas registradas.</p>
 <?php else: ?>
     <table class="table table-sm table-hover">
-        <thead class="table-dark"><tr><th>Fecha</th><th>Tipo</th><th>Usuario</th><th>Sede</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Usuario</th><th>Sede</th></tr></thead>
         <tbody>
             <?php foreach ($entregas as $e): ?>
             <tr>

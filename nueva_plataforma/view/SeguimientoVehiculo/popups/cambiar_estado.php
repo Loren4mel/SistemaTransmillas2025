@@ -33,6 +33,6 @@
 
     <div class="text-end">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" class="btn btn-warning">Cambiar Estado</button>
+        <button type="submit" class="btn btn-info">Cambiar Estado</button>
     </div>
 </form>

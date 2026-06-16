@@ -5,7 +5,7 @@
     <div class="alert alert-warning">No hay registros de kilometraje para este vehículo.</div>
 <?php else: ?>
     <table class="table table-sm table-hover">
-        <thead class="table-dark">
+        <thead>
             <tr>
                 <th>Fecha</th>
                 <th>Fuente</th>
