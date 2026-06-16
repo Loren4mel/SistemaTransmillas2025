@@ -7,74 +7,53 @@
  * y permite al usuario reportar cambios de estado.
  */
 
-require_once __DIR__ . '/../../model/PreoperacionalModel.php';
+require_once __DIR__ . '/Services/PreoperacionalService.php';
 
 class PreoperacionalNovedadHelper
 {
-    private $model;
+    private $service;
 
-    public function __construct()
+    /**
+     * @param PreoperacionalService|null $service Si no se provee, se crea uno por defecto.
+     */
+    public function __construct($service = null)
     {
-        $this->model = new PreoperacionalModel();
+        if ($service === null) {
+            $service = new PreoperacionalService();
+        }
+        $this->service = $service;
     }
 
     /**
      * Verifica si el vehículo tiene una novedad activa
      * (estado FUERA_DE_SERVICIO o CON_NOVEDADES en el último seguimiento).
      *
+     * Delega en PreoperacionalService::obtenerEstadoVehiculo() (fuente única de verdad)
+     * y agrega fecha_registro como alias de conveniencia para las plantillas.
+     *
      * @param int $idVehiculo ID del vehículo
-     * @return array [tieneNovedad => bool, estado_general => string, observaciones => string, ultimoSeguimiento => array|null]
+     * @return array [tieneNovedad, esNovedadReportada, estado_general, observaciones, fecha_registro, ultimoSeguimiento]
      */
     public function verificarNovedadVehiculo($idVehiculo)
     {
         if ($idVehiculo <= 0) {
             return [
                 'tieneNovedad' => false,
+                'esNovedadReportada' => false,
                 'estado_general' => 'OPTIMO',
                 'observaciones' => '',
+                'fecha_registro' => null,
                 'ultimoSeguimiento' => null
             ];
         }
 
-        // PRIORIDAD 1: REVISION_SST es la fuente autoritativa del estado del vehículo.
-        // metadata_evento es exclusivo de REVISION_SST (único tipo que requiere datos de contexto).
-        // PREOPERACIONAL usa solo las columnas dedicadas de la tabla (estado_general, observaciones, etc.).
-        $revision = $this->model->obtenerUltimoSeguimientoRevisionSST($idVehiculo);
+        // Delegar en el Service — fuente única de verdad para el estado del vehículo
+        $estado = $this->service->obtenerEstadoVehiculo($idVehiculo);
 
-        if ($revision) {
-            $estado = $revision['estado_general'] ?? 'OPTIMO';
-            $tieneNovedad = in_array($estado, ['FUERA_DE_SERVICIO', 'CON_NOVEDADES']);
-            return [
-                'tieneNovedad' => $tieneNovedad,
-                'estado_general' => $estado,
-                'observaciones' => $revision['observaciones'] ?? '',
-                'fecha_registro' => $revision['fecha_registro'] ?? '',
-                'ultimoSeguimiento' => $revision
-            ];
-        }
+        // Agregar fecha_registro como alias de conveniencia para las plantillas
+        $estado['fecha_registro'] = $estado['ultimoSeguimiento']['fecha_registro'] ?? null;
 
-        // PRIORIDAD 2: No existe REVISION_SST; usar el registro más reciente (cualquier tipo).
-        $ultimo = $this->model->obtenerUltimoSeguimientoPorVehiculo($idVehiculo);
-
-        if (!$ultimo) {
-            return [
-                'tieneNovedad' => false,
-                'estado_general' => 'OPTIMO',
-                'observaciones' => '',
-                'ultimoSeguimiento' => null
-            ];
-        }
-
-        $estado = $ultimo['estado_general'] ?? 'OPTIMO';
-        $tieneNovedad = in_array($estado, ['FUERA_DE_SERVICIO', 'CON_NOVEDADES']);
-
-        return [
-            'tieneNovedad' => $tieneNovedad,
-            'estado_general' => $estado,
-            'observaciones' => $ultimo['observaciones'] ?? '',
-            'fecha_registro' => $ultimo['fecha_registro'] ?? '',
-            'ultimoSeguimiento' => $ultimo
-        ];
+        return $estado;
     }
 
     /**
@@ -89,16 +68,6 @@ class PreoperacionalNovedadHelper
     }
 
     /**
-     * Obtiene la lista de vehículos disponibles (activos y sin conductor asignado).
-     *
-     * @return array Lista de vehículos [idvehiculos, veh_tipo, veh_placa, veh_marca, veh_modelo]
-     */
-    public function obtenerVehiculosDisponibles()
-    {
-        return $this->model->obtenerVehiculosSinConductor();
-    }
-
-    /**
      * Genera el HTML del panel de alerta de novedad con formulario inline.
      * Ya no usa SweetAlert2 — el formulario se expande dentro del panel.
      *
@@ -107,7 +76,7 @@ class PreoperacionalNovedadHelper
      * @param array $vehiculosDisponibles Lista de vehículos alternativos
      * @return string HTML del panel de novedad
      */
-    public function renderNovedadPanel($novedad, $datosVehiculo, $vehiculosDisponibles = [])
+    public function renderNovedadPanel($novedad, $datosVehiculo, $vehiculosDisponibles = [], $esValidacion = false)
     {
         $placa = htmlspecialchars($datosVehiculo['veh_placa'] ?? 'N/A');
         $marca = htmlspecialchars($datosVehiculo['veh_marca'] ?? '');
@@ -168,17 +137,23 @@ class PreoperacionalNovedadHelper
 
         $html .= '</div>';
 
-        // Para FUERA_DE_SERVICIO el formulario se expande automáticamente
-        $expandirFormulario = ($estado === 'FUERA_DE_SERVICIO');
+        // Para FUERA_DE_SERVICIO el formulario se expande automáticamente.
+        // En validación, nunca se expande ni se muestra el formulario interactivo.
+        $expandirFormulario = ($estado === 'FUERA_DE_SERVICIO' && !$esValidacion);
 
-        // Botón de reportar novedad (oculto en FUERA_DE_SERVICIO)
-        $html .= '<div class="novedad-actions" id="novedadActions"' . ($expandirFormulario ? ' style="display:none;"' : '') . '>';
-        $html .= '<button type="button" class="btn btn-novedad-reportar" id="btnReportarNovedad">';
-        $html .= '<i class="fas fa-clipboard-list"></i> Reportar Novedad';
-        $html .= '</button>';
-        $html .= '</div>';
+        // Botón de reportar novedad — oculto en FUERA_DE_SERVICIO y en validación
+        if (!$esValidacion) {
+            $html .= '<div class="novedad-actions" id="novedadActions"' . ($expandirFormulario ? ' style="display:none;"' : '') . '>';
+            $html .= '<button type="button" class="btn btn-novedad-reportar" id="btnReportarNovedad">';
+            $html .= '<i class="fas fa-clipboard-list"></i> Reportar Novedad';
+            $html .= '</button>';
+            $html .= '</div>';
+        }
 
         // --- FORMULARIO INLINE (expandido automáticamente en FUERA_DE_SERVICIO) ---
+        // En validación, el formulario interactivo no se muestra — el validador
+        // no reporta novedades; solo revisa las respuestas del operario.
+        if (!$esValidacion) {
         $html .= '<div class="novedad-inline-form" id="novedadInlineForm"' . ($expandirFormulario ? '' : ' style="display:none;"') . '>';
         $html .= '<hr class="novedad-divider">';
         $html .= '<div class="novedad-form-body">';
@@ -275,13 +250,7 @@ class PreoperacionalNovedadHelper
         $html .= '<select id="novedadVehiculoSelect" class="novedad-select">';
         $html .= '<option value="">-- No seleccionar vehículo --</option>';
         foreach ($vehiculosDisponibles as $v) {
-            $tipo = htmlspecialchars($v['veh_tipo'] ?? '');
-            $vPlaca = htmlspecialchars($v['veh_placa'] ?? '');
-            $vMarca = htmlspecialchars($v['veh_marca'] ?? '');
-            $vModelo = htmlspecialchars($v['veh_modelo'] ?? '');
-            $vid = (int)($v['idvehiculos'] ?? 0);
-            $label = $tipo . ' - ' . $vPlaca . ' - ' . $vMarca . ' ' . $vModelo;
-            $html .= '<option value="' . $vid . '">' . htmlspecialchars($label) . '</option>';
+            $html .= $this->renderVehiculoOptionHTML($v);
         }
         $html .= '</select>';
         $html .= '<small class="novedad-form-hint">Si no selecciona un vehículo, quedará sin vehículo asignado.</small>';
@@ -331,6 +300,7 @@ class PreoperacionalNovedadHelper
 
         $html .= '</div>'; // /novedad-form-body
         $html .= '</div>'; // /novedad-inline-form
+        } // Fin if (!$esValidacion) — formulario interactivo
 
         $html .= '</div>'; // /preop-card-body
         $html .= '</div>'; // /novedad-panel
@@ -380,13 +350,7 @@ class PreoperacionalNovedadHelper
             $html .= '<select id="asignarVehiculoSelect" class="novedad-select">';
             $html .= '<option value="">-- Seleccione un vehículo --</option>';
             foreach ($vehiculosDisponibles as $v) {
-                $tipo = htmlspecialchars($v['veh_tipo'] ?? '');
-                $vPlaca = htmlspecialchars($v['veh_placa'] ?? '');
-                $vMarca = htmlspecialchars($v['veh_marca'] ?? '');
-                $vModelo = htmlspecialchars($v['veh_modelo'] ?? '');
-                $vid = (int) ($v['idvehiculos'] ?? 0);
-                $label = $tipo . ' - ' . $vPlaca . ' - ' . $vMarca . ' ' . $vModelo;
-                $html .= '<option value="' . $vid . '">' . htmlspecialchars($label) . '</option>';
+                $html .= $this->renderVehiculoOptionHTML($v);
             }
             $html .= '</select>';
             $html .= '</div>';
@@ -406,138 +370,169 @@ class PreoperacionalNovedadHelper
     }
 
     /**
-     * Genera el HTML de la sección de fotos de entrega para el modo validación.
-     * Usa el mismo patrón de photo-upload-container que el resto del formulario
-     * para mantener consistencia visual y buen funcionamiento en dispositivos móviles.
+     * Genera el HTML de la sección de entrega de vehículo para el modo validación.
      *
-     * @param array $datosVehiculo Datos del vehículo
-     * @param array $datosConductor Datos del conductor (nombre, identificacion)
+     * Muestra las entregas (FINAL e INICIAL) creadas durante el flujo de novedad,
+     * con sus fotos ya cargadas por el conductor. El validador puede ver las fotos
+     * existentes o subir las faltantes.
+     *
+     * @param array $entregasPendientes ['final' => array|null, 'inicial' => array|null, 'seguimiento' => array|null]
      * @return string HTML de la sección de fotos de entrega
      */
-    public function renderSeccionEntregaValidacion($datosVehiculo, $datosConductor)
+    public function renderSeccionEntregaValidacion($entregasPendientes)
     {
-        $placa = htmlspecialchars($datosVehiculo['veh_placa'] ?? 'N/A');
-        $marca = htmlspecialchars($datosVehiculo['veh_marca'] ?? '');
-        $modelo = htmlspecialchars($datosVehiculo['veh_modelo'] ?? '');
-        $nombreConductor = htmlspecialchars($datosConductor['usu_nombre'] ?? '');
-        $idConductor = htmlspecialchars($datosConductor['usu_identificacion'] ?? '');
+        $entregaFinal = $entregasPendientes['final'] ?? null;
+        $entregaInicial = $entregasPendientes['inicial'] ?? null;
         $nombreValidador = htmlspecialchars($_SESSION['usuario_nombre'] ?? '');
+        $nombreConductor = htmlspecialchars($entregaFinal['ent_userregistra'] ?? $entregaInicial['ent_userregistra'] ?? '');
 
         // --- Info pre-poblada compacta ---
         $html = '<div class="entrega-info-bar">';
-        $html .= '<span><i class="fas fa-user"></i> <strong>Conductor:</strong> ' . $nombreConductor . ' (' . $idConductor . ')</span>';
-        $html .= '<span class="entrega-info-sep">|</span>';
-        $html .= '<span><i class="fas fa-car"></i> <strong>Vehículo:</strong> ' . $placa . ' - ' . $marca . ' ' . $modelo . '</span>';
+        $html .= '<span><i class="fas fa-user"></i> <strong>Conductor:</strong> ' . $nombreConductor . '</span>';
         $html .= '<span class="entrega-info-sep">|</span>';
         $html .= '<span><i class="fas fa-user-check"></i> <strong>Validador:</strong> ' . $nombreValidador . '</span>';
         $html .= '</div>';
 
+        // Observaciones de la novedad (común a ambas entregas)
+        $obsNovedad = htmlspecialchars($entregaFinal['ent_observaciones'] ?? $entregaInicial['ent_observaciones'] ?? '');
+        if ($obsNovedad) {
+            $html .= '<div class="novedad-vehicle-info" style="margin-bottom:16px;">';
+            $html .= '<p><strong>Motivo de la novedad:</strong> ' . $obsNovedad . '</p>';
+            $html .= '</div>';
+        }
+
         // --- SECCIÓN 1: ENTREGA FINAL (conductor → empresa) ---
-        $html .= '<div class="entrega-photo-section">';
-        $html .= '<h5 class="entrega-section-label">';
-        $html .= '<i class="fas fa-arrow-right-to-bracket"></i> ';
-        $html .= 'ENTREGA FINAL — Conductor → Empresa';
-        $html .= '</h5>';
-        $html .= '<p class="entrega-section-desc">';
-        $html .= 'El conductor <strong>' . $nombreConductor . '</strong> devuelve el vehículo. ';
-        $html .= 'Recibe: <strong>' . $nombreValidador . '</strong>';
-        $html .= '</p>';
-
-        $html .= '<div class="row">';
-        $html .= '<div class="col-md-6">';
-        $html .= '<div class="photo-upload-container">';
-        $html .= '<label class="photo-label" for="entrega_final_frente">';
-        $html .= '<i class="fas fa-camera"></i> Foto FRENTE del vehículo <span class="required-star">*</span>';
-        $html .= '</label>';
-        $html .= '<input type="file" name="entrega_final_frente" id="entrega_final_frente" ';
-        $html .= 'class="photo-input" accept="image/*" data-required-photo="true">';
-        $html .= '<small class="photo-hint">Foto frontal — entrega final</small>';
-        $html .= '</div>';
-        $html .= '</div>';
-
-        $html .= '<div class="col-md-6">';
-        $html .= '<div class="photo-upload-container">';
-        $html .= '<label class="photo-label" for="entrega_final_trasera">';
-        $html .= '<i class="fas fa-camera"></i> Foto TRASERA del vehículo <span class="required-star">*</span>';
-        $html .= '</label>';
-        $html .= '<input type="file" name="entrega_final_trasera" id="entrega_final_trasera" ';
-        $html .= 'class="photo-input" accept="image/*" data-required-photo="true">';
-        $html .= '<small class="photo-hint">Foto trasera — entrega final</small>';
-        $html .= '</div>';
-        $html .= '</div>';
-        $html .= '</div>'; // /row
-        $html .= '</div>'; // /entrega-photo-section
+        $html .= $this->renderEntregaCard(
+            'final',
+            'ENTREGA FINAL — Conductor → Empresa',
+            'El conductor <strong>' . $nombreConductor . '</strong> devuelve el vehículo. Recibe: <strong>' . $nombreValidador . '</strong>',
+            $entregaFinal
+        );
 
         // --- SECCIÓN 2: ENTREGA INICIAL (empresa → conductor) ---
-        $html .= '<div class="entrega-photo-section">';
-        $html .= '<h5 class="entrega-section-label">';
-        $html .= '<i class="fas fa-arrow-right-from-bracket"></i> ';
-        $html .= 'ENTREGA INICIAL — Empresa → Conductor';
-        $html .= '</h5>';
-        $html .= '<p class="entrega-section-desc">';
-        $html .= 'La empresa entrega el vehículo al conductor <strong>' . $nombreConductor . '</strong>. ';
-        $html .= 'Entrega: <strong>' . $nombreValidador . '</strong>';
-        $html .= '</p>';
-
-        $html .= '<div class="row">';
-        $html .= '<div class="col-md-6">';
-        $html .= '<div class="photo-upload-container">';
-        $html .= '<label class="photo-label" for="entrega_inicial_frente">';
-        $html .= '<i class="fas fa-camera"></i> Foto FRENTE del vehículo <span class="required-star">*</span>';
-        $html .= '</label>';
-        $html .= '<input type="file" name="entrega_inicial_frente" id="entrega_inicial_frente" ';
-        $html .= 'class="photo-input" accept="image/*" data-required-photo="true">';
-        $html .= '<small class="photo-hint">Foto frontal — entrega inicial</small>';
-        $html .= '</div>';
-        $html .= '</div>';
-
-        $html .= '<div class="col-md-6">';
-        $html .= '<div class="photo-upload-container">';
-        $html .= '<label class="photo-label" for="entrega_inicial_trasera">';
-        $html .= '<i class="fas fa-camera"></i> Foto TRASERA del vehículo <span class="required-star">*</span>';
-        $html .= '</label>';
-        $html .= '<input type="file" name="entrega_inicial_trasera" id="entrega_inicial_trasera" ';
-        $html .= 'class="photo-input" accept="image/*" data-required-photo="true">';
-        $html .= '<small class="photo-hint">Foto trasera — entrega inicial</small>';
-        $html .= '</div>';
-        $html .= '</div>';
-        $html .= '</div>'; // /row
-        $html .= '</div>'; // /entrega-photo-section
+        $html .= $this->renderEntregaCard(
+            'inicial',
+            'ENTREGA INICIAL — Empresa → Conductor',
+            'La empresa entrega el vehículo al conductor <strong>' . $nombreConductor . '</strong>. Entrega: <strong>' . $nombreValidador . '</strong>',
+            $entregaInicial
+        );
 
         return $html;
     }
 
     /**
-     * Genera el HTML del dropdown de vehículos disponibles para el modal de novedad.
-     *
-     * @param array $vehiculos Lista de vehículos disponibles
-     * @return string HTML del dropdown
+     * Renderiza una tarjeta individual de entrega (FINAL o INICIAL).
+     * Si la entrega ya tiene fotos, las muestra como imágenes.
+     * Si no, muestra campos de upload.
      */
-    public function renderDropdownVehiculos($vehiculos)
+    private function renderEntregaCard($tipo, $titulo, $descripcion, $entrega)
     {
-        if (empty($vehiculos)) {
-            return '<div class="alert alert-warning">No hay vehículos disponibles en este momento.</div>';
-        }
+        $vehiculo = htmlspecialchars($entrega['ent_vehiculo'] ?? 'Sin datos');
+        $fotoFrente = $entrega['ent_img_frente'] ?? '';
+        $fotoTrasera = $entrega['ent_img_trasera'] ?? '';
+        $tieneFirma = !empty($entrega['ent_firma']);
 
-        $html = '<div class="form-group">';
-        $html .= '<label for="selectVehiculoNuevo"><strong>Seleccionar vehículo alternativo (opcional):</strong></label>';
-        $html .= '<select class="form-control" id="selectVehiculoNuevo" name="idvehiculo_nuevo">';
-        $html .= '<option value="">-- No seleccionar vehículo --</option>';
+        $html = '<div class="entrega-photo-section">';
+        $html .= '<h5 class="entrega-section-label">';
+        $html .= '<i class="fas ' . ($tipo === 'final' ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket') . '"></i> ';
+        $html .= $titulo;
+        $html .= '</h5>';
+        $html .= '<p class="entrega-section-desc">' . $descripcion . '</p>';
+        $html .= '<p style="font-weight:600; color:#074F91; margin-bottom:12px;">';
+        $html .= '<i class="fas fa-car"></i> Vehículo: ' . $vehiculo;
+        $html .= '</p>';
 
-        foreach ($vehiculos as $v) {
-            $tipo = htmlspecialchars($v['veh_tipo'] ?? '');
-            $placa = htmlspecialchars($v['veh_placa'] ?? '');
-            $marca = htmlspecialchars($v['veh_marca'] ?? '');
-            $modelo = htmlspecialchars($v['veh_modelo'] ?? '');
-            $id = (int) ($v['idvehiculos'] ?? 0);
-
-            $label = $tipo . ' - ' . $placa . ' - ' . $marca . ' ' . $modelo;
-            $html .= '<option value="' . $id . '">' . htmlspecialchars($label) . '</option>';
-        }
-
-        $html .= '</select>';
+        $html .= '<div class="row">';
+        // Foto frontal
+        $html .= '<div class="col-md-6">';
+        $html .= $this->renderFotoEntrega(
+            'entrega_' . $tipo . '_frente',
+            'Foto FRENTE del vehículo',
+            'Foto frontal — ' . ($tipo === 'final' ? 'salida' : 'entrada'),
+            $fotoFrente
+        );
         $html .= '</div>';
+        // Foto trasera
+        $html .= '<div class="col-md-6">';
+        $html .= $this->renderFotoEntrega(
+            'entrega_' . $tipo . '_trasera',
+            'Foto TRASERA del vehículo',
+            'Foto trasera — ' . ($tipo === 'final' ? 'salida' : 'entrada'),
+            $fotoTrasera
+        );
+        $html .= '</div>';
+        $html .= '</div>'; // /row
 
+        // Si la entrega ya tiene firma, mostrar indicador
+        if ($tieneFirma) {
+            $html .= '<div style="margin-top:10px; padding:8px 12px; background:rgba(40,167,69,0.08); border-radius:8px; font-size:13px;">';
+            $html .= '<i class="fas fa-check-circle" style="color:#28a745;"></i> Firma registrada';
+            $html .= '</div>';
+        }
+
+        $html .= '</div>'; // /entrega-photo-section
         return $html;
+    }
+
+    /**
+     * Renderiza una celda de foto: si ya existe, muestra la imagen.
+     * Si no, muestra el input de upload.
+     */
+    private function renderFotoEntrega($inputId, $label, $hint, $rutaRelativa)
+    {
+        $html = '<div class="photo-upload-container">';
+        $html .= '<label class="photo-label" for="' . $inputId . '">';
+        $html .= '<i class="fas fa-camera"></i> ' . $label;
+        if (empty($rutaRelativa)) {
+            $html .= ' <span class="required-star">*</span>';
+        }
+        $html .= '</label>';
+
+        if (!empty($rutaRelativa)) {
+            // La ruta es relativa a nueva_plataforma (ej: uploads/vehiculos/xxx.png)
+            // Consistente con VehiculosModel::guardarImagen() y PreoperacionalService::procesarImagenEntrega()
+            $rutaAbsoluta = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rutaRelativa);
+            if (file_exists($rutaAbsoluta)) {
+                $url = '../../' . $rutaRelativa;
+                $html .= '<a href="' . htmlspecialchars($url) . '" target="_blank" style="display:block;">';
+                $html .= '<img src="' . htmlspecialchars($url) . '" alt="' . htmlspecialchars($label) . '" ';
+                $html .= 'style="max-width:100%; max-height:200px; border-radius:8px; border:2px solid rgba(0,0,0,0.1);">';
+                $html .= '</a>';
+                $html .= '<small class="photo-hint">' . htmlspecialchars($hint) . ' — <a href="' . htmlspecialchars($url) . '" target="_blank">ver ampliada</a></small>';
+                // Marcador para el JS: esta foto ya existe, no requerir re-subida
+                $html .= '<input type="hidden" name="' . $inputId . '_existente" value="1" data-foto-existente="true">';
+            } else {
+                $html .= '<div style="padding:12px; background:#fff3cd; border-radius:6px; font-size:12px; color:#856404;">';
+                $html .= '<i class="fas fa-exclamation-triangle"></i> Archivo no encontrado: ' . htmlspecialchars($rutaRelativa);
+                $html .= '</div>';
+                $html .= '<input type="file" name="' . $inputId . '" id="' . $inputId . '" ';
+                $html .= 'class="photo-input" accept="image/*" data-required-photo="true">';
+                $html .= '<small class="photo-hint">' . htmlspecialchars($hint) . '</small>';
+            }
+        } else {
+            // Sin foto previa: campo de upload
+            $html .= '<input type="file" name="' . $inputId . '" id="' . $inputId . '" ';
+            $html .= 'class="photo-input" accept="image/*" data-required-photo="true">';
+            $html .= '<small class="photo-hint">' . htmlspecialchars($hint) . '</small>';
+        }
+
+        $html .= '</div>';
+        return $html;
+    }
+
+    /**
+     * Renderiza una etiqueta <option> para un vehículo disponible.
+     * Extraído como helper privado para eliminar 3 copias idénticas del mismo bloque
+     * en renderNovedadPanel, renderNoVehiclePanel y (el ya eliminado) renderDropdownVehiculos.
+     */
+    private function renderVehiculoOptionHTML($v)
+    {
+        $tipo   = htmlspecialchars($v['veh_tipo'] ?? '');
+        $placa  = htmlspecialchars($v['veh_placa'] ?? '');
+        $marca  = htmlspecialchars($v['veh_marca'] ?? '');
+        $modelo = htmlspecialchars($v['veh_modelo'] ?? '');
+        $id     = (int) ($v['idvehiculos'] ?? 0);
+        $label  = $tipo . ' - ' . $placa . ' - ' . $marca . ' ' . $modelo;
+        return '<option value="' . $id . '">' . htmlspecialchars($label) . '</option>';
     }
 }

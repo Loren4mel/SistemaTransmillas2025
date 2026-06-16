@@ -71,17 +71,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_vehiculo']
 
 // GUARDAR ENTREGA DE VEHÍCULO
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_entrega'])) {
+    $idVehiculo = intval($_POST['ent_vehiculo_id'] ?? 0);
     $datos = [
-        'ent_fechaentrega' => $_POST['ent_fechaentrega'],
-        'ent_vehiculo'     => $_POST['ent_vehiculo'],
-        'ent_userregistra' => $_SESSION['usuario_nombre'],
-        'ent_idusuario'    => intval($_POST['ent_idusuario']),
-        'ent_tipoentrega'  => $_POST['ent_tipoentrega'], 
+        'ent_fechaentrega'  => $_POST['ent_fechaentrega'],
+        'ent_vehiculo'      => $_POST['ent_vehiculo'],
+        'ent_idvehiculo'    => $idVehiculo,
+        'ent_userregistra'  => $_SESSION['usuario_nombre'],
+        'ent_idusuario'     => intval($_POST['ent_idusuario']),
+        'ent_idusuarioencargado' => $_SESSION['usuario_id'] ?? null,
+        'ent_tipoentrega'   => $_POST['ent_tipoentrega'],
         'ent_fecharegistra' => date('Y-m-d'),
-        'ent_sede'         => $_POST['ent_sede'] ?? '', 
+        'ent_sede'          => $_POST['ent_sede'] ?? '',
         'ent_equipo_carretera'=> $_POST['ent_equipo_carretera'] ?? '[]',
-        'ent_observaciones'   => $_POST['ent_observaciones'] ?? '',
-        'ent_vehiculo_id'      => intval($_POST['ent_vehiculo_id'] ?? 0),
+        'ent_observaciones'    => $_POST['ent_observaciones'] ?? '',
+        'ent_vehiculo_id'      => $idVehiculo,
         'ent_firma_base64'     => $_POST['ent_firma_base64'] ?? '',
         'ent_video_url' => $_POST['ent_video_url'] ?? '',
     ];

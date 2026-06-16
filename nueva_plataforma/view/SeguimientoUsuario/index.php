@@ -230,9 +230,12 @@
                         <button type="button" class="btn btn-info btn-lg" onclick="abrirModalLicencias()">
                             <i class="fas fa-file-medical"></i> + Licencias y permisos
                         </button>
+                        <a href="<?= $appBasePath ?>/controller/SeguimientoVehiculoController.php" class="btn btn-lg" style="background-color: #2E86C1; color: white;">
+                            <i class="fas fa-truck"></i> Ir a Seguimiento de Vehículos
+                        </a>
                         <?php endif; ?>
                         <button type="button" class="btn btn-lg" onclick="abrirModalNuevosEmpleados()" style="background-color: #2196F3; color: white;">
-                            <i class="fas fa-user-plus"></i> Nuevos Empleados
+                            <i class="fas fa-users"></i> Ingresos y retiros
                         </button>
                     </div>
                 </div>
@@ -393,7 +396,7 @@
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i> Nuevos Empleados por Fecha de Ingreso</h5>
+                    <h5 class="modal-title"><i class="fas fa-users me-2"></i> Ingresos y Retiros por Fecha</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="nuevosEmpleadosModalBody">

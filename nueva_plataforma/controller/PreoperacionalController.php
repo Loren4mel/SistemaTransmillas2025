@@ -215,7 +215,13 @@ function loadView($service)
         $datosVehiculo = []; // Array vacío para evitar errores en la vista
     }
 
+    // $tipovehiculo: primario del vehículo asignado; fallback al perfil del usuario.
+    // Si el conductor reportó una novedad y quedó sin vehículo, el JOIN vehiculos
+    // no devuelve fila, pero el usuario sigue siendo conductor en su perfil.
     $tipovehiculo = strtoupper($datosVehiculo['veh_tipo'] ?? '');
+    if (empty($tipovehiculo)) {
+        $tipovehiculo = strtoupper($service->obtenerTipoVehiculoUsuario($iduser) ?? '');
+    }
     $nivel_acceso = $_SESSION['usuario_rol'];
 
     $formatoEncuesta = 'nuevo';
@@ -241,8 +247,9 @@ function loadView($service)
     if ($preoperacional == 'validarpreoperacional' && isset($_GET['idpre'])) {
         $registroExistente = $service->obtenerRegistroPorId((int) $_GET['idpre']);
 
-        // Detectar el formato de la encuesta existente para validación
-        if ($registroExistente && !empty($registroExistente['preencuesta'])) {
+        // Detectar el formato de la encuesta existente para validación.
+        // Solo para registros legacy (no relacionales); los relacionales siempre son 'nuevo'.
+        if ($registroExistente && empty($registroExistente['id_version']) && !empty($registroExistente['preencuesta'])) {
             $formatoEncuesta = $service->detectarFormato($registroExistente['preencuesta']);
         }
 
@@ -290,12 +297,50 @@ function loadView($service)
     $valoresEncuestaRelacional = [];
     $esRegistroRelacional = false;
     if ($registroExistente && !empty($registroExistente['id_version'])) {
-        $valoresEncuestaRelacional = $service->obtenerRespuestasVersion(
-            $registroExistente['idpreoperacinal'],
-            $registroExistente['id_version']
+        // IMPORTANTE: usar obtenerTodasRespuestas en vez de obtenerRespuestasVersion.
+        // El registro almacena solo un id_version (el de vehículo), pero las respuestas
+        // viven en múltiples versiones (vehículo + usuario). Si filtramos por una sola
+        // versión, las preguntas personales del usuario no se cargarían.
+        $valoresEncuestaRelacional = $service->obtenerTodasRespuestas(
+            $registroExistente['idpreoperacinal']
         );
         $idVersionActiva = $registroExistente['id_version'];
         $esRegistroRelacional = true;
+        // Cuando el registro usa esquema relacional, siempre es formato nuevo.
+        // detectarFormato() no puede identificar el formato desde preencuesta
+        // porque la migración movió las respuestas a preop_respuestas y
+        // preencuesta ahora solo almacena metadata (ubicacion, doc IDs).
+        $formatoEncuesta = 'nuevo';
+
+        // --- Cargar metadata desde columnas dedicadas (fuente primaria) ---
+        // pre_ubicacion y pre_firma existen como columnas en la tabla;
+        // son la fuente de verdad para registros del esquema relacional.
+
+        if (!empty($registroExistente['pre_ubicacion'])) {
+            $valoresEncuestaRelacional['ubicacion'] = $registroExistente['pre_ubicacion'];
+        }
+        if (!empty($registroExistente['pre_firma'])) {
+            $valoresEncuestaRelacional['firma_documento_id'] = (int) $registroExistente['pre_firma'];
+        }
+
+        // Documentos de inspección (v3) y temperatura (v2): consultar tabla documentos.
+        $metadatosDocs = $service->obtenerDocumentosPorPreoperacional($registroExistente['idpreoperacinal']);
+        foreach ($metadatosDocs as $clave => $valor) {
+            if (empty($valoresEncuestaRelacional[$clave])) {
+                $valoresEncuestaRelacional[$clave] = $valor;
+            }
+        }
+
+        // Fallback: si algún campo de metadata no se encontró en columnas dedicadas
+        // ni en documentos, intentar rescatar del JSON legacy de preencuesta.
+        if (!empty($registroExistente['preencuesta'])) {
+            $metadatosLegado = json_decode($registroExistente['preencuesta'], true) ?? [];
+            foreach (['ubicacion', 'firma_documento_id', 'inspeccion_documento_id', 'temperatura_documento_id'] as $clave) {
+                if (isset($metadatosLegado[$clave]) && empty($valoresEncuestaRelacional[$clave])) {
+                    $valoresEncuestaRelacional[$clave] = $metadatosLegado[$clave];
+                }
+            }
+        }
     }
 
     // Para nuevos registros, siempre resolver la versión activa
@@ -307,10 +352,10 @@ function loadView($service)
 
     // ==================== VERIFICACIÓN DE NOVEDAD VEHICULAR ====================
     require_once __DIR__ . '/../helpers/PreoperacionalHelpers/PreoperacionalNovedadHelper.php';
-    $novedadHelper = new PreoperacionalNovedadHelper();
+    $novedadHelper = new PreoperacionalNovedadHelper($service);
 
     // Siempre cargar vehículos disponibles (incluso sin vehículo asignado)
-    $vehiculosDisponibles = $novedadHelper->obtenerVehiculosDisponibles();
+    $vehiculosDisponibles = $service->obtenerVehiculosDisponibles();
     $novedadVehiculo = null;
 
     $tieneVehiculoAsignado = !empty($datosVehiculo) && isset($datosVehiculo['idvehiculos']) && $datosVehiculo['idvehiculos'] > 0;
@@ -323,6 +368,7 @@ function loadView($service)
     if ($novedadVehiculo === null) {
         $novedadVehiculo = [
             'tieneNovedad' => false,
+            'esNovedadReportada' => false,
             'estado_general' => 'OPTIMO',
             'observaciones' => '',
             'ultimoSeguimiento' => null
@@ -343,8 +389,12 @@ function loadView($service)
         'conductor' => $esConductor,
         'vehiculo_propio' => $esVehiculoPropio,
         'auxiliar_carga' => PreoperacionalNuevaEncuestaViewHelper::esAuxiliarCarga($nivel_acceso),
-        'preoperacional_vehiculo' => ($tipovehiculo === 'CARRO'),
-        'preoperacional_moto' => ($tipovehiculo === 'MOTO')
+        // Las secciones de inspección del vehículo solo se muestran si el
+        // usuario tiene un vehículo asignado. Después de reportar una novedad
+        // y quedar sin vehículo, el tipo de vehículo del perfil puede seguir
+        // siendo CARRO/MOTO, pero no hay qué inspeccionar.
+        'preoperacional_vehiculo' => ($tipovehiculo === 'CARRO') && $tieneVehiculoAsignado,
+        'preoperacional_moto' => ($tipovehiculo === 'MOTO') && $tieneVehiculoAsignado
     ];
 
     // Fallback: si ningún cuestionario de rol aplica, usar preguntas administrativas por defecto
@@ -357,6 +407,16 @@ function loadView($service)
     }
 
     // ==================== FIN DE SECCIONES POR ROL ====================
+
+    // ==================== ENTREGAS PENDIENTES (VALIDACIÓN) ====================
+    // Cuando el conductor reportó una novedad y cambió de vehículo, las entregas
+    // (FINAL del vehículo antiguo + INICIAL del nuevo) están vinculadas al
+    // REVISION_SST, no al vehículo actual. Las buscamos por el usuario conductor.
+    $entregasPendientes = ['final' => null, 'inicial' => null, 'seguimiento' => null];
+    if ($esValidacion) {
+        $idConductorParaEntregas = $registroExistente['preidusuario'] ?? $iduser;
+        $entregasPendientes = $service->obtenerEntregasPendientesPorUsuario($idConductorParaEntregas);
+    }
 
     // Limpiar buffer y cargar la vista
     // Calcular ruta base de la aplicación desde el servidor

@@ -1622,3 +1622,150 @@
 .required-star {
     color: #dc3545;
 }
+
+/* ==================== MODO VALIDACIÓN (SOLO LECTURA) ==================== */
+
+/*
+ * Principio: los campos deshabilitados deben verse claros y legibles,
+ * no grises ni atenuados. El validador debe poder leer todas las respuestas
+ * del operario sin esfuerzo visual.
+ *
+ * Las respuestas SI reciben fondo verde, las NO reciben fondo rojo.
+ * Las opciones NO seleccionadas mantienen un aspecto neutral pero visible.
+ */
+
+/* ==================== CHECKBOXES EN MODO VALIDACIÓN ==================== */
+
+/* Labels en validación: sin hover, cursor default */
+#formPreoperacional.modo-validacion .checkbox-label {
+    cursor: default;
+    transition: none;
+}
+
+/* Checkbox deshabilitado: forzar opacidad completa y apariencia clara */
+#formPreoperacional.modo-validacion .checkbox-label input[type="checkbox"]:disabled {
+    opacity: 1;
+    cursor: default;
+}
+
+/* --- SÍ SELECCIONADO (checked + disabled) --- */
+/* El label del SÍ cuando está checked: fondo verde sólido */
+#formPreoperacional.modo-validacion .checkbox-label.checkbox-si:has(input:checked:disabled) {
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    border-color: #28a745;
+    border-width: 2px;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+}
+
+#formPreoperacional.modo-validacion .checkbox-label.checkbox-si:has(input:checked:disabled) .checkbox-text {
+    color: #155724;
+    font-weight: 700;
+}
+
+/* --- NO SELECCIONADO (checked + disabled) --- */
+/* El label del NO cuando está checked: fondo rojo sólido */
+#formPreoperacional.modo-validacion .checkbox-label.checkbox-no:has(input:checked:disabled) {
+    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+    border-color: #dc3545;
+    border-width: 2px;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2);
+}
+
+#formPreoperacional.modo-validacion .checkbox-label.checkbox-no:has(input:checked:disabled) .checkbox-text {
+    color: #721c24;
+    font-weight: 700;
+}
+
+/* --- Opción NO SELECCIONADA en validación --- */
+/* Se mantiene visible pero en segundo plano: borde sutil, fondo blanco */
+#formPreoperacional.modo-validacion .checkbox-label:has(input:not(:checked):disabled) {
+    background: rgba(248, 249, 250, 0.7);
+    border-color: rgba(0, 0, 0, 0.10);
+    color: #999;
+    box-shadow: none;
+}
+
+#formPreoperacional.modo-validacion .checkbox-label:has(input:not(:checked):disabled) .checkbox-text {
+    color: #adb5bd;
+    font-weight: 400;
+}
+
+/* --- Hover desactivado en todos los labels de validación --- */
+#formPreoperacional.modo-validacion .checkbox-label:hover {
+    background: inherit;
+    border-color: inherit;
+    transform: none;
+}
+
+#formPreoperacional.modo-validacion .checkbox-label.checkbox-si:has(input:checked:disabled):hover {
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+}
+
+#formPreoperacional.modo-validacion .checkbox-label.checkbox-no:has(input:checked:disabled):hover {
+    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+}
+
+/* ==================== INPUTS DE TEXTO / TEXTAREAS EN VALIDACIÓN ==================== */
+
+/* Campos de solo lectura: fondo claro con borde sutil, texto plenamente legible */
+#formPreoperacional.modo-validacion input:disabled:not([name="desc_validacion"]):not([name="observaciones_validacion"]):not([name="accion_correctiva"]):not([name="responsable"]),
+#formPreoperacional.modo-validacion textarea:disabled:not([name="desc_validacion"]):not([name="observaciones_validacion"]):not([name="accion_correctiva"]):not([name="responsable"]) {
+    opacity: 1;
+    background: #fcfcfc;
+    border-color: rgba(0, 0, 0, 0.10);
+    color: #333;
+    -webkit-text-fill-color: #333;
+}
+
+/* Readonly fields (set by JS in validation mode) — cursor default, no text interaction */
+#formPreoperacional.modo-validacion input[readonly]:not([name="desc_validacion"]):not([name="observaciones_validacion"]):not([name="accion_correctiva"]):not([name="responsable"]),
+#formPreoperacional.modo-validacion textarea[readonly]:not([name="desc_validacion"]):not([name="observaciones_validacion"]):not([name="accion_correctiva"]):not([name="responsable"]) {
+    cursor: default;
+}
+
+/* File inputs deshabilitados */
+#formPreoperacional.modo-validacion input[type="file"]:disabled {
+    opacity: 1;
+    color: #555;
+}
+
+/* ==================== QUESTION ITEMS EN VALIDACIÓN ==================== */
+
+/* Mantener el fondo y bordes de las preguntas con buena legibilidad */
+#formPreoperacional.modo-validacion .question-item {
+    background: rgba(255, 255, 255, 0.55);
+}
+
+/* ==================== INDICADOR DE SECCIÓN BLOQUEADA ==================== */
+
+/* En validación, cada tarjeta recibe un sutil indicador de solo-lectura en su header */
+#formPreoperacional.modo-validacion .preop-card > .preop-card-header::after {
+    content: "\f023"; /* fa-lock */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 12px;
+    margin-left: auto;
+    opacity: 0.5;
+    letter-spacing: normal;
+}
+
+/* Tarjetas editables en validación NO llevan el candado */
+#formPreoperacional.modo-validacion .preop-card.validation-card > .preop-card-header::after,
+#formPreoperacional.modo-validacion .preop-card.observations-card > .preop-card-header::after {
+    content: "\f044"; /* fa-edit en vez de candado */
+    opacity: 0.5;
+}
+
+/* ==================== FIRMA EN VALIDACIÓN ==================== */
+
+/* La firma en modo validación se muestra como imagen; sin canvas editable */
+#formPreoperacional.modo-validacion .signature-canvas {
+    display: none;
+}
+
+/* ==================== BOTÓN GUARDAR EN VALIDACIÓN ==================== */
+
+/* Mantener visible y funcional */
+#formPreoperacional.modo-validacion .btn-guardar {
+    opacity: 1;
+}

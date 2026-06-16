@@ -89,9 +89,12 @@ class PreoperacionalService
         $imagenKilo = $this->procesarImagenKilometraje($files);
         $imagenInspeccion = $this->procesarImagenInspeccionInicial($files, $dataJson);
 
-        // Validar que la imagen de kilometraje sea obligatoria (solo para vehículos CARRO/MOTO)
-        // EXCEPCIÓN: vehículo FUERA_DE_SERVICIO — el conductor será redirigido a otro vehículo
-        if (!$vehiculoFueraDeServicio) {
+        // Validar que la imagen de kilometraje sea obligatoria (solo para vehículos CARRO/MOTO).
+        // Además, debe existir un vehículo asignado — después de reportar FUERA_DE_SERVICIO
+        // sin alternativa, el tipo de vehículo del perfil puede ser CARRO/MOTO pero no hay
+        // vehículo que inspeccionar, y el formulario no incluye el campo de kilometraje.
+        // EXCEPCIÓN: vehículo FUERA_DE_SERVICIO — el conductor será redirigido a otro vehículo.
+        if (!$vehiculoFueraDeServicio && $idVehiculo > 0) {
             $requiereImagenKilo = in_array(strtoupper($tipoVehiculo), ['CARRO', 'MOTO']);
             if ($requiereImagenKilo && empty($imagenKilo)) {
                 // Si es actualización, verificar si ya existe imagen previa
@@ -200,11 +203,60 @@ class PreoperacionalService
     }
 
     /**
+     * Obtiene el tipo de vehículo del perfil del usuario.
+     * Fallback cuando el usuario no tiene vehículo asignado.
+     *
+     * @param int $idUsuario
+     * @return string|null 'Carro', 'Moto' o null
+     */
+    public function obtenerTipoVehiculoUsuario($idUsuario)
+    {
+        return $this->model->obtenerTipoVehiculoUsuario($idUsuario);
+    }
+
+    /**
+     * Busca las entregas de vehículo pendientes de validación para un conductor.
+     * Retorna el último par FINAL/INICIAL vinculado a un REVISION_SST.
+     *
+     * @param int $idUsuario ID del conductor
+     * @return array ['final' => entrega|null, 'inicial' => entrega|null, 'seguimiento' => array|null]
+     */
+    public function obtenerEntregasPendientesPorUsuario($idUsuario)
+    {
+        return $this->model->obtenerEntregasPendientesPorUsuario($idUsuario);
+    }
+
+    /**
      * Obtiene el documento de firma asociado a un preoperacional
      */
     public function obtenerDocumentoFirma($idPreoperacional)
     {
         return $this->model->obtenerDocumentoFirma($idPreoperacional);
+    }
+
+    /**
+     * Obtiene TODAS las respuestas de un preoperacional (todas las versiones).
+     * Necesario porque el registro almacena solo un id_version pero las respuestas
+     * existen en múltiples versiones (vehículo + usuario).
+     *
+     * @param int $idPreoperacional
+     * @return array [codigo_interno => respuesta_dada]
+     */
+    public function obtenerTodasRespuestas($idPreoperacional)
+    {
+        return $this->model->obtenerTodasRespuestas($idPreoperacional);
+    }
+
+    /**
+     * Obtiene los IDs de documentos asociados a un preoperacional, indexados
+     * por clave semántica. Sustituye la dependencia del JSON de preencuesta.
+     *
+     * @param int $idPreoperacional
+     * @return array [firma_documento_id, inspeccion_documento_id, temperatura_documento_id]
+     */
+    public function obtenerDocumentosPorPreoperacional($idPreoperacional)
+    {
+        return $this->model->obtenerDocumentosPorPreoperacional($idPreoperacional);
     }
 
     // ==================== DETECCIÓN DE FORMATO ====================
@@ -497,19 +549,6 @@ class PreoperacionalService
     }
 
     /**
-     * Obtiene las respuestas de una versión específica, formateadas como array
-     * compatible con $valoresEncuesta del ViewHelper.
-     *
-     * @param int $idPreoperacional
-     * @param int $idVersion
-     * @return array
-     */
-    public function obtenerRespuestasVersion($idPreoperacional, $idVersion)
-    {
-        return $this->model->obtenerRespuestasVersion($idPreoperacional, $idVersion);
-    }
-
-    /**
      * Calcula el estado general del vehículo basado en las respuestas.
      *
      * @param array $respuestas [codigo_interno => valor]
@@ -569,6 +608,7 @@ class PreoperacionalService
             $tieneNovedad = in_array($estado, ['FUERA_DE_SERVICIO', 'CON_NOVEDADES']);
             return [
                 'tieneNovedad' => $tieneNovedad,
+                'esNovedadReportada' => $tieneNovedad,   // REVISION_SST = novedad real
                 'estado_general' => $estado,
                 'observaciones' => $revision['observaciones'] ?? '',
                 'ultimoSeguimiento' => $revision
@@ -576,11 +616,14 @@ class PreoperacionalService
         }
 
         // PRIORIDAD 2: No existe REVISION_SST; usar el registro más reciente (cualquier tipo).
+        // Los PREOPERACIONAL con CON_NOVEDADES (por respuestas "NO" en checkboxes)
+        // NO constituyen una novedad reportada que requiera fotos de entrega.
         $ultimo = $this->model->obtenerUltimoSeguimientoPorVehiculo($idVehiculo);
 
         if (!$ultimo) {
             return [
                 'tieneNovedad' => false,
+                'esNovedadReportada' => false,
                 'estado_general' => 'OPTIMO',
                 'observaciones' => '',
                 'ultimoSeguimiento' => null
@@ -592,6 +635,7 @@ class PreoperacionalService
 
         return [
             'tieneNovedad' => $tieneNovedad,
+            'esNovedadReportada' => false,   // sin REVISION_SST no es novedad reportada
             'estado_general' => $estado,
             'observaciones' => $ultimo['observaciones'] ?? '',
             'ultimoSeguimiento' => $ultimo

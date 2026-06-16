@@ -857,19 +857,25 @@
             return;
         }
 
-        // Marcar checkboxes y radios con clase CSS (sin disabled para preservar estilo visual)
+        // Checkboxes y radios: el servidor ya los envía con disabled.
+        // Solo impedir que el foco del teclado caiga sobre ellos.
+        // El CSS de .modo-validacion se encarga del aspecto visual
+        // (respuestas SI con fondo verde, NO con fondo rojo, opciones
+        // no seleccionadas en segundo plano pero legibles).
         var inputs = document.querySelectorAll('.obtener');
         for (var i = 0; i < inputs.length; i++) {
-            inputs[i].classList.add('validation-disabled');
             inputs[i].setAttribute('tabindex', '-1');
         }
 
-        // Poner readonly en campos de texto, textareas y número (excepto validation note)
+        // Poner readonly en campos de texto, textareas y número (excepto validation notes)
         var textInputs = document.querySelectorAll('input[type="text"], input[type="number"], textarea');
         for (var j = 0; j < textInputs.length; j++) {
             var el = textInputs[j];
-            // No deshabilitar campos ocultos ni el textarea de validación
-            if (el.type !== 'hidden' && el.id !== 'desc_validacion' && el.id !== 'observaciones_validacion') {
+            if (el.type !== 'hidden'
+                && el.id !== 'desc_validacion'
+                && el.id !== 'observaciones_validacion'
+                && el.name !== 'accion_correctiva'
+                && el.name !== 'responsable') {
                 el.readOnly = true;
             }
         }
@@ -877,7 +883,6 @@
         // Deshabilitar inputs de archivo (excepto los de entrega de vehículo en validación)
         var fileInputs = document.querySelectorAll('input[type="file"]');
         for (var k = 0; k < fileInputs.length; k++) {
-            // Mantener habilitados los inputs de fotos de entrega (entrega_final_*, entrega_inicial_*)
             if (fileInputs[k].id.indexOf('entrega_') === 0) continue;
             fileInputs[k].disabled = true;
         }
@@ -1027,6 +1032,9 @@
                 alertaEl.style.display = 'none';
             }
         }
+
+        // Restaurar el flag para los validadores JS
+        MOSTRAR_SECCION_VEHICULO = true;
     }
 
     /**
@@ -1071,6 +1079,9 @@
         if (idvField) idvField.value = '0';
         var selField = document.getElementById('idvehiculo_seleccionado');
         if (selField) selField.value = '0';
+
+        // Informar a los validadores JS que ya no hay sección de vehículo
+        MOSTRAR_SECCION_VEHICULO = false;
     }
 
     /**
@@ -1356,28 +1367,27 @@
 
             if (data.success) {
                 if (data.cambio_vehiculo) {
-                    // NO + vehículo nuevo asignado → recargar página
+                    // Vehículo nuevo asignado → recargar página
                     Swal.fire({ title: 'Vehículo actualizado', text: data.message + ' La página se recargará.', icon: 'success', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
-                } else {
-                    // SÍ o NO sin vehículo nuevo
+                } else if (data.idvehiculo_final && parseInt(data.idvehiculo_final) > 0) {
+                    // SÍ → el vehículo se mantiene: desbloquear secciones normalmente
                     var inlineForm = document.getElementById('novedadInlineForm');
                     if (inlineForm) inlineForm.style.display = 'none';
                     var actionsDiv = document.getElementById('novedadActions');
                     if (actionsDiv) actionsDiv.style.display = '';
 
-                    if (data.idvehiculo_final && parseInt(data.idvehiculo_final) > 0) {
-                        // SÍ: el vehículo se mantiene → desbloquear secciones
-                        var idvField = document.querySelector('input[name="idvehiculo"]');
-                        if (idvField) idvField.value = data.idvehiculo_final;
-                        var selField = document.getElementById('idvehiculo_seleccionado');
-                        if (selField) selField.value = data.idvehiculo_final;
-                        desbloquearSeccionesVehiculo();
-                    } else {
-                        // NO sin vehículo nuevo → ocultar secciones de vehículo, mostrar info
-                        ocultarSeccionesVehiculo();
-                    }
+                    var idvField = document.querySelector('input[name="idvehiculo"]');
+                    if (idvField) idvField.value = data.idvehiculo_final;
+                    var selField = document.getElementById('idvehiculo_seleccionado');
+                    if (selField) selField.value = data.idvehiculo_final;
+                    desbloquearSeccionesVehiculo();
 
                     Swal.fire({ title: 'Novedad registrada', text: data.message, icon: 'success', confirmButtonText: 'Aceptar', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+                } else {
+                    // FUERA_DE_SERVICIO sin vehículo nuevo → el vehículo fue desasignado
+                    // en el servidor. Recargar la página para que el formulario refleje
+                    // el nuevo estado (sin secciones de vehículo, panel de asignación, etc.).
+                    Swal.fire({ title: 'Vehículo fuera de servicio', text: data.message + ' La página se recargará.', icon: 'info', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
                 }
             } else {
                 Swal.fire({ title: 'Error', text: data.message || 'Error al procesar la novedad.', icon: 'error', confirmButtonText: 'Aceptar' });
@@ -1396,8 +1406,9 @@
     function validarFotosEntrega() {
         if (typeof ES_VALIDACION === 'undefined' || !ES_VALIDACION) return true;
 
-        var entregaCard = document.querySelector('.entrega-validacion-card');
-        if (!entregaCard) return true;
+        // Buscar cualquier sección de entrega (no solo .entrega-validacion-card)
+        var entregaSection = document.querySelector('.entrega-photo-section');
+        if (!entregaSection) return true;
 
         var fotosRequeridas = [
             { id: 'entrega_final_frente', name: 'Foto FRENTE - Entrega Final' },
@@ -1408,6 +1419,10 @@
 
         var faltantes = [];
         for (var i = 0; i < fotosRequeridas.length; i++) {
+            // Si existe un hidden indicando que la foto ya fue subida, no requerirla
+            var existente = document.querySelector('input[name="' + fotosRequeridas[i].id + '_existente"]');
+            if (existente && existente.value === '1') continue;
+
             var input = document.getElementById(fotosRequeridas[i].id);
             if (!input || !input.files || input.files.length === 0) {
                 faltantes.push(fotosRequeridas[i].name);
@@ -1420,7 +1435,7 @@
                 errorHtml += '• ' + faltantes[k] + '<br>';
             }
             Swal.fire({ title: 'Fotos de entrega requeridas', html: errorHtml, icon: 'warning', confirmButtonText: 'Aceptar' });
-            entregaCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            entregaSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return false;
         }
         return true;
@@ -1436,6 +1451,20 @@
         }
         form.addEventListener('submit', async function (e) {
             e.preventDefault();
+
+            // Defensa: eliminar el atributo required de cualquier input que esté
+            // disabled u oculto. Un input required+disabled+hidden provoca el error
+            // "An invalid form control with name='...' is not focusable" del navegador.
+            // Esto puede ocurrir cuando las secciones de vehículo se ocultaron vía JS
+            // (por ej. después de reportar FUERA_DE_SERVICIO sin vehículo alternativo)
+            // pero el DOM aún contiene los inputs con required del renderizado inicial.
+            var allRequired = form.querySelectorAll('[required]');
+            for (var ri = 0; ri < allRequired.length; ri++) {
+                var el = allRequired[ri];
+                if (el.disabled || el.offsetParent === null) {
+                    el.removeAttribute('required');
+                }
+            }
 
             var esValidacion = (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION);
 
