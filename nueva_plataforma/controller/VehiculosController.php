@@ -83,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_entrega'])) {
         'ent_observaciones'   => $_POST['ent_observaciones'] ?? '',
         'ent_vehiculo_id'      => intval($_POST['ent_vehiculo_id'] ?? 0),
         'ent_firma_base64'     => $_POST['ent_firma_base64'] ?? '',
+        'ent_video_url' => $_POST['ent_video_url'] ?? '',
     ];
 
     $resultado = $modelo->guardarEntregaVehiculo($datos);
@@ -219,6 +220,41 @@ if (isset($_POST['eliminar_entrega'])) {
     echo json_encode($resultado === true
         ? ['success' => true,  'mensaje' => 'Entrega eliminada correctamente']
         : ['success' => false, 'mensaje' => $resultado['error']]
+    );
+    exit;
+}
+
+// GUARDAR REVISIÓN DE COMPARENDO
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_revision'])) {
+    $datos = [
+        'rev_vehiculo_id'    => intval($_POST['rev_vehiculo_id']),
+        'rev_fecha_consulta' => $_POST['rev_fecha_consulta'],
+        'rev_usuario'        => $_SESSION['usuario_nombre'] ?? 'Sin sesión',
+    ];
+    $resultado = $modelo->guardarRevisionComparendo($datos);
+    if (ob_get_length()) ob_clean();
+    echo json_encode($resultado === true
+        ? ['success' => true,  'mensaje' => 'Revisión guardada correctamente']
+        : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al guardar']
+    );
+    exit;
+}
+
+// OBTENER REVISIONES POR VEHÍCULO
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_revisiones'])) {
+    $id   = intval($_POST['id']);
+    $data = $modelo->obtenerRevisionesPorVehiculo($id);
+    echo json_encode($data);
+    exit;
+}
+
+// ELIMINAR REVISIÓN
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_revision'])) {
+    $resultado = $modelo->eliminarRevision($_POST['id']);
+    if (ob_get_length()) ob_clean();
+    echo json_encode($resultado === true
+        ? ['success' => true,  'mensaje' => 'Revisión eliminada correctamente']
+        : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al eliminar']
     );
     exit;
 }
