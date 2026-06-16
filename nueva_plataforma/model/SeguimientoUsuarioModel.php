@@ -27,6 +27,18 @@ class SeguimientoUsuarioModel
     private $uploadPath;
 
     /**
+     * Verifica si el usuario actual tiene rol de administrador (1, 12).
+     * Alineado con el sistema legacy: solo roles 1 y 12 pueden validar/modificar.
+     *
+     * @return bool
+     */
+    private function esAdminSession(): bool
+    {
+        $rol = $_SESSION['usuario_rol'] ?? 0;
+        return in_array((int) $rol, [1, 12], true);
+    }
+
+    /**
      * Constructor. Inicializa la conexión a la base de datos y la ruta de uploads.
      */
     public function __construct()
@@ -94,12 +106,52 @@ class SeguimientoUsuarioModel
     /**
      * Obtiene los motivos de ingreso (para filtros y selects).
      *
-     * @param string $tipo (no utilizado actualmente)
      * @return array
      */
-    public function getMotivosIngreso(string $tipo = 'todos'): array
+    public function getMotivosIngreso(): array
     {
         return $this->getMotivosIngresoArray();
+    }
+
+    /**
+     * Indica si un motivo de ingreso representa un inicio real de jornada laboral.
+     * Solo 'Ingreso' e 'IngresoHoras' requieren zona asignada.
+     *
+     * @param string $motivo
+     * @return bool
+     */
+    public function isMotivoLaboral(string $motivo): bool
+    {
+        return in_array($motivo, ['Ingreso', 'IngresoHoras', 'Reposicion por falla'], true);
+    }
+
+    /**
+     * Busca empleados cuya fecha de ingreso (hoj_fechaingreso) esté dentro del rango dado.
+     * Reutiliza la misma lógica de validación que la alerta de empleado nuevo.
+     *
+     * @param string $fechaInicio Fecha inicio del rango (Y-m-d)
+     * @param string $fechaFin    Fecha fin del rango (Y-m-d)
+     * @return array Lista de empleados con sus datos relevantes
+     */
+    public function buscarNuevosEmpleados(string $fechaInicio, string $fechaFin): array
+    {
+        $sql = "SELECT u.idusuarios, u.usu_nombre, u.usu_identificacion, u.usu_tipocontrato,
+                       u.usu_idsede, s.sed_nombre,
+                       h.hoj_fechaingreso, h.hoj_cargo, h.hoj_estado,
+                       (h.hoj_cuen IS NULL OR h.hoj_cuen = '') as falta_cuenta,
+                       (h.hoj_arl IS NULL OR h.hoj_arl = '') as falta_arl
+                FROM usuarios u
+                LEFT JOIN hojadevida h ON h.hoj_cedula = u.usu_identificacion
+                LEFT JOIN sedes s ON s.idsedes = u.usu_idsede
+                WHERE u.roles_idroles != 6
+                  AND h.hoj_fechaingreso BETWEEN ? AND ?
+                ORDER BY h.hoj_fechaingreso DESC, u.usu_nombre ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("ss", $fechaInicio, $fechaFin);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     }
 
     /**
@@ -109,10 +161,14 @@ class SeguimientoUsuarioModel
      */
     public function getTiposContrato(): array
     {
-        return [
-            ['id' => 'Empresa', 'nombre' => 'Empresa'],
-            ['id' => 'Prestacion de servicios', 'nombre' => 'Prestación de servicios']
-        ];
+        $sql = "SELECT DISTINCT usu_tipocontrato FROM usuarios WHERE usu_tipocontrato IS NOT NULL AND usu_tipocontrato != '' AND usu_estado = 1 AND usu_filtro = 1 AND roles_idroles != 6 ORDER BY usu_tipocontrato";
+        $result = $this->db->query($sql);
+        if (!$result) return [];
+        $tipos = [];
+        while ($row = $result->fetch_assoc()) {
+            $tipos[] = ['id' => $row['usu_tipocontrato'], 'nombre' => $row['usu_tipocontrato']];
+        }
+        return $tipos;
     }
 
     /**
@@ -462,7 +518,8 @@ class SeguimientoUsuarioModel
         $idPlaceholder = implode(',', array_fill(0, count($identificaciones), '?'));
         $sqlHv = "SELECT hoj_cedula,
                      (hoj_cuen IS NULL OR hoj_cuen = '') as falta_cuenta,
-                     (hoj_arl IS NULL OR hoj_arl = '') as falta_arl
+                     (hoj_arl IS NULL OR hoj_arl = '') as falta_arl,
+                     hoj_fechaingreso
               FROM hojadevida
               WHERE hoj_cedula IN ($idPlaceholder) AND hoj_estado = 'Activo'";
         $stmt = $this->db->prepare($sqlHv);
@@ -479,10 +536,14 @@ class SeguimientoUsuarioModel
         foreach ($usuarios as $u) {
             $id = $u['idusuarios'];
             $cedula = $u['usu_identificacion'];
-            $hv = $hvIndex[$cedula] ?? ['falta_cuenta' => 0, 'falta_arl' => 0];
+            $hv = $hvIndex[$cedula] ?? ['falta_cuenta' => 0, 'falta_arl' => 0, 'hoj_fechaingreso' => null];
             foreach ($diasList as $dia) {
                 $pre = $preIndex[$id][$dia] ?? null;
                 $seg = $segIndex[$id][$dia] ?? null;
+
+                if (!empty($hv['hoj_fechaingreso']) && $dia < $hv['hoj_fechaingreso']) {
+                    continue;
+                }
 
                 $row = [
                     'idusuarios' => $id,
@@ -493,6 +554,7 @@ class SeguimientoUsuarioModel
                     'usu_idsede' => $u['usu_idsede'],
                     'falta_cuenta' => $hv['falta_cuenta'],
                     'falta_arl' => $hv['falta_arl'],
+                    'hoj_fechaingreso' => $hv['hoj_fechaingreso'],
                     'fecha' => $dia,
                     'idpreoperacinal' => $pre['idpreoperacinal'] ?? null,
                     'prefechaingreso' => $pre['prefechaingreso'] ?? null,
@@ -515,26 +577,8 @@ class SeguimientoUsuarioModel
             }
         }
 
-        // 8. Precargar relaciones en caché
-        $this->cargarRelacionesEnLote($allData);
-
-        // 9. Enriquecer filas
-        foreach ($allData as &$row) {
-            $row = $this->enriquecerFila($row);
-        }
-
-        // 10. Ordenar por prioridad y nombre
-        usort($allData, function ($a, $b) {
-            $prioridadA = $this->getPrioridadOrden($a);
-            $prioridadB = $this->getPrioridadOrden($b);
-            if ($prioridadA != $prioridadB) {
-                return $prioridadA <=> $prioridadB;
-            }
-            return strcmp($a['usu_nombre'], $b['usu_nombre']);
-        });
-
-        // 11. Paginar
-        return array_slice($allData, $start, $length);
+        // 8. Procesar, enriquecer, ordenar y paginar
+        return $this->procesarResultadosDataTable($allData, $start, $length);
     }
 
     /**
@@ -576,7 +620,8 @@ class SeguimientoUsuarioModel
                 p.preestado,
                 p.prevehiculo,
                 h.hoj_cuen IS NULL OR h.hoj_cuen = '' AS falta_cuenta,
-                h.hoj_arl IS NULL OR h.hoj_arl = '' AS falta_arl
+                h.hoj_arl IS NULL OR h.hoj_arl = '' AS falta_arl,
+                h.hoj_fechaingreso
             FROM seguimiento_user s
             INNER JOIN usuarios u ON u.idusuarios = s.seg_idusuario
             LEFT JOIN `pre-operacional` p ON p.preidusuario = u.idusuarios AND DATE(p.prefechaingreso) = DATE(s.seg_fechaalcohol)
@@ -595,22 +640,47 @@ class SeguimientoUsuarioModel
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
+        // Procesar, enriquecer, ordenar y paginar
+        return $this->procesarResultadosDataTable($rows, $start, $length);
+    }
+
+    /**
+     * Procesa las filas de resultado: precarga relaciones, enriquece, ordena y pagina.
+     *
+     * @param array $rows
+     * @param int $start
+     * @param int $length
+     * @return array
+     */
+    private function procesarResultadosDataTable(array $rows, int $start, int $length): array
+    {
         // Precargar relaciones en caché
         $this->cargarRelacionesEnLote($rows);
 
-        // Enriquecer
+        // Enriquecer filas
         foreach ($rows as &$row) {
             $row = $this->enriquecerFila($row);
         }
 
-        // Ordenar por prioridad
-        usort($rows, function ($a, $b) {
-            $prioridadA = $this->getPrioridadOrden($a);
-            $prioridadB = $this->getPrioridadOrden($b);
-            if ($prioridadA != $prioridadB) {
-                return $prioridadA <=> $prioridadB;
+        // Ordenar: rango de fechas -> nombre + fecha; un solo dia -> prioridad
+        $fechasUnicas = array_unique(array_column($rows, 'fecha'));
+        $esRango = count($fechasUnicas) > 1;
+
+        usort($rows, function ($a, $b) use ($esRango) {
+            if ($esRango) {
+                $nombreCompare = strcmp($a['usu_nombre'], $b['usu_nombre']);
+                if ($nombreCompare != 0) {
+                    return $nombreCompare;
+                }
+                return strcmp($a['fecha'], $b['fecha']);
+            } else {
+                $prioridadA = $this->getPrioridadOrden($a);
+                $prioridadB = $this->getPrioridadOrden($b);
+                if ($prioridadA != $prioridadB) {
+                    return $prioridadA <=> $prioridadB;
+                }
+                return strcmp($a['usu_nombre'], $b['usu_nombre']);
             }
-            return strcmp($a['usu_nombre'], $b['usu_nombre']);
         });
 
         // Paginar
@@ -632,6 +702,22 @@ class SeguimientoUsuarioModel
             return $fechaInicio->diff($fechaFin)->days + 1;
         } catch (Exception $e) {
             return 1;
+        }
+    }
+
+    /**
+     * Precarga genérica de datos en lote evitando N+1.
+     * Ejecuta la consulta SQL y puebla el cache con el callback.
+     */
+    private function cargarCacheEnLote(array $ids, string $sql, callable $populateFn): void
+    {
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->db->prepare(str_replace('__PLACEHOLDERS__', $placeholders, $sql));
+        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $populateFn($row);
         }
     }
 
@@ -659,68 +745,29 @@ class SeguimientoUsuarioModel
         }
 
         if (!empty($vehiculoIds)) {
-            $this->cargarVehiculosCache(array_unique($vehiculoIds));
+            $vehiculoIds = array_unique($vehiculoIds);
+            $this->cargarCacheEnLote($vehiculoIds,
+                "SELECT idvehiculos, veh_placa, veh_fechaseguro, veh_fechategnomecanica, veh_aceitekil, veh_kmalcambaceite, veh_kilactual
+                 FROM vehiculos WHERE idvehiculos IN (__PLACEHOLDERS__)",
+                function ($row) {
+                    $this->vehiculosCache[$row['idvehiculos']] = $row;
+                });
         }
         if (!empty($zonaIds)) {
-            $this->cargarZonasCache(array_unique($zonaIds));
+            $zonaIds = array_unique($zonaIds);
+            $this->cargarCacheEnLote($zonaIds,
+                "SELECT idzonatrabajo, zon_nombre FROM zonatrabajo WHERE idzonatrabajo IN (__PLACEHOLDERS__)",
+                function ($row) {
+                    $this->zonasCache[$row['idzonatrabajo']] = $row['zon_nombre'];
+                });
         }
         if (!empty($companeroIds)) {
-            $this->cargarCompanerosCache(array_unique($companeroIds));
-        }
-    }
-
-    /**
-     * Precarga vehículos en caché.
-     *
-     * @param array $ids
-     */
-    private function cargarVehiculosCache(array $ids): void
-    {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT idvehiculos, veh_placa, veh_fechaseguro, veh_fechategnomecanica, veh_aceitekil, veh_kmalcambaceite, veh_kilactual
-                FROM vehiculos WHERE idvehiculos IN ($placeholders)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $this->vehiculosCache[$row['idvehiculos']] = $row;
-        }
-    }
-
-    /**
-     * Precarga zonas en caché.
-     *
-     * @param array $ids
-     */
-    private function cargarZonasCache(array $ids): void
-    {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT idzonatrabajo, zon_nombre FROM zonatrabajo WHERE idzonatrabajo IN ($placeholders)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $this->zonasCache[$row['idzonatrabajo']] = $row['zon_nombre'];
-        }
-    }
-
-    /**
-     * Precarga compañeros (usuarios) en caché.
-     *
-     * @param array $ids
-     */
-    private function cargarCompanerosCache(array $ids): void
-    {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT idusuarios, usu_nombre FROM usuarios WHERE idusuarios IN ($placeholders)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $this->companerosCache[$row['idusuarios']] = $row['usu_nombre'];
+            $companeroIds = array_unique($companeroIds);
+            $this->cargarCacheEnLote($companeroIds,
+                "SELECT idusuarios, usu_nombre FROM usuarios WHERE idusuarios IN (__PLACEHOLDERS__)",
+                function ($row) {
+                    $this->companerosCache[$row['idusuarios']] = $row['usu_nombre'];
+                });
         }
     }
 
@@ -742,6 +789,20 @@ class SeguimientoUsuarioModel
             $alertas[] = 'Falta cuenta bancaria';
         if ($row['falta_arl'] > 0 && $row['usu_tipocontrato'] === 'Empresa')
             $alertas[] = 'Falta ARL';
+
+        // Alerta empleado nuevo (14 dias desde fecha ingreso)
+        $esNuevo = false;
+        if (!empty($row['hoj_fechaingreso'])) {
+            $fechaIngreso = new DateTime($row['hoj_fechaingreso']);
+            $hoy = new DateTime($row['fecha']);
+            $diferencia = (int)$hoy->diff($fechaIngreso)->days;
+            if ($fechaIngreso <= $hoy && $diferencia <= 14) {
+                $esNuevo = true;
+                $row['alerta_nuevo_texto'] = 'Empleado nuevo, ingresó el: ' . $fechaIngreso->format('d-m-Y');
+            }
+        }
+        $row['alerta_nuevo_html'] = $esNuevo ? $this->generarBurbujaNuevoEmpleado($row['idusuarios'], $row['alerta_nuevo_texto']) : '';
+
         $row['alertas'] = $alertas;
         $row['alerta_count'] = count($alertas);
         $row['alerta_html'] = $this->generarBurbujaAlertas($row['idusuarios'], $alertas);
@@ -847,6 +908,12 @@ class SeguimientoUsuarioModel
                 <div class='noti_options' data-id='$idUsuario' style='display:none;'><ul>$items</ul></div>";
     }
 
+    private function generarBurbujaNuevoEmpleado(int $idUsuario, string $texto): string
+    {
+        return "<div class='noti_bubble noti_bubble_blue' data-id='$idUsuario'>1</div>
+                <div class='noti_options' data-id='$idUsuario' style='display:none;'><ul><li>" . htmlspecialchars($texto) . "</li></ul></div>";
+    }
+
     /**
      * Determina el color de fondo y texto de la fila según su estado.
      *
@@ -897,14 +964,28 @@ class SeguimientoUsuarioModel
 
     // ==================== GENERADORES DE ENLACES HTML ====================
 
+    private function buildPreoperacionalUrl(array $row): string
+    {
+        $estadoParam = in_array($row['preestado'], ['covid19', 'Validado Covid19'])
+            ? '&param4=covid19'
+            : '&param4=ingresado';
+        return "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}{$estadoParam}&param5=valida";
+    }
+
     private function linkPreoperacional(array $row): string
     {
         if (empty($row['idpreoperacinal']))
             return '';
         $estado = $row['preestado'];
-        if (in_array($estado, ['No aplica', 'descanso', 'vacaciones']))
+        if ($estado === 'No aplica')
+            return htmlspecialchars($row['seg_motivo'] ?: $estado);
+        if (in_array($estado, ['descanso', 'vacaciones']))
             return $estado;
-        $url = "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}";
+        // Solo administradores (roles 1, 12) pueden abrir la validación
+        if (!$this->esAdminSession()) {
+            return htmlspecialchars($estado);
+        }
+        $url = $this->buildPreoperacionalUrl($row);
         return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>$estado</a>";
     }
 
@@ -913,7 +994,11 @@ class SeguimientoUsuarioModel
         if (empty($row['idpreoperacinal']))
             return '';
         if (in_array($row['preestado'], ['Validado', 'Validado Covid19'])) {
-            $url = "../controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre={$row['idpreoperacinal']}&iduser={$row['idusuarios']}&fecha={$row['fecha']}&idvehiculo={$row['prevehiculo']}";
+            // Solo administradores (roles 1, 12) pueden abrir la validación
+            if (!$this->esAdminSession()) {
+                return 'Validado';
+            }
+            $url = $this->buildPreoperacionalUrl($row);
             return "<a href='#' onclick='abrirValidacionPreoperacional(\"$url\")'>Validado</a>";
         }
         if (in_array($row['preestado'], ['No aplica', 'descanso', 'vacaciones', 'Vacaciones'])) {
@@ -992,24 +1077,32 @@ class SeguimientoUsuarioModel
 
     // ==================== FORMATO DE FECHAS Y ALERTAS ====================
 
+    private function formatoFechaVisual(?string $fecha): string
+    {
+        if (empty($fecha) || $fecha === '0000-00-00') return '-';
+        return date('d-m-Y', strtotime($fecha));
+    }
+
     private function formatoFechaConAlerta(?string $fecha, string $hoy): string
     {
         if (!$fecha || $fecha === '0000-00-00')
             return '';
+        $fechaFormateada = $this->formatoFechaVisual($fecha);
         $dias = $this->diasHasta($hoy, $fecha);
         if ($dias <= 3 && $dias >= 0) {
-            return "<span style='background-color:#F39C12'>$fecha</span>";
+            return "<span style='background-color:#F39C12'>$fechaFormateada</span>";
         }
-        return $fecha;
+        return $fechaFormateada;
     }
 
     private function formatoFechaConDocumento(?string $fecha, ?int $vehiculoId, int $version, string $hoy): string
     {
         if (!$fecha || $fecha === '0000-00-00')
             return '';
-        $documentoId = $this->obtenerDocumentoId($vehiculoId, 'vehiculos', $version);
+        $fechaFormateada = $this->formatoFechaVisual($fecha);
+        $documentoId = $this->obtenerDocumentoId($vehiculoId, 'vehiculos', $version, true);
         $dias = $this->diasHasta($hoy, $fecha);
-        $styledFecha = ($dias <= 3 && $dias >= 0) ? "<span style='background-color:#F39C12'>$fecha</span>" : $fecha;
+        $styledFecha = ($dias <= 3 && $dias >= 0) ? "<span style='background-color:#F39C12'>$fechaFormateada</span>" : $fechaFormateada;
         if ($documentoId) {
             $url = "?accion=ver_documento&id=$documentoId";
             return "<a href='#' onclick='window.open(\"$url\", \"_blank\")'>$styledFecha</a>";
@@ -1082,7 +1175,7 @@ class SeguimientoUsuarioModel
             } elseif ($d <= 30) {
                 $texto = $nombres[$tipo] . ': expira en ' . $d . ' días';
             } else {
-                $texto = $nombres[$tipo] . ': ' . $info['fecha'] . ' (' . $d . ' días)';
+                $texto = $nombres[$tipo] . ': ' . $this->formatoFechaVisual($info['fecha']) . ' (' . $d . ' días)';
             }
 
             $dropdownItems[] = "<li style='$liStyle; padding:2px 0;'>" . htmlspecialchars($texto) . "</li>";
@@ -1176,6 +1269,7 @@ class SeguimientoUsuarioModel
         $fechaCompleta = $data['fecha'] . ' ' . date('H:i:s');
         $horas = isset($data['horas']) && $data['horas'] !== '' ? intval($data['horas']) : 0;
         $fechaFinalizo = $this->calcularFechaFinalizo($fechaCompleta, $data['motivo'], $horas);
+        $zona = $this->isMotivoLaboral($data['motivo']) ? $data['zona'] : null;
         $sql = "INSERT INTO seguimiento_user
                 (seg_idusuario, seg_fechaingreso, seg_motivo, seg_descr, seg_idzona, seg_alcohol, seg_horas_trabajadas, seg_fechaalcohol, seg_iduserregistro, seg_fechafinalizo)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -1186,7 +1280,7 @@ class SeguimientoUsuarioModel
             $fechaCompleta,
             $data['motivo'],
             $data['descripcion'],
-            $data['zona'],
+            $zona,
             $data['prueba'],
             $horas,
             $data['fecha'],
@@ -1229,6 +1323,8 @@ class SeguimientoUsuarioModel
         }
         $fechaFinalizo = $this->calcularFechaFinalizo($fechaIngreso ?? '', $data['motivo'], $horas);
 
+        $zona = $this->isMotivoLaboral($data['motivo']) ? $data['zona'] : null;
+
         $sql = "UPDATE seguimiento_user SET
                 seg_motivo = ?, seg_descr = ?, seg_idzona = ?, seg_alcohol = ?, seg_horas_trabajadas = ?, seg_fechafinalizo = ?
                 WHERE idseguimiento_user = ?";
@@ -1237,7 +1333,7 @@ class SeguimientoUsuarioModel
             "ssisisi",
             $data['motivo'],
             $data['descripcion'],
-            $data['zona'],
+            $zona,
             $data['prueba'],
             $horas,
             $fechaFinalizo,
@@ -1339,10 +1435,21 @@ class SeguimientoUsuarioModel
         $stmt1->bind_param("issssi", $idOperario, $fechaHora, $motivo, $descripcion, $fechaStr, $idUsuario);
         $stmt1->execute();
 
-        $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, ?)";
-        $stmt2 = $this->db->prepare($sql2);
-        $stmt2->bind_param("sis", $fechaHora, $idOperario, $estadoPre);
-        $stmt2->execute();
+        $check = "SELECT idpreoperacinal FROM `pre-operacional` WHERE preidusuario = ? AND DATE(prefechaingreso) = ?";
+        $stmtCheck = $this->db->prepare($check);
+        $stmtCheck->bind_param("is", $idOperario, $fechaStr);
+        $stmtCheck->execute();
+        if ($stmtCheck->get_result()->num_rows > 0) {
+            $sqlUp = "UPDATE `pre-operacional` SET preestado = ? WHERE preidusuario = ? AND DATE(prefechaingreso) = ?";
+            $stmtUp = $this->db->prepare($sqlUp);
+            $stmtUp->bind_param("sis", $estadoPre, $idOperario, $fechaStr);
+            $stmtUp->execute();
+        } else {
+            $sql2 = "INSERT INTO `pre-operacional` (prefechaingreso, preidusuario, preestado) VALUES (?, ?, ?)";
+            $stmt2 = $this->db->prepare($sql2);
+            $stmt2->bind_param("sis", $fechaHora, $idOperario, $estadoPre);
+            $stmt2->execute();
+        }
     }
 
     /**
@@ -1420,7 +1527,7 @@ class SeguimientoUsuarioModel
      */
     public function insertarLicencia(array $data, int $idUsuario): bool
     {
-        return $this->insertarRangoFechas($data['operario'], $data['fecha_ini'], $data['fecha_fin'], $data['motivo'], $data['descripcion'], $data['motivo'], $idUsuario);
+        return $this->insertarRangoFechas($data['operario'], $data['fecha_ini'], $data['fecha_fin'], $data['motivo'], $data['descripcion'], 'No aplica', $idUsuario);
     }
 
     /**
@@ -1691,18 +1798,23 @@ class SeguimientoUsuarioModel
     }
 
     /**
-     * Obtiene el ID del documento más reciente para un registro (consulta base compartida).
+     * Obtiene el ID del documento más reciente para un registro.
      *
-     * @param int $idViene
+     * @param int|null $idViene
      * @param string $tabla
      * @param int $version
+     * @param bool $soloConArchivo Solo documentos con archivo físico (doc_ruta != '')
      * @return int|null
      */
-    private function getDocumentoId(int $idViene, string $tabla, int $version): ?int
+    private function obtenerDocumentoId(?int $idViene, string $tabla, int $version, bool $soloConArchivo = false): ?int
     {
+        if (!$idViene) return null;
         $sql = "SELECT iddocumentos FROM documentos
-                WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ?
-                ORDER BY doc_fecha DESC LIMIT 1";
+                WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ?";
+        if ($soloConArchivo) {
+            $sql .= " AND doc_ruta != ''";
+        }
+        $sql .= " ORDER BY doc_fecha DESC LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("isi", $idViene, $tabla, $version);
         $stmt->execute();
@@ -1715,28 +1827,12 @@ class SeguimientoUsuarioModel
      */
     private function generarLinkDocumento(string $tabla, int $idViene, int $version, string $texto): string
     {
-        $id = $this->getDocumentoId($idViene, $tabla, $version);
+        $id = $this->obtenerDocumentoId($idViene, $tabla, $version);
         if ($id) {
             $url = "?accion=ver_documento&id=" . $id;
             return "<a href='#' onclick='window.open(\"$url\", \"_blank\")'><img src='img/icono_documento.png' width='35'> $texto</a>";
         }
         return '';
-    }
-
-    /**
-     * Obtiene el ID del documento más reciente que tenga archivo físico (doc_ruta no vacío).
-     */
-    private function obtenerDocumentoId(?int $idViene, string $tabla, int $version): ?int
-    {
-        if (!$idViene) return null;
-        $sql = "SELECT iddocumentos FROM documentos
-                WHERE doc_idviene = ? AND doc_tabla = ? AND doc_version = ? AND doc_ruta != ''
-                ORDER BY doc_fecha DESC LIMIT 1";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("isi", $idViene, $tabla, $version);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        return $row ? (int) $row['iddocumentos'] : null;
     }
 
     /**

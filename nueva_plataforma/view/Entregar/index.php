@@ -317,9 +317,12 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
                     <img id="imagenBancoPreview" src="" alt="Referencia bancaria" class="img-fluid rounded border" />
                   </div>
                 </div>
-                <label class="form-label label-strong">Imagen transacción</label>
+                <label class="form-label label-strong" id="label_img_transaccion">Imagen transacción</label>
                 <input type="file" name="img_transaccion" id="img_transaccion"
                        class="form-control" accept="image/*">
+                <div id="ayuda_img_transaccion" class="form-text" style="display:none;">
+                  Obligatoria para pagos por Davivienda o Bancolombia.
+                </div>
               </div>
             </div>
           </div>
@@ -730,10 +733,13 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
           if ((servicio.tipo_pago && servicio.tipo_pago === 'Al Cobro') || servicio.ser_pendientecobrar == 1) {
             $('#bloqueMetodoPago').show();
             $('#param30_hidden').val(''); // lo manejamos por select
+            actualizarRequeridoImagenTransaccion();
           } else {
             $('#bloqueMetodoPago').hide();
             $('#param30_hidden').val('0');
             $('#metodo_pago').val('');
+            $('#img_transaccion').val('');
+            actualizarRequeridoImagenTransaccion();
             ocultarImagenBanco();
           }
 
@@ -1000,6 +1006,31 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
       });
     }
 
+    function metodoPagoRequiereTransaccion(valorMetodo) {
+      const valor = (valorMetodo || "").toUpperCase();
+      const idMetodo = valor.split("|")[0];
+      return idMetodo === "2" || idMetodo === "4" || valor.includes("DAVIVIENDA") || valor.includes("BANCOLOMBIA");
+    }
+
+    function actualizarRequeridoImagenTransaccion() {
+      const requiereImagen = $('#bloqueMetodoPago').is(':visible') && metodoPagoRequiereTransaccion($('#metodo_pago').val());
+      const input = document.getElementById('img_transaccion');
+
+      if (!input) return requiereImagen;
+
+      input.required = requiereImagen;
+      input.classList.toggle('is-invalid', false);
+      $('#ayuda_img_transaccion').toggle(requiereImagen);
+      $('#label_img_transaccion').text(requiereImagen ? 'Imagen transacción *' : 'Imagen transacción');
+
+      return requiereImagen;
+    }
+
+    $('#metodo_pago').on('change', actualizarRequeridoImagenTransaccion);
+    $('#img_transaccion').on('change', function () {
+      $(this).removeClass('is-invalid');
+    });
+
     // ============================ GUARDAR ENTREGA ============================
     function capturarUbicacionEntrega() {
       return new Promise((resolve) => {
@@ -1064,6 +1095,12 @@ $idservicio = isset($_GET['idServicio']) ? $_GET['idServicio'] : '';
         if (!$('#metodo_pago').val()) {
           alert('Seleccione un método de pago.');
           $('#metodo_pago').focus();
+          return;
+        }
+
+        if (actualizarRequeridoImagenTransaccion() && !$('#img_transaccion')[0].files.length) {
+          alert('Debe adjuntar la imagen de la transacción para Davivienda o Bancolombia.');
+          $('#img_transaccion').addClass('is-invalid').focus();
           return;
         }
       }

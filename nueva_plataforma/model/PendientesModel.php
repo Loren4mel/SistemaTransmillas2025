@@ -1,5 +1,5 @@
 <?php
-require_once "../config/database.php";
+require_once __DIR__ . "/../config/database.php";
 
 class PendientesModel
 {
@@ -118,6 +118,7 @@ class PendientesModel
             FROM pendientes_creados_usuarios pu
             INNER JOIN pendientes_creados pc ON pc.id = pu.pendiente_id
             WHERE pu.usuario_id = ?
+              AND pu.pu_estado = 1
               AND pc.pen_estado = 1
               AND (pu.pu_confirmacion IS NULL OR pu.pu_confirmacion = '' OR pu.pu_confirmacion = 'no')
             ORDER BY pc.pen_fecha_creacion DESC";
@@ -131,21 +132,23 @@ class PendientesModel
             $modoFirma = $this->normalizarModoFirma((string) ($row['pen_modo_firma'] ?? 'individual'));
             $documentoArchivo = $this->obtenerDocumentoArchivoDesdeFila($row);
             $documentoLink = $this->obtenerDocumentoLinkDesdeFila($row);
+            $pendienteUsuarioId = (int) $row['pendiente_usuario_id'];
+            $documentoLinkUsuario = $this->agregarPendienteUsuarioIdALinkFormulario($documentoLink, $pendienteUsuarioId);
             $requiereFirma = $this->esDocumentoPdfFirmable($documentoArchivo);
             $firmado = trim((string) ($row['pu_firma_ruta'] ?? '')) !== '';
 
             $pendientes[] = [
                 'registro' => 'personalizado',
                 'id' => (int) $row['pendiente_id'],
-                'pendiente_usuario_id' => (int) $row['pendiente_usuario_id'],
+                'pendiente_usuario_id' => $pendienteUsuarioId,
                 'fecha_inicio' => $row['pen_fecha_creacion'],
                 'fecha_fin' => $row['pen_fecha_creacion'],
                 'tipo' => 'personalizado',
                 'concepto' => $row['pen_titulo'],
                 'detalle' => $row['pen_descripcion'] ?? '',
-                'documento' => $documentoArchivo !== '' ? $documentoArchivo : $documentoLink,
+                'documento' => $documentoArchivo !== '' ? $documentoArchivo : $documentoLinkUsuario,
                 'documento_archivo' => $documentoArchivo,
-                'documento_link' => $documentoLink,
+                'documento_link' => $documentoLinkUsuario,
                 'modo_firma' => $modoFirma,
                 'observacion' => $row['pu_observacion'] ?? '',
                 'documento_abierto' => (int) $row['pu_documento_abierto'],
@@ -164,6 +167,58 @@ class PendientesModel
         });
 
         return $pendientes;
+    }
+
+    public function sincronizarPendientesFijosPorCedula(string $cedula): array
+    {
+        $cedula = trim($cedula);
+        if ($cedula === '') {
+            return ['success' => false, 'message' => 'Cedula vacia.', 'asignados' => 0];
+        }
+
+        $sql = "SELECT idusuarios, roles_idroles, usu_tipocontrato
+                FROM usuarios
+                WHERE usu_identificacion = ?
+                  AND usu_estado = 1
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'No fue posible preparar la consulta de usuario.', 'asignados' => 0];
+        }
+
+        $stmt->bind_param("s", $cedula);
+        $stmt->execute();
+        $usuario = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$usuario) {
+            $this->log('sincronizarPendientesFijosPorCedula sin usuario activo', ['cedula' => $cedula]);
+            return ['success' => false, 'message' => 'No se encontro un usuario activo para esta cedula.', 'asignados' => 0];
+        }
+
+        $idUsuario = (int) $usuario['idusuarios'];
+        $rolUsuario = (int) $usuario['roles_idroles'];
+        $tipoContrato = (string) ($usuario['usu_tipocontrato'] ?? '');
+
+        if ($idUsuario <= 0 || $rolUsuario <= 0 || trim($tipoContrato) === '') {
+            $this->log('sincronizarPendientesFijosPorCedula datos incompletos', [
+                'cedula' => $cedula,
+                'idUsuario' => $idUsuario,
+                'rolUsuario' => $rolUsuario,
+                'tipoContrato' => $tipoContrato,
+            ]);
+            return ['success' => false, 'message' => 'El usuario no tiene rol o tipo de contrato definido.', 'asignados' => 0];
+        }
+
+        $asignados = $this->sincronizarPendientesPorRol($idUsuario, $rolUsuario, $tipoContrato);
+
+        return [
+            'success' => true,
+            'message' => 'Pendientes fijos sincronizados.',
+            'asignados' => $asignados,
+            'usuario_id' => $idUsuario,
+        ];
     }
 
     public function obtenerRoles(): array
@@ -201,6 +256,7 @@ class PendientesModel
                     pc.pen_documento,
                     pc.pen_link_documento,
                     pc.pen_modo_firma,
+                    pc.pen_fijo,
                     pc.pen_fecha_creacion,
                     pc.pen_estado,
                     u.usu_nombre AS creador_nombre
@@ -217,6 +273,7 @@ class PendientesModel
             $pendienteId = (int) $row['id'];
             $documentoArchivo = $this->obtenerDocumentoArchivoDesdeFila($row);
             $documentoLink = $this->obtenerDocumentoLinkDesdeFila($row);
+            $formularioToken = $this->extraerTokenFormularioDesdeLink($documentoLink);
             $pendientes[$pendienteId] = [
                 'id' => $pendienteId,
                 'titulo' => $row['pen_titulo'],
@@ -224,7 +281,11 @@ class PendientesModel
                 'documento' => $documentoArchivo !== '' ? $documentoArchivo : $documentoLink,
                 'documento_archivo' => $documentoArchivo,
                 'documento_link' => $documentoLink,
+                'formulario_token' => $formularioToken,
+                'es_formulario' => $formularioToken !== '',
+                'formulario_id' => 0,
                 'modo_firma' => $this->normalizarModoFirma((string) ($row['pen_modo_firma'] ?? 'individual')),
+                'fijo' => (int) ($row['pen_fijo'] ?? 0),
                 'fecha_creacion' => $row['pen_fecha_creacion'],
                 'creador_nombre' => $row['creador_nombre'] ?? 'Sin nombre',
                 'estado' => (int) $row['pen_estado'],
@@ -232,6 +293,7 @@ class PendientesModel
                 'total_aceptados' => 0,
                 'total_rechazados' => 0,
                 'total_pendientes' => 0,
+                'total_formularios_respondidos' => 0,
                 'roles_ids' => [],
                 'roles_nombres' => [],
                 'tipos_contrato' => [],
@@ -244,6 +306,20 @@ class PendientesModel
         if (empty($pendientes)) {
             return [];
         }
+
+        $tokensFormulario = array_values(array_unique(array_filter(array_map(static function (array $pendiente): string {
+            return (string) ($pendiente['formulario_token'] ?? '');
+        }, $pendientes))));
+        $formulariosPorToken = $this->obtenerFormulariosPorTokens($tokensFormulario);
+
+        foreach ($pendientes as &$pendienteFormulario) {
+            $tokenFormulario = (string) ($pendienteFormulario['formulario_token'] ?? '');
+            if ($tokenFormulario !== '' && isset($formulariosPorToken[$tokenFormulario])) {
+                $pendienteFormulario['formulario_id'] = (int) $formulariosPorToken[$tokenFormulario]['id'];
+                $pendienteFormulario['formulario_titulo'] = (string) $formulariosPorToken[$tokenFormulario]['for_titulo'];
+            }
+        }
+        unset($pendienteFormulario);
 
         $idsPendientes = array_keys($pendientes);
         $marcadores = implode(',', array_fill(0, count($idsPendientes), '?'));
@@ -297,6 +373,7 @@ class PendientesModel
         $stmtTiposContrato->close();
 
         $sqlUsuarios = "SELECT
+                    pu.id AS pendiente_usuario_id,
                     pu.pendiente_id,
                     u.idusuarios AS usuario_id,
                     u.usu_nombre,
@@ -312,6 +389,7 @@ class PendientesModel
                 LEFT JOIN usuarios u ON u.idusuarios = pu.usuario_id
                 LEFT JOIN roles r ON r.idroles = pu.rol_id
                 WHERE pu.pendiente_id IN ($marcadores)
+                  AND pu.pu_estado = 1
                 ORDER BY u.usu_nombre ASC";
 
         $stmtUsuarios = $this->db->prepare($sqlUsuarios);
@@ -337,6 +415,7 @@ class PendientesModel
 
                 $pendientes[$pendienteId]['total_asignados']++;
                 $pendientes[$pendienteId]['usuarios'][] = [
+                    'pendiente_usuario_id' => (int) $row['pendiente_usuario_id'],
                     'usuario_id' => (int) $row['usuario_id'],
                     'usuario_nombre' => $row['usu_nombre'] ?? 'Sin nombre',
                     'rol_nombre' => $row['rol_nombre'] ?? 'Sin rol',
@@ -354,8 +433,29 @@ class PendientesModel
 
         $stmtUsuarios->close();
 
+        $pendienteUsuarioIds = [];
+        foreach ($pendientes as $pendiente) {
+            foreach ($pendiente['usuarios'] as $usuarioPendiente) {
+                $pendienteUsuarioIds[] = (int) ($usuarioPendiente['pendiente_usuario_id'] ?? 0);
+            }
+        }
+        $respuestasPorPendienteUsuario = $this->obtenerRespuestasFormularioPorPendienteUsuario($pendienteUsuarioIds);
+
         foreach ($pendientes as &$pendiente) {
-            $esUsuarioEspecifico = empty($pendiente['roles_ids']) && count($pendiente['usuarios']) >= 1;
+            foreach ($pendiente['usuarios'] as &$usuarioPendiente) {
+                $pendienteUsuarioId = (int) ($usuarioPendiente['pendiente_usuario_id'] ?? 0);
+                $respuestaFormulario = $respuestasPorPendienteUsuario[$pendienteUsuarioId] ?? null;
+                $usuarioPendiente['formulario_respondido'] = $respuestaFormulario !== null ? 1 : 0;
+                $usuarioPendiente['formulario_respuesta_id'] = $respuestaFormulario !== null ? (int) $respuestaFormulario['id'] : 0;
+                $usuarioPendiente['formulario_fecha_respuesta'] = $respuestaFormulario['res_fecha'] ?? '';
+
+                if (!empty($pendiente['es_formulario']) && $usuarioPendiente['formulario_respondido'] === 1) {
+                    $pendiente['total_formularios_respondidos']++;
+                }
+            }
+            unset($usuarioPendiente);
+
+            $esUsuarioEspecifico = empty($pendiente['roles_ids']) && empty($pendiente['tipos_contrato']);
             $pendiente['modo_asignacion'] = $esUsuarioEspecifico ? 'usuario' : 'filtros';
             $pendiente['usuarios_objetivo_ids'] = $esUsuarioEspecifico
                 ? array_values(array_map(static function (array $usuario): int {
@@ -389,6 +489,7 @@ class PendientesModel
         $linkDocumento = trim($data['documento_link'] ?? '');
         $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
         $modoFirma = $this->normalizarModoFirma((string) ($data['modo_firma'] ?? 'individual'));
+        $fijo = isset($data['fijo']) && (string) $data['fijo'] === '1' ? 1 : 0;
         $usuariosEspecificosIds = $this->normalizarUsuariosEspecificos($data['usuarios_especificos_ids'] ?? ($data['usuario_especifico_id'] ?? []));
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
@@ -438,12 +539,13 @@ class PendientesModel
                     pen_descripcion = ?,
                     pen_documento = ?,
                     pen_link_documento = ?,
-                    pen_modo_firma = ?
+                    pen_modo_firma = ?,
+                    pen_fijo = ?
                 WHERE id = ?
                   AND pen_creado_por = ?";
 
             $stmtPendiente = $this->db->prepare($sqlPendiente);
-            $stmtPendiente->bind_param("sssssii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $pendienteId, $creadorId);
+            $stmtPendiente->bind_param("sssssiii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $fijo, $pendienteId, $creadorId);
             $stmtPendiente->execute();
             $stmtPendiente->close();
 
@@ -466,10 +568,12 @@ class PendientesModel
             $stmtDeleteTipos->execute();
             $stmtDeleteTipos->close();
 
-            $stmtDeleteUsuarios = $this->db->prepare("DELETE FROM pendientes_creados_usuarios WHERE pendiente_id = ?");
-            $stmtDeleteUsuarios->bind_param("i", $pendienteId);
-            $stmtDeleteUsuarios->execute();
-            $stmtDeleteUsuarios->close();
+            $stmtDesactivarUsuarios = $this->db->prepare("UPDATE pendientes_creados_usuarios
+                SET pu_estado = 0
+                WHERE pendiente_id = ?");
+            $stmtDesactivarUsuarios->bind_param("i", $pendienteId);
+            $stmtDesactivarUsuarios->execute();
+            $stmtDesactivarUsuarios->close();
 
             if ($modoAsignacion === 'usuario') {
                 $this->insertarUsuariosPendiente($pendienteId, $usuariosEspecificos);
@@ -511,6 +615,37 @@ class PendientesModel
         ];
     }
 
+    public function eliminarUsuarioPendiente(int $pendienteId, int $usuarioId, int $creadorId): array
+    {
+        if ($pendienteId <= 0 || $usuarioId <= 0) {
+            return ['success' => false, 'message' => 'Los datos para eliminar la asignacion no son validos.'];
+        }
+
+        $pendienteActual = $this->obtenerPendientePorId($pendienteId, $creadorId);
+        if ($pendienteActual === null) {
+            return ['success' => false, 'message' => 'El pendiente no existe o no puedes modificarlo.'];
+        }
+
+        $sql = "UPDATE pendientes_creados_usuarios
+                SET pu_estado = 0
+                WHERE pendiente_id = ?
+                  AND usuario_id = ?
+                  AND pu_estado = 1";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("ii", $pendienteId, $usuarioId);
+        $stmt->execute();
+        $ok = $stmt->affected_rows > 0;
+        $stmt->close();
+
+        return [
+            'success' => $ok,
+            'message' => $ok
+                ? 'La persona fue retirada del pendiente correctamente.'
+                : 'No fue posible retirar la persona seleccionada del pendiente.',
+        ];
+    }
+
     public function crearPendiente(array $data, array $file, int $creadorId): array
     {
         $concepto = trim($data['concepto'] ?? '');
@@ -520,6 +655,7 @@ class PendientesModel
         $linkDocumento = trim($data['documento_link'] ?? '');
         $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
         $modoFirma = $this->normalizarModoFirma((string) ($data['modo_firma'] ?? 'individual'));
+        $fijo = isset($data['fijo']) && (string) $data['fijo'] === '1' ? 1 : 0;
         $usuariosEspecificosIds = $this->normalizarUsuariosEspecificos($data['usuarios_especificos_ids'] ?? ($data['usuario_especifico_id'] ?? []));
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
@@ -534,6 +670,7 @@ class PendientesModel
             'tipos_contrato' => $tiposContrato,
             'modo_asignacion' => $modoAsignacion,
             'modo_firma' => $modoFirma,
+            'fijo' => $fijo,
             'usuarios_especificos_ids' => $usuariosEspecificosIds,
             'file_error' => $file['error'] ?? null,
             'file_name' => $file['name'] ?? null,
@@ -594,14 +731,14 @@ class PendientesModel
 
         try {
             $sqlPendiente = "INSERT INTO pendientes_creados
-                (pen_titulo, pen_descripcion, pen_documento, pen_link_documento, pen_modo_firma, pen_creado_por, pen_fecha_creacion, pen_estado)
-                VALUES (?, ?, ?, ?, ?, ?, NOW(), 1)";
+                (pen_titulo, pen_descripcion, pen_documento, pen_link_documento, pen_modo_firma, pen_fijo, pen_creado_por, pen_fecha_creacion, pen_estado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 1)";
 
             $stmtPendiente = $this->db->prepare($sqlPendiente);
             if (!$stmtPendiente) {
                 throw new Exception('Error preparando INSERT pendientes_creados: ' . $this->db->error);
             }
-            $stmtPendiente->bind_param("sssssi", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $creadorId);
+            $stmtPendiente->bind_param("sssssii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $fijo, $creadorId);
             $stmtPendiente->execute();
             $pendienteId = (int) $stmtPendiente->insert_id;
             $stmtPendiente->close();
@@ -652,7 +789,8 @@ class PendientesModel
                 SET pu_documento_abierto = 1,
                     pu_fecha_documento_abierto = NOW()
                 WHERE id = ?
-                  AND usuario_id = ?";
+                  AND usuario_id = ?
+                  AND pu_estado = 1";
 
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("ii", $pendienteUsuarioId, $idUsuario);
@@ -689,6 +827,7 @@ class PendientesModel
                 INNER JOIN pendientes_creados pc ON pc.id = pu.pendiente_id
                 WHERE pu.id = ?
                   AND pu.usuario_id = ?
+                  AND pu.pu_estado = 1
                   AND pc.pen_estado = 1
                 LIMIT 1";
 
@@ -759,7 +898,8 @@ class PendientesModel
                         pu_documento_abierto = 1,
                         pu_fecha_documento_abierto = NOW()
                     WHERE id = ?
-                      AND usuario_id = ?";
+                      AND usuario_id = ?
+                      AND pu_estado = 1";
 
             $stmtFirma = $this->db->prepare($sqlFirma);
             $stmtFirma->bind_param("sii", $rutaFirma, $pendienteUsuarioId, $idUsuario);
@@ -775,7 +915,8 @@ class PendientesModel
                 $sqlPdf = "UPDATE pendientes_creados_usuarios
                            SET pu_pdf_firmado_ruta = ?,
                                pu_fecha_pdf_firmado = NOW()
-                           WHERE pendiente_id = ?";
+                           WHERE pendiente_id = ?
+                             AND pu_estado = 1";
                 $stmtPdf = $this->db->prepare($sqlPdf);
                 $pendienteId = (int) ($pendiente['pendiente_id'] ?? 0);
                 $stmtPdf->bind_param("si", $rutaPdfFirmado, $pendienteId);
@@ -791,7 +932,8 @@ class PendientesModel
                            SET pu_pdf_firmado_ruta = ?,
                                pu_fecha_pdf_firmado = NOW()
                            WHERE id = ?
-                             AND usuario_id = ?";
+                             AND usuario_id = ?
+                             AND pu_estado = 1";
                 $stmtPdf = $this->db->prepare($sqlPdf);
                 $stmtPdf->bind_param("sii", $rutaPdfFirmado, $pendienteUsuarioId, $idUsuario);
                 $stmtPdf->execute();
@@ -836,6 +978,7 @@ class PendientesModel
                       FROM pendientes_creados_usuarios
                       WHERE id = ?
                         AND usuario_id = ?
+                        AND pu_estado = 1
                       LIMIT 1";
 
         $stmtValida = $this->db->prepare($sqlValida);
@@ -863,7 +1006,8 @@ class PendientesModel
                     pu_observacion = ?,
                     pu_fecha_confirmacion = NOW()
                 WHERE id = ?
-                  AND usuario_id = ?";
+                  AND usuario_id = ?
+                  AND pu_estado = 1";
 
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("ssii", $confirmacion, $observacion, $pendienteUsuarioId, $idUsuario);
@@ -876,6 +1020,46 @@ class PendientesModel
             'message' => $ok
                 ? 'Pendiente actualizado correctamente.'
                 : 'No fue posible actualizar el pendiente seleccionado.',
+        ];
+    }
+
+    public function confirmarPendientePorRespuestaFormulario(int $pendienteUsuarioId, int $idUsuario): array
+    {
+        $pendiente = $this->obtenerPendienteUsuarioParaFirma($pendienteUsuarioId, $idUsuario);
+        if ($pendiente === null) {
+            return ['success' => false, 'message' => 'El pendiente no existe para este usuario.'];
+        }
+
+        if ((int) ($pendiente['requiere_firma'] ?? 0) === 1) {
+            return [
+                'success' => false,
+                'message' => 'El formulario fue respondido, pero el pendiente aun requiere firma del PDF.',
+                'requiere_firma' => true,
+            ];
+        }
+
+        $sql = "UPDATE pendientes_creados_usuarios
+                SET pu_confirmacion = 'Si',
+                    pu_observacion = '',
+                    pu_fecha_confirmacion = NOW(),
+                    pu_documento_abierto = 1,
+                    pu_fecha_documento_abierto = COALESCE(pu_fecha_documento_abierto, NOW())
+                WHERE id = ?
+                  AND usuario_id = ?
+                  AND pu_estado = 1";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("ii", $pendienteUsuarioId, $idUsuario);
+        $stmt->execute();
+        $ok = $stmt->affected_rows > 0;
+        $stmt->close();
+
+        return [
+            'success' => $ok,
+            'message' => $ok
+                ? 'Formulario respondido y pendiente aceptado automaticamente.'
+                : 'El formulario fue respondido, pero no fue posible aceptar el pendiente automaticamente.',
+            'requiere_firma' => false,
         ];
     }
 
@@ -960,6 +1144,7 @@ class PendientesModel
             pen_documento VARCHAR(255) NOT NULL,
             pen_link_documento VARCHAR(255) NULL,
             pen_modo_firma VARCHAR(20) NOT NULL DEFAULT 'individual',
+            pen_fijo TINYINT(1) NOT NULL DEFAULT 0,
             pen_creado_por INT NOT NULL,
             pen_fecha_creacion DATETIME NOT NULL,
             pen_estado TINYINT(1) NOT NULL DEFAULT 1
@@ -984,6 +1169,7 @@ class PendientesModel
             pendiente_id INT NOT NULL,
             usuario_id INT NOT NULL,
             rol_id INT NOT NULL,
+            pu_estado TINYINT(1) NOT NULL DEFAULT 1,
             pu_confirmacion VARCHAR(10) NULL,
             pu_observacion TEXT NULL,
             pu_documento_abierto TINYINT(1) NOT NULL DEFAULT 0,
@@ -1006,6 +1192,16 @@ class PendientesModel
             'pendientes_creados',
             'pen_modo_firma',
             "ALTER TABLE pendientes_creados ADD COLUMN pen_modo_firma VARCHAR(20) NOT NULL DEFAULT 'individual' AFTER pen_documento"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'pendientes_creados',
+            'pen_fijo',
+            "ALTER TABLE pendientes_creados ADD COLUMN pen_fijo TINYINT(1) NOT NULL DEFAULT 0 AFTER pen_modo_firma"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'pendientes_creados_usuarios',
+            'pu_estado',
+            "ALTER TABLE pendientes_creados_usuarios ADD COLUMN pu_estado TINYINT(1) NOT NULL DEFAULT 1 AFTER rol_id"
         );
         $this->agregarColumnaSiNoExiste(
             'pendientes_creados_usuarios',
@@ -1107,9 +1303,11 @@ class PendientesModel
     private function insertarUsuariosPendiente(int $pendienteId, array $usuarios): void
     {
         $stmtUsuario = $this->db->prepare("INSERT INTO pendientes_creados_usuarios
-            (pendiente_id, usuario_id, rol_id, pu_documento_abierto, pu_fecha_asignacion)
-            VALUES (?, ?, ?, 0, NOW())
-            ON DUPLICATE KEY UPDATE rol_id = VALUES(rol_id)");
+            (pendiente_id, usuario_id, rol_id, pu_estado, pu_documento_abierto, pu_fecha_asignacion)
+            VALUES (?, ?, ?, 1, 0, NOW())
+            ON DUPLICATE KEY UPDATE
+                rol_id = VALUES(rol_id),
+                pu_estado = 1");
 
         if (!$stmtUsuario) {
             throw new Exception('Error preparando INSERT pendientes_creados_usuarios: ' . $this->db->error);
@@ -1125,7 +1323,7 @@ class PendientesModel
         $stmtUsuario->close();
     }
 
-    private function sincronizarPendientesPorRol(int $idUsuario, int $rolUsuario, string $tipoContratoUsuario): void
+    private function sincronizarPendientesPorRol(int $idUsuario, int $rolUsuario, string $tipoContratoUsuario): int
     {
         $sql = "INSERT INTO pendientes_creados_usuarios
                     (pendiente_id, usuario_id, rol_id, pu_documento_abierto, pu_fecha_asignacion)
@@ -1140,22 +1338,30 @@ class PendientesModel
                 LEFT JOIN pendientes_creados_usuarios pu
                     ON pu.pendiente_id = pc.id
                    AND pu.usuario_id = ?
+                   AND pu.pu_estado = 1
                 LEFT JOIN pendientes_creados_tipos_contrato ptc
                     ON ptc.pendiente_id = pc.id
                 WHERE pr.rol_id = ?
                   AND pc.pen_estado = 1
+                  AND pc.pen_fijo = 1
                   AND (ptc.tipo_contrato IS NULL OR ptc.tipo_contrato = ?)
-                  AND pu.id IS NULL";
+                  AND pu.id IS NULL
+                ON DUPLICATE KEY UPDATE
+                    rol_id = VALUES(rol_id),
+                    pu_estado = 1";
 
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("iiiis", $idUsuario, $rolUsuario, $idUsuario, $rolUsuario, $tipoContratoUsuario);
         $stmt->execute();
+        $asignados = max(0, (int) $stmt->affected_rows);
         $stmt->close();
+
+        return $asignados;
     }
 
     private function obtenerPendientePorId(int $pendienteId, int $creadorId): ?array
     {
-        $sql = "SELECT id, pen_documento, pen_link_documento
+        $sql = "SELECT id, pen_documento, pen_link_documento, pen_fijo
                 FROM pendientes_creados
                 WHERE id = ?
                   AND pen_creado_por = ?
@@ -1348,6 +1554,95 @@ class PendientesModel
         return '';
     }
 
+    private function extraerTokenFormularioDesdeLink(string $link): string
+    {
+        $link = trim($link);
+        if ($link === '' || strpos($link, 'FormularioResponderController.php') === false) {
+            return '';
+        }
+
+        $query = (string) parse_url($link, PHP_URL_QUERY);
+        $params = [];
+        parse_str($query, $params);
+
+        return trim((string) ($params['form'] ?? ''));
+    }
+
+    private function agregarPendienteUsuarioIdALinkFormulario(string $link, int $pendienteUsuarioId): string
+    {
+        if ($link === '' || $pendienteUsuarioId <= 0 || $this->extraerTokenFormularioDesdeLink($link) === '') {
+            return $link;
+        }
+
+        $query = (string) parse_url($link, PHP_URL_QUERY);
+        $params = [];
+        parse_str($query, $params);
+        if (!empty($params['pendiente_usuario_id'])) {
+            return $link;
+        }
+
+        $separador = strpos($link, '?') === false ? '?' : '&';
+        return $link . $separador . 'pendiente_usuario_id=' . $pendienteUsuarioId;
+    }
+
+    private function obtenerFormulariosPorTokens(array $tokens): array
+    {
+        $tokens = array_values(array_unique(array_filter(array_map(static fn($token) => trim((string) $token), $tokens), static fn($token) => $token !== '')));
+        if (empty($tokens)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($tokens), '?'));
+        $tipos = str_repeat('s', count($tokens));
+        $sql = "SELECT id, for_titulo, for_token
+                FROM formularios
+                WHERE for_token IN ($placeholders)";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param($tipos, ...$tokens);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
+
+        $formularios = [];
+        while ($row = $resultado->fetch_assoc()) {
+            $formularios[(string) $row['for_token']] = $row;
+        }
+        $stmt->close();
+
+        return $formularios;
+    }
+
+    private function obtenerRespuestasFormularioPorPendienteUsuario(array $pendienteUsuarioIds): array
+    {
+        $pendienteUsuarioIds = array_values(array_unique(array_filter(array_map('intval', $pendienteUsuarioIds), static fn($id) => $id > 0)));
+        if (empty($pendienteUsuarioIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($pendienteUsuarioIds), '?'));
+        $tipos = str_repeat('i', count($pendienteUsuarioIds));
+        $sql = "SELECT id, formulario_id, usuario_id, pendiente_usuario_id, res_fecha
+                FROM formularios_respuestas
+                WHERE pendiente_usuario_id IN ($placeholders)
+                ORDER BY res_fecha DESC, id DESC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param($tipos, ...$pendienteUsuarioIds);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
+
+        $respuestas = [];
+        while ($row = $resultado->fetch_assoc()) {
+            $pendienteUsuarioId = (int) $row['pendiente_usuario_id'];
+            if (!isset($respuestas[$pendienteUsuarioId])) {
+                $respuestas[$pendienteUsuarioId] = $row;
+            }
+        }
+        $stmt->close();
+
+        return $respuestas;
+    }
+
     private function esDocumentoPdfFirmable(string $ruta): bool
     {
         if (!$this->esDocumentoInterno($ruta)) {
@@ -1448,14 +1743,29 @@ class PendientesModel
 
         try {
             $pdf = new \setasign\Fpdi\Fpdi();
-            $cantidadPaginas = $pdf->setSourceFile($rutaDocumentoOriginal);
+            $documentoOriginalAdjuntado = true;
+            $errorImportacionDocumento = '';
 
-            for ($pagina = 1; $pagina <= $cantidadPaginas; $pagina++) {
-                $templateId = $pdf->importPage($pagina);
-                $tamano = $pdf->getTemplateSize($templateId);
-                $orientacion = $tamano['width'] > $tamano['height'] ? 'L' : 'P';
-                $pdf->AddPage($orientacion, [$tamano['width'], $tamano['height']]);
-                $pdf->useTemplate($templateId);
+            try {
+                $cantidadPaginas = $pdf->setSourceFile($rutaDocumentoOriginal);
+
+                for ($pagina = 1; $pagina <= $cantidadPaginas; $pagina++) {
+                    $templateId = $pdf->importPage($pagina);
+                    $tamano = $pdf->getTemplateSize($templateId);
+                    $orientacion = $tamano['width'] > $tamano['height'] ? 'L' : 'P';
+                    $pdf->AddPage($orientacion, [$tamano['width'], $tamano['height']]);
+                    $pdf->useTemplate($templateId);
+                }
+            } catch (\Throwable $e) {
+                $documentoOriginalAdjuntado = false;
+                $errorImportacionDocumento = $e->getMessage();
+                $this->log('generarPdfFirmadoPendienteConFirmas documento original no importable', [
+                    'documento' => $pendiente['pen_documento'] ?? '',
+                    'modo_firma' => $modoFirma,
+                    'error' => $errorImportacionDocumento,
+                ]);
+
+                $pdf = new \setasign\Fpdi\Fpdi();
             }
 
             $pdf->AddPage('P', 'A4');
@@ -1466,6 +1776,13 @@ class PendientesModel
             $pdf->Ln(4);
 
             $pdf->SetFont('Arial', '', 11);
+            if (!$documentoOriginalAdjuntado) {
+                $pdf->MultiCell(0, 8, utf8_decode(
+                    'El documento original no pudo adjuntarse a esta constancia porque su estructura interna no es compatible con el importador PDF del sistema. La firma fue registrada correctamente sobre el pendiente y el archivo original permanece disponible para consulta.'
+                ));
+                $pdf->Ln(3);
+            }
+
             $pdf->MultiCell(0, 8, utf8_decode($descripcionConstancia));
             $pdf->Ln(3);
 
@@ -1618,6 +1935,7 @@ class PendientesModel
                 FROM pendientes_creados_usuarios pu
                 INNER JOIN usuarios u ON u.idusuarios = pu.usuario_id
                 WHERE pu.pendiente_id = ?
+                  AND pu.pu_estado = 1
                   AND pu.pu_firma_ruta IS NOT NULL
                   AND pu.pu_firma_ruta <> ''
                 ORDER BY pu.pu_fecha_firma ASC, pu.id ASC";
@@ -1641,6 +1959,7 @@ class PendientesModel
         $sql = "SELECT COUNT(*) AS total
                 FROM pendientes_creados_usuarios
                 WHERE pendiente_id = ?
+                  AND pu_estado = 1
                   AND pu_firma_ruta IS NOT NULL
                   AND pu_firma_ruta <> ''";
 
@@ -1668,7 +1987,8 @@ class PendientesModel
         $sql = "SELECT pu_documento_abierto
                 FROM pendientes_creados_usuarios
                 WHERE id = ?
-                  AND usuario_id = ?";
+                  AND usuario_id = ?
+                  AND pu_estado = 1";
 
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("ii", $pendienteUsuarioId, $idUsuario);
@@ -1684,7 +2004,8 @@ class PendientesModel
         $sql = "SELECT pu_firma_ruta
                 FROM pendientes_creados_usuarios
                 WHERE id = ?
-                  AND usuario_id = ?";
+                  AND usuario_id = ?
+                  AND pu_estado = 1";
 
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("ii", $pendienteUsuarioId, $idUsuario);

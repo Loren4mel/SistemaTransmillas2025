@@ -30,8 +30,8 @@ pendientesViewLog('Inicio vista Pendientes', [
 ]);
 
 $puedeAdministrarPendientes = ($rolUsuario ?? 0) === 1;
-$puedeAdministrarFormularios = in_array((int) ($rolUsuario ?? 0), [1, 12], true);
-$puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], true);
+$puedeAdministrarFormularios = in_array((int) ($rolUsuario ?? 0), [1, 4, 12], true);
+$puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 4, 12], true);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -274,11 +274,38 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
           'message' => 'Cuando crees uno, aqui podras ver quien lo acepto, rechazo o sigue pendiente.',
         ]) ?>
       <?php else: ?>
+        <?php
+        $totalPendientesCreados = count($pendientesCreados);
+        $totalPendientesFijos = count(array_filter($pendientesCreados, static function (array $pendiente): bool {
+          return (int) ($pendiente['fijo'] ?? 0) === 1;
+        }));
+        $totalPendientesNoFijos = $totalPendientesCreados - $totalPendientesFijos;
+        ?>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div class="meta-pendiente">
+            Filtra los pendientes creados segun si quedan asignados automaticamente a usuarios nuevos.
+          </div>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Filtrar pendientes creados">
+            <button type="button" class="btn btn-outline-primary active filtro-pendientes-creados" data-filtro-pendientes="todos">
+              Todos (<?= (int) $totalPendientesCreados ?>)
+            </button>
+            <button type="button" class="btn btn-outline-primary filtro-pendientes-creados" data-filtro-pendientes="fijos">
+              Fijos (<?= (int) $totalPendientesFijos ?>)
+            </button>
+            <button type="button" class="btn btn-outline-primary filtro-pendientes-creados" data-filtro-pendientes="no_fijos">
+              No fijos (<?= (int) $totalPendientesNoFijos ?>)
+            </button>
+          </div>
+        </div>
+        <div id="sinPendientesFiltro" class="empty-state p-4 text-center mb-3" style="display: none;">
+          <strong>No hay pendientes para este filtro.</strong>
+          <div class="meta-pendiente mt-1">Prueba con otra opcion para volver a ver resultados.</div>
+        </div>
         <div class="accordion" id="accordionPendientesCreados">
           <?php foreach ($pendientesCreados as $indice => $pendienteCreado): ?>
             <?php pendientesViewLog('Render pendiente creado', ['indice' => $indice, 'pendienteId' => $pendienteCreado['id'] ?? null]); ?>
             <?php $collapseId = 'pendienteCreado_' . (int) $pendienteCreado['id']; ?>
-            <div class="accordion-item mb-3 border rounded-3 overflow-hidden">
+            <div class="accordion-item mb-3 border rounded-3 overflow-hidden pendiente-creado-item" data-fijo="<?= (int) ($pendienteCreado['fijo'] ?? 0) ?>">
                   <h2 class="accordion-header" id="heading_<?= $collapseId ?>">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#<?= $collapseId ?>" aria-expanded="false" aria-controls="<?= $collapseId ?>">
                       <div class="w-100 pe-3">
@@ -298,6 +325,12 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                             <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Aceptados', 'value' => (int) $pendienteCreado['total_aceptados']]) ?>
                             <?= component('summary-badge', ['tone' => 'rechazado', 'label' => 'Rechazados', 'value' => (int) $pendienteCreado['total_rechazados']]) ?>
                             <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Pendientes', 'value' => (int) $pendienteCreado['total_pendientes']]) ?>
+                            <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                              <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Formularios', 'value' => (int) $pendienteCreado['total_formularios_respondidos']]) ?>
+                            <?php endif; ?>
+                            <?php if ((int) ($pendienteCreado['fijo'] ?? 0) === 1 && (int) ($pendienteCreado['total_asignados_recientes'] ?? 0) > 0): ?>
+                              <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Nuevos', 'value' => (int) $pendienteCreado['total_asignados_recientes']]) ?>
+                            <?php endif; ?>
                           </div>
                         </div>
                       </div>
@@ -325,14 +358,59 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                           <span class="meta-pendiente">
                             Contrato: <?= htmlspecialchars(!empty($pendienteCreado['tipos_contrato']) ? implode(', ', $pendienteCreado['tipos_contrato']) : 'Todos') ?>
                           </span>
+                          <?php if (!empty($pendienteCreado['fecha_inicio_contrato_desde'])): ?>
+                            <span class="meta-pendiente">
+                              Desde contrato: <?= htmlspecialchars($pendienteCreado['fecha_inicio_contrato_desde']) ?>
+                            </span>
+                          <?php endif; ?>
                           <span class="meta-pendiente">
                             Firma: <?= htmlspecialchars(($pendienteCreado['modo_firma'] ?? 'individual') === 'multiple' ? 'Multiple' : 'Individual') ?>
                           </span>
+                          <?php if ((int) ($pendienteCreado['fijo'] ?? 0) === 1): ?>
+                            <span class="badge bg-warning text-dark">
+                              <i class="bi bi-pin-angle-fill"></i> Fijo para usuarios nuevos
+                            </span>
+                          <?php endif; ?>
                           <span class="meta-pendiente">
                             Estado general: <?= (int) $pendienteCreado['estado'] === 1 ? 'Activo' : 'Inactivo' ?>
                           </span>
+                          <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                            <a
+                              class="document-link"
+                              href="FormulariosController.php?accion=respuestas&formulario_id=<?= (int) ($pendienteCreado['formulario_id'] ?? 0) ?>"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <i class="bi bi-ui-checks-grid"></i> Ver respuestas
+                            </a>
+                          <?php endif; ?>
                         </div>
                       </div>
+
+                      <?php if ((int) ($pendienteCreado['fijo'] ?? 0) === 1 && (int) ($pendienteCreado['total_asignados_recientes'] ?? 0) > 0): ?>
+                        <?php
+                        $usuariosRecientes = $pendienteCreado['usuarios_asignados_recientes'] ?? [];
+                        $nombresRecientes = array_map(static function (array $usuario): string {
+                          return (string) ($usuario['usuario_nombre'] ?? 'Sin nombre');
+                        }, array_slice($usuariosRecientes, 0, 3));
+                        $restantesRecientes = max(0, (int) ($pendienteCreado['total_asignados_recientes'] ?? 0) - count($nombresRecientes));
+                        ?>
+                        <div class="alert alert-info py-2 px-3 mb-3">
+                          <div class="fw-semibold">
+                            <i class="bi bi-person-plus"></i>
+                            Se agregaron <?= (int) $pendienteCreado['total_asignados_recientes'] ?> persona<?= (int) $pendienteCreado['total_asignados_recientes'] === 1 ? '' : 's' ?> recientemente a este pendiente fijo.
+                          </div>
+                          <div class="meta-pendiente">
+                            <?= htmlspecialchars(implode(', ', $nombresRecientes)) ?>
+                            <?php if ($restantesRecientes > 0): ?>
+                              y <?= (int) $restantesRecientes ?> mas
+                            <?php endif; ?>
+                            <?php if (!empty($pendienteCreado['fecha_ultima_asignacion_reciente'])): ?>
+                              | Ultima asignacion: <?= htmlspecialchars($pendienteCreado['fecha_ultima_asignacion_reciente']) ?>
+                            <?php endif; ?>
+                          </div>
+                        </div>
+                      <?php endif; ?>
 
                       <?php if ($puedeAdministrarPendientes): ?>
                         <div class="acciones-gerente mb-3">
@@ -351,6 +429,8 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                             data-tipos-contrato='<?= htmlspecialchars(json_encode($pendienteCreado['tipos_contrato']), ENT_QUOTES, 'UTF-8') ?>'
                             data-modo-asignacion="<?= htmlspecialchars($pendienteCreado['modo_asignacion']) ?>"
                             data-modo-firma="<?= htmlspecialchars($pendienteCreado['modo_firma'] ?? 'individual') ?>"
+                            data-fijo="<?= (int) ($pendienteCreado['fijo'] ?? 0) ?>"
+                            data-fecha-inicio-contrato-desde="<?= htmlspecialchars($pendienteCreado['fecha_inicio_contrato_desde'] ?? '') ?>"
                             data-usuario-objetivo-id="<?= (int) $pendienteCreado['usuario_objetivo_id'] ?>"
                             data-usuarios-objetivo-ids='<?= htmlspecialchars(json_encode($pendienteCreado['usuarios_objetivo_ids'] ?? []), ENT_QUOTES, 'UTF-8') ?>'
                           >
@@ -373,6 +453,9 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                               <th>Usuario</th>
                               <th>Rol</th>
                               <th>Documento abierto</th>
+                              <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                                <th>Formulario</th>
+                              <?php endif; ?>
                               <th>PDF firmado</th>
                               <th>Estado</th>
                               <th>Fecha confirmacion</th>
@@ -398,6 +481,18 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                                     <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Estado', 'value' => 'No']) ?>
                                   <?php endif; ?>
                                 </td>
+                                <?php if (!empty($pendienteCreado['es_formulario'])): ?>
+                                  <td>
+                                    <?php if ((int) ($usuarioPendiente['formulario_respondido'] ?? 0) === 1): ?>
+                                      <?= component('summary-badge', ['tone' => 'aceptado', 'label' => 'Estado', 'value' => 'Respondido']) ?>
+                                      <?php if (!empty($usuarioPendiente['formulario_fecha_respuesta'])): ?>
+                                        <div class="meta-pendiente mt-1"><?= htmlspecialchars($usuarioPendiente['formulario_fecha_respuesta']) ?></div>
+                                      <?php endif; ?>
+                                    <?php else: ?>
+                                      <?= component('summary-badge', ['tone' => 'pendiente', 'label' => 'Estado', 'value' => 'Sin responder']) ?>
+                                    <?php endif; ?>
+                                  </td>
+                                <?php endif; ?>
                                 <td>
                                   <?php if ($usuarioPendiente['pdf_firmado_ruta'] !== ''): ?>
                                     <a
@@ -675,6 +770,18 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                   </div>
                 </div>
 
+                <div class="col-12">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="fijo" name="fijo" value="1">
+                    <label class="form-check-label" for="fijo">
+                      Fijar pendiente para usuarios nuevos
+                      <span class="meta-pendiente d-block">
+                        Si alguien nuevo coincide con los roles y tipo de contrato seleccionados, este pendiente se le asignara automaticamente.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
                 <div class="col-md-4">
                   <label for="modo_asignacion" class="form-label">Asignar por</label>
                   <select class="form-select" id="modo_asignacion" name="modo_asignacion" required>
@@ -761,6 +868,12 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                   </div>
                 </div>
 
+                <div class="col-md-4 bloque-asignacion" id="bloqueFechaContratoCrear" style="display: block;">
+                  <label for="fecha_inicio_contrato_desde" class="form-label">Inicio contrato desde</label>
+                  <input type="date" class="form-control" id="fecha_inicio_contrato_desde" name="fecha_inicio_contrato_desde">
+                  <div class="meta-pendiente mt-1">Opcional. Solo asigna a personas con hoja de vida desde esa fecha.</div>
+                </div>
+
                 <div class="col-md-12">
                   <label class="form-label">Regla de validacion</label>
                   <div class="hint-card">
@@ -844,6 +957,18 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                   <label class="form-label">Como funciona</label>
                   <div class="hint-card" id="hintModoFirmaEditar">
                     Cada usuario firma su propia constancia y confirma con la logica actual.
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="editar_fijo" name="fijo" value="1">
+                    <label class="form-check-label" for="editar_fijo">
+                      Fijar pendiente para usuarios nuevos
+                      <span class="meta-pendiente d-block">
+                        Si alguien nuevo coincide con los roles y tipo de contrato seleccionados, este pendiente se le asignara automaticamente.
+                      </span>
+                    </label>
                   </div>
                 </div>
 
@@ -938,6 +1063,12 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
                     </div>
                   </div>
                 </div>
+
+                <div class="col-md-6 bloque-asignacion" id="bloqueEditarFechaContrato" style="display: block;">
+                  <label for="editar_fecha_inicio_contrato_desde" class="form-label">Inicio contrato desde</label>
+                  <input type="date" class="form-control" id="editar_fecha_inicio_contrato_desde" name="fecha_inicio_contrato_desde">
+                  <div class="meta-pendiente mt-1">Opcional. Solo asigna a personas con hoja de vida desde esa fecha.</div>
+                </div>
               </div>
             </form>
           </div>
@@ -973,6 +1104,7 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
       programarOcultarBadgeNuevaFuncion('#badgeModoFirmaCrear');
       programarOcultarBadgeNuevaFuncion('#badgeModoFirmaEditar');
       inicializarFiltrosUsuarios();
+      inicializarFiltroPendientesCreados();
     });
 
     function normalizarTextoFiltro(texto) {
@@ -1006,6 +1138,39 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
 
       $('#editar_filtro_usuarios_texto, #editar_filtro_usuarios_rol').on('input change', function () {
         filtrarUsuariosLista('#editar_filtro_usuarios_texto', '#editar_filtro_usuarios_rol', '#bloqueEditarUsuarioEspecifico .usuario-item');
+      });
+    }
+
+    function inicializarFiltroPendientesCreados() {
+      $('.filtro-pendientes-creados').on('click', function () {
+        const $boton = $(this);
+        const filtro = $boton.data('filtro-pendientes');
+        let visibles = 0;
+
+        $('.filtro-pendientes-creados').removeClass('active');
+        $boton.addClass('active');
+
+        $('.pendiente-creado-item').each(function () {
+          const $item = $(this);
+          const esFijo = String($item.data('fijo')) === '1';
+          const mostrar = filtro === 'todos'
+            || (filtro === 'fijos' && esFijo)
+            || (filtro === 'no_fijos' && !esFijo);
+
+          if (!mostrar) {
+            const collapse = $item.find('.accordion-collapse.show')[0];
+            if (collapse) {
+              bootstrap.Collapse.getOrCreateInstance(collapse).hide();
+            }
+          }
+
+          $item.toggle(mostrar);
+          if (mostrar) {
+            visibles++;
+          }
+        });
+
+        $('#sinPendientesFiltro').toggle(visibles === 0);
       });
     }
 
@@ -1050,9 +1215,13 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
       $('#bloqueUsuarioEspecifico').toggle(esUsuario);
       $('#bloqueRolesContratoCrear').toggle(!esUsuario);
       $('#bloqueTiposContratoCrear').toggle(!esUsuario);
+      $('#bloqueFechaContratoCrear').toggle(!esUsuario);
+      $('#fijo').prop('disabled', esUsuario);
       if (esUsuario) {
         $('#formCrearPendiente input[name="roles[]"]').prop('checked', false);
         $('#formCrearPendiente input[name="tipos_contrato[]"]').prop('checked', false);
+        $('#fijo').prop('checked', false);
+        $('#fecha_inicio_contrato_desde').val('');
       } else {
         $('#formCrearPendiente input[name="usuarios_especificos_ids[]"]').prop('checked', false);
         $('#filtro_usuarios_texto').val('');
@@ -1091,9 +1260,12 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
       $('#bloqueEditarUsuarioEspecifico').toggle(esUsuario);
       $('#bloqueEditarRolesContrato').toggle(!esUsuario);
       $('#bloqueEditarTiposContrato').toggle(!esUsuario);
+      $('#bloqueEditarFechaContrato').toggle(!esUsuario);
       if (esUsuario) {
         $('#formEditarPendiente input[name="roles[]"]').prop('checked', false);
         $('#formEditarPendiente input[name="tipos_contrato[]"]').prop('checked', false);
+        $('#editar_fijo').prop('checked', false);
+        $('#editar_fecha_inicio_contrato_desde').val('');
       } else {
         $('#formEditarPendiente input[name="usuarios_especificos_ids[]"]').prop('checked', false);
         $('#editar_filtro_usuarios_texto').val('');
@@ -1103,6 +1275,17 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
     }
 
     $('#editar_modo_asignacion').on('change', alternarModoAsignacionEditar);
+
+    $('#editar_fijo').on('change', function () {
+      if ($(this).is(':checked') && $('#editar_modo_asignacion').val() === 'usuario') {
+        $(this).prop('checked', false);
+        Swal.fire({
+          icon: 'warning',
+          title: 'No se puede fijar asi',
+          text: 'Para fijar un pendiente debe estar asignado por rol y tipo de contrato, no por usuario especifico.'
+        });
+      }
+    });
 
     function actualizarHintModoFirmaEditar() {
       const esMultiple = $('#editar_modo_firma').val() === 'multiple';
@@ -1318,6 +1501,8 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 12], tru
       $('#editar_descripcion').val($boton.data('descripcion'));
       $('#editar_modo_asignacion').val($boton.data('modo-asignacion'));
       $('#editar_modo_firma').val($boton.data('modo-firma') || 'individual');
+      $('#editar_fijo').prop('checked', String($boton.data('fijo')) === '1');
+      $('#editar_fecha_inicio_contrato_desde').val($boton.attr('data-fecha-inicio-contrato-desde') || '');
       let usuariosObjetivoIds = [];
       try {
         usuariosObjetivoIds = JSON.parse($boton.attr('data-usuarios-objetivo-ids') || '[]');

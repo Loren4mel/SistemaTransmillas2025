@@ -1,6 +1,7 @@
 <?php
 require("../../login_autentica.php");
 require_once __DIR__ . "/../model/FormulariosModel.php";
+require_once __DIR__ . "/../model/PendientesModel.php";
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
@@ -32,6 +33,19 @@ try {
         $pendienteUsuarioId = isset($_POST['pendiente_usuario_id']) ? (int) $_POST['pendiente_usuario_id'] : null;
         $respuestas = is_array($_POST['respuesta'] ?? null) ? $_POST['respuesta'] : [];
         $resultado = $modelo->guardarRespuesta($token, $idUsuario, $respuestas, $pendienteUsuarioId);
+
+        if ($resultado['success'] && $pendienteUsuarioId !== null && $pendienteUsuarioId > 0) {
+            $pendientesModelo = new PendientesModel();
+            $confirmacionPendiente = $pendientesModelo->confirmarPendientePorRespuestaFormulario($pendienteUsuarioId, $idUsuario);
+            $resultado['pendiente_auto_confirmado'] = (bool) ($confirmacionPendiente['success'] ?? false);
+            $resultado['pendiente_requiere_firma'] = (bool) ($confirmacionPendiente['requiere_firma'] ?? false);
+
+            if (!empty($confirmacionPendiente['success'])) {
+                $resultado['message'] = 'Respuesta enviada correctamente. El pendiente quedo aceptado automaticamente.';
+            } elseif (!empty($confirmacionPendiente['requiere_firma'])) {
+                $resultado['message'] = 'Respuesta enviada correctamente. Recuerda firmar el PDF para cerrar el pendiente.';
+            }
+        }
 
         if (!$resultado['success']) {
             http_response_code(422);

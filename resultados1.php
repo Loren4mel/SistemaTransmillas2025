@@ -1360,6 +1360,7 @@ if($valortservicio=='1000'){
 	   $FB->titulo_azul1("",8,0,5);  
 	   $FB->llena_texto("Valor:",111, 118, $DB, "", "", $valorapagar, 6, 0);
 	   //$FB->llena_texto("Pendiente por Cobrar:",12, 5, $DB, "", "", $rw[9], 1, 1);
+	   $FB->llena_texto("Metodo de Pago:",121,2, $DB, "(SELECT  CONCAT(idtipospagos,'|', pag_numerocuenta,'|', pag_nombre) As id, pag_nombre from tipospagos where pag_estado like '%Activo%' order by idtipospagos )", "cambio_ajax2(this.value, 86, \"llega_sub6\", \"pendiente\", 1, 2)", "0", 1, 1);
 	   $FB->llena_texto("Pendiente por Cobrar:",112, 5, $DB, "", "", "", 1, 2);
 	   $FB->llena_texto("Imagen transaccion", 120, 6, $DB, "", "", "", 1, 0);
    

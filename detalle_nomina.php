@@ -30,6 +30,76 @@ $conde3=" ";
 $conde4=" ";
 $conde5=" ";
 
+function obtenerHorasNormalesYFestivas($DB1, $idusuario, $fechaAhora, $fechafin){
+	$sql = "
+		SELECT
+			COALESCE(SUM(CASE 
+				WHEN DAYOFWEEK(s.seg_fechaingreso) != 1
+				AND NOT EXISTS (
+					SELECT 1
+					FROM seguimiento_user f
+					WHERE f.seg_idusuario = s.seg_idusuario
+					AND DATE(f.seg_fechaingreso) = DATE(s.seg_fechaingreso)
+					AND f.seg_motivo IN ('descanso', 'Festivo en vacaciones')
+				)
+				THEN s.seg_horas_trabajadas 
+				ELSE 0 
+			END), 0) AS horas_normales,
+
+			COALESCE(SUM(CASE 
+				WHEN DAYOFWEEK(s.seg_fechaingreso) = 1
+				OR EXISTS (
+					SELECT 1
+					FROM seguimiento_user f
+					WHERE f.seg_idusuario = s.seg_idusuario
+					AND DATE(f.seg_fechaingreso) = DATE(s.seg_fechaingreso)
+					AND f.seg_motivo IN ('descanso', 'Festivo en vacaciones')
+				)
+				THEN s.seg_horas_trabajadas 
+				ELSE 0 
+			END), 0) AS horas_festivas
+
+		FROM seguimiento_user s
+		WHERE s.seg_motivo = 'IngresoHoras'
+		AND s.seg_fechaingreso >= '$fechaAhora'
+		AND s.seg_fechaingreso <= '$fechafin'
+		AND s.seg_idusuario = '$idusuario'
+	";
+
+	$DB1->Execute($sql);
+	if (!$DB1->Consulta_ID) {
+		return [
+			'horas_normales' => 0,
+			'horas_festivas' => 0,
+		];
+	}
+
+	$rw = mysqli_fetch_assoc($DB1->Consulta_ID);
+
+	return [
+		'horas_normales' => (float)($rw['horas_normales'] ?? 0),
+		'horas_festivas' => (float)($rw['horas_festivas'] ?? 0),
+	];
+}
+
+function obtenerCondicionDomingos($campoFecha, $fechaInicio, $fechaFin){
+	$inicio = new DateTime($fechaInicio);
+	$fin = new DateTime($fechaFin);
+	$condiciones = [];
+
+	if ((int)$inicio->format('w') !== 0) {
+		$inicio->modify('next sunday');
+	}
+
+	while ($inicio <= $fin) {
+		$domingo = $inicio->format('Y-m-d');
+		$condiciones[] = "($campoFecha >= '$domingo 00:00:00' AND $campoFecha <= '$domingo 23:59:59')";
+		$inicio->modify('+7 days');
+	}
+
+	return empty($condiciones) ? '0=1' : implode(' OR ', $condiciones);
+}
+
 // echo$fechacompleta=date('Y-m-d');
 // echo$mes=date('m');
 if($param34!=''){ $fechaactual=$param34; }
@@ -163,31 +233,6 @@ if($param37=="Prestacion de Servicios"){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
  
 $sql="SELECT `idhojadevida`,  `hoj_nombre`, `hoj_apellido`,hoj_cargo, `hoj_tipocontrato`,`hoj_cedula`,`hoj_fechaingreso`, `sed_nombre`,`hoj_fechanacimiento`, `hoj_cedula`,`hoj_direccion`, `hoj_celular`, `hoj_estado`,hoj_fechatermino,hoj_sede,hoj_retegarantia,hoj_firma,hoj_valorRetegarantia FROM hojadevida
   INNER JOIN sedes ON hoj_sede = idsedes
@@ -315,8 +360,13 @@ $sql="SELECT `idhojadevida`,  `hoj_nombre`, `hoj_apellido`,hoj_cargo, `hoj_tipoc
 				$DB1->Execute($sitrabajo);
 				while($rw4=mysqli_fetch_row($DB1->Consulta_ID))
 				{
+						if ($rw1[0]==158) {
+						$rw4[0]=5;
+						// 	echo'aqui';
+						}
 						$diassitrabajo=$rw4[0];
 						$diassitrabajoParaMostrar=$rw4[0];
+
 				}
 
 
@@ -831,6 +881,8 @@ $FB->titulo_azul1("Valor quincena",1,'5%',0);
 // $FB->titulo_azul1("Comprobante",1,'5%',0);
 $FB->titulo_azul1("Desprendible de nomina",1,'5%',0);
 $FB->titulo_azul1("Confirmado",1,'5%',0);
+$FB->titulo_azul1("Horas ",1,'5%',0);
+$FB->titulo_azul1("Valor horas trabajadas",1,'5%',0);
 $FB->titulo_azul1("Horas dom/fest",1,'5%',0);
 $FB->titulo_azul1("Valor horas dom/fest",1,'5%',0);
 $FB->titulo_azul1("Otros valor mes",1,0,0);
@@ -978,6 +1030,7 @@ ORDER BY hoj_nombre ASC";
 					$activoEnNomina=false;
 				}else{
 					$activoEnNomina=true;
+					
 				}
 
 			}else{
@@ -1096,16 +1149,33 @@ ORDER BY hoj_nombre ASC";
 
 
 						//Dias de Descanso
-						$descansopago="SELECT count(*) FROM `seguimiento_user`  where seg_motivo in('descanso','IngresoHoras') and seg_fechaingreso>='$fechaAhora' and seg_fechaingreso<='$fechafin'  and seg_idusuario='$idusuario' ";
+						$condicionDomingos = obtenerCondicionDomingos('seg_fechaingreso', $fechaAhora, $fechafin);
+						$descansopago = "
+						SELECT SUM(total)
+						FROM (
+							SELECT COUNT(*) AS total
+							FROM seguimiento_user
+							WHERE seg_motivo = 'descanso'
+							AND seg_fechaingreso >= '$fechaAhora'
+							AND seg_fechaingreso <= '$fechafin'
+							AND seg_idusuario = '$idusuario'
+
+							UNION ALL
+
+							SELECT COUNT(*) AS total
+							FROM seguimiento_user
+							WHERE seg_motivo = 'IngresoHoras'
+							AND seg_fechaingreso >= '$fechaAhora'
+							AND seg_fechaingreso <= '$fechafin'
+							AND seg_idusuario = '$idusuario'
+							AND ($condicionDomingos)
+						) descansos
+						";
+
 						$DB1->Execute($descansopago);
-						$rw6=mysqli_fetch_row($DB1->Consulta_ID);
-						if(empty($rw6)){
+						$rw6 = mysqli_fetch_row($DB1->Consulta_ID);
 
-							$diasDescanso=0;
-						}else{
-
-							$diasDescanso=$rw6[0];
-						}
+						$diasDescanso = !empty($rw6) ? $rw6[0] : 0;
 
 						$valorDeDiasDeDescanso=$diasvalor*$diasDescanso;
 						$valorDeDiasDeDescanso_formateado = number_format($valorDeDiasDeDescanso, 0, ',', '.');
@@ -1135,31 +1205,29 @@ ORDER BY hoj_nombre ASC";
 
 							$diassitrabajo=0;
 						}else{
+		
 
 
 							if($fin==31 and $param36=='Segunda' or $fin==31 and $param36=='Completo' ){
 
-								// echo"segunda  $fin==31 and $param36=='Segunda' or $fin==31 and $param36=='Completo'";
+
 									if ($rw4[0]<=1 ) {
-										// or $mesdeingreso==true  si este fue el mes que imngreso la persona
+
 										$dia31=0;
 
 										# code...
 									}else{
 										if ($param36=='Segunda') {
-											// if (($rw4[0]+$diasDescanso)==16 ) {
+
 											if ($diasSegundaQuincena=="16" ) {
-											// echo"es de 16 dias";
-												// $diainicicontra=date("d", strtotime($rw1[6]));
-												// if ($mesiniciocontrato==$month and $añoiniciocontrato==$year and $diainicicontra>16 and $diasnotrabajo>0) {
-												// 	$dia31=1;
+
 												$mesiniciocontrato=date("m", strtotime($rw1[6]));
 												$añoiniciocontrato=date("Y", strtotime($rw1[6]));
 												$diainiciocontrato=date("d", strtotime($rw1[6]));
 
 
 
-												// echo"if($mesiniciocontrato==$month and $añoiniciocontrato==$year and $diainiciocontrato>=16 and $diasnotrabajo<=0){";
+											
 												if ($rw1[14]==null or $rw1[14]=="0000-00-00") {
 
 
@@ -1182,17 +1250,16 @@ ORDER BY hoj_nombre ASC";
 														$dia31=0;
 													}else {
 														$dia31=1;
-														// echo"2";
+														
 													}
 
 												}else{
 													$dia31=1;
-													// echo"3";
+													
 												}
 
 
-												// echo"es 16 dias";
-												# code...
+
 											}else{
 
 												// echo"segunda quince con 16 dias";
@@ -1416,8 +1483,9 @@ ORDER BY hoj_nombre ASC";
 				//dias vacaBasicos
 				$diasVacaBasic="SELECT count(*) FROM `seguimiento_user`  where seg_motivo ='Festivo en vacaciones' and seg_fechaingreso>='$fechaAhora' and seg_fechaingreso<='$fechafin'  and seg_idusuario='$idusuario' ";
 				$DB1->Execute($diasVacaBasic);
-				$rw11=mysqli_fetch_row($DB1->Consulta_ID);
-				$valorDiasBasico=$rw11[0]*$cargosaldo[2];
+				$rw12=mysqli_fetch_row($DB1->Consulta_ID);
+				$vacacionesFestivos=$rw12[0];
+				
 
 
 
@@ -1435,14 +1503,20 @@ ORDER BY hoj_nombre ASC";
 
 
 
-				$valorDiasVacaciones=($diasvalor)*($diasVacaciones);
+				$valorDiasVacaciones=(($diasvalor)*($diasVacaciones+$vacacionesFestivos));
 
 				$valorDiasVacaciones_formateado = number_format($valorDiasVacaciones, 0, ',', '.');
 
 
-				$horasdominicales="SELECT SUM(seg_horas_trabajadas) FROM `seguimiento_user`  WHERE  seg_motivo ='IngresoHoras' and seg_fechaingreso>='$fechaAhora' and seg_fechaingreso<='$fechafin'  and seg_idusuario='$idusuario' ";
-				$DB1->Execute($horasdominicales);
-				$rw6=mysqli_fetch_row($DB1->Consulta_ID);
+
+				$horasNormales = 0;
+				$horasDomini = 0;
+				$resultadoHoras = obtenerHorasNormalesYFestivas($DB1, $idusuario, $fechaAhora, $fechafin);
+
+				$horasNormales = $resultadoHoras['horas_normales'];
+				$horasDomini = $resultadoHoras['horas_festivas'];
+
+
 
 
 
@@ -1457,8 +1531,6 @@ ORDER BY hoj_nombre ASC";
 
 					//SALUD Y PENSION
 
-					// $Salud=28470;
-					// $Pension=28470;
 					
 					$Salud=$cargosaldo[7];
 					$Pension=$cargosaldo[8];
@@ -1501,25 +1573,13 @@ ORDER BY hoj_nombre ASC";
 					//auxilio
 					$auxilioPorDia=$cargosaldo[3]/30;
 					//Total auxilio 15na
-					$totalauxilio=$auxilioPorDia*($diassitrabajoParaSumar);
+					$totalauxilio=$auxilioPorDia*($diassitrabajoParaSumar+$vacacionesFestivos);
+					$totalauxilio_formateado = number_format($totalauxilio, 0, ',', '.');
 
-
-					//Total horas domfest
-					if (strpos($rw6[0], ".") !== false) {
-
-						$partes = explode(".", $rw6[0]);
-						$numeroAntesDelPunto = $partes[0];
-
-						$valorHorasDomini=$numeroAntesDelPunto*11140;
-						$valorMitadDomini=11140/2;
-
-						$valorTotalHorasDomini=$valorHorasDomini+$valorMitadDomini;
-					} else {
-
-						$valorHorasDomini=$rw6[0]*11140;
-						$valorTotalHorasDomini=$valorHorasDomini;
-
-					}
+					//Total horas
+					$valorHora=11140;
+					$valorTotalHorasNormales=(float)$horasNormales*$valorHora;
+					$valorTotalHorasDomini=(float)$horasDomini*$valorHora;
 
 
 
@@ -1570,7 +1630,7 @@ ORDER BY hoj_nombre ASC";
 
 
 
-					$tabla.="<td>$".$totalauxilio."</td>";//total auxilio segun dias
+					$tabla.="<td>$".$totalauxilio_formateado."</td>";//total auxilio segun dias
 
 					$tabla.="<td>".$diasnotrabajo."</td>";
 
@@ -1581,7 +1641,8 @@ ORDER BY hoj_nombre ASC";
 
 		
 
-					$tabla.="<td>$diasVacaciones</td>"; //VACACIONES
+					$totalDiasVacaciones=$diasVacaciones+$vacacionesFestivos;
+					$tabla.="<td>".$totalDiasVacaciones."</td>"; //VACACIONES
 
 					$tabla.="<td>$valorDiasVacaciones_formateado</td>";//VACACIONES
 
@@ -1620,10 +1681,10 @@ ORDER BY hoj_nombre ASC";
 
 					$tablaNomina="SELECT  nom_confirma,nom_img_compro,nom_cuentaCobro,nom_confirmaUsu,nom_motivoObser,nom_fechaconfirmaUsus,`nom_confiAdmi`,`nom_fechaConfiAdmi`,nom_confirmaAdmin,nom_valor_ajuste1,nom_tipo_ajuste1,nom_ajuste_descripcion1 from nomina where nom_id_usu='$idusuario' and nom_fecha_inicio='$fechaactual' and nom_tipo_pago='Basico'  ";
 					$DB1->Execute($tablaNomina);
-					// $prestamostotal=mysqli_fetch_row($DB1->Consulta_ID);
+
 					while($Nomina=mysqli_fetch_row($DB1->Consulta_ID))
 					{
-					// echo"AAAAAAAAAAAAAA".$Nomina[0];
+
 					$valorAjusteB=$Nomina[9];
 					$tipoAjusteB=$Nomina[10];
 					$descripcionAjusteB=$Nomina[11];
@@ -1659,9 +1720,7 @@ ORDER BY hoj_nombre ASC";
 					}
 
 					if ($Nomina[3]=="Si") {
-						// $user0="SELECT `usu_nombre` FROM `usuarios` WHERE `idusuarios`='$Nomina[6]' ";
-						// $DB1->Execute($user0);
-						// $nombre1=$DB1->recogedato(0);
+
 						$validadoDesprendible="Validado el $Nomina[5]  Por ".$rw1[1]." ".$rw1[2]." ";
 						$validado="Validado✅ <br> $Nomina[5]";
 					}elseif($Nomina[3]=="no"){
@@ -1731,9 +1790,12 @@ ORDER BY hoj_nombre ASC";
 					</label></td>";//IMPRIMIR
 					$tabla.="<td>".$validado.$Observacion."</td>";//Confirmado?
 
+					$valorHorasNormales_formateado = number_format($valorTotalHorasNormales, 0, ',', '.');
+					$tabla.="<td>$horasNormales</td>";//Horas normales
+					$tabla.="<td>$valorHorasNormales_formateado</td>";//Valor Horas normales
 
 					$valorHorasDomini_formateado = number_format($valorTotalHorasDomini, 0, ',', '.');
-					$tabla.="<td>$rw6[0]</td>";//Horas dominicales
+					$tabla.="<td>$horasDomini</td>";//Horas dominicales
 					$tabla.="<td>$valorHorasDomini_formateado</td>";//Valor Horas dominicales
 
 					$tabla.="<td>$".$cargosaldo[4]."</td>";//Otros
@@ -1844,7 +1906,7 @@ ORDER BY hoj_nombre ASC";
 						$ajustesresO=$valorAjusteO;
 					}
 
-					$totalOtrosAPagar=($totalOtrosDias+$valorTotalHorasDomini+$valorRecogidas+$ajustessumO)-($restaAOtros+$ajustesresO);
+					$totalOtrosAPagar=($totalOtrosDias+$valorTotalHorasDomini+$valorRecogidas+$ajustessumO+$valorTotalHorasNormales)-($restaAOtros+$ajustesresO);
 
 					$totalOtrosAPagar_formateado = number_format($totalOtrosAPagar, 0, ',', '.');
 					$tabla.="<td  style='background-color:#F4D03F'>$".$totalOtrosAPagar_formateado."</td>";//total otros
@@ -1957,6 +2019,7 @@ ORDER BY hoj_nombre ASC";
 
 
 	}
+
 ?>
 
 	<div id="datosUsuarios" data-usuarios='<?= json_encode(array_values($idsUsu)) ?>'style="display:none;"></div>

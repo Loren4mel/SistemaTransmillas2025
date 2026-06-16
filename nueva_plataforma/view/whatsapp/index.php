@@ -25,8 +25,18 @@ thead.azul-blanco th {
 <body>
 <div class="container-fluid mt-4">
   <div class="card shadow p-3 mb-4 bg-body rounded">
-    <div class="card-header text-center mi-header">
-      <h3 class="mb-0">Módulo WhatsApp</h3>
+    <div class="card-header mi-header position-relative">
+      <div class="text-end mb-2">
+        <a
+          href="https://bot.transmillas.com/Chat_Bot_Local/?token=transmillas_token_seguro_2026"
+          class="btn btn-light btn-sm fw-semibold"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <i class="fa-brands fa-whatsapp me-1"></i> Enlazar WhatsApps
+        </a>
+      </div>
+      <h3 class="mb-0 text-center">Módulo WhatsApp</h3>
     </div>
 
     <div class="card-body">

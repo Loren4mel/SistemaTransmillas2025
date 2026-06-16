@@ -8,28 +8,32 @@ $id_usuario = $_SESSION['usuario_id'];
 
 <head>
     <style>
-        #sortable {
-            list-style-type: none;
-            margin: 0;
-            padding: 0;
-            width: 60%;
-        }
-
-        #sortable li {
-            margin: 0 3px 3px 3px;
-            padding: 0.4em;
-            padding-left: 1.5em;
-            font-size: 1.4em;
-            height: 18px;
-        }
-
         .alertper {
-            padding: 1px;
-            margin-bottom: 2px;
-            font-size: 20px;
+            padding: 0;
+            margin: 0 0 8px;
+            font-size: 15px;
             border: 1px solid transparent;
-            border-radius: 4px;
+            border-radius: 6px;
             color: #444;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+        }
+
+        .alertper>li {
+            align-items: flex-start;
+            cursor: grab;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 6px;
+            line-height: 1.42;
+            list-style: none;
+            min-height: 54px;
+            padding: 7px 8px;
+            word-break: normal;
+            overflow-wrap: anywhere;
+        }
+
+        .alertper>li:active {
+            cursor: grabbing;
         }
 
         .container {
@@ -41,28 +45,193 @@ $id_usuario = $_SESSION['usuario_id'];
             width: 100%
         }
 
+        .uno {
+            margin: 0 0 10px;
+            max-width: none;
+            padding: 0 10px;
+            width: 100%;
+        }
+
+        .reordenar-actions {
+            align-items: center;
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            margin: 8px 0 6px;
+            width: 100%;
+        }
+
+        .reordenar-actions .btn {
+            border: 1px solid #d7dde5;
+            border-radius: 5px;
+            box-shadow: none;
+            float: none !important;
+            line-height: 1;
+            margin: 0;
+            padding: 0;
+        }
+
+        .reordenar-actions .btn a {
+            align-items: center;
+            color: #0b67ad;
+            display: inline-flex;
+            font-size: 13px;
+            font-weight: 700;
+            gap: 4px;
+            min-height: 38px;
+            padding: 0 12px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .reordenar-filtros {
+            background: #fff;
+            border: 1px solid #d8e0ea;
+            border-collapse: separate;
+            border-radius: 6px;
+            border-spacing: 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+            margin-bottom: 12px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .reordenar-filtros tr {
+            background: #fff !important;
+        }
+
+        .reordenar-filtros .tittle3 td {
+            background: #074F91;
+            color: #fff !important;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 8px;
+        }
+
+        .reordenar-filtros .tittle3,
+        .reordenar-filtros .tittle3 * {
+            color: #fff !important;
+        }
+
+        .reordenar-filtros td {
+            border-top: 1px solid #eef2f6;
+            padding: 8px;
+            vertical-align: middle;
+        }
+
+        .reordenar-filtros td:first-child {
+            color: #56616d;
+            font-size: 13px;
+            font-weight: 600;
+            width: 78px;
+            white-space: nowrap;
+        }
+
+        .reordenar-filtros .form-control {
+            border: 1px solid #ccd5df;
+            border-radius: 4px;
+            box-shadow: none;
+            color: #334155;
+            font-size: 13px;
+            height: 36px;
+            padding: 6px 10px;
+            width: 100%;
+        }
+
         .numeros {
-            font-size: 2rem;
+            align-items: center;
+            align-self: stretch;
+            background: rgba(255, 255, 255, .55);
+            border-radius: 5px;
             color: #263fbf;
+            display: flex;
+            flex: 0 0 34px;
+            font-size: 1.45rem;
+            font-weight: 700;
+            justify-content: center;
+            line-height: 1;
         }
 
         .hora {
-            font-size: 1rem;
             color: #263fbf;
+            font-size: .86rem;
+            font-weight: 600;
+        }
+
+        .horario-destacado {
+            background: #fff3bf;
+            border: 1px solid #f0c24b;
+            border-radius: 12px;
+            color: #7a3e00;
+            display: inline-block;
+            font-size: .82rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-left: 3px;
+            padding: 3px 6px;
+            text-transform: uppercase;
+            white-space: nowrap;
         }
 
         .orden {
-            font-size: 1rem;
             color: #d71930;
+            font-size: .84rem;
+            font-weight: 600;
+            margin-left: 4px;
+            white-space: nowrap;
+        }
+
+        #drop-items {
+            max-height: calc(100vh - 235px);
+            overflow-y: auto;
+            padding: 6px 8px 16px;
+            touch-action: pan-y;
+        }
+
+        .mapa {
+            flex: 0 0 auto;
+            margin-left: auto;
+        }
+
+        .mapa a {
+            align-items: center;
+            background: #fff;
+            border: 1px solid #cfd8e3;
+            border-radius: 16px;
+            color: #0b74bd;
+            display: inline-flex;
+            font-size: .82rem;
+            font-weight: 700;
+            gap: 3px;
+            line-height: 1;
+            padding: 5px 8px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .ui-sortable-helper {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
+            opacity: .95;
+        }
+
+        .ui-sortable-placeholder {
+            background: #e9f3ff;
+            border: 1px dashed #2f80c1;
+            border-radius: 6px;
+            min-height: 54px;
+            visibility: visible !important;
         }
         #toggleSortable {
-            padding: 10px 15px;
             border: none;
             color: white;
-            font-size: 16px;
+            font-size: 14px;
+            font-weight: 700;
             cursor: pointer;
             border-radius: 5px;
+            min-height: 38px;
+            padding: 0 14px;
             transition: background 0.3s;
+            white-space: nowrap;
         }
         .activo {
             background-color: green;
@@ -71,13 +240,59 @@ $id_usuario = $_SESSION['usuario_id'];
             background-color: red;
         }
         .orden-boton {
-        display: inline-block;
-        padding: 4px 10px;
-        background-color: #17a2b8; /* celeste/azul suave */
-        color: white;
-        font-size: 13px;
-        font-weight: 600;
-        border-radius: 20px; /* tipo pastilla */
+            display: inline-block;
+            padding: 5px 8px;
+            background-color: #17a2b8;
+            color: white;
+            font-size: .82rem;
+            font-weight: 700;
+            border-radius: 14px;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .alert-preasignada {
+            background-color: #f39c12;
+            border-color: #d68910;
+            color: #3b2600;
+        }
+
+        @media (max-width: 600px) {
+            .uno {
+                padding: 0;
+            }
+
+            .reordenar-actions {
+                margin-top: 6px;
+                padding: 0;
+            }
+
+            .reordenar-actions .btn a,
+            #toggleSortable {
+                min-height: 36px;
+            }
+
+            .reordenar-filtros {
+                margin-bottom: 10px;
+            }
+
+            .reordenar-filtros td {
+                padding: 7px 8px;
+            }
+
+            .reordenar-filtros td:first-child {
+                width: 68px;
+            }
+
+            #drop-items {
+                max-height: calc(100vh - 220px);
+                padding-left: 46px;
+                padding-right: 4px;
+            }
+
+            .numeros {
+                flex-basis: 28px;
+                font-size: 1.25rem;
+            }
         }
     </style>
    
@@ -103,11 +318,13 @@ $id_usuario = $_SESSION['usuario_id'];
 
     <div class="container">
         <div class="uno">
-            <?php
-            $FB->nuevo("diligencia", $condecion, "");
-            ?>
-            <button id="toggleSortable" class="inactivo">Inactivo</button>
-            <table class="table table-hover">
+            <div class="reordenar-actions">
+                <button id="toggleSortable" class="inactivo">Inactivo</button>
+                <?php
+                $FB->nuevo("diligencia", $condecion, "");
+                ?>
+            </div>
+            <table class="table table-hover reordenar-filtros">
                 <tr bgcolor="#074F91" class="tittle3">
 
                     <td colspan=2 align='center'>Enrutamiento Entregas y Recogidas</td>
@@ -152,12 +369,40 @@ $id_usuario = $_SESSION['usuario_id'];
         $ordenultimo = $ordenn + 1;
     }
 
-    $conde3 = "and ((ser_idresponsable='$id_usuario' and ser_fechaasignacion like '$fechaactual%' and ser_estado=3 ) or ( ser_idusuarioguia='$id_usuario' and ser_fechaguia like '$fechaactual%' and ser_estado=9))";
+    $conde3 = "and (
+        (ser_idresponsable='$id_usuario' and ser_fechaasignacion like '$fechaactual%' and ser_estado=3 )
+        or (ser_idusuarioguia='$id_usuario' and ser_fechaguia like '$fechaactual%' and ser_estado=9)
+        or (
+            ser_idusuarioguia='$id_usuario'
+            and ser_estado=7
+            and exists (
+                select 1
+                from seguimientoruta sr
+                where sr.seg_idservicio=serviciosdia.idservicios
+                and sr.seg_tipo='Entrega'
+                and sr.seg_estado='Pre-asignada'
+                and sr.seg_fecha like '$fechaactual%'
+            )
+        )
+    )";
     $conde1 = "";
     //entregas y recogidas asignadas al usuario
 
- echo$sql = "SELECT `idservicios`,`ser_fechaasignacion`,ser_estado,cli_direccion,ser_direccioncontacto
- FROM serviciosdia inner join usuarios on ser_idresponsable=idusuarios where ser_estado in (3,9) 
+ $sql = "SELECT `idservicios`,
+ CASE
+    WHEN ser_estado=3 THEN ser_fechaasignacion
+    WHEN ser_estado=7 THEN (
+        SELECT sr.seg_fecha
+        FROM seguimientoruta sr
+        WHERE sr.seg_idservicio=serviciosdia.idservicios
+        AND sr.seg_tipo='Entrega'
+        AND sr.seg_estado='Pre-asignada'
+        ORDER BY sr.seg_fecha DESC
+        LIMIT 1
+    )
+    ELSE ser_fechaguia
+ END as fecha_orden,ser_estado,cli_direccion,ser_direccioncontacto
+ FROM serviciosdia left join usuarios on ser_idresponsable=idusuarios where ser_estado in (3,7,9) 
  and idservicios not in (SELECT  orden_idservicio FROM ord_recoentregas WHERE orden_iduserencargado='$id_usuario' 
  and orden_fechadiaejecucion='$fechaactual' and ord_tipo in ('Recogida','Entrega'))  $conde3  ORDER BY ser_fechaentrega $asc ";
 
@@ -237,6 +482,16 @@ $id_usuario = $_SESSION['usuario_id'];
     $Querydrag_drop = ("SELECT  orden_idservicio,orden_iduserencargado,orden_id,orden,ord_estado,ord_tipo, ser_consecutivo, ser_piezas FROM ord_recoentregas INNER JOIN servicios on idservicios=orden_idservicio WHERE orden_iduserencargado =$id_usuario and orden_fechadiaejecucion ='$fechaactual' order by orden asc ");
     $DB->Execute($Querydrag_drop);
 
+    function resaltarHorarioGuia($texto)
+    {
+        return preg_replace('/\b(ANT|ANTES|DES|DESPUES|DESPUÉS)(\s*(?:DE\s*)?\d{1,2}(?::\d{2})?(?:\s*(?:AM|PM))?)?/iu', '<span class="horario-destacado">$0</span>', $texto);
+    }
+
+    function resaltarHorarioGuiaCompleto($texto)
+    {
+        return preg_replace('/\b(?:ANT\s*ES|ANTES|ANT|DES\s*PUES|DESPUES|DESPU.?S|DES)\s*(?:DE\s*)?\d{1,2}(?::\d{2})?(?:\s*(?:AM|PM))?/iu', '<span class="horario-destacado">$0</span>', $texto);
+    }
+
     // if ($nivel_acceso==1) {
     //      echo$Querydrag_drop;
     // }
@@ -255,10 +510,28 @@ $id_usuario = $_SESSION['usuario_id'];
             $idservicio = $dataDrag_Drop['orden_idservicio'];
             if ($dataDrag_Drop['ord_tipo'] == 'Recogida' or $dataDrag_Drop['ord_tipo'] == 'Entrega') {
 
-                $sql6 = "SELECT `idservicios`,`ser_fechaentrega`,`cli_nombre`,`cli_telefono`,`cli_direccion`, `ser_destinatario`, `ser_telefonocontacto`,
-            `ser_direccioncontacto`,`ciu_nombre`,`ser_prioridad`,ser_estado,ser_visto,usu_nombre,`ser_fechaasignacion`,`ser_consecutivo`,ser_valorprestamo,ser_guiare,cli_idciudad
-            FROM serviciosdia inner join usuarios on ser_idresponsable=idusuarios   where
-            ser_estado in (3,9) and  idservicios='$idservicio' $conde3 ";
+            $sql6="SELECT `idservicios`,`ser_fechaentrega`,`cli_nombre`,`cli_telefono`,`cli_direccion`, `ser_destinatario`, `ser_telefonocontacto`,
+                `ser_direccioncontacto`,`ciu_nombre`,`ser_prioridad`,ser_estado,ser_visto,usu_nombre,`ser_fechaasignacion`,`ser_consecutivo`,ser_valorprestamo,ser_guiare,cli_idciudad,
+                CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM seguimientoruta sr
+                    WHERE sr.seg_idservicio = serviciosdia.idservicios
+                    AND sr.seg_tipo = 'Entrega'
+                    AND sr.seg_estado = 'Pre-asignada'
+                ) THEN 1 ELSE 0 END AS esta_preasignada
+                FROM serviciosdia left join usuarios on ser_idresponsable=idusuarios   where
+                (ser_estado in (3,9) OR (
+                        ser_estado = 7
+                        AND ser_idusuarioguia = '$id_usuario'
+                        AND EXISTS (
+                            SELECT 1
+                            FROM seguimientoruta sr
+                            WHERE sr.seg_idservicio = serviciosdia.idservicios
+                            AND sr.seg_tipo = 'Entrega'
+                            AND sr.seg_estado = 'Pre-asignada'
+                        )
+                    )) and  idservicios='$idservicio' $conde3 
+                ";  
             } elseif ($dataDrag_Drop['ord_tipo'] == 'Remesa') {
 
 
@@ -294,7 +567,7 @@ $id_usuario = $_SESSION['usuario_id'];
                     $dir = str_replace("&", " ", $datosfinales['cli_direccion']);
                     $dir2 = str_replace("&", "+", $datosfinales['cli_direccion']);
                     $dir2 = str_replace("#", "+", $dir2);
-                } elseif ($estados == 9) { //cambiar a 9
+                } elseif ($estados == 9 or $estados == 7) { // entrega asignada o pre-asignada
                     $hora = '';
                     $dir = str_replace("&", " ", $datosfinales['ser_direccioncontacto']);
                     $dir2 = str_replace("&", "+", $datosfinales['ser_direccioncontacto']);
@@ -316,6 +589,10 @@ $id_usuario = $_SESSION['usuario_id'];
                     $clasesse = 'alertper alert-success';
                 }
 
+                if (!empty($datosfinales['esta_preasignada']) && (int)$datosfinales['esta_preasignada'] === 1) {
+                    $clasesse = 'alertper alert-preasignada';
+                }
+
 
         ?>
 
@@ -326,7 +603,7 @@ $id_usuario = $_SESSION['usuario_id'];
                                                     if ($dataDrag_Drop['ord_tipo'] == 'Entrega') {
                                                         echo "<span class='orden-boton'>" . $dataDrag_Drop['ser_consecutivo']. " / Piezas".$dataDrag_Drop['ser_piezas']."</span>";
                                                     }
-                                                    echo "<span class='hora'>" . $dataDrag_Drop['ord_tipo'] . $hora . "</span>";
+                                                    echo "<span class='hora'>" . resaltarHorarioGuiaCompleto($dataDrag_Drop['ord_tipo'] . " " . $hora) . "</span>";
                                                     echo "<span class='orden'> " . $dataDrag_Drop['ord_estado'] . "</span>";
                                                     echo $dir;
                                                     $destino = urlencode($dir2.$ciudad."colombia"); // Dirección destino
@@ -427,11 +704,11 @@ $id_usuario = $_SESSION['usuario_id'];
 
             // Botón para activar/desactivar
             $("#toggleSortable").click(function () {
-                if (activo) {
-                    $("#drop-items").sortable("enable"); // Desactivar drag & drop
+                if (!activo) {
+                    $("#drop-items").sortable("enable");
                     $(this).text("Activo").removeClass("inactivo").addClass("activo");
                 } else {
-                    $("#drop-items").sortable("disable"); // Activar drag & drop
+                    $("#drop-items").sortable("disable");
                     $(this).text("Inactivo").removeClass("activo").addClass("inactivo");
                 }
                 activo = !activo; // Alternar estado

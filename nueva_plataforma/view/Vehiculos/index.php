@@ -10,8 +10,12 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="/SistemaTransmillas2025/nueva_plataforma/assets/css/vehiculos.css">
-<link rel="shortcut icon" href="/SistemaTransmillas2025/images/Logo Google Nuevo.png">
+<!-- <link rel="stylesheet" href="/SistemaTransmillas2025/nueva_plataforma/assets/css/vehiculos.css">
+<link rel="shortcut icon" href="/SistemaTransmillas2025/images/Logo Google Nuevo.png"> -->
+<!-- Produccion -->
+<link rel="stylesheet" href="../assets/css/vehiculos.css">
+<link rel="shortcut icon" href="../../images/Logo Google Nuevo.png">
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
@@ -455,13 +459,13 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Frente)</label>
                             <div id="preview_actual_frente" class="mb-1"></div>   
-                            <input type="file" name="veh_img_actual_frente" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                            <input type="file" name="veh_img_actual_frente" class="form-control" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto actual del vehiculo (Respaldo)</label>
                             <div id="preview_actual_trasera" class="mb-1"></div>
-                            <input type="file" name="veh_img_actual_trasera" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                            <input type="file" name="veh_img_actual_trasera" class="form-control" required>
                         </div>
 
                         <!-- SECCIÓN EQUIPO DE CARRETERA (EDITAR) -->
@@ -491,12 +495,14 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Frente)</label>
                             <div id="preview_anverso" class="mb-1"></div>
+                            <input type="hidden" name="eliminar_veh_img_anverso" value="0">
                             <input type="file" name="veh_img_anverso" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
                         </div>
  
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">📷 Foto Tarjeta Propiedad (Respaldo)</label>
                             <div id="preview_reverso" class="mb-1"></div>
+                            <input type="hidden" name="eliminar_veh_img_reverso" value="0">
                             <input type="file" name="veh_img_reverso" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
                         </div>
                     </div>
@@ -1519,7 +1525,7 @@
 <!-- DataTables -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-<script src="/SistemaTransmillas2025/nueva_plataforma/assets/js/vehiculos.js"></script>
-
+<!-- <script src="/SistemaTransmillas2025/nueva_plataforma/assets/js/vehiculos.js"></script> -->
+<script src="../assets/js/vehiculos.js"></script>
 </body>
 </html>

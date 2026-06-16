@@ -500,7 +500,7 @@ function sendEmailfac (idfac){
         console.log('chequeado');
         
                 var linkFac1 = document.getElementById('linkfac1');
-                formData.append('linkfac1', linkfac1.value);
+                formData.append('linkfac1', linkFac1.value);
                 // console.log("El checkbox está marcado.");
     } else {
                 // console.log("El checkbox no está marcado.");
@@ -510,7 +510,10 @@ function sendEmailfac (idfac){
     formData.append('idfac', idfac);
     formData.append('File0', inputFile0);
     formData.append('File1', inputFile1);
-    formData.append('numero', numero.value);
+    const numeroWhatsapp = numero ? numero.value.replace(/\D/g, '') : '';
+    if (numeroWhatsapp.length >= 10) {
+        formData.append('numero', numeroWhatsapp);
+    }
 
     const loadingElement = document.getElementById('loading');
 

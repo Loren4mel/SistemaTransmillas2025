@@ -9,12 +9,35 @@ $FB->titulo_azul1("Crear Factura Externos",9,0,5);
 $FB->abre_form("form1","","post");
 
 $fechados= date("d-m-Y",strtotime($fechaactual."- 2 week"));
+
 ?>
 <script>
 
 
 
 var genviar2=[];
+
+function cargarGuiasExistentes(){
+	const campoGuias = document.getElementById("param39");
+	if (!campoGuias) {
+		return;
+	}
+
+	const valorGuias = campoGuias.value.trim();
+	if (valorGuias === "") {
+		genviar2 = [];
+		return;
+	}
+
+	genviar2 = valorGuias.split(",").map(function(guia){
+		return guia.trim();
+	}).filter(function(guia){
+		return guia !== "" && guia !== "0";
+	});
+
+	genviar2 = [...new Set(genviar2)];
+	campoGuias.value = genviar2.join(",");
+}
 
 function buscarclientes(){
 			p1=0;
@@ -27,6 +50,7 @@ function buscarclientes(){
 			pagina='detalle_crearfacturaexterna.php';
 			destino=pagina+"?param1="+p1+"&param2="+p2+"&param3="+p3+"&param4="+p4+"&param5="+p5+"&param6="+p6+"&pagina="+pagina+"&asc="+asc;
 			MostrarConsulta4(destino, "destino_vesr");
+			setTimeout(cargarGuiasExistentes, 200);
 		}
 
 function bucarguiaexterna(idguia,tipo)
@@ -100,6 +124,7 @@ function bucarguiaexterna(idguia,tipo)
 function borrarguia(idguia,prestamo,flete,idservicio)
 {
 
+	cargarGuiasExistentes();
 	
 	var guia=idguia;
 	var testData = document.getElementById(idguia);
@@ -125,6 +150,7 @@ function borrarguia(idguia,prestamo,flete,idservicio)
 
 function guardarfactura(dato)
 {
+	cargarGuiasExistentes();
  	p1=document.getElementById('param31').value;
 	p2=document.getElementById('param32').value;
 	//p3=document.getElementById('param3').value;
@@ -136,6 +162,7 @@ function guardarfactura(dato)
 	p11=document.getElementById('param41').value;
 	p12=document.getElementById('param42').value;
 	p13=document.getElementById('param43').value;
+	p50=document.getElementById('param50').value;
 	if(p2==''){
 		event.preventDefault();
 		alert('Digite un Numero de Factura');
@@ -160,8 +187,8 @@ function guardarfactura(dato)
 				if(respuesta=='duplicada'){
 					alert('El Numero de Factura ya Existe');
 				}else{
-					p10="crear";
-					destino="nuevo_adminok.php?param1="+p1+"&param2="+p2+"&param4="+p4+"&param5="+p5+"&param8="+p8+"&param9="+genviar2+"&param10="+p10+"&param11="+p11+"&param12="+p12+"&tabla=crearfacturaexterna&param13="+p13;
+					p10=(p10=="EditarPrefa") ? "EditarPrefa" : "crear";
+					destino="nuevo_adminok.php?param1="+p1+"&param2="+p2+"&param4="+p4+"&param5="+p5+"&param8="+p8+"&param9="+genviar2+"&param10="+p10+"&param11="+p11+"&param12="+p12+"&tabla=crearfacturaexterna&param13="+p13+"&param50="+p50;
 					console.log(destino);
 					document.location.href=destino;
 				}
@@ -169,7 +196,7 @@ function guardarfactura(dato)
 
 	}else{
 		p10="Editar";
-		destino="nuevo_adminok.php?param1="+p1+"&param2="+p2+"&param4="+p4+"&param5="+p5+"&param8="+p8+"&param9="+genviar2+"&param10="+p10+"&param11="+p11+"&param12="+p12+"&tabla=crearfacturaexterna";
+		destino="nuevo_adminok.php?param1="+p1+"&param2="+p2+"&param4="+p4+"&param5="+p5+"&param8="+p8+"&param9="+genviar2+"&param10="+p10+"&param11="+p11+"&param12="+p12+"&tabla=crearfacturaexterna&param13="+p13+"&param50="+p50;
 		console.log(destino);
 		document.location.href=destino;
 
@@ -201,7 +228,8 @@ function guardarfactura(dato)
 	$FB->llena_texto("Valor de la Factura:", 31, 1, $DB, "", "","0",4,1);
 	$FB->llena_texto("Nit:", 43, 1, $DB, "", "","",17,1);
 	$FB->llena_texto("Correo:", 50, 1, $DB, "", "","",4,1);
-	$FB->llena_texto("param36", 4, 13, $DB, "", "", $param36, 5,2);
+	$param36factura = ($param36 != '') ? $param36 : $param6;
+	$FB->llena_texto("param36", 4, 13, $DB, "", "", $param36factura, 5,2);
 	$FB->llena_texto("tabla", 4, 13, $DB, "", "", "crearfactura", 5,2);
 	$FB->llena_texto("param40", 4, 13, $DB, "", "", "$metodo", 5,2);
 	$FB->llena_texto("param41", 4, 13, $DB, "", "", "$param32", 5,2);
@@ -240,6 +268,7 @@ include("footer.php");
 
 		destino=pagina+"?param1="+p1+"&param2="+p2+"&param3="+p3+"&param4="+p4+"&param5="+p5+"&param6="+p6+"&pagina="+pagina+"&metodo="+metodo;
 		MostrarConsulta4(destino, "destino_vesr");
+		setTimeout(cargarGuiasExistentes, 200);
 
 
 
@@ -310,6 +339,7 @@ function copyColumnToClipboard(columnIndex){
         }
 function agregarguia(idguia,prestamo,flete,manifiesto,idservicio,pago)
 {
+	cargarGuiasExistentes();
 	
 	if (pago==1) {
 		const input = document.getElementById("param35");
@@ -327,10 +357,12 @@ function agregarguia(idguia,prestamo,flete,manifiesto,idservicio,pago)
 		genviar2 = [];
 	}
 	console.log(genviar2);
-	var paramguia=idservicio;
+	var paramguia=idservicio.toString();
 	console.log(paramguia);
 
-	genviar2.push(paramguia);
+	if (genviar2.indexOf(paramguia) === -1) {
+		genviar2.push(paramguia);
+	}
 
 	var testData = !!document.getElementById(idguia);
 	if(testData==true){

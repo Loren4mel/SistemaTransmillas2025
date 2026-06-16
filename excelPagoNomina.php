@@ -446,11 +446,13 @@ function diasSegundaQuince($year, $month) {
                       //   }
                         while($rw4=mysqli_fetch_row($DB1->Consulta_ID))
                         {
-                          // if ($rw4[0]=="") {
-                              $diassitrabajo=$rw4[0];
-                              // $diassitrabajo=$diassitrabajo+1;
-          
-                          // }
+
+          					if ($rw11[0]==158) {
+                                $rw4[0]=5;
+								
+                            }
+                            $diassitrabajo=$rw4[0];
+
             
                         }
                         
@@ -834,35 +836,18 @@ function diasSegundaQuince($year, $month) {
 
         }else 
         if($rw1[4]=="Empresa"){
-//         // Muestra todos los errores de PHP
-// error_reporting(E_ALL);
-
-// // Activa la visualización de errores
-// ini_set('display_errors', 1);
-
-// // Activa la visualización de errores durante la carga del script
-// ini_set('display_startup_errors', 1);
-
-        
-
             $sql="SELECT `idhojadevida`,  `hoj_nombre`, `hoj_apellido`,hoj_cargo, `hoj_tipocontrato`,`hoj_cedula`,`hoj_fechaingreso`, `sed_nombre`,`hoj_fechanacimiento`, `hoj_cedula`,`hoj_direccion`, `hoj_celular`, `hoj_estado`,hoj_sede,hoj_fechatermino,hoj_cuen,hoj_tcuenta,hoj_firma,hoj_estado FROM hojadevida
             INNER JOIN sedes ON hoj_sede = idsedes
             WHERE idhojadevida='$rw1[0]'
             ORDER BY hoj_nombre ASC";
               $DB1->Execute($sql); 
-            //   $va=(($compag-1)*$CantidadMostrar); 
               $va=0; 
                   while($rw16=mysqli_fetch_row($DB1->Consulta_ID))
                   {
-            
-            
-            
-            
                     $totaldevengado=0;
                     $totaldeduccion=0;
                     $fechafin=$fechafinal;
                     if($rw16[6]>=$fechaactual and $rw16[6]<=$fechafinal){
-                        // echo$rw16[6].$rw16[1];
                         $mesdeingreso=true;
                         $fechaAhora=$rw16[6];
                     }else{
@@ -878,9 +863,6 @@ function diasSegundaQuince($year, $month) {
             
                         $mesiniciocontrato=date("m", strtotime($rw16[6]));
                         $añoiniciocontrato=date("Y", strtotime($rw16[6]));
-            
-                        // echo"MES ".$sigmesiniciocontrato=date("m", strtotime($mesiniciocontrato. " +1 month"));
-            
                         $priemrdiadestemes=date("Y-m-d H:i:s", strtotime($añoiniciocontrato.'-'.$mesiniciocontrato.'-01'.' 00:00:00'."+1 month"));
             
                         if($param36=='Completo'){
@@ -955,13 +937,9 @@ function diasSegundaQuince($year, $month) {
                     
             
                       }else{
-            
-            
-
                         $va++; $p=$va%2;
                       
                         $valordediastrabajados=0;
-                        // $sql2="SELECT  `idcargo`, `car_Cargo`, `car_Salario`, `car_Auxilio`, `car_otros`,car_Recogida,car_ValorRecogida	 FROM `cargo` WHERE idcargo='$rw16[3]'";		
 				        $sql2="SELECT  `idcargo`, `car_Cargo`, `salario`, `auxilio`, `otros`,car_Recogida,car_ValorRecogida,des_salud,des_pension FROM `cargo`INNER JOIN salarios_cargos on idcargo=id_relCargo  WHERE idcargo='$rw1[3]' and anio='$ano'";
                        
                         $DB1->Execute($sql2);
@@ -1064,16 +1042,7 @@ function diasSegundaQuince($year, $month) {
                         // Ejemplo de uso
                         $year=date("Y", strtotime($fechaAhora));
                         $month=date("m", strtotime($fechaAhora));
-            
                         $diasSegundaQuincena = diasSegundaQuince($year, $month);
-            
-                        //  echo "La segunda quincena de $year-$month tiene $diasSegundaQuincena días.";
-            
-            
-            
-            
-            
-            
                         $diassitrabajo=0;
                         $sitrabajo="SELECT count(*) FROM `seguimiento_user`  where seg_motivo ='Ingreso' and seg_fechaingreso>='$fechaAhora' and seg_fechaingreso<='$fechafin'  and seg_idusuario='$idusuario' "; 
                         $DB1->Execute($sitrabajo); 
@@ -1082,8 +1051,6 @@ function diasSegundaQuince($year, $month) {
             
                             $diassitrabajo=0;
                         }else{
-                            
-                            
                             if($fin==31 and $param36=='Segunda' or $fin==31 and $param36=='Completo' ){
                                 
                                     if ($rw4[0]<=1 ) {
@@ -1095,10 +1062,6 @@ function diasSegundaQuince($year, $month) {
                                                 $añoiniciocontrato=date("Y", strtotime($rw16[6]));
                                                 $diainiciocontrato=date("d", strtotime($rw16[6]));
             
-            
-            
-                                                // echo"if($mesiniciocontrato==$month and $añoiniciocontrato==$year and $diainiciocontrato>=16 and $diasnotrabajo<=0){";
-
                                                 if(($mesiniciocontrato==$month and $añoiniciocontrato==$year and $diainiciocontrato>=16 and $diasnotrabajo<=0)){
                                                     if ($diainiciocontrato==16) {
                                                         $dia31=1;
@@ -1258,7 +1221,7 @@ function diasSegundaQuince($year, $month) {
                             if ($idusuario=="1718" and $rw5[0]==0 and $fin ==29) {
             
             
-                                echo"OKKK";
+                                
                                 $diasincapacidad=1;
                             }
                         }
@@ -1275,7 +1238,13 @@ function diasSegundaQuince($year, $month) {
                             $valorDiasIncapadidad_formateado = number_format($valorDiasIncapadidad, 0, ',', '.');
                         }
             
-            
+            //dias vacaBasicos
+				$diasVacaBasic="SELECT count(*) FROM `seguimiento_user`  where seg_motivo ='Festivo en vacaciones' and seg_fechaingreso>='$fechaAhora' and seg_fechaingreso<='$fechafin'  and seg_idusuario='$idusuario' ";
+				$DB1->Execute($diasVacaBasic);
+				$rw12=mysqli_fetch_row($DB1->Consulta_ID);
+                $vacacionesFestivos=$rw12[0];
+				
+
             
             
             //VACACIONES
@@ -1292,7 +1261,8 @@ function diasSegundaQuince($year, $month) {
             
             
             
-                        $valorDiasVacaciones=($diasvalor)*($diasVacaciones);
+                        
+                       $valorDiasVacaciones=(($diasvalor)*($diasVacaciones+$vacacionesFestivos));
             
                         $valorDiasVacaciones_formateado = number_format($valorDiasVacaciones, 0, ',', '.');
             
@@ -1353,7 +1323,7 @@ function diasSegundaQuince($year, $month) {
                         //auxilio
                         $auxilioPorDia=$cargosaldo[3]/30;
                         //Total auxilio 15na
-                        $totalauxilio=$auxilioPorDia*($diassitrabajoParaSumar);
+                        $totalauxilio=$auxilioPorDia*($diassitrabajoParaSumar+$vacacionesFestivos);
             
             
             //Total horas domfest
@@ -1373,13 +1343,7 @@ function diasSegundaQuince($year, $month) {
                             
                         }	
             
-                        
-                        // if($idcidades=='0'){
-                        // 	$conde2="";
                     
-                        // }else {
-                        //   $conde2=" and (cue_idciudadori in $idcidades )"; 	
-                        // }	
                         $sedess="SELECT `usu_idsede` FROM `usuarios` WHERE `idusuarios`='$idusuario' ";
                         $DB1->Execute($sedess); 
                         $id_sedes=$DB1->recogedato(0);
@@ -1402,7 +1366,7 @@ function diasSegundaQuince($year, $month) {
                           $valorRecogidas_formateado = number_format($valorRecogidas, 0, ',', '.');	
                 //otros
                         $otrosPorDia=$cargosaldo[4]/30;
-                        //Total auxilio 15na
+                        //Total otros 15na
                         $totalOtrosDias=($otrosPorDia*($diassitrabajoParaSumar));
             
                         $totalOtrosDias_formateado = number_format($totalOtrosDias, 0, ',', '.');
@@ -1557,11 +1521,10 @@ function diasSegundaQuince($year, $month) {
                          
                           $tablaNomina1="SELECT  nom_confirma,nom_img_compro,nom_cuentaCobro,nom_confirmaUsu,nom_motivoObser, nom_fechaconfirmaUsus,`nom_confiAdmi`,`nom_fechaConfiAdmi`,nom_confirmaAdmin,nom_valor_ajuste1,nom_tipo_ajuste1,nom_ajuste_descripcion1  from nomina where nom_id_usu='$idusuario' and nom_fecha_inicio='$fechaactual' and nom_tipo_pago='Otros'  ";
                           $DB1->Execute($tablaNomina1); 
-                        //   echo"<td>$tablaNomina1</td>";
-                          // $prestamostotal=mysqli_fetch_row($DB1->Consulta_ID);
+
                           while($Nomina1=mysqli_fetch_row($DB1->Consulta_ID))
                           {
-                            // echo"AAAAAAAAAAAAAA".$Nomina[0];
+
                             
                             $valorAjusteO=$Nomina1[9];
                             $tipoAjusteO=$Nomina1[10];
@@ -1632,10 +1595,6 @@ function diasSegundaQuince($year, $month) {
                           }
                           
             
-                        //   }else{
-                        // 	echo "<td>Cargar</td>";
-            
-                        //   }
                         $ajustessumO=0;
                         $ajustesresO=0;
                         if ($tipoAjusteO=="suma") {

@@ -788,37 +788,59 @@ document.getElementById("param18")?.addEventListener("input", calcularValorAutom
 document.getElementById("form1").addEventListener("submit", function (e) {
   e.preventDefault();
 
+  const form = document.getElementById("form1");
+  if (form && !form.reportValidity()) {
+    return;
+  }
+
+  if (!validarFormularioAntesDeGps()) {
+    return;
+  }
+
   mostrarCargando("Obteniendo ubicación GPS...", "Espere un momento");
 
   if (!navigator.geolocation) {
     console.warn("GPS no disponible");
-    enviarFormulario();
+    enviarFormularioSeguro();
     return;
   }
 
+  let gpsFinalizado = false;
+
+  const continuarSinBloquear = function () {
+    if (gpsFinalizado) return;
+    gpsFinalizado = true;
+    enviarFormularioSeguro();
+  };
+
   navigator.geolocation.getCurrentPosition(
     function (pos) {
+      if (gpsFinalizado) return;
+      gpsFinalizado = true;
+
       document.getElementById("latitud").value = pos.coords.latitude;
       document.getElementById("longitud").value = pos.coords.longitude;
       document.getElementById("precision_gps").value = pos.coords.accuracy;
 
       console.log("📍 Ubicación capturada", pos.coords);
 
-      enviarFormulario();
+      enviarFormularioSeguro();
     },
     function (err) {
       console.warn("⚠️ No se pudo obtener GPS", err);
-      enviarFormulario();
+      continuarSinBloquear();
     },
     {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0
+      enableHighAccuracy: false,
+      timeout: 4000,
+      maximumAge: 60000
     }
   );
+
+  setTimeout(continuarSinBloquear, 4500);
 });
 
-function enviarFormulario() {
+function validarFormularioAntesDeGps() {
  const nombreRecibe = document.getElementById("param92")?.value || "";
 
   if (!nombreCompletoValido(nombreRecibe)) {
@@ -827,17 +849,73 @@ function enviarFormulario() {
       title: "Nombre incompleto",
       text: "Debe ingresar nombre y apellido de quien recibe"
     });
-    return; // 🚫 NO ENVÍA EL FORMULARIO
+    return false;
   }
+
   const imagenTransaccion = document.getElementById("imagen_transaccion");
-  if (actualizarRequeridoImagenTransaccion() && (!imagenTransaccion.files || imagenTransaccion.files.length === 0)) {
+  if (requiereImagenTransaccionRecogidasMovil() && (!imagenTransaccion?.files || imagenTransaccion.files.length === 0)) {
     Swal.fire({
       icon: "warning",
       title: "Falta imagen",
       text: "Debe adjuntar la imagen de la transaccion para Davivienda o Bancolombia."
     });
-    imagenTransaccion.classList.add("is-invalid");
-    imagenTransaccion.focus();
+    imagenTransaccion?.classList.add("is-invalid");
+    imagenTransaccion?.focus();
+    return false;
+  }
+
+  return true;
+}
+
+function requiereImagenTransaccionRecogidasMovil() {
+  const bloqueContado = document.getElementById("bloque-contado");
+  const metodoPago = document.getElementById("metodo_pago");
+  const input = document.getElementById("imagen_transaccion");
+  const ayuda = document.getElementById("ayuda_imagen_transaccion");
+  const bloqueContadoVisible = !bloqueContado || !bloqueContado.classList.contains("d-none");
+  const requiere = bloqueContadoVisible && ["DV", "NQ"].includes(metodoPago?.value || "");
+
+  if (input) {
+    input.required = requiere;
+    input.classList.remove("is-invalid");
+  }
+
+  ayuda?.classList.toggle("d-none", !requiere);
+  return requiere;
+}
+
+function enviarFormularioSeguro() {
+  try {
+    enviarFormulario();
+  } catch (err) {
+    cerrarCargando();
+    console.error("Error al preparar el envio", err);
+    Swal.fire("Error", "No se pudo preparar el formulario. Intente nuevamente.", "error");
+  }
+}
+
+function enviarFormulario() {
+ const nombreRecibe = document.getElementById("param92")?.value || "";
+
+  if (!nombreCompletoValido(nombreRecibe)) {
+    cerrarCargando();
+    Swal.fire({
+      icon: "warning",
+      title: "Nombre incompleto",
+      text: "Debe ingresar nombre y apellido de quien recibe"
+    });
+    return; // 🚫 NO ENVÍA EL FORMULARIO
+  }
+  const imagenTransaccion = document.getElementById("imagen_transaccion");
+  if (requiereImagenTransaccionRecogidasMovil() && (!imagenTransaccion?.files || imagenTransaccion.files.length === 0)) {
+    cerrarCargando();
+    Swal.fire({
+      icon: "warning",
+      title: "Falta imagen",
+      text: "Debe adjuntar la imagen de la transaccion para Davivienda o Bancolombia."
+    });
+    imagenTransaccion?.classList.add("is-invalid");
+    imagenTransaccion?.focus();
     return;
   }
 

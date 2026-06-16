@@ -14,13 +14,13 @@ $FB->llena_texto("Servicio:",15,82, $DB, $Servicio, "cambio22(this.value,\"inici
 $actuliza="si";
 if($param15=="Envio Oficina"){
 	
-	include("oficina.php");
+	echo '<iframe src="oficina.php" style="width:100%; height:80vh; border:0;" loading="lazy"></iframe>';
    
-	if($nivel_acceso!=3){  
-		$FB->llena_texto("", 1, 142, $DB, "Guardar e Imprimir", "", 0, 12, 0);
-	}else {
-		 $FB->llena_texto("", 1, 142, $DB, "Guardar", "", 0, 12, 0);
-	}
+	// if($nivel_acceso!=3){  
+	// 	$FB->llena_texto("", 1, 142, $DB, "Guardar e Imprimir", "", 0, 12, 0);
+	// }else {
+	// 	 $FB->llena_texto("", 1, 142, $DB, "Guardar", "", 0, 12, 0);
+	// }
 	
 	
 }else if($param15=="Envio Oficina1"){

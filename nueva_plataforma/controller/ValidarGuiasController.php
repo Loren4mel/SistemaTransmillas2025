@@ -4,10 +4,10 @@ require_once "../model/ValidarGuiasModel.php";
 
 $modelo = new ValidarGuiaModel();
 
-$acceso=$_POST['acceso'];
-$sede=$_POST['sede'];
-$usuario=$_POST['usuario'];
-$idUsuario=$_POST['id_usuario'];
+$acceso=$_POST['acceso'] ?? '';
+$sede=$_POST['sede'] ?? '';
+$usuario=$_POST['usuario'] ?? '';
+$idUsuario=$_POST['id_usuario'] ?? '';
 
 
     // if($acceso!=1 and $acceso!=10){
@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     $fecha = $_POST['fecha'] ?? '';
     $ciudadO = $_POST['ciudadO'] ?? '';
     $ciudadD = $_POST['ciudadD'] ?? '';
+    $conde2 = '';
 
 
 
@@ -46,10 +47,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 }
 
 // Acción para buscar Validadas
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] === 'obtenerOperadoresTrabajando') {
+    $ciudad = $_POST['ciudad'] ?? '';
+    $operadoresTrabajando = $modelo->obtenerOperadoresTrabajandoHoy($ciudad);
+
+    header('Content-Type: application/json');
+    echo json_encode($operadoresTrabajando ?: []);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] === 'preAsignarGuias') {
+    $operador = $_POST['operador'] ?? 0;
+    $guias = $_POST['guias'] ?? [];
+    $idUsuarioPreasigna = $_POST['id_usuario'] ?? $idUsuario;
+    $nombrePreasigna = $_POST['id_nombre'] ?? $usuario;
+    $respuesta = $modelo->preAsignarGuias($operador, is_array($guias) ? $guias : [], $idUsuarioPreasigna, $nombrePreasigna);
+
+    header('Content-Type: application/json');
+    echo json_encode($respuesta);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] === 'deshacerPreAsignacionGuias') {
+    $guias = $_POST['guias'] ?? [];
+    $respuesta = $modelo->deshacerPreAsignacionGuias(is_array($guias) ? $guias : []);
+
+    header('Content-Type: application/json');
+    echo json_encode($respuesta);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] === 'buscarValidadas') {
     $fecha = $_POST['fecha'] ?? '';
     $ciudadO = $_POST['ciudadO'] ?? '';
     $ciudadD = $_POST['ciudadD'] ?? '';
+    $conde2 = '';
 
         $sedesD = $modelo->sedes($ciudadD);
     if($sedesD=='0'){
@@ -88,17 +120,25 @@ if (isset($_POST['accion']) && $_POST['accion'] === 'actualizarServicio') {
     $id_usuario = $_POST['id_usuario'] ?? 0;
     $id_nombre  = $_POST['id_nombre'] ?? '';
     $idguia     = $_POST['idguia'] ?? '';
+    $datosIncautacion = [
+        'fecha' => $_POST['inc_fecha'] ?? '',
+        'idsede' => $_POST['inc_idsede'] ?? '',
+        'comentario' => $_POST['inc_comentario'] ?? ''
+    ];
 
     // 👇 Manejo de la imagen comprimida
     $nombreArchivo = null;
     if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
         $nombreTmp = $_FILES['imagen']['tmp_name'];
-        $nombreArchivo = time() . "_" . basename($_FILES['imagen']['name']); 
+        $nombreArchivo = time() . "_" . preg_replace('/[^A-Za-z0-9._-]/', '_', basename($_FILES['imagen']['name'])); 
         $rutaDestino = __DIR__ . "/../../imgServicios/" . $nombreArchivo;
 
         // --- función para comprimir ---
         function comprimirImagen($origen, $destino, $calidad = 70) {
             $info = getimagesize($origen);
+            if (!$info || empty($info['mime'])) {
+                return false;
+            }
 
             if ($info['mime'] == 'image/jpeg') {
                 $imagen = imagecreatefromjpeg($origen);
@@ -119,7 +159,9 @@ if (isset($_POST['accion']) && $_POST['accion'] === 'actualizarServicio') {
 
         // 👇 Comprimir en vez de mover directamente
         if (!comprimirImagen($nombreTmp, $rutaDestino, 70)) {
-            $nombreArchivo = null; // si falla, no se guarda
+            if (!move_uploaded_file($nombreTmp, $rutaDestino)) {
+                $nombreArchivo = null; // si falla, no se guarda
+            }
         }
     }
 
@@ -133,7 +175,8 @@ if (isset($_POST['accion']) && $_POST['accion'] === 'actualizarServicio') {
         $id_nombre,
         $idguia,
         $nombreArchivo,// 👈 imagen ya comprimida
-        $pieza
+        $pieza,
+        $datosIncautacion
     );
 
     // Devolver respuesta en JSON

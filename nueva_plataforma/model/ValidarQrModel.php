@@ -18,6 +18,7 @@ public function buscarServicioPorGuia($guia) {
             s.cli_idciudad,
             cc.ciu_nombre AS nombre_ciudad_cliente,
             s.ser_piezas,     
+            sv.ser_manifiesto,
             s.cli_nombre,
             s.ser_destinatario,
             s.ser_direccioncontacto,

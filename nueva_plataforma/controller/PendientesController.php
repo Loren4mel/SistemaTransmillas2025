@@ -39,7 +39,7 @@ try {
     $nombreUsuario = $_SESSION['usuario_nombre'] ?? '';
     $rolUsuario = (int) ($_SESSION['usuario_rol'] ?? 0);
     $puedeAdministrarPendientes = $rolUsuario === 1;
-    $puedeVerSeguimientoPendientes = in_array($rolUsuario, [1, 12], true);
+    $puedeVerSeguimientoPendientes = in_array($rolUsuario, [1, 4, 12], true);
 
     pendientesControllerLog('Sesion leida', [
         'idUsuario' => $idUsuario,

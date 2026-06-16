@@ -11,6 +11,9 @@ $conde3=" ";
 $conde4=" ";
 $conde44=" ";
 if($param34!=''){ $fechaactual=$param34; }
+$fechaactualBase = (isset($fechaactual) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaactual)) ? $fechaactual : date("Y-m-d");
+$fechaactualInicio = $fechaactualBase . " 00:00:00";
+$fechaactualFin = date("Y-m-d", strtotime($fechaactualBase . " +1 day")) . " 00:00:00";
 //if($param36!=''){ $fechainicial=$param36." 23:59:59";  }
 if($param33!=''){ $conde="and `idusuarios`= '$param33' ";  
 }
@@ -222,7 +225,7 @@ $efectivase1=0;
 		}
 
 
-		 $idestadoguia="SELECT  seg_idservicio,seg_direccion   FROM seguimientoruta where `seg_idusuario`='$id_p' and seg_fecha like '%$fechaactual%' and seg_estado!='Cambioruta' order by `seg_fechaestado` desc limit 1";
+		 $idestadoguia="SELECT  seg_idservicio,seg_direccion   FROM seguimientoruta where `seg_idusuario`='$id_p' and seg_fecha >= '$fechaactualInicio' and seg_fecha < '$fechaactualFin' and seg_estado!='Cambioruta' order by `seg_fechaestado` desc limit 1";
 		$DB1->Execute($idestadoguia);
 		$seguimiento=mysqli_fetch_row($DB1->Consulta_ID);	
 		$direccion=$seguimiento[1];

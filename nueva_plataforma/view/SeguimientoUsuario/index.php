@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Seguimiento de Usuarios</title>
+    <link rel="shortcut icon" href="<?= $appBasePath ?>/../images/Logo Google Nuevo.png">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -14,7 +15,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="../assets/css/usuarios.css">
+    <!-- Ruta base de la aplicación (calculada por el servidor) -->
+    <script>
+        window.APP_BASE_URL = "<?= $appBasePath ?>";
+    </script>
+    <link rel="stylesheet" href="<?= $appBasePath ?>/assets/css/usuarios.css">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         .noti_bubble {
@@ -26,6 +31,10 @@
             border-radius: 60px;
             box-shadow: 1px 1px 3px gray;
             cursor: pointer;
+        }
+
+        .noti_bubble_blue {
+            background-color: #2196F3 !important;
         }
 
         /* Notificaciones toast */
@@ -211,6 +220,7 @@
                 <!-- Botones de acción principales -->
                 <div class="row mb-3">
                     <div class="col-md-12">
+                        <?php if ($_SESSION['usuario_rol'] == 1 || $_SESSION['usuario_rol'] == 12): ?>
                         <button type="button" class="btn btn-info btn-lg" onclick="abrirModalFestivos()">
                             <i class="fas fa-calendar-plus"></i> + Día de descanso
                         </button>
@@ -220,11 +230,10 @@
                         <button type="button" class="btn btn-info btn-lg" onclick="abrirModalLicencias()">
                             <i class="fas fa-file-medical"></i> + Licencias y permisos
                         </button>
-                        <?php if ($_SESSION['usuario_rol'] == 1 || $_SESSION['usuario_rol'] == 12): ?>
-                            <!-- <button type="button" class="btn btn-primary btn-lg" onclick="abrirModalIngreso()">
-                                <i class="fas fa-user-plus"></i> Ingreso manual
-                            </button> -->
                         <?php endif; ?>
+                        <button type="button" class="btn btn-lg" onclick="abrirModalNuevosEmpleados()" style="background-color: #2196F3; color: white;">
+                            <i class="fas fa-user-plus"></i> Nuevos Empleados
+                        </button>
                     </div>
                 </div>
 
@@ -322,21 +331,6 @@
 
     <!-- MODALES -->
 
-    <!-- Modal Ingreso (SeguimientoUser) -->
-    <div class="modal fade" id="modalIngreso" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Registrar ingreso de operario</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="ingresoModalBody">
-                    <!-- Se cargará vía AJAX -->
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal Festivos (día de descanso para todos) -->
     <div class="modal fade" id="modalFestivos" tabindex="-1">
         <div class="modal-dialog">
@@ -394,6 +388,24 @@
         </div>
     </div>
 
+    <!-- Modal Nuevos Empleados (búsqueda por rango de fecha de ingreso) -->
+    <div class="modal fade" id="modalNuevosEmpleados" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i> Nuevos Empleados por Fecha de Ingreso</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="nuevosEmpleadosModalBody">
+                    <!-- Cargado via AJAX -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal genérico para popups -->
     <div class="modal fade" id="popupModal" tabindex="-1" aria-labelledby="popupModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -425,7 +437,7 @@
     </script>
 
     <!-- JavaScript del módulo de seguimiento de usuarios -->
-    <script src="../assets/js/seguimiento.js?v=<?= filemtime(__DIR__ . '/../../assets/js/seguimiento.js') ?>"></script>
+    <script src="<?= $appBasePath ?>/assets/js/seguimiento.js?v=<?= filemtime(__DIR__ . '/../../assets/js/seguimiento.js') ?>"></script>
 </body>
 
 </html>

@@ -21,22 +21,7 @@ class ValidarGuiaModel{
             $conde2=$filtroCiudad;
         }
         
-        // $sql = "SELECT 
-        //         idservicios, 
-        //         ser_consecutivo,
-        //         ser_tipopaquete, 
-        //         ser_piezas,
-        //         numeropieza,
-        //         ser_fechaguia,
-        //         ser_paquetedescripcion,
-        //         cli_idciudad
-        //     FROM serviciosdia 
-        //     INNER JOIN piezasguia 
-        //         ON ser_consecutivo = numeroguia  
-        //     WHERE ser_estado IN ('6','7') 
-        //     AND guiallega = 0   
-        //     $conde2 
-        //     ORDER BY ser_fechaguia DESC, ser_consecutivo ASC, numeropieza ASC";
+
         $sql = "SELECT s.idservicios,
         s.ser_consecutivo,
         s.ser_tipopaquete,
@@ -44,9 +29,24 @@ class ValidarGuiaModel{
         p.numeropieza,
         s.ser_fechaguia, 
         s.ser_paquetedescripcion, 
-        s.cli_idciudad, 
-        CASE WHEN EXISTS ( SELECT 1 FROM piezasguia p2 WHERE p2.numeroguia = s.ser_consecutivo AND p2.guiallega = 1 ) 
-        THEN 1 ELSE 0 END AS tiene_piezas_llegadas 
+        s.cli_idciudad,
+        p.transporta,
+        s.ser_direccioncontacto AS ser_direccioncontacto, 
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM piezasguia pl
+            WHERE pl.numeroguia = s.ser_consecutivo
+            AND pl.guiallega = 1
+            LIMIT 1
+        ) THEN 1 ELSE 0 END AS tiene_piezas_llegadas,
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM seguimientoruta spa
+            WHERE spa.seg_idservicio = s.idservicios
+            AND spa.seg_tipo = 'Entrega'
+            AND spa.seg_estado = 'Pre-asignada'
+            LIMIT 1
+        ) THEN 1 ELSE 0 END AS esta_preasignada
         FROM serviciosdia s 
         INNER JOIN piezasguia p ON s.ser_consecutivo = p.numeroguia 
         WHERE s.ser_estado IN ('6','7') 
@@ -59,7 +59,7 @@ class ValidarGuiaModel{
         //✅ Guardar consulta en log para depuración
         $logPath = __DIR__ . '/log_obtenerSerProgramados.txt'; // puedes cambiar el nombre/ruta si quieres
         $logMessage = "[" . date("Y-m-d H:i:s") . "] SQL: $sql\n";
-        file_put_contents($logPath, $logMessage, FILE_APPEND);
+        // file_put_contents($logPath, $logMessage, FILE_APPEND);
         
         $result = $this->db->query($sql);
         return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
@@ -115,6 +115,290 @@ class ValidarGuiaModel{
         $sql = "SELECT `idusuarios`,`usu_nombre` FROM `usuarios` WHERE  (usu_estado=1 or usu_filtro=1) $cond AND roles_idroles IN (2,3,5,8) ";
         $result = $this->db->query($sql);
         return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    }
+    public function obtenerOperadoresTrabajandoHoy($ciudad="") {
+        $cond="";
+        if ($ciudad!="") {
+            $ciudad = $this->db->real_escape_string($ciudad);
+            $cond="and u.usu_idsede='$ciudad'"; 
+        }
+
+        $sql = "SELECT DISTINCT u.idusuarios, u.usu_nombre
+                FROM usuarios u
+                INNER JOIN seguimiento_user s ON s.seg_idusuario = u.idusuarios
+                WHERE (u.usu_estado=1 or u.usu_filtro=1)
+                $cond
+                AND u.roles_idroles IN (2,3,5,8)
+                AND s.seg_motivo = 'Ingreso'
+                AND DATE(s.seg_fechaingreso) = CURDATE()
+                AND (s.seg_fechafinalizo IS NULL OR s.seg_fechafinalizo = '')
+                ORDER BY u.usu_nombre";
+        $result = $this->db->query($sql);
+        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    }
+    public function preAsignarGuias($operador, $guias, $idUsuario = 0, $nombreUsuario = '') {
+        $operador = (int)$operador;
+        $idUsuario = (int)$idUsuario;
+        $nombreUsuario = trim((string)$nombreUsuario);
+        $guiasLimpias = [];
+
+        foreach ($guias as $guia) {
+            $guia = trim((string)$guia);
+            if ($guia !== '') {
+                $guiasLimpias[] = "'" . $this->db->real_escape_string($guia) . "'";
+            }
+        }
+
+        $guiasLimpias = array_values(array_unique($guiasLimpias));
+        if ($operador <= 0 || count($guiasLimpias) === 0) {
+            return ['success' => false, 'message' => 'Datos incompletos para pre-asignar.'];
+        }
+
+        date_default_timezone_set('America/Bogota');
+        $fecha = date('Y-m-d H:i:s');
+        $nombreUsuarioSql = $this->db->real_escape_string($nombreUsuario);
+        $listaGuias = implode(',', $guiasLimpias);
+
+        $sqlServicios = "SELECT idservicios, ser_consecutivo, ser_direccioncontacto, ser_fechaguia
+                         FROM servicios
+                         WHERE ser_consecutivo IN ($listaGuias)";
+        $resultServicios = $this->db->query($sqlServicios);
+
+        if (!$resultServicios || $resultServicios->num_rows === 0) {
+            return ['success' => false, 'message' => 'No se encontraron guias para pre-asignar.'];
+        }
+
+        $servicios = [];
+        $idsServicios = [];
+        while ($row = $resultServicios->fetch_assoc()) {
+            $servicios[] = $row;
+            $idsServicios[] = (int)$row['idservicios'];
+        }
+
+        $idsServicios = array_values(array_unique($idsServicios));
+        $idsSql = implode(',', $idsServicios);
+
+        $this->db->begin_transaction();
+
+        try {
+            $serviciosPreAsignados = [];
+            $sqlPreAsignados = "SELECT DISTINCT seg_idservicio
+                                FROM seguimientoruta
+                                WHERE seg_idservicio IN ($idsSql)
+                                AND seg_tipo = 'Entrega'
+                                AND seg_estado = 'Pre-asignada'";
+            $resultPreAsignados = $this->db->query($sqlPreAsignados);
+            if ($resultPreAsignados) {
+                while ($rowPre = $resultPreAsignados->fetch_assoc()) {
+                    $serviciosPreAsignados[(int)$rowPre['seg_idservicio']] = true;
+                }
+            }
+
+            $sqlCuentas = "UPDATE cuentaspromotor
+                           SET cue_idoperentrega = $operador,
+                               cue_fecha = '$fecha'
+                           WHERE cue_idservicio IN ($idsSql)";
+            if (!$this->db->query($sqlCuentas)) {
+                throw new Exception($this->db->error);
+            }
+
+            $sqlServiciosUpdate = "UPDATE servicios
+                                   SET ser_idusuarioguia = $operador,
+                                       ser_idusuarioregistro = $idUsuario,
+                                       ser_visto = 0
+                                   WHERE idservicios IN ($idsSql)";
+            if (!$this->db->query($sqlServiciosUpdate)) {
+                throw new Exception($this->db->error);
+            }
+
+            $sqlGuias = "UPDATE guias
+                         SET gui_encomienda = '$nombreUsuarioSql',
+                             gui_fechaencomienda = '$fecha'
+                         WHERE gui_idservicio IN ($idsSql)";
+            if (!$this->db->query($sqlGuias)) {
+                throw new Exception($this->db->error);
+            }
+
+            if (count($serviciosPreAsignados) > 0) {
+                $idsPreAsignadosSql = implode(',', array_keys($serviciosPreAsignados));
+                $sqlActualizarPreAsignadas = "UPDATE seguimientoruta
+                                              SET seg_fecha = '$fecha',
+                                                  seg_idusuario = $operador
+                                              WHERE seg_idservicio IN ($idsPreAsignadosSql)
+                                              AND seg_tipo = 'Entrega'
+                                              AND seg_estado = 'Pre-asignada'";
+                if (!$this->db->query($sqlActualizarPreAsignadas)) {
+                    throw new Exception($this->db->error);
+                }
+            }
+
+            $stmtSeguimiento = $this->db->prepare(
+                "INSERT INTO seguimientoruta
+                    (seg_fecha, seg_idservicio, seg_direccion, seg_tipo, seg_estado, seg_idusuario, seg_guia, seg_descripcion)
+                 VALUES (?, ?, ?, 'Entrega', 'Pre-asignada', ?, ?, ?)"
+            );
+
+            if (!$stmtSeguimiento) {
+                throw new Exception($this->db->error);
+            }
+
+            foreach ($servicios as $servicio) {
+                $idServicio = (int)$servicio['idservicios'];
+                if (isset($serviciosPreAsignados[$idServicio])) {
+                    continue;
+                }
+
+                $direccion = 'Entrega ' . str_replace('&', ' ', (string)$servicio['ser_direccioncontacto']);
+                $guia = (string)$servicio['ser_consecutivo'];
+                $descripcion = 'Pre-asignada desde validacion de guias|ser_fechaguia_anterior=' . (string)($servicio['ser_fechaguia'] ?? '');
+                $stmtSeguimiento->bind_param('sisiss', $fecha, $idServicio, $direccion, $operador, $guia, $descripcion);
+
+                if (!$stmtSeguimiento->execute()) {
+                    throw new Exception($stmtSeguimiento->error);
+                }
+            }
+
+            $stmtSeguimiento->close();
+            $this->db->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Guias pre-asignadas correctamente.',
+                'actualizadas' => count($idsServicios)
+            ];
+        } catch (Exception $e) {
+            $this->db->rollback();
+
+            return [
+                'success' => false,
+                'message' => 'No fue posible pre-asignar las guias.',
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    public function deshacerPreAsignacionGuias($guias) {
+        $guiasLimpias = [];
+
+        foreach ($guias as $guia) {
+            $guia = trim((string)$guia);
+            if ($guia !== '') {
+                $guiasLimpias[] = "'" . $this->db->real_escape_string($guia) . "'";
+            }
+        }
+
+        $guiasLimpias = array_values(array_unique($guiasLimpias));
+        if (count($guiasLimpias) === 0) {
+            return ['success' => false, 'message' => 'Seleccione al menos una guia pre-asignada.'];
+        }
+
+        $listaGuias = implode(',', $guiasLimpias);
+        $sqlServicios = "SELECT s.idservicios, sr.seg_descripcion
+                         FROM servicios s
+                         INNER JOIN seguimientoruta sr
+                            ON sr.seg_idservicio = s.idservicios
+                            AND sr.seg_tipo = 'Entrega'
+                            AND sr.seg_estado = 'Pre-asignada'
+                         WHERE s.ser_consecutivo IN ($listaGuias)
+                         GROUP BY s.idservicios, sr.seg_descripcion";
+        $resultServicios = $this->db->query($sqlServicios);
+
+        if (!$resultServicios || $resultServicios->num_rows === 0) {
+            return ['success' => false, 'message' => 'No se encontraron guias pre-asignadas para deshacer.'];
+        }
+
+        $idsServicios = [];
+        $fechasAnteriores = [];
+        while ($row = $resultServicios->fetch_assoc()) {
+            $idServicio = (int)$row['idservicios'];
+            $idsServicios[] = $idServicio;
+
+            if (preg_match('/ser_fechaguia_anterior=([^|]*)/', (string)$row['seg_descripcion'], $matches)) {
+                $fechasAnteriores[$idServicio] = $matches[1];
+            }
+        }
+
+        $idsSql = implode(',', array_values(array_unique($idsServicios)));
+        date_default_timezone_set('America/Bogota');
+        $fecha = date('Y-m-d H:i:s');
+        $fechaDia = date('Y-m-d');
+
+        $this->db->begin_transaction();
+
+        try {
+            $sqlCuentas = "UPDATE cuentaspromotor
+                           SET cue_idoperentrega = 0
+                           WHERE cue_idservicio IN ($idsSql)";
+            if (!$this->db->query($sqlCuentas)) {
+                throw new Exception($this->db->error);
+            }
+
+            $sqlServiciosUpdate = "UPDATE servicios
+                                   SET ser_idusuarioguia = 0,
+                                       ser_visto = 0
+                                   WHERE idservicios IN ($idsSql)";
+            if (!$this->db->query($sqlServiciosUpdate)) {
+                throw new Exception($this->db->error);
+            }
+
+            $stmtFechaAnterior = $this->db->prepare("UPDATE servicios SET ser_fechaguia=? WHERE idservicios=?");
+            if (!$stmtFechaAnterior) {
+                throw new Exception($this->db->error);
+            }
+
+            foreach ($fechasAnteriores as $idServicio => $fechaAnterior) {
+                $stmtFechaAnterior->bind_param("si", $fechaAnterior, $idServicio);
+
+                if (!$stmtFechaAnterior->execute()) {
+                    throw new Exception($stmtFechaAnterior->error);
+                }
+            }
+
+            $stmtFechaAnterior->close();
+
+            $sqlGuias = "UPDATE guias
+                         SET gui_encomienda = '',
+                             gui_fechaencomienda = ''
+                         WHERE gui_idservicio IN ($idsSql)";
+            if (!$this->db->query($sqlGuias)) {
+                throw new Exception($this->db->error);
+            }
+
+            $sqlSeguimiento = "UPDATE seguimientoruta
+                               SET seg_estado = 'Pre-asignacion cancelada',
+                                   seg_fechafinalizo = '$fecha',
+                                   seg_descripcion = 'Pre-asignacion cancelada desde validacion de guias'
+                               WHERE seg_idservicio IN ($idsSql)
+                               AND seg_tipo = 'Entrega'
+                               AND seg_estado = 'Pre-asignada'";
+            if (!$this->db->query($sqlSeguimiento)) {
+                throw new Exception($this->db->error);
+            }
+
+            $sqlOrden = "DELETE FROM ord_recoentregas
+                         WHERE orden_idservicio IN ($idsSql)
+                         AND orden_fechadiaejecucion = '$fechaDia'
+                         AND ord_tipo = 'Entrega'";
+            if (!$this->db->query($sqlOrden)) {
+                throw new Exception($this->db->error);
+            }
+
+            $this->db->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Pre-asignacion deshecha correctamente.',
+                'actualizadas' => count($idsServicios)
+            ];
+        } catch (Exception $e) {
+            $this->db->rollback();
+
+            return [
+                'success' => false,
+                'message' => 'No fue posible deshacer la pre-asignacion.',
+                'error' => $e->getMessage()
+            ];
+        }
     }
     public function obtenerCreditos() {
         $cond="";
@@ -263,10 +547,49 @@ class ValidarGuiaModel{
 
         curl_close($curl);
     }
+    private function registrarIncautacionGuia($idser, $guia, $pieza, $nombreArchivo, $id_usuario, $id_nombre, $datosIncautacion) {
+        $fecha = trim((string)($datosIncautacion['fecha'] ?? ''));
+        $idsede = (int)($datosIncautacion['idsede'] ?? 0);
+        $comentario = trim((string)($datosIncautacion['comentario'] ?? ''));
 
+        if ($fecha === '' || $idsede <= 0) {
+            throw new Exception("Faltan datos de incautacion.");
+        }
 
+        $stmt = $this->db->prepare(
+            "INSERT INTO incautaciones_guias
+                (inc_idservicio, inc_guia, inc_pieza, inc_fecha, inc_idsede, inc_archivo, inc_comentario, inc_idusuario, inc_nombreusuario)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        );
 
-    public function actualizarServicio($descr, $llego, $piezasg, $guia, $id_usuario, $id_nombre,$idguia,$nombreArchivo,$pieza) {
+        if (!$stmt) {
+            throw new Exception($this->db->error);
+        }
+
+        $idser = (int)$idser;
+        $pieza = (int)$pieza;
+        $id_usuario = (int)$id_usuario;
+        $stmt->bind_param(
+            "isisissis",
+            $idser,
+            $guia,
+            $pieza,
+            $fecha,
+            $idsede,
+            $nombreArchivo,
+            $comentario,
+            $id_usuario,
+            $id_nombre
+        );
+
+        if (!$stmt->execute()) {
+            throw new Exception($stmt->error);
+        }
+
+        $stmt->close();
+    }
+
+    public function actualizarServicio($descr, $llego, $piezasg, $guia, $id_usuario, $id_nombre,$idguia,$nombreArchivo,$pieza, $datosIncautacion = []) {
         date_default_timezone_set('America/Bogota');
         $fechatiempo = date("Y-m-d H:i:s");
 
@@ -297,6 +620,10 @@ class ValidarGuiaModel{
         }
 
         try {
+            if ($llego === 'Incautada') {
+                $this->registrarIncautacionGuia($idser, $guia, $pieza, $nombreArchivo, $id_usuario, $id_nombre, $datosIncautacion);
+            }
+
             // 3️⃣ Si hay más de una pieza
             if ($piezasg > 1) {
                 // Marcar piezas que llegaron
@@ -327,19 +654,35 @@ class ValidarGuiaModel{
 
             // 4️⃣ Si todas llegaron, actualizar en cascada
             if ($inser == 1) {
+                $estadoFinal = $estadog;
+                $stmt = $this->db->prepare("SELECT COUNT(*) AS total FROM seguimientoruta WHERE seg_idservicio=? AND seg_tipo='Entrega' AND seg_estado='Pre-asignada'");
+                $stmt->bind_param("i", $idser);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                $preAsignada = $res ? $res->fetch_assoc() : ['total' => 0];
+
+                if ($llego === 'SI' && (int)$preAsignada['total'] > 0) {
+                    $estadoFinal = 9;
+                }
+
                 // cuentaspromotor
                 $stmt = $this->db->prepare("UPDATE cuentaspromotor SET cue_fecha=?, cue_estado=? WHERE cue_idservicio=?");
-                $stmt->bind_param("sii", $fechatiempo, $estadog, $idser);
+                $stmt->bind_param("sii", $fechatiempo, $estadoFinal, $idser);
                 $stmt->execute();
 
                 // servicios
                 $stmt = $this->db->prepare("UPDATE servicios SET ser_idusuarioregistro=?, ser_fechaguia=?, ser_estado=?, ser_llego=? WHERE idservicios=?");
-                $stmt->bind_param("isisi", $id_usuario, $fechatiempo, $estadog, $llego, $idser);
+                $stmt->bind_param("isisi", $id_usuario, $fechatiempo, $estadoFinal, $llego, $idser);
                 $stmt->execute();
 
                 // guias
                 $stmt = $this->db->prepare("UPDATE guias SET gui_validasede=?, gui_fechavalidasede=? WHERE gui_idservicio=?");
                 $stmt->bind_param("ssi", $id_nombre, $fechatiempo, $idser);
+                $stmt->execute();
+
+                // Si la guia estaba pre-asignada, al validar la ultima pieza pasa al flujo normal de entrega.
+                $stmt = $this->db->prepare("UPDATE seguimientoruta SET seg_estado='Asignada' WHERE seg_idservicio=? AND seg_tipo='Entrega' AND seg_estado='Pre-asignada'");
+                $stmt->bind_param("i", $idser);
                 $stmt->execute();
             }
 
@@ -541,7 +884,7 @@ public function validarGuiaYPiezas($guia, $id_usuario, $id_nombre, $tipoVehiculo
                  FROM piezasguia 
                  WHERE numeroguia = '$guia' AND numeropieza = '$pieza'";
 
-        file_put_contents($logPath, "[" . date("Y-m-d H:i:s") . "] SQL: $sql2\n", FILE_APPEND);
+        // file_put_contents($logPath, "[" . date("Y-m-d H:i:s") . "] SQL: $sql2\n", FILE_APPEND);
 
         $stmt2 = $this->db->prepare($sql2);
         $stmt2->execute();

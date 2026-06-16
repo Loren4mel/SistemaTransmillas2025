@@ -1654,31 +1654,42 @@ echo$rw2[0];
 		   $param9=substr($param9,1);
 	   }
 	   if($ultima==','){
-		   $param9 = substr($param9,-1);
+		   $param9 = substr($param9,0,-1);
 	   }
-	   //echo $param10;
-	   if($param10!='Editar'){
-		   $cond=",`fac_estado`='Facturado',`fac_iduserfac`='$id_usuario',fac_tipopago='Pendiente'";
+	   $param9Sql = ($param9=='') ? 0 : $param9;
+	   $numeroFacturaAnterior = (($param10=='Editar' || $param10=='EditarPrefa') && $param11!='') ? $param11 : $param2;
+	   
+	   if($param10=='Editar' || $param10=='EditarPrefa'){
+		$condEditarPrefa = "";
+		if($param10=='EditarPrefa'){
+			$condEditarPrefa = ", `fac_tipopago`='Pendiente'";
+		}
+		$sqll1="UPDATE `facturascreditos` SET 
+		`fac_fechafactura`='$param12',
+		`fac_fechafacturado`='$param4',
+		`fac_fechavencimiento`='$param5',
+		`fac_idservicios`='$param9',
+		`fac_idfacturados`='$param9',
+		`fac_credito`='EXTERNOS',
+		`fac_precio`='$param1',
+		`fac_numeroref`='$param2',
+		`fac_iduserfac`='$id_usuario',
+		`fac_estado`='Facturado',
+		`fac_nit`='$param13',
+		`fac_correo_auto`='$param50'
+		$condEditarPrefa
+		WHERE `idfacturascreditos`='$param8'";
 	   }else{
-		   $cond="";
-	   }
-
-	   $sql0="DELETE from  `facturascreditos` where  fac_numeroref='$param2'";
+		$sql0="DELETE from  `facturascreditos` where  fac_numeroref='$param2'";
 		$DB->Execute($sql0); 
 
-	 //  $sql="UPDATE `facturascreditos` SET `fac_fechafacturado`='$param4',`fac_fechavencimiento`='$param5',`fac_idfacturados`='$param9',`fac_precio`='$param1',`fac_numeroref`='$param2' $cond WHERE idfacturascreditos='$param8'";
-	 $variable=date("Y").date("m").date("d").date("h").date("i").date("s");
-	 $variableunica=$variable;
-	 if($param10!='Editar'){
-		echo$sqll1="INSERT INTO `facturascreditos`(`fac_numerofactura`,`fac_fechafactura`,`fac_fechaprefac`,`fac_fechafacturado`,`fac_idservicios`,`fac_idfacturados`,`fac_estado`,`fac_fechavencimiento`,`fac_credito`,`fac_precio`, `fac_numeroref`,`fac_iduserpre`,fac_iduserfac,fac_tipopago,fac_nit,fac_correo_auto) 
+		$variable=date("Y").date("m").date("d").date("h").date("i").date("s");
+		$variableunica=$variable;
+		$sqll1="INSERT INTO `facturascreditos`(`fac_numerofactura`,`fac_fechafactura`,`fac_fechaprefac`,`fac_fechafacturado`,`fac_idservicios`,`fac_idfacturados`,`fac_estado`,`fac_fechavencimiento`,`fac_credito`,`fac_precio`, `fac_numeroref`,`fac_iduserpre`,fac_iduserfac,fac_tipopago,fac_nit,fac_correo_auto) 
 		values ('$variableunica','$param12','$fechaactual','$param4','$param9','$param9','Facturado','$param5','EXTERNOS','$param1','$param2','$id_nombre','$id_usuario','Pendiente','$param13','$param50')";
-	 }else{
-		$sqll1="INSERT INTO `facturascreditos`(`fac_numerofactura`,`fac_fechafactura`,`fac_fechaprefac`,`fac_fechafacturado`,`fac_idservicios`,`fac_idfacturados`,`fac_estado`,`fac_fechavencimiento`,`fac_credito`,`fac_precio`, `fac_numeroref`,`fac_iduserpre`,fac_iduserfac,fac_tipopago) 
-		values ('$variableunica','$param12','$fechaactual','$param4','$param9','$param9','Facturado','$param5','EXTERNOS','$param1','$param2','$id_nombre','$id_usuario','Pendiente')";
-	 }
+	   }
 
 	   if($DB->Execute($sqll1)){
-		$idservicios1 = explode(',', $param9);
 			
 				/*	$sql0="DELETE from  `rel_sercre` where  idservicio in (select idservicios from servicios `ser_numerofactura`='$param2')";
 				$DB->Execute($sql0); 
@@ -1688,26 +1699,27 @@ echo$rw2[0];
 					$DB->Execute($sql0); 
 				} */
 
-				$sql0="UPDATE  `rel_sercre` set rel_nom_credito='EXTERNOS' where  `idservicio` in ($param9)";
-				$DB->Execute($sql0); 
-
-				$param9==''?$param9=0:$param9;
+				if($param9Sql!=0){
+					$sql0="UPDATE  `rel_sercre` set rel_nom_credito='EXTERNOS' where  `idservicio` in ($param9Sql)";
+					$DB->Execute($sql0); 
+				}
 
 				$sql2="UPDATE `servicios` SET `ser_numerofactura`='',ser_pendientecobrar= CASE
 				WHEN ser_pendientecobrar = 6 THEN 1
 				WHEN ser_pendientecobrar = 7 THEN 2
-				END  where  `ser_numerofactura`='$param2' and `idservicios` not in ($param9)";
+				END  where  `ser_numerofactura`='$numeroFacturaAnterior' and `idservicios` not in ($param9Sql)";
 				
 				$DB->Execute($sql2);
-				if($param9!='' and $param9!=0){
+				if($param9Sql!=0){
 					$sel="UPDATE `servicios` SET `ser_numerofactura`='$param2',ser_pendientecobrar=CASE 
 					WHEN ser_pendientecobrar = 1 THEN 6
-					WHEN ser_pendientecobrar = 2 THEN 7 END where `idservicios` in ($param9)";
+					WHEN ser_pendientecobrar = 2 THEN 7
+					ELSE ser_pendientecobrar END where `idservicios` in ($param9Sql)";
 					$DB->Execute($sel);	 
 
 				}
 
-				 $sql="Select fac_numerofactura from facturascreditos where fac_numerofactura='$variableunica' ";
+				 $sql=$sqll1;
 		
 	   }
 	  
