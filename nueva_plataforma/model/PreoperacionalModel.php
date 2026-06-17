@@ -839,12 +839,24 @@ class PreoperacionalModel
      * Obtiene vehículos activos que no tienen conductor asignado
      * y cuyo último seguimiento NO es FUERA_DE_SERVICIO.
      *
+     * REGLAS DE DISPONIBILIDAD:
+     * 1. veh_propiedad = 'empresa' — solo vehículos de la compañía.
+     *    veh_propiedad vacío o 'propio' se tratan como personales (excluidos).
+     * 2. veh_estado = 1 — solo vehículos activos
+     * 3. Sin conductor asignado (usu_vehiculo libre)
+     * 4. Último seguimiento NO es FUERA_DE_SERVICIO
+     * 5. Sin PREOPERACIONAL hoy de OTRO usuario — un vehículo solo puede
+     *    tener un preoperacional por día (el mismo usuario sí puede volver
+     *    a seleccionar su vehículo si ya lo tenía hoy)
+     *
+     * @param int|null $idUsuarioActual ID del usuario actual (para excluir
+     *                                   vehículos ya usados por otros hoy)
      * @return array Lista de vehículos disponibles
      */
-    public function obtenerVehiculosSinConductor()
+    public function obtenerVehiculosSinConductor($idUsuarioActual = null)
     {
         $sql = "SELECT v.idvehiculos, v.veh_tipo, v.veh_placa, v.veh_marca, v.veh_modelo,
-                       v.veh_kilactual, v.veh_estado
+                       v.veh_kilactual, v.veh_estado, v.veh_propiedad
                 FROM vehiculos v
                 WHERE v.veh_estado = 1
                   AND v.veh_propiedad = 'empresa'
@@ -861,10 +873,28 @@ class PreoperacionalModel
                             FROM seguimiento_vehiculo sv2
                             WHERE sv2.id_vehiculo = sv.id_vehiculo
                         )
-                  )
-                ORDER BY v.veh_tipo, v.veh_placa";
+                  )";
+
+        // REGLA 5: Excluir vehículos que ya tuvieron un PREOPERACIONAL hoy
+        // de otro conductor. El mismo usuario sí puede volver a seleccionar
+        // su vehículo (ej: si recargó la página o va a editar su registro).
+        if ($idUsuarioActual !== null && $idUsuarioActual > 0) {
+            $sql .= " AND v.idvehiculos NOT IN (
+                          SELECT sv3.id_vehiculo
+                          FROM seguimiento_vehiculo sv3
+                          WHERE sv3.tipo_evento = 'PREOPERACIONAL'
+                            AND DATE(sv3.fecha_registro) = CURDATE()
+                            AND sv3.id_conductor IS NOT NULL
+                            AND sv3.id_conductor != ?
+                      )";
+        }
+
+        $sql .= " ORDER BY v.veh_tipo, v.veh_placa";
 
         $stmt = $this->db->prepare($sql);
+        if ($idUsuarioActual !== null && $idUsuarioActual > 0) {
+            $stmt->bind_param("i", $idUsuarioActual);
+        }
         $stmt->execute();
         $result = $stmt->get_result();
         $vehiculos = [];
