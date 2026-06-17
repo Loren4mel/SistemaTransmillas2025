@@ -12,7 +12,7 @@
  * @var string $hastaDefecto Fecha fin por defecto (Y-m-d)
  */
 
-$appBasePath = dirname(dirname(dirname($_SERVER['SCRIPT_NAME'])));
+$appBasePath = dirname(dirname($_SERVER['SCRIPT_NAME']));
 $labelTipo = [
     'PREOPERACIONAL' => 'Preoperacional',
     'MANTENIMIENTO' => 'Mantenimiento',
@@ -138,10 +138,10 @@ $badgeClase = [
                             <td class="text-center"><?= $kmEv ?></td>
                             <td class="text-center">
                                 <?php if (!empty($ev['foto_evidencia'])): ?>
-                                    <a href="<?= htmlspecialchars($ev['foto_evidencia']) ?>" target="_blank" title="Ver foto evidencia">📷</a>
+                                    <a href="<?= $appBasePath . '/' . htmlspecialchars($ev['foto_evidencia']) ?>" target="_blank" title="Ver foto evidencia">📷</a>
                                 <?php endif; ?>
                                 <?php if (!empty($ev['img_kilometraje'])): ?>
-                                    <a href="<?= htmlspecialchars($ev['img_kilometraje']) ?>" target="_blank" title="Ver foto odómetro">🖼️</a>
+                                    <a href="<?= $appBasePath . '/' . htmlspecialchars($ev['img_kilometraje']) ?>" target="_blank" title="Ver foto odómetro">🖼️</a>
                                 <?php endif; ?>
                                 <?php if (!$fotoEv): ?>—<?php endif; ?>
                             </td>

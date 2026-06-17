@@ -281,14 +281,15 @@
                 var conductorEv = ev.conductor_nombre || '—';
                 var obsEscaped = escHtml(obsEv).replace(/\n/g, '\\n');
 
+                var baseUrl = (window.APP_BASE_URL ? window.APP_BASE_URL + '/' : '');
                 var fotoHtml = '—';
                 if (ev.foto_evidencia && ev.img_kilometraje) {
-                    fotoHtml = '<a href="' + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a> ' +
-                               '<a href="' + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
+                    fotoHtml = '<a href="' + baseUrl + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a> ' +
+                               '<a href="' + baseUrl + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
                 } else if (ev.foto_evidencia) {
-                    fotoHtml = '<a href="' + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a>';
+                    fotoHtml = '<a href="' + baseUrl + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a>';
                 } else if (ev.img_kilometraje) {
-                    fotoHtml = '<a href="' + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
+                    fotoHtml = '<a href="' + baseUrl + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
                 }
 
                 tbody += '<tr>' +

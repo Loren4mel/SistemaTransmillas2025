@@ -9,7 +9,7 @@
  * @var array $historial  Lista de registros de kilometraje (sin filtrar)
  */
 
-$appBasePath = dirname(dirname(dirname($_SERVER['SCRIPT_NAME'])));
+$appBasePath = dirname(dirname($_SERVER['SCRIPT_NAME']));
 $desdeDefecto = date('Y-m-d', strtotime('-30 days'));
 $hastaDefecto = date('Y-m-d');
 ?>
