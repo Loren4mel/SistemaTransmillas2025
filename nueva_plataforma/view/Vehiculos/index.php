@@ -1526,6 +1526,6 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <!-- <script src="/SistemaTransmillas2025/nueva_plataforma/assets/js/vehiculos.js"></script> -->
-<script src="../assets/js/vehiculos.js"></script>
+<script src="../assets/js/vehiculos.js?v=<?= filemtime(__DIR__ . '/../../assets/js/vehiculos.js') ?>"></script>
 </body>
 </html>

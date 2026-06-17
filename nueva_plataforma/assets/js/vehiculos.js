@@ -1,9 +1,11 @@
 //const urlController = '/SistemaTransmillas2025/nueva_plataforma/controller/VehiculosController.php';
 
 // DESPUÉS — detecta automáticamente el entorno
-const baseUrl = window.location.hostname === 'localhost'
-    ? '/SistemaTransmillas2025/nueva_plataforma'
-    : '/nueva_plataforma';
+const plataformaPath = '/nueva_plataforma';
+const plataformaIndex = window.location.pathname.indexOf(plataformaPath);
+const baseUrl = plataformaIndex >= 0
+    ? window.location.pathname.substring(0, plataformaIndex + plataformaPath.length)
+    : plataformaPath;
 
 const urlController = `${baseUrl}/controller/VehiculosController.php`;
 
@@ -598,7 +600,7 @@ $(document).ready(function () {
         datos.append("guardar_vehiculo", true);
 
         // Adjuntar fotos de herramientas
-        const filasHerramienta = document.querySelectorAll('#listaHerramientas .d-flex');
+        const filasHerramienta = document.querySelectorAll('#listaHerramientas > .d-flex');
         filasHerramienta.forEach((fila, idx) => {
             const inputFoto = fila.querySelector('.herramienta-foto');
             if (inputFoto && inputFoto.files && inputFoto.files[0]) {
@@ -795,7 +797,7 @@ $('#btnActualizar').on('click', function (e) {
     datos.append('actualizar_vehiculo', true);
 
     // Adjuntar fotos de herramientas
-    const filasHerramientaEdit = document.querySelectorAll('#listaHerramientasEdit .d-flex');
+    const filasHerramientaEdit = document.querySelectorAll('#listaHerramientasEdit > .d-flex');
     filasHerramientaEdit.forEach((fila, idx) => {
         const inputFoto = fila.querySelector('.herramienta-foto-edit');
         if (inputFoto && inputFoto.files && inputFoto.files[0]) {
