@@ -60,11 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             'estado_general' => $_POST['estado_general'] ?? '',
             'sede' => $_POST['sede'] ?? '',
             'conductor' => $_POST['conductor'] ?? '',
+            'fecha' => $_POST['fecha'] ?? date('Y-m-d'),
         ];
 
+        $fechaConsulta = $filtros['fecha'];
         $totalVehiculos = $modelo->getTotalVehiculos();
         $totalFiltrados = $modelo->getTotalFiltrados($filtros, $search);
-        $data = $modelo->getVehiculosDataTable($start, $length, $filtros, $search);
+        $data = $modelo->getVehiculosDataTable($start, $length, $filtros, $search, $fechaConsulta);
 
         $response = [
             "draw" => $draw,

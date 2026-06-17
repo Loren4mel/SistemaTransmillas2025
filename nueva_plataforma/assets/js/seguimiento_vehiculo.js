@@ -91,6 +91,7 @@
                     d.estado_general = $('#estado_general').val();
                     d.sede = $('#sede').val();
                     d.conductor = $('#conductor').val();
+                    d.fecha = $('#fecha_consulta').val();
                     d.search = { value: $('#search_placa').val(), regex: false };
                 },
                 error: function (xhr) {
@@ -105,6 +106,7 @@
                 { data: 'veh_marca', render: function (d, t, r) { return (r.veh_marca || '-') + ' / ' + (r.veh_modelo || '-'); } },
                 // Columna 4 (índice 4): Estado General — valor crudo, no badge HTML
                 { data: 'estado_general', render: function (d) { return d; } },
+                { data: 'registro_dia_html', orderable: false },
                 { data: 'conductor_nombre' },
                 { data: 'kilometraje_actual_fmt' },
                 { data: 'ultimo_preop_link' },
@@ -254,6 +256,7 @@
                 '<p style="margin:0 0 8px 0; color:#333; font-style:italic;">"' + obs.replace(/\n/g, '<br>') + '"</p>' +
                 '<div style="font-size:12px; color:#888;">' +
                 '<strong>Registrado por:</strong> ' + escHtml(ultimaObs.responsable_nombre || '—') + ' &nbsp;|&nbsp;' +
+                '<strong>Conductor:</strong> ' + escHtml(ultimaObs.conductor_nombre || '—') + ' &nbsp;|&nbsp;' +
                 '<strong>Tipo:</strong> ' + escHtml(labelTipo[ultimaObs.tipo_evento] || ultimaObs.tipo_evento) + ' &nbsp;|&nbsp;' +
                 '<strong>Km:</strong> ' + kmObs + ' km</div></div>';
         } else {
@@ -275,6 +278,7 @@
                 var obsCorto = obsEv.length > 100 ? obsEv.substring(0, 100) + '…' : obsEv;
                 var kmEv = formatKm(ev.kilometraje || 0);
                 var fechaEv = formatFecha(ev.fecha_registro, true);
+                var conductorEv = ev.conductor_nombre || '—';
                 var obsEscaped = escHtml(obsEv).replace(/\n/g, '\\n');
 
                 var fotoHtml = '—';
@@ -289,6 +293,7 @@
 
                 tbody += '<tr>' +
                     '<td>' + fechaEv + '</td>' +
+                    '<td>' + escHtml(conductorEv) + '</td>' +
                     '<td><span class="badge bg-secondary">' + escHtml(tipoEv) + '</span></td>' +
                     '<td><span class="' + claseEv + '" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;">' + escHtml(ev.estado_general || 'OPTIMO') + '</span></td>' +
                     '<td style="max-width:250px;" title="' + escHtml(obsEv) + '">' + escHtml(obsCorto);
@@ -299,7 +304,7 @@
             }
             $('#historialEstadoTabla').html(
                 '<div class="table-responsive"><table class="table table-sm table-hover" style="font-size:12px;">' +
-                '<thead><tr><th>Fecha</th><th>Tipo</th><th>Estado</th><th>Observación</th><th>Km</th><th>Foto</th></tr></thead>' +
+                '<thead><tr><th>Fecha</th><th>Conductor</th><th>Tipo</th><th>Estado</th><th>Observación</th><th>Km</th><th>Foto</th></tr></thead>' +
                 '<tbody>' + tbody + '</tbody></table></div>'
             );
         }
@@ -533,6 +538,9 @@
     // ==================== EVENTOS ====================
 
     function bindEvents() {
+        // Fecha cambia → recargar tabla
+        $('#fecha_consulta').on('change', recargarTabla);
+
         // Sede cambia → actualizar select de conductores
         $('#sede').on('change', function () {
             cargarConductores('#conductor', $(this).val());

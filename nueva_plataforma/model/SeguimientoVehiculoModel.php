@@ -86,6 +86,45 @@ class SeguimientoVehiculoModel
         return $tipos;
     }
 
+    /**
+     * Obtiene los preoperacionales del día para un conjunto de vehículos.
+     *
+     * @param array $ids  IDs de vehículos a consultar
+     * @param string $fecha  Fecha en formato Y-m-d
+     * @return array  Indexado por id_vehiculo => {id_conductor, conductor_nombre, fecha_registro}
+     */
+    public function getPreoperacionalesDelDia(array $ids, string $fecha): array
+    {
+        if (empty($ids)) return [];
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT sv.id_vehiculo, sv.id_conductor, sv.fecha_registro,
+                       u.usu_nombre as conductor_nombre
+                FROM seguimiento_vehiculo sv
+                LEFT JOIN usuarios u ON u.idusuarios = sv.id_conductor
+                WHERE sv.tipo_evento = 'PREOPERACIONAL'
+                  AND DATE(sv.fecha_registro) = ?
+                  AND sv.id_vehiculo IN ($placeholders)";
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("getPreoperacionalesDelDia prepare error: " . $this->db->error);
+            return [];
+        }
+        $types = "s" . str_repeat('i', count($ids));
+        $params = array_merge([$fecha], $ids);
+        $stmt->bind_param($types, ...$params);
+        $ok = $stmt->execute();
+        if (!$ok) {
+            error_log("getPreoperacionalesDelDia execute error: " . $stmt->error);
+            return [];
+        }
+        $result = $stmt->get_result();
+        $index = [];
+        while ($row = $result->fetch_assoc()) {
+            $index[$row['id_vehiculo']] = $row;
+        }
+        return $index;
+    }
+
     // ==================== DATATABLE SERVER-SIDE ====================
 
     /**
@@ -136,8 +175,9 @@ class SeguimientoVehiculoModel
      * @param string $search
      * @return array
      */
-    public function getVehiculosDataTable(int $start, int $length, array $filtros, string $search = ''): array
+    public function getVehiculosDataTable(int $start, int $length, array $filtros, string $search = '', ?string $fecha = null): array
     {
+        $fechaConsulta = $fecha ?? date('Y-m-d');
         $sql = "SELECT v.idvehiculos, v.veh_tipo, v.veh_placa, v.veh_marca, v.veh_modelo,
                     v.veh_fechaseguro, v.veh_fechategnomecanica, v.veh_fechamantenimiento,
                     v.veh_kilactual, v.veh_aceitekil, v.veh_dueño, v.veh_estado,
@@ -159,6 +199,7 @@ class SeguimientoVehiculoModel
 
         $sql .= " ORDER BY
                 CASE
+                    -- Group 1 (Priority 0): FUERA_DE_SERVICIO — not available at all
                     WHEN v.idvehiculos IN (
                         SELECT sv.id_vehiculo FROM seguimiento_vehiculo sv
                         INNER JOIN (
@@ -167,18 +208,23 @@ class SeguimientoVehiculoModel
                         ) sv2 ON sv.id_vehiculo = sv2.id_vehiculo AND sv.fecha_registro = sv2.max_fecha
                         WHERE sv.estado_general = 'FUERA_DE_SERVICIO'
                     ) THEN 0
+                    -- Group 3 (Priority 2): Taken today — has PREOPERACIONAL on selected date
                     WHEN v.idvehiculos IN (
-                        SELECT sv.id_vehiculo FROM seguimiento_vehiculo sv
-                        INNER JOIN (
-                            SELECT id_vehiculo, MAX(fecha_registro) as max_fecha
-                            FROM seguimiento_vehiculo GROUP BY id_vehiculo
-                        ) sv2 ON sv.id_vehiculo = sv2.id_vehiculo AND sv.fecha_registro = sv2.max_fecha
-                        WHERE sv.estado_general = 'CON_NOVEDADES'
-                    ) THEN 1
-                    ELSE 2
+                        SELECT sv3.id_vehiculo FROM seguimiento_vehiculo sv3
+                        WHERE sv3.tipo_evento = 'PREOPERACIONAL'
+                          AND DATE(sv3.fecha_registro) = ?
+                    ) THEN 2
+                    -- Group 2 (Priority 1): Available — active, empresa, no PREOP today
+                    ELSE 1
                 END ASC,
                 v.veh_placa ASC";
         $sql .= " LIMIT ? OFFSET ?";
+
+        // Insertar parámetro de fecha para la subconsulta del ORDER BY (Group 3)
+        // Debe ir entre los parámetros WHERE y los de LIMIT/OFFSET
+        array_splice($params, count($params), 0, [$fechaConsulta]);
+        $types .= "s";
+
         $params[] = $length;
         $params[] = $start;
         $types .= "ii";
@@ -198,6 +244,7 @@ class SeguimientoVehiculoModel
         $aceitesIndex = $this->cargarUltimosAceites($ids);
         $comparendosIndex = $this->cargarComparendosPendientes($ids);
         $hojavidaIndex = $this->cargarHojavidaConductores($vehiculos);
+        $preopsDelDia = $this->getPreoperacionalesDelDia($ids, $fechaConsulta);
 
         // Enriquecer y procesar filas
         foreach ($vehiculos as &$row) {
@@ -206,8 +253,9 @@ class SeguimientoVehiculoModel
             $preop = $preopsIndex[$id] ?? null;
             $aceite = $aceitesIndex[(string)$id] ?? null;
             $comparendos = $comparendosIndex[$id] ?? 0;
+            $preopDia = $preopsDelDia[$id] ?? null;
 
-            $row = $this->enriquecerFila($row, $evento, $preop, $aceite, $comparendos, $hojavidaIndex);
+            $row = $this->enriquecerFila($row, $evento, $preop, $aceite, $comparendos, $hojavidaIndex, $preopDia);
         }
 
         return $vehiculos;
@@ -460,7 +508,7 @@ class SeguimientoVehiculoModel
     /**
      * Enriquece una fila de vehículo con datos calculados y HTML para la vista.
      */
-    private function enriquecerFila(array $row, ?array $evento, ?array $preop, ?array $aceite, int $comparendos, array $hojavidaIndex): array
+    private function enriquecerFila(array $row, ?array $evento, ?array $preop, ?array $aceite, int $comparendos, array $hojavidaIndex, ?array $preopDia = null): array
     {
         $hoy = date('Y-m-d');
 
@@ -468,6 +516,17 @@ class SeguimientoVehiculoModel
         $estadoGeneral = $evento['estado_general'] ?? 'OPTIMO';
         $row['estado_general'] = $estadoGeneral;
         $row['estado_general_badge'] = $this->badgeEstadoGeneral($estadoGeneral);
+
+        // Registro del día (PREOPERACIONAL en la fecha consultada)
+        $row['registro_dia'] = $preopDia !== null;
+        $row['registro_dia_conductor'] = $preopDia['conductor_nombre'] ?? null;
+        if ($preopDia !== null) {
+            $nombreConductor = $preopDia['conductor_nombre'] ?? 'Usuario #' . ($preopDia['id_conductor'] ?? '?');
+            $row['registro_dia_html'] = '<span style="background-color:#dbeafe; color:#1e40af; padding:4px 10px; border-radius:14px; font-weight:600; font-size:12px; white-space:nowrap;">'
+                . htmlspecialchars($nombreConductor) . '</span>';
+        } else {
+            $row['registro_dia_html'] = '<span style="background-color:#e8f2ec; color:#1e7f4f; padding:4px 10px; border-radius:14px; font-weight:600; font-size:12px; white-space:nowrap;">Disponible</span>';
+        }
 
         // Último evento
         $row['ultimo_evento_tipo'] = $evento['tipo_evento'] ?? 'Sin eventos';
@@ -847,9 +906,11 @@ class SeguimientoVehiculoModel
      */
     public function getUltimaObservacionNoPreop(int $idVehiculo): ?array
     {
-        $sql = "SELECT sv.*, u.usu_nombre as responsable_nombre
+        $sql = "SELECT sv.*, u.usu_nombre as responsable_nombre,
+                       uc.usu_nombre as conductor_nombre
                 FROM seguimiento_vehiculo sv
                 LEFT JOIN usuarios u ON u.idusuarios = sv.id_responsable
+                LEFT JOIN usuarios uc ON uc.idusuarios = sv.id_conductor
                 WHERE sv.id_vehiculo = ? AND sv.tipo_evento != 'PREOPERACIONAL'
                 ORDER BY sv.fecha_registro DESC
                 LIMIT 1";
@@ -871,9 +932,11 @@ class SeguimientoVehiculoModel
      */
     public function getHistorialEstado(int $idVehiculo, string $desde, string $hasta, string $tipo = 'Todos'): array
     {
-        $sql = "SELECT sv.*, u.usu_nombre as responsable_nombre
+        $sql = "SELECT sv.*, u.usu_nombre as responsable_nombre,
+                       uc.usu_nombre as conductor_nombre
                 FROM seguimiento_vehiculo sv
                 LEFT JOIN usuarios u ON u.idusuarios = sv.id_responsable
+                LEFT JOIN usuarios uc ON uc.idusuarios = sv.id_conductor
                 WHERE sv.id_vehiculo = ?
                   AND sv.fecha_registro >= ?
                   AND sv.fecha_registro <= ?";

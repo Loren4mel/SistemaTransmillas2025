@@ -56,6 +56,7 @@ $badgeClase = [
             </p>
             <div style="font-size:12px; color:#888;">
                 <strong>Registrado por:</strong> <?= htmlspecialchars($ultimaObs['responsable_nombre'] ?? '—') ?> &nbsp;|&nbsp;
+                <strong>Conductor:</strong> <?= htmlspecialchars($ultimaObs['conductor_nombre'] ?? '—') ?> &nbsp;|&nbsp;
                 <strong>Tipo:</strong> <?= htmlspecialchars($labelTipo[$ultimaObs['tipo_evento']] ?? $ultimaObs['tipo_evento']) ?> &nbsp;|&nbsp;
                 <strong>Km:</strong> <?= $kmObs ?> km
             </div>
@@ -104,6 +105,7 @@ $badgeClase = [
                 <thead>
                     <tr>
                         <th>Fecha</th>
+                        <th>Conductor</th>
                         <th>Tipo</th>
                         <th>Estado</th>
                         <th>Observación</th>
@@ -124,6 +126,7 @@ $badgeClase = [
                         ?>
                         <tr>
                             <td><?= date('d-m-Y H:i', strtotime($ev['fecha_registro'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars($ev['conductor_nombre'] ?? '—') ?></td>
                             <td><span class="badge bg-secondary"><?= htmlspecialchars($tipoEv) ?></span></td>
                             <td><span class="<?= $claseEv ?>" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;"><?= htmlspecialchars($estadoEv) ?></span></td>
                             <td style="max-width:250px;" title="<?= htmlspecialchars($obsEv) ?>">

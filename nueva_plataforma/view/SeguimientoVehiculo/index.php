@@ -152,6 +152,10 @@
                         </select>
                     </div>
                     <div class="col-md-2">
+                        <label class="form-label">Fecha Consulta</label>
+                        <input type="date" name="fecha_consulta" id="fecha_consulta" class="form-control" value="<?= date('Y-m-d') ?>">
+                    </div>
+                    <div class="col-md-2">
                         <label class="form-label">Buscar Placa</label>
                         <input type="text" name="search_placa" id="search_placa" class="form-control" placeholder="Placa, marca...">
                     </div>
@@ -172,6 +176,7 @@
                                 <th>Tipo</th>
                                 <th>Marca / Modelo</th>
                                 <th>Estado General</th>
+                                <th>Registro del Día</th>
                                 <th>Conductor</th>
                                 <th>Kilometraje</th>
                                 <th>Último Preop.</th>
