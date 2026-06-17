@@ -9,36 +9,59 @@ class VehiculosModel {
     }
 
     public function obtenerVehiculos($filtroTipovehiculo = '', $filtroEstado = '', $filtroPropiedad = '') {
-    $sql = "SELECT `idvehiculos`, `veh_tipo`, `veh_placa`, `veh_marca`, `veh_modelo`,
-    `veh_fechaseguro`, `veh_fechategnomecanica`, `veh_fechamantenimiento`, `veh_kilactual`,
-    `veh_kmactual_cambioaceite`, `veh_aceitekil`, `veh_propiedad`, `veh_dueño`, `veh_estado`, 
-    `veh_chasis`, `veh_tipov`, `veh_cilidraje`, `veh_motor`, `veh_color`, `veh_usuve`, 
-    `veh_observaciones`, `veh_calkmcambioaceite`, `veh_restankmaceite`, 
-    `veh_faltaparacambioaceite`, `veh_kmalcambaceite`, 
-    `veh_img_anverso`, `veh_img_reverso`, `veh_img_actual_frente`, `veh_img_actual_trasera`,
-    `veh_img_soat`, `veh_img_tecnomecanica`,
-     IF(idusuarios = 14, 'Transmillas', usu_nombre) AS usu_nombre,
-    (SELECT COUNT(*) FROM comparendos 
-     WHERE com_vehiculo_id = idvehiculos) AS total_comparendos,
-    (SELECT COUNT(*) FROM comparendos 
-     WHERE com_vehiculo_id = idvehiculos 
-     AND com_estado = 'Pendiente') AS comparendos_pendientes,
-     (SELECT rev_fecha_consulta FROM revision_comparendos 
-     WHERE rev_vehiculo_id = idvehiculos 
-     ORDER BY rev_fecha_consulta DESC LIMIT 1) AS ultima_revision
-    FROM `vehiculos` LEFT JOIN usuarios ON veh_dueño = idusuarios
+    $sql = "SELECT v.`idvehiculos`, v.`veh_tipo`, v.`veh_placa`, v.`veh_marca`, v.`veh_modelo`,
+    v.`veh_fechaseguro`, v.`veh_fechategnomecanica`, v.`veh_fechamantenimiento`, v.`veh_kilactual`,
+    v.`veh_kmactual_cambioaceite`, v.`veh_aceitekil`, v.`veh_propiedad`, v.`veh_dueño`, v.`veh_estado`,
+    v.`veh_chasis`, v.`veh_tipov`, v.`veh_cilidraje`, v.`veh_motor`, v.`veh_color`, v.`veh_usuve`,
+    v.`veh_observaciones`, v.`veh_calkmcambioaceite`, v.`veh_restankmaceite`,
+    v.`veh_faltaparacambioaceite`, v.`veh_kmalcambaceite`,
+    v.`veh_img_anverso`, v.`veh_img_reverso`, v.`veh_img_actual_frente`, v.`veh_img_actual_trasera`,
+    v.`veh_img_soat`, v.`veh_img_tecnomecanica`,
+     IF(u.idusuarios = 14, 'Transmillas', u.usu_nombre) AS usu_nombre,
+     COALESCE(c.total_comparendos, 0) AS total_comparendos,
+     COALESCE(c.comparendos_pendientes, 0) AS comparendos_pendientes,
+     r.ultima_revision
+    FROM `vehiculos` v
+    LEFT JOIN usuarios u ON v.`veh_dueño` = u.idusuarios
+    LEFT JOIN (
+        SELECT com_vehiculo_id,
+               COUNT(*) AS total_comparendos,
+               SUM(CASE WHEN com_estado = 'Pendiente' THEN 1 ELSE 0 END) AS comparendos_pendientes
+        FROM comparendos
+        GROUP BY com_vehiculo_id
+    ) c ON c.com_vehiculo_id = v.idvehiculos
+    LEFT JOIN (
+        SELECT rev_vehiculo_id, MAX(rev_fecha_consulta) AS ultima_revision
+        FROM revision_comparendos
+        GROUP BY rev_vehiculo_id
+    ) r ON r.rev_vehiculo_id = v.idvehiculos
      WHERE 1=1";
     if ($filtroTipovehiculo !== '') {
-        $sql .= " AND veh_tipo = '" . $this->dbname->real_escape_string($filtroTipovehiculo) . "'";
+        $sql .= " AND v.veh_tipo = '" . $this->dbname->real_escape_string($filtroTipovehiculo) . "'";
     }
+
+    if ($filtroEstado !== '') {
+        $sql .= " AND v.veh_estado = '" . $this->dbname->real_escape_string($filtroEstado) . "'";
+    }
+
+     if ($filtroPropiedad !== '') {
+        $sql .= " AND v.veh_propiedad = '" . $this->dbname->real_escape_string($filtroPropiedad) . "'";
+    }
+
+    $result = $this->dbname->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+}
+
+    public function obtenerVehiculosParaSelect($filtroEstado = '') {
+    $sql = "SELECT idvehiculos, veh_tipo, veh_placa, veh_marca, veh_modelo, veh_estado, veh_propiedad
+            FROM vehiculos
+            WHERE 1=1";
 
     if ($filtroEstado !== '') {
         $sql .= " AND veh_estado = '" . $this->dbname->real_escape_string($filtroEstado) . "'";
     }
 
-     if ($filtroPropiedad !== '') {
-        $sql .= " AND veh_propiedad = '" . $this->dbname->real_escape_string($filtroPropiedad) . "'";
-    }
+    $sql .= " ORDER BY veh_placa ASC";
 
     $result = $this->dbname->query($sql);
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
@@ -66,6 +89,33 @@ class VehiculosModel {
     }
 
 //Funcion para guardar vehiculo nuevo con validación de fechas y manejo de imágenes
+private function procesarFotosHerramientas($equipoJson, $prefijoArchivo)
+{
+    $equipo = json_decode($equipoJson ?: '[]', true);
+    if (!is_array($equipo)) {
+        return '[]';
+    }
+
+    foreach ($equipo as $idx => &$herramienta) {
+        if (!is_array($herramienta)) {
+            continue;
+        }
+
+        $key = $herramienta['foto_key'] ?? "{$prefijoArchivo}{$idx}";
+        if (isset($_FILES[$key]) && is_uploaded_file($_FILES[$key]['tmp_name'])) {
+            $rutaFoto = $this->guardarImagen($_FILES[$key], 'uploads/vehiculos/herramientas');
+            if ($rutaFoto) {
+                $herramienta['foto'] = $rutaFoto;
+            }
+        }
+
+        unset($herramienta['foto_key']);
+    }
+    unset($herramienta);
+
+    return json_encode($equipo, JSON_UNESCAPED_UNICODE);
+}
+
     public function guardarVehiculo($datos) {
     $fechas = ['veh_fechaseguro', 'veh_fechategnomecanica', 'veh_fechamantenimiento'];
     foreach ($fechas as $f) {
@@ -79,20 +129,10 @@ class VehiculosModel {
     $veh_img_actual_frente  = $this->guardarImagen($_FILES['veh_img_actual_frente'],  "uploads/vehiculos");
     $veh_img_actual_trasera = $this->guardarImagen($_FILES['veh_img_actual_trasera'], "uploads/vehiculos");
 
-// Procesar fotos de herramientas
-$equipoJson = $datos['veh_equipo_carretera'] ?? '[]';
-$equipo = json_decode($equipoJson, true) ?? [];
-
-foreach ($equipo as $idx => &$herramienta) {
-    unset($herramienta['foto_key']);
-    $key = "veh_herramienta_foto_{$idx}";
-    if (isset($_FILES[$key]) && is_uploaded_file($_FILES[$key]['tmp_name'])) {
-        $rutaFoto = $this->guardarImagen($_FILES[$key], 'uploads/vehiculos/herramientas');
-        if ($rutaFoto) $herramienta['foto'] = $rutaFoto;
-    }
-}
-unset($herramienta);
-$datos['veh_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
+$datos['veh_equipo_carretera'] = $this->procesarFotosHerramientas(
+    $datos['veh_equipo_carretera'] ?? '[]',
+    'veh_herramienta_foto_'
+);
 
 
 
@@ -241,25 +281,15 @@ public function obtenerVehiculoPorId($id) {
 
 //Funcion para actualizar vehículo con validación de fechas y manejo de imágenes
 public function actualizarVehiculo($datos) {
-    $veh_img_anverso        = $this->guardarImagen($_FILES['veh_img_anverso'],        "uploads/vehiculos");
-    $veh_img_reverso        = $this->guardarImagen($_FILES['veh_img_reverso'],        "uploads/vehiculos");
-    $veh_img_actual_frente  = $this->guardarImagen($_FILES['veh_img_actual_frente'],  "uploads/vehiculos");
-    $veh_img_actual_trasera = $this->guardarImagen($_FILES['veh_img_actual_trasera'], "uploads/vehiculos");
+    $veh_img_anverso        = $this->guardarImagen($_FILES['veh_img_anverso'] ?? [],        "uploads/vehiculos");
+    $veh_img_reverso        = $this->guardarImagen($_FILES['veh_img_reverso'] ?? [],        "uploads/vehiculos");
+    $veh_img_actual_frente  = $this->guardarImagen($_FILES['veh_img_actual_frente'] ?? [],  "uploads/vehiculos");
+    $veh_img_actual_trasera = $this->guardarImagen($_FILES['veh_img_actual_trasera'] ?? [], "uploads/vehiculos");
 
-// Procesar fotos de herramientas
-$equipoJson = $datos['veh_equipo_carretera'] ?? '[]';
-$equipo = json_decode($equipoJson, true) ?? [];
-
-foreach ($equipo as $idx => &$herramienta) {
-    $key = "veh_herramienta_foto_edit_{$idx}";
-    if (isset($_FILES[$key]) && is_uploaded_file($_FILES[$key]['tmp_name'])) {
-        $rutaFoto = $this->guardarImagen($_FILES[$key], 'uploads/vehiculos/herramientas');
-        if ($rutaFoto) $herramienta['foto'] = $rutaFoto;
-    }
-    unset($herramienta['foto_key']);
-}
-unset($herramienta);
-$datos['veh_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
+$datos['veh_equipo_carretera'] = $this->procesarFotosHerramientas(
+    $datos['veh_equipo_carretera'] ?? '[]',
+    'veh_herramienta_foto_edit_'
+);
 
     $sqlImgs = "";
     if ($veh_img_anverso)        $sqlImgs .= ", veh_img_anverso = '$veh_img_anverso'";
