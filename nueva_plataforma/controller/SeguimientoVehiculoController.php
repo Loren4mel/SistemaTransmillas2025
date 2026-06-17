@@ -160,7 +160,64 @@ if (isset($_GET['accion'])) {
                     sendJsonResponse(['error' => 'ID de vehículo no válido'], 400);
                     break;
                 }
-                sendJsonResponse($modelo->getHistorialKilometraje($idVehiculo));
+                $desde = $_GET['desde'] ?? null;
+                $hasta = $_GET['hasta'] ?? null;
+                $fuente = $_GET['fuente'] ?? null;
+                $historial = $modelo->getHistorialKilometraje($idVehiculo, $desde, $hasta, $fuente);
+
+                // Calcular resumen
+                $resumen = ['km_actual' => null, 'km_recorridos' => null, 'promedio_diario' => null];
+                if (!empty($historial)) {
+                    // Ordenar por fecha ascendente para cálculos
+                    $ordenado = $historial;
+                    usort($ordenado, function ($a, $b) {
+                        return strtotime($a['fecha'] ?? '') <=> strtotime($b['fecha'] ?? '');
+                    });
+                    $resumen['km_actual'] = (int) $ordenado[count($ordenado) - 1]['kilometraje'];
+                    $resumen['km_recorridos'] = $resumen['km_actual'] - (int) $ordenado[0]['kilometraje'];
+                    $primerFecha = strtotime($ordenado[0]['fecha'] ?? '');
+                    $ultimaFecha = strtotime($ordenado[count($ordenado) - 1]['fecha'] ?? '');
+                    $dias = max(1, (int) round(($ultimaFecha - $primerFecha) / 86400));
+                    $resumen['promedio_diario'] = $dias > 0 ? round($resumen['km_recorridos'] / $dias) : 0;
+                }
+
+                // Formatear datos para Chart.js (orden ascendente)
+                $graficoLabels = [];
+                $graficoData = [];
+                $graficoColores = [];
+                $colorMap = ['Evento' => '#0c4582', 'Preoperacional' => '#1e7f4f', 'Cambio Aceite' => '#b54708'];
+                foreach ($ordenado ?? $historial as $h) {
+                    $graficoLabels[] = date('d-m-Y', strtotime($h['fecha'] ?? ''));
+                    $graficoData[] = (int) ($h['kilometraje'] ?? 0);
+                    $graficoColores[] = $colorMap[$h['fuente']] ?? '#0c4582';
+                }
+
+                sendJsonResponse([
+                    'resumen' => $resumen,
+                    'historial' => $historial,
+                    'grafico' => [
+                        'labels' => $graficoLabels,
+                        'data' => $graficoData,
+                        'colores' => $graficoColores,
+                    ],
+                ]);
+                break;
+
+            case 'get_historial_estado':
+                $idVehiculo = intval($_GET['id_vehiculo'] ?? 0);
+                if ($idVehiculo <= 0) {
+                    sendJsonResponse(['error' => 'ID de vehículo no válido'], 400);
+                    break;
+                }
+                $desde = $_GET['desde'] ?? date('Y-m-d', strtotime('-30 days'));
+                $hasta = $_GET['hasta'] ?? date('Y-m-d');
+                $tipo = $_GET['tipo'] ?? 'Todos';
+                $ultimaObs = $modelo->getUltimaObservacionNoPreop($idVehiculo);
+                $eventos = $modelo->getHistorialEstado($idVehiculo, $desde, $hasta, $tipo);
+                sendJsonResponse([
+                    'ultima_obs' => $ultimaObs,
+                    'eventos' => $eventos,
+                ]);
                 break;
 
             case 'get_comparendos':
@@ -237,6 +294,20 @@ if (isset($_GET['accion'])) {
                         }
                         ob_clean();
                         include "../view/SeguimientoVehiculo/popups/detalle_evento.php";
+                        exit;
+
+                    case 'historial_estado':
+                        $vehiculo = $modelo->getVehiculoById($idVehiculo);
+                        if (!$vehiculo) {
+                            echo "<div class='alert alert-danger'>Vehículo no encontrado.</div>";
+                            exit;
+                        }
+                        $desdeDefecto = date('Y-m-d', strtotime('-30 days'));
+                        $hastaDefecto = date('Y-m-d');
+                        $ultimaObs = $modelo->getUltimaObservacionNoPreop($idVehiculo);
+                        $eventos = $modelo->getHistorialEstado($idVehiculo, $desdeDefecto, $hastaDefecto, 'Todos');
+                        ob_clean();
+                        include "../view/SeguimientoVehiculo/popups/historial_estado.php";
                         exit;
                 }
                 break;

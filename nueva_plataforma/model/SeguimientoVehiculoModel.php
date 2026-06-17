@@ -738,61 +738,96 @@ class SeguimientoVehiculoModel
      * Obtiene el historial de kilometraje de un vehículo a lo largo del tiempo.
      *
      * @param int $idVehiculo
+     * @param string|null $desde Fecha inicio (Y-m-d), opcional
+     * @param string|null $hasta Fecha fin (Y-m-d), opcional
+     * @param string|null $fuente Filtrar por fuente: 'Evento', 'Preoperacional', 'Cambio Aceite', null = todas
      * @return array
      */
-    public function getHistorialKilometraje(int $idVehiculo): array
+    public function getHistorialKilometraje(int $idVehiculo, ?string $desde = null, ?string $hasta = null, ?string $fuente = null): array
     {
         $historial = [];
 
-        // 1. Eventos de seguimiento_vehiculo
-        $sql = "SELECT fecha_registro as fecha, 'Evento' as fuente, kilometraje,
-                       tipo_evento as detalle
-                FROM seguimiento_vehiculo
-                WHERE id_vehiculo = ? AND kilometraje > 0
-                ORDER BY fecha_registro DESC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("i", $idVehiculo);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $row['kilometraje'] = (int) $row['kilometraje'];
-            $historial[] = $row;
+        // Determinar qué fuentes consultar
+        $consultarEvento = !$fuente || $fuente === 'Evento';
+        $consultarPreop = !$fuente || $fuente === 'Preoperacional';
+        $consultarAceite = !$fuente || $fuente === 'Cambio Aceite';
+
+        // Construir parámetros de fecha
+        $paramsFecha = [];
+        if ($desde && $hasta) {
+            $paramsFecha = [$desde . ' 00:00:00', $hasta . ' 23:59:59'];
         }
 
-        // 2. Preoperacionales con kilometraje
-        $sql = "SELECT prefechaingreso as fecha, 'Preoperacional' as fuente,
-                       CAST(pre_kilrecorridos AS UNSIGNED) as kilometraje,
-                       preestado as detalle
-                FROM `pre-operacional`
-                WHERE prevehiculo = ? AND pre_kilrecorridos IS NOT NULL AND pre_kilrecorridos != ''
-                ORDER BY prefechaingreso DESC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("i", $idVehiculo);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $row['kilometraje'] = (int) $row['kilometraje'];
-            if ($row['kilometraje'] > 0) {
+        // 1. Eventos de seguimiento_vehiculo
+        if ($consultarEvento) {
+            $sql = "SELECT fecha_registro as fecha, 'Evento' as fuente, kilometraje,
+                           tipo_evento as detalle
+                    FROM seguimiento_vehiculo
+                    WHERE id_vehiculo = ? AND kilometraje > 0"
+                    . ($desde && $hasta ? ' AND fecha_registro >= ? AND fecha_registro <= ?' : '')
+                    . " ORDER BY fecha_registro DESC";
+            $stmt = $this->db->prepare($sql);
+            if ($desde && $hasta) {
+                $stmt->bind_param("iss", $idVehiculo, $paramsFecha[0], $paramsFecha[1]);
+            } else {
+                $stmt->bind_param("i", $idVehiculo);
+            }
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                $row['kilometraje'] = (int) $row['kilometraje'];
                 $historial[] = $row;
             }
         }
 
+        // 2. Preoperacionales con kilometraje
+        if ($consultarPreop) {
+            $sql = "SELECT prefechaingreso as fecha, 'Preoperacional' as fuente,
+                           CAST(pre_kilrecorridos AS UNSIGNED) as kilometraje,
+                           preestado as detalle
+                    FROM `pre-operacional`
+                    WHERE prevehiculo = ? AND pre_kilrecorridos IS NOT NULL AND pre_kilrecorridos != ''"
+                    . ($desde && $hasta ? ' AND prefechaingreso >= ? AND prefechaingreso <= ?' : '')
+                    . " ORDER BY prefechaingreso DESC";
+            $stmt = $this->db->prepare($sql);
+            if ($desde && $hasta) {
+                $stmt->bind_param("iss", $idVehiculo, $paramsFecha[0], $paramsFecha[1]);
+            } else {
+                $stmt->bind_param("i", $idVehiculo);
+            }
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                $row['kilometraje'] = (int) $row['kilometraje'];
+                if ($row['kilometraje'] > 0) {
+                    $historial[] = $row;
+                }
+            }
+        }
+
         // 3. Cambios de aceite
-        $sql = "SELECT ace_fechacambio as fecha, 'Cambio Aceite' as fuente,
-                       CAST(ace_kiloalcambio AS UNSIGNED) as kilometraje,
-                       '' as detalle
-                FROM aceite
-                WHERE ace_idvehiculo = ?
-                ORDER BY ace_fechacambio DESC";
-        $stmt = $this->db->prepare($sql);
-        $idStr = (string) $idVehiculo;
-        $stmt->bind_param("s", $idStr);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $row['kilometraje'] = (int) $row['kilometraje'];
-            if ($row['kilometraje'] > 0) {
-                $historial[] = $row;
+        if ($consultarAceite) {
+            $sql = "SELECT ace_fechacambio as fecha, 'Cambio Aceite' as fuente,
+                           CAST(ace_kiloalcambio AS UNSIGNED) as kilometraje,
+                           '' as detalle
+                    FROM aceite
+                    WHERE ace_idvehiculo = ?"
+                    . ($desde && $hasta ? ' AND ace_fechacambio >= ? AND ace_fechacambio <= ?' : '')
+                    . " ORDER BY ace_fechacambio DESC";
+            $stmt = $this->db->prepare($sql);
+            $idStr = (string) $idVehiculo;
+            if ($desde && $hasta) {
+                $stmt->bind_param("sss", $idStr, $paramsFecha[0], $paramsFecha[1]);
+            } else {
+                $stmt->bind_param("s", $idStr);
+            }
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                $row['kilometraje'] = (int) $row['kilometraje'];
+                if ($row['kilometraje'] > 0) {
+                    $historial[] = $row;
+                }
             }
         }
 
@@ -802,6 +837,61 @@ class SeguimientoVehiculoModel
         });
 
         return $historial;
+    }
+
+    /**
+     * Obtiene la última observación no-preoperacional de un vehículo.
+     *
+     * @param int $idVehiculo
+     * @return array|null
+     */
+    public function getUltimaObservacionNoPreop(int $idVehiculo): ?array
+    {
+        $sql = "SELECT sv.*, u.usu_nombre as responsable_nombre
+                FROM seguimiento_vehiculo sv
+                LEFT JOIN usuarios u ON u.idusuarios = sv.id_responsable
+                WHERE sv.id_vehiculo = ? AND sv.tipo_evento != 'PREOPERACIONAL'
+                ORDER BY sv.fecha_registro DESC
+                LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idVehiculo);
+        $stmt->execute();
+        $result = $stmt->get_result()->fetch_assoc();
+        return $result ?: null;
+    }
+
+    /**
+     * Obtiene el historial de estado de un vehículo con filtros.
+     *
+     * @param int $idVehiculo
+     * @param string $desde Fecha inicio (Y-m-d)
+     * @param string $hasta Fecha fin (Y-m-d)
+     * @param string $tipo Tipo de evento o 'Todos'
+     * @return array
+     */
+    public function getHistorialEstado(int $idVehiculo, string $desde, string $hasta, string $tipo = 'Todos'): array
+    {
+        $sql = "SELECT sv.*, u.usu_nombre as responsable_nombre
+                FROM seguimiento_vehiculo sv
+                LEFT JOIN usuarios u ON u.idusuarios = sv.id_responsable
+                WHERE sv.id_vehiculo = ?
+                  AND sv.fecha_registro >= ?
+                  AND sv.fecha_registro <= ?";
+        $params = [$idVehiculo, $desde . ' 00:00:00', $hasta . ' 23:59:59'];
+        $types = "iss";
+
+        if ($tipo !== 'Todos' && $tipo !== '') {
+            $sql .= " AND sv.tipo_evento = ?";
+            $params[] = $tipo;
+            $types .= "s";
+        }
+
+        $sql .= " ORDER BY sv.fecha_registro DESC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     }
 
     /**

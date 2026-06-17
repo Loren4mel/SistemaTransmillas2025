@@ -15,6 +15,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- Ruta base de la aplicación -->
     <script>
         window.APP_BASE_URL = "<?= $appBasePath ?>";
@@ -88,6 +90,15 @@
             border-radius: 20px;
             padding: 6px 14px;
             font-weight: 600;
+        }
+
+        /* Celda de estado general clickeable */
+        #tablaVehiculos td:nth-child(5) {
+            cursor: pointer;
+            transition: filter 0.2s ease;
+        }
+        #tablaVehiculos td:nth-child(5):hover {
+            filter: brightness(0.93);
         }
     </style>
 </head>
