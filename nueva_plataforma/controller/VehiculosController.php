@@ -202,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_tecnomecan
 
 // OBTENER VEHÍCULOS PARA SELECTS (recargar dropdowns sin reload)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_vehiculos_select'])) {
-    $vehiculos = $modelo->obtenerVehiculos('', '1', '');
+    $vehiculos = $modelo->obtenerVehiculosParaSelect('1');
     echo json_encode($vehiculos);
     exit;
 }
@@ -265,7 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_revision']))
 // CARGAR VISTA (GET)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $Dueños      = $modelo->obtenerDueños();
-    $Vehiculos   = $modelo->obtenerVehiculos();
+    $Vehiculos   = $modelo->obtenerVehiculosParaSelect();
     $Sedes       = $modelo->obtenerSedes();
     $operadoresActivos = $modelo->obtenerOperadoresActivos();
     include "../view/Vehiculos/index.php";
