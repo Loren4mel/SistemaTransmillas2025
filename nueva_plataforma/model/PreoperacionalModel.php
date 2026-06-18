@@ -836,34 +836,33 @@ class PreoperacionalModel
     }
 
     /**
-     * Obtiene vehículos activos que no tienen conductor asignado
-     * y cuyo último seguimiento NO es FUERA_DE_SERVICIO.
+     * Obtiene vehículos activos disponibles para preoperacional.
      *
      * REGLAS DE DISPONIBILIDAD:
      * 1. veh_propiedad = 'empresa' — solo vehículos de la compañía.
-     *    veh_propiedad vacío o 'propio' se tratan como personales (excluidos).
+     *    veh_propiedad vacío o 'propio' = personal (excluidos).
      * 2. veh_estado = 1 — solo vehículos activos
-     * 3. Sin conductor asignado (usu_vehiculo libre)
-     * 4. Último seguimiento NO es FUERA_DE_SERVICIO
-     * 5. Sin PREOPERACIONAL hoy de OTRO usuario — un vehículo solo puede
+     * 3. Último seguimiento NO es FUERA_DE_SERVICIO
+     * 4. Sin PREOPERACIONAL hoy de OTRO usuario — un vehículo solo puede
      *    tener un preoperacional por día (el mismo usuario sí puede volver
      *    a seleccionar su vehículo si ya lo tenía hoy)
+     *
+     * NOTA: No se filtra por usu_vehiculo (conductor asignado). Un vehículo
+     * con conductor asignado sigue disponible si ese conductor no ha registrado
+     * preoperacional hoy. Al asignarlo, se libera automáticamente del conductor
+     * anterior vía liberarVehiculoDeCualquierUsuario().
      *
      * @param int|null $idUsuarioActual ID del usuario actual (para excluir
      *                                   vehículos ya usados por otros hoy)
      * @return array Lista de vehículos disponibles
      */
-    public function obtenerVehiculosSinConductor($idUsuarioActual = null)
+    public function obtenerVehiculosDisponibles($idUsuarioActual = null)
     {
         $sql = "SELECT v.idvehiculos, v.veh_tipo, v.veh_placa, v.veh_marca, v.veh_modelo,
                        v.veh_kilactual, v.veh_estado, v.veh_propiedad
                 FROM vehiculos v
                 WHERE v.veh_estado = 1
                   AND v.veh_propiedad = 'empresa'
-                  AND v.idvehiculos NOT IN (
-                      SELECT usu_vehiculo FROM usuarios
-                      WHERE usu_vehiculo IS NOT NULL AND usu_vehiculo > 0
-                  )
                   AND v.idvehiculos NOT IN (
                       SELECT sv.id_vehiculo
                       FROM seguimiento_vehiculo sv
@@ -875,7 +874,7 @@ class PreoperacionalModel
                         )
                   )";
 
-        // REGLA 5: Excluir vehículos que ya tuvieron un PREOPERACIONAL hoy
+        // REGLA 4: Excluir vehículos que ya tuvieron un PREOPERACIONAL hoy
         // de otro conductor. El mismo usuario sí puede volver a seleccionar
         // su vehículo (ej: si recargó la página o va a editar su registro).
         if ($idUsuarioActual !== null && $idUsuarioActual > 0) {
@@ -916,6 +915,24 @@ class PreoperacionalModel
         $sql = "UPDATE usuarios SET usu_vehiculo = ? WHERE idusuarios = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param("ii", $idVehiculo, $idUsuario);
+        return $stmt->execute();
+    }
+
+    /**
+     * Libera un vehículo de cualquier usuario que lo tenga asignado.
+     *
+     * Se usa antes de reasignar un vehículo a un nuevo conductor para evitar
+     * que el conductor anterior conserve una referencia huérfana (usu_vehiculo
+     * apuntando a un vehículo que ya no le pertenece).
+     *
+     * @param int $idVehiculo ID del vehículo a liberar
+     * @return bool True si se actualizó (o no había nadie que liberar)
+     */
+    public function liberarVehiculoDeCualquierUsuario($idVehiculo)
+    {
+        $sql = "UPDATE usuarios SET usu_vehiculo = NULL WHERE usu_vehiculo = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idVehiculo);
         return $stmt->execute();
     }
 

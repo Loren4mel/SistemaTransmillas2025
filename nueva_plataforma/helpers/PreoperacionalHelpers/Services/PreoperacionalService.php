@@ -643,14 +643,18 @@ class PreoperacionalService
     }
 
     /**
-     * Obtiene la lista de vehículos disponibles (sin conductor asignado).
+     * Obtiene la lista de vehículos disponibles para preoperacional.
      *
      * REGLAS DE DISPONIBILIDAD (aplicadas en el modelo):
      * 1. veh_propiedad = 'empresa' — solo vehículos de la compañía.
      *    veh_propiedad vacío o 'propio' = personal (excluidos).
-     * 2. Sin PREOPERACIONAL hoy de otro usuario — un vehículo solo puede
+     * 2. veh_estado = 1 — solo vehículos activos
+     * 3. Último seguimiento NO es FUERA_DE_SERVICIO
+     * 4. Sin PREOPERACIONAL hoy de otro usuario — un vehículo solo puede
      *    tener un preoperacional por día
-     * 3. veh_estado = 1 — solo vehículos activos
+     *
+     * NOTA: Ya no se filtra por usu_vehiculo. Vehículos con conductor asignado
+     * se muestran si ese conductor no ha hecho preoperacional hoy.
      *
      * @param int|null $idUsuarioActual ID del usuario actual para filtrar
      *                                   vehículos ya usados por otros hoy
@@ -658,18 +662,21 @@ class PreoperacionalService
      */
     public function obtenerVehiculosDisponibles($idUsuarioActual = null)
     {
-        return $this->model->obtenerVehiculosSinConductor($idUsuarioActual);
+        return $this->model->obtenerVehiculosDisponibles($idUsuarioActual);
     }
 
     /**
      * Asigna un vehículo a un usuario en el flujo inicial
      * (cuando el usuario no tiene vehículo asignado).
      *
-     * VALIDACIONES SERVIDOR (3 REGLAS):
+     * VALIDACIONES SERVIDOR:
      * 1. veh_propiedad = 'empresa' — no se permiten vehículos personales
-     * 2. Sin PREOPERACIONAL hoy de otro usuario — un vehículo solo puede
+     * 2. veh_estado = 1 — el vehículo debe estar activo
+     * 3. Sin PREOPERACIONAL hoy de otro usuario — un vehículo solo puede
      *    tener un preoperacional por día
-     * 3. veh_estado = 1 — el vehículo debe estar activo
+     *
+     * Si el vehículo estaba asignado a otro conductor, se libera automáticamente
+     * antes de asignarlo al nuevo usuario.
      *
      * @param int $idVehiculo ID del vehículo a asignar
      * @param int $idUsuario  ID del usuario
@@ -701,12 +708,12 @@ class PreoperacionalService
             return ['success' => false, 'message' => 'No se pueden asignar vehículos personales.'];
         }
 
-        // REGLA 3: Solo vehículos activos
+        // REGLA 2: Solo vehículos activos
         if ((int) ($infoVehiculo['veh_estado'] ?? 0) !== 1) {
             return ['success' => false, 'message' => 'El vehículo seleccionado no está activo.'];
         }
 
-        // REGLA 2: El vehículo no debe tener un PREOPERACIONAL hoy de otro usuario
+        // REGLA 3: El vehículo no debe tener un PREOPERACIONAL hoy de otro usuario
         try {
             $this->verificarDisponibilidadDiaria($idVehiculo, $idUsuario);
         } catch (\RuntimeException $e) {
@@ -714,7 +721,7 @@ class PreoperacionalService
         }
 
         // Verificar que el vehículo esté en la lista de disponibles
-        $disponibles = $this->model->obtenerVehiculosSinConductor($idUsuario);
+        $disponibles = $this->model->obtenerVehiculosDisponibles($idUsuario);
         $encontrado = false;
         foreach ($disponibles as $v) {
             if ((int) $v['idvehiculos'] === $idVehiculo) {
@@ -727,6 +734,8 @@ class PreoperacionalService
             return ['success' => false, 'message' => 'El vehículo seleccionado no está disponible.'];
         }
 
+        // Liberar el vehículo de cualquier conductor anterior antes de asignarlo
+        $this->model->liberarVehiculoDeCualquierUsuario($idVehiculo);
         $this->model->asignarVehiculoAUsuario($idVehiculo, $idUsuario);
 
         return [
@@ -846,7 +855,8 @@ class PreoperacionalService
             $cambioVehiculo = false;
 
             if ($idVehiculoNuevo > 0) {
-                // Asignar vehículo nuevo
+                // Liberar el vehículo de cualquier conductor anterior, luego asignarlo
+                $this->model->liberarVehiculoDeCualquierUsuario($idVehiculoNuevo);
                 $this->model->asignarVehiculoAUsuario($idVehiculoNuevo, $idUsuario);
                 $idVehiculoFinal = $idVehiculoNuevo;
                 $cambioVehiculo = true;
