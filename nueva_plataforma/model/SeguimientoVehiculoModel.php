@@ -819,12 +819,16 @@ class SeguimientoVehiculoModel
 
         // 1. Eventos de seguimiento_vehiculo
         if ($consultarEvento) {
-            $sql = "SELECT fecha_registro as fecha, 'Evento' as fuente, kilometraje,
-                           tipo_evento as detalle
-                    FROM seguimiento_vehiculo
-                    WHERE id_vehiculo = ? AND kilometraje > 0"
-                    . ($desde && $hasta ? ' AND fecha_registro >= ? AND fecha_registro <= ?' : '')
-                    . " ORDER BY fecha_registro DESC";
+            $sql = "SELECT sv.fecha_registro as fecha, 'Evento' as fuente, sv.kilometraje,
+                           sv.tipo_evento as detalle,
+                           sv.id_preoperacional,
+                           sv.id_responsable as id_usuario,
+                           u.usu_nombre as usuario_nombre
+                    FROM seguimiento_vehiculo sv
+                    LEFT JOIN usuarios u ON u.idusuarios = sv.id_responsable
+                    WHERE sv.id_vehiculo = ? AND sv.kilometraje > 0"
+                    . ($desde && $hasta ? ' AND sv.fecha_registro >= ? AND sv.fecha_registro <= ?' : '')
+                    . " ORDER BY sv.fecha_registro DESC";
             $stmt = $this->db->prepare($sql);
             if ($desde && $hasta) {
                 $stmt->bind_param("iss", $idVehiculo, $paramsFecha[0], $paramsFecha[1]);
@@ -835,19 +839,26 @@ class SeguimientoVehiculoModel
             $result = $stmt->get_result();
             while ($row = $result->fetch_assoc()) {
                 $row['kilometraje'] = (int) $row['kilometraje'];
+                $row['usuario_nombre'] = $row['usuario_nombre'] ?? null;
+                $row['id_preoperacional'] = $row['id_preoperacional'] ?? null;
                 $historial[] = $row;
             }
         }
 
         // 2. Preoperacionales con kilometraje
         if ($consultarPreop) {
-            $sql = "SELECT prefechaingreso as fecha, 'Preoperacional' as fuente,
-                           CAST(pre_kilrecorridos AS UNSIGNED) as kilometraje,
-                           preestado as detalle
-                    FROM `pre-operacional`
-                    WHERE prevehiculo = ? AND pre_kilrecorridos IS NOT NULL AND pre_kilrecorridos != ''"
-                    . ($desde && $hasta ? ' AND prefechaingreso >= ? AND prefechaingreso <= ?' : '')
-                    . " ORDER BY prefechaingreso DESC";
+            $sql = "SELECT po.prefechaingreso as fecha, 'Preoperacional' as fuente,
+                           CAST(po.pre_kilrecorridos AS UNSIGNED) as kilometraje,
+                           po.preestado as detalle,
+                           po.idpreoperacinal as id_preoperacional,
+                           po.preidusuario as id_usuario,
+                           u2.usu_nombre as usuario_nombre,
+                           DATE(po.prefechaingreso) as fecha_date
+                    FROM `pre-operacional` po
+                    LEFT JOIN usuarios u2 ON u2.idusuarios = po.preidusuario
+                    WHERE po.prevehiculo = ? AND po.pre_kilrecorridos IS NOT NULL AND po.pre_kilrecorridos != ''"
+                    . ($desde && $hasta ? ' AND po.prefechaingreso >= ? AND po.prefechaingreso <= ?' : '')
+                    . " ORDER BY po.prefechaingreso DESC";
             $stmt = $this->db->prepare($sql);
             if ($desde && $hasta) {
                 $stmt->bind_param("iss", $idVehiculo, $paramsFecha[0], $paramsFecha[1]);
@@ -858,6 +869,8 @@ class SeguimientoVehiculoModel
             $result = $stmt->get_result();
             while ($row = $result->fetch_assoc()) {
                 $row['kilometraje'] = (int) $row['kilometraje'];
+                $row['usuario_nombre'] = $row['usuario_nombre'] ?? null;
+                $row['id_preoperacional'] = $row['id_preoperacional'] ?? null;
                 if ($row['kilometraje'] > 0) {
                     $historial[] = $row;
                 }
@@ -884,6 +897,8 @@ class SeguimientoVehiculoModel
             $result = $stmt->get_result();
             while ($row = $result->fetch_assoc()) {
                 $row['kilometraje'] = (int) $row['kilometraje'];
+                $row['usuario_nombre'] = $row['usuario_nombre'] ?? null;
+                $row['id_preoperacional'] = $row['id_preoperacional'] ?? null;
                 if ($row['kilometraje'] > 0) {
                     $historial[] = $row;
                 }

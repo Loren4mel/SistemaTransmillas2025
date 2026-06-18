@@ -89,15 +89,43 @@ $hastaDefecto = date('Y-m-d');
                         <th>Fuente</th>
                         <th>Kilometraje</th>
                         <th>Detalle</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($historial as $h): ?>
+                    <?php foreach ($historial as $h):
+                        $preopId = $h['id_preoperacional'] ?? null;
+                        $userId = $h['id_usuario'] ?? null;
+                        $fechaDate = $h['fecha_date'] ?? date('Y-m-d', strtotime($h['fecha'] ?? 'now'));
+                        $tieneVer = $preopId && $userId;
+                        $verUrl = '';
+                        if ($tieneVer) {
+                            $verUrl = 'PreoperacionalController.php?preoperacional=validarpreoperacional'
+                                . '&idpre=' . (int)$preopId
+                                . '&iduser=' . (int)$userId
+                                . '&fecha=' . urlencode($fechaDate)
+                                . '&idvehiculo=' . (int)$vehiculo['idvehiculos']
+                                . '&param4=ingresado&param5=vista';
+                        }
+                    ?>
                     <tr>
                         <td><?= date('d-m-Y H:i', strtotime($h['fecha'])) ?></td>
                         <td><span class="badge bg-secondary"><?= htmlspecialchars($h['fuente']) ?></span></td>
                         <td><strong><?= number_format((int)($h['kilometraje'] ?? 0), 0, ',', '.') ?> km</strong></td>
                         <td><?= htmlspecialchars($h['detalle'] ?? '') ?></td>
+                        <td><?= htmlspecialchars($h['usuario_nombre'] ?? '—') ?></td>
+                        <td>
+                            <?php if ($tieneVer): ?>
+                                <a href="#"
+                                   onclick="window.open('<?= $verUrl ?>', '_blank', 'width=800,height=600,scrollbars=yes'); return false;"
+                                   style="color:#0c4582; font-weight:600;">
+                                    👁️ Ver
+                                </a>
+                            <?php else: ?>
+                                <span style="color:#aaa;">—</span>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>

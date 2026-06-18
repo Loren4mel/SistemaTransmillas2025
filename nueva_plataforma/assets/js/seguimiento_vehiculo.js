@@ -484,17 +484,34 @@
         var tbody = '';
         for (var i = 0; i < historial.length; i++) {
             var h = historial[i];
+            var verLink = '—';
+            if (h.id_preoperacional && h.id_usuario) {
+                var fechaDate = h.fecha_date || h.fecha.split(' ')[0];
+                var verUrl = '../controller/PreoperacionalController.php' +
+                    '?preoperacional=validarpreoperacional' +
+                    '&idpre=' + encodeURIComponent(h.id_preoperacional) +
+                    '&iduser=' + encodeURIComponent(h.id_usuario) +
+                    '&fecha=' + encodeURIComponent(fechaDate) +
+                    '&idvehiculo=' + encodeURIComponent(h.idvehiculo || '') +
+                    '&param4=ingresado&param5=vista';
+                verLink = '<a href="#" onclick="window.open(\'' + escAttr(verUrl) + '\', \'_blank\', \'width=800,height=600,scrollbars=yes\'); return false;" style="color:#0c4582;font-weight:600;">👁️ Ver</a>';
+            }
+
             tbody += '<tr>' +
                 '<td>' + formatFecha(h.fecha, true) + '</td>' +
                 '<td><span class="badge bg-secondary">' + escHtml(h.fuente) + '</span></td>' +
                 '<td><strong>' + formatKm(h.kilometraje || 0) + ' km</strong></td>' +
                 '<td>' + escHtml(h.detalle || '') + '</td>' +
+                '<td>' + escHtml(h.usuario_nombre || '—') + '</td>' +
+                '<td>' + verLink + '</td>' +
                 '</tr>';
         }
 
         $('#kmHistorialTabla').html(
             '<div class="table-responsive"><table class="table table-sm table-hover" style="font-size:12px;">' +
-            '<thead><tr><th>Fecha</th><th>Fuente</th><th>Kilometraje</th><th>Detalle</th></tr></thead>' +
+            '<thead><tr>' +
+            '<th>Fecha</th><th>Fuente</th><th>Kilometraje</th><th>Detalle</th><th>Usuario</th><th>Acción</th>' +
+            '</tr></thead>' +
             '<tbody>' + tbody + '</tbody></table></div>'
         );
     }

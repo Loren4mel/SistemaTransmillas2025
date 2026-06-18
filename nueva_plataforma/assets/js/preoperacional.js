@@ -895,6 +895,10 @@
         var btn = document.getElementById('btnGuardar');
         if (!btn) return;
 
+        // En modo solo-lectura, el botón no existe (oculto por PHP)
+        // pero si se llegara a llamar, salir inmediatamente
+        if (typeof ES_SOLO_LECTURA !== 'undefined' && ES_SOLO_LECTURA) return;
+
         // No modificar si está bloqueado por novedad vehicular
         var container = document.getElementById('vehiculoSectionsContainer');
         if (container && container.classList.contains('vehiculo-section-blocked')) return;
@@ -1567,6 +1571,9 @@
         }
         form.addEventListener('submit', async function (e) {
             e.preventDefault();
+
+            // En modo solo-lectura, no se puede enviar el formulario
+            if (typeof ES_SOLO_LECTURA !== 'undefined' && ES_SOLO_LECTURA) return;
 
             // Defensa: eliminar el atributo required de cualquier input que esté
             // disabled u oculto. Un input required+disabled+hidden provoca el error
