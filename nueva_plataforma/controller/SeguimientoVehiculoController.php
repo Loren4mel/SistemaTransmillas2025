@@ -267,7 +267,13 @@ if (isset($_GET['accion'])) {
 
                     case 'historial_kilometraje':
                         $vehiculo = $modelo->getVehiculoById($idVehiculo);
-                        $historial = $modelo->getHistorialKilometraje($idVehiculo);
+                        // Usar el mismo default de 30 días que tienen los inputs de fecha en el popup,
+                        // para que la tabla pre-renderizada coincida con el filtro inicial del JS.
+                        $historial = $modelo->getHistorialKilometraje(
+                            $idVehiculo,
+                            date('Y-m-d', strtotime('-30 days')),
+                            date('Y-m-d')
+                        );
                         if (!$vehiculo) {
                             echo "<div class='alert alert-danger'>Vehículo no encontrado.</div>";
                             exit;

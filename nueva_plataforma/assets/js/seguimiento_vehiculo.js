@@ -60,7 +60,7 @@
     }
 
     /** Carga contenido AJAX en el modal genérico */
-    function cargarPopup(tipo, id, titulo) {
+    function cargarPopup(tipo, id, titulo, onLoaded) {
         $('#popupModal .modal-title').text(titulo || ('Editando: ' + tipo));
         $('#popupModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
         $('#popupModal').modal('show');
@@ -68,6 +68,9 @@
         $.get(dirPage, { accion: 'form_popup', tipo: tipo, id: id })
             .done(function (html) {
                 $('#popupModalBody').html(html);
+                if (typeof onLoaded === 'function') {
+                    onLoaded();
+                }
             })
             .fail(function () {
                 $('#popupModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
@@ -170,9 +173,9 @@
     }
 
     function abrirHistorialKm(idVehiculo) {
-        cargarPopup('historial_kilometraje', idVehiculo, 'Historial de Kilometraje');
-        // Inicializar gráfico cuando el modal esté visible
-        $('#popupModal').off('shown.bs.modal.kmChart').on('shown.bs.modal.kmChart', function () {
+        // Pasar callback para filtrar/iniciar gráfico después de que el contenido HTML
+        // esté en el DOM, garantizando que los inputs de fecha existan al leer sus valores.
+        cargarPopup('historial_kilometraje', idVehiculo, 'Historial de Kilometraje', function () {
             filtrarHistorialKm(idVehiculo);
         });
     }

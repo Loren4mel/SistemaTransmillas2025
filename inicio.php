@@ -45,8 +45,49 @@
         }
 </style>
 <?php 
-require("login_autentica.php"); 
+require("login_autentica.php");
 include("layout.php");
+
+echo '<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>';
+echo '<script>
+(function() {
+    "use strict";
+    window.addEventListener("message", function(event) {
+        var data = event.data;
+        if (!data || typeof data !== "object") return;
+
+        if (data.type === "SWAL_FIRE") {
+            var config = data.config || {};
+            var msgId  = data.msgId;
+            var source = event.source;
+
+            var promise = Swal.fire(config);
+
+            if (config._iframeLoading) {
+                Swal.showLoading();
+                return;
+            }
+
+            promise.then(function(result) {
+                if (!msgId) return;
+                try {
+                    source.postMessage({
+                        type: "SWAL_RESULT",
+                        msgId: msgId,
+                        result: {
+                            isConfirmed: !!result.isConfirmed,
+                            isDenied:    !!result.isDenied,
+                            isDismissed: !!result.isDismissed,
+                            value: result.value !== undefined ? result.value : null
+                        }
+                    }, "*");
+                } catch (e) {}
+            });
+        }
+    });
+})();
+</script>';
+
 $DB2 = new DB_mssql;
 $DB2->conectar(); 
 
@@ -75,29 +116,25 @@ function llena_datos(ex, nivel, ordby, asc)
 
 function ajustarIframePreoperacional(iframe)
 {
+	var _lastSetHeight = 0;
+
 	function calcularAltura() {
 		try {
 			var doc = iframe.contentDocument || iframe.contentWindow.document;
-			if (!doc) {
-				return;
-			}
+			if (!doc) return;
 
-			if (doc.documentElement) {
-				doc.documentElement.style.overflow = 'hidden';
-			}
-			if (doc.body) {
-				doc.body.style.overflow = 'hidden';
-			}
-
+			// SOLO body.*Height — documentElement.*Height dentro de un
+			// iframe refleja el viewport del iframe, que es justo lo que
+			// estamos cambiando → bucle infinito garantizado.
 			var altura = Math.max(
 				doc.body ? doc.body.scrollHeight : 0,
-				doc.body ? doc.body.offsetHeight : 0,
-				doc.documentElement ? doc.documentElement.scrollHeight : 0,
-				doc.documentElement ? doc.documentElement.offsetHeight : 0
+				doc.body ? doc.body.offsetHeight : 0
 			);
 
-			if (altura > 0) {
-				iframe.style.height = (altura + 20) + 'px';
+			var nuevaAltura = altura + 20;
+			if (altura > 0 && nuevaAltura !== _lastSetHeight) {
+				_lastSetHeight = nuevaAltura;
+				iframe.style.height = nuevaAltura + 'px';
 			}
 		} catch (error) {
 			iframe.style.height = '1200px';
@@ -112,18 +149,11 @@ function ajustarIframePreoperacional(iframe)
 		var doc = iframe.contentDocument || iframe.contentWindow.document;
 		if (doc && 'ResizeObserver' in window && !iframe.__preopResizeObserver) {
 			var observer = new ResizeObserver(calcularAltura);
-			observer.observe(doc.documentElement);
-			if (doc.body) {
-				observer.observe(doc.body);
-			}
+			observer.observe(doc.body);
 			iframe.__preopResizeObserver = observer;
 		}
-		if (iframe.contentWindow && !iframe.__preopResizeListener) {
-			iframe.contentWindow.addEventListener('resize', calcularAltura);
-			iframe.__preopResizeListener = true;
-		}
 	} catch (error) {
-		// Si el navegador bloquea el acceso al contenido, dejamos la altura de respaldo.
+		/* noop */
 	}
 }
 

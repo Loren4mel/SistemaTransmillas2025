@@ -9,6 +9,122 @@
 (function () {
     'use strict';
 
+    /**
+     * Wrapper alrededor de Swal.fire con relay vía postMessage
+     * cuando se ejecuta dentro de un iframe.
+     *
+     * Los modales se renderizan en el viewport COMPLETO de la
+     * ventana padre, eliminando el bucle de retroalimentacion
+     * del ResizeObserver y el backdrop gris limitado al iframe.
+     *
+     * Cuando NO esta en un iframe, usa Swal.fire directamente.
+     *
+     * @param {Object} config - Configuración estándar de SweetAlert2
+     * @returns {Promise} - Misma promesa que retorna Swal.fire
+     */
+
+    // --- Infraestructura de mensajeria ---
+    var _msgId = 0;
+    var _pending = {};      // msgId -> { resolve, reject, didClose }
+    var _isInIframe = (window.parent && window.parent !== window);
+
+    // Rompe el bucle ResizeObserver: body { min-height: 100vh }
+    // dentro del iframe usa la altura DEL iframe como referencia,
+    // asi que cada vez que ajustarIframePreoperacional aumenta la
+    // altura, 100vh crece, el body crece, y el ciclo se repite.
+    if (_isInIframe) {
+        document.body.style.minHeight = 'auto';
+    }
+
+    /**
+     * Recibe resultados de modales despachados desde el padre
+     */
+    window.addEventListener('message', function (e) {
+        var d = e.data;
+        if (!d || d.type !== 'SWAL_RESULT') return;
+        var entry = _pending[d.msgId];
+        if (!entry) return;
+        delete _pending[d.msgId];
+        // Ejecutar didClose en el lado del iframe ANTES de resolver
+        if (entry.didClose) {
+            try { entry.didClose(); } catch (err) {}
+        }
+        entry.resolve(d.result || {});
+    });
+
+    function swalAlert(config) {
+        // --- Ruta directa (sin iframe) ---
+        if (!_isInIframe) {
+            return Swal.fire(config);
+        }
+
+        // --- Ruta iframe: serializar y enviar al padre ---
+        var msgId = ++_msgId;
+        var didCloseFn = config.didClose;   // preservar para ejecutar localmente
+        var safeConfig = Object.assign({}, config);
+
+        // Eliminar callbacks no serializables
+        delete safeConfig.didOpen;
+        delete safeConfig.didClose;
+        delete safeConfig.willOpen;
+        delete safeConfig.willClose;
+        delete safeConfig.didRender;
+        delete safeConfig.didDestroy;
+        delete safeConfig.inputValidator;
+        delete safeConfig.preConfirm;
+        delete safeConfig.returnInputValueOnDeny;
+        delete safeConfig.heightAuto;       // irrelevante en el padre
+
+        // Simplificar customClass a solo strings
+        if (safeConfig.customClass && typeof safeConfig.customClass === 'object') {
+            var cc = {};
+            for (var k in safeConfig.customClass) {
+                if (typeof safeConfig.customClass[k] === 'string') {
+                    cc[k] = safeConfig.customClass[k];
+                }
+            }
+            safeConfig.customClass = cc;
+        }
+
+        // ¿Es solo un indicador de carga o un toast? →
+        // no se necesita respuesta del usuario.
+        var esFireAndForget = (config._iframeLoading === true) ||
+                              (config.showConfirmButton === false && !config.didClose);
+
+        if (esFireAndForget) {
+            // Despachar sin registrar Promise pendiente
+            window.parent.postMessage({
+                type: 'SWAL_FIRE',
+                msgId: msgId,
+                config: safeConfig
+            }, '*');
+            return Promise.resolve({ isConfirmed: false, isDismissed: true });
+        }
+
+        // Modal bloqueante: registrar Promise y esperar SWAL_RESULT
+        return new Promise(function (resolve, reject) {
+            _pending[msgId] = {
+                resolve: resolve,
+                reject: reject,
+                didClose: didCloseFn || null
+            };
+
+            window.parent.postMessage({
+                type: 'SWAL_FIRE',
+                msgId: msgId,
+                config: safeConfig
+            }, '*');
+
+            // Timeout de seguridad: 120 s
+            setTimeout(function () {
+                if (_pending[msgId]) {
+                    delete _pending[msgId];
+                    resolve({ isConfirmed: false, isDismissed: true });
+                }
+            }, 120000);
+        });
+    }
+
     // Coordenadas de ubicación obtenidas del navegador
     var ubicacionCoords = null;
     var mapaInstancia = null;
@@ -158,7 +274,7 @@
         }
 
         if (!ubicacionCoords) {
-            Swal.fire({
+            swalAlert({
                 title: 'Ubicación requerida',
                 html: 'Debe permitir el acceso a la ubicación GPS para registrar el preoperacional.<br><br>' +
                       'Si el mensaje de permiso no aparece, verifique la configuración de ubicación de su navegador.',
@@ -316,7 +432,7 @@
                 errorHtml += '• ' + errores[k] + '<br>';
             }
 
-            Swal.fire({
+            swalAlert({
                 title: 'Fotos requeridas',
                 html: errorHtml,
                 icon: 'warning',
@@ -378,7 +494,7 @@
                 errorHtml += '• ' + errores[k] + '<br>';
             }
 
-            Swal.fire({
+            swalAlert({
                 title: 'Preguntas pendientes',
                 html: errorHtml,
                 icon: 'warning',
@@ -415,7 +531,7 @@
         var firmaValor = firmaInput.value.trim();
 
         if (!firmaValor) {
-            Swal.fire({
+            swalAlert({
                 title: 'Firma requerida',
                 text: 'Debe firmar en el canvas antes de guardar el preoperacional.',
                 icon: 'warning',
@@ -471,7 +587,7 @@
         var raw = input.value.replace(/\./g, '').trim();
         if (!raw || parseInt(raw, 10) <= 0) {
             resaltarTarjeta(input, 'Debe ingresar el kilometraje actual del vehículo.');
-            Swal.fire({
+            swalAlert({
                 title: 'Kilometraje requerido',
                 text: 'Debe ingresar el kilometraje actual del vehículo antes de guardar.',
                 icon: 'warning',
@@ -532,7 +648,7 @@
 
         if (!fileInput.files || fileInput.files.length === 0) {
             resaltarTarjeta(fileInput, 'Debe subir una foto del kilometraje del vehículo.');
-            Swal.fire({
+            swalAlert({
                 title: 'Imagen de kilometraje requerida',
                 text: 'Debe subir una foto del kilometraje del vehículo antes de guardar.',
                 icon: 'warning',
@@ -653,7 +769,7 @@
                 errorHtml += '• ' + preguntasNegativas[k] + '<br>';
             }
 
-            Swal.fire({
+            swalAlert({
                 title: 'Preoperacional bloqueado',
                 html: errorHtml,
                 icon: 'error',
@@ -746,7 +862,7 @@
                 } catch(e) {}
             }
 
-            await Swal.fire({
+            await swalAlert({
                 title: '<span style="font-size:1.4em;">ATENCIÓN: Documentos del vehículo vencidos</span>',
                 html: '<div style="font-size:1.05em; line-height:1.7; text-align:left;">' +
                     '<p style="margin-bottom:12px;">Se han detectado <strong>documentos vencidos</strong> del vehículo (licencia, seguro o tecnicomecánica).</p>' +
@@ -1181,7 +1297,7 @@
             btnGuardar.addEventListener('click', function() {
                 var seleccion = document.querySelector('input[name="puede_operar"]:checked');
                 if (!seleccion) {
-                    Swal.fire({ title: 'Seleccione una opción', text: 'Debe indicar si el vehículo puede ser operado.', icon: 'warning', confirmButtonText: 'Aceptar' });
+                    swalAlert({ title: 'Seleccione una opción', text: 'Debe indicar si el vehículo puede ser operado.', icon: 'warning', confirmButtonText: 'Aceptar' });
                     return;
                 }
                 var panel = document.getElementById('novedadPanel');
@@ -1209,7 +1325,7 @@
             var idVehiculo = select ? select.value : '';
 
             if (!idVehiculo) {
-                Swal.fire({
+                swalAlert({
                     title: 'Seleccione un vehículo',
                     text: 'Debe seleccionar un vehículo de la lista.',
                     icon: 'warning',
@@ -1234,7 +1350,7 @@
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 if (data.success) {
-                    Swal.fire({
+                    swalAlert({
                         title: 'Vehículo asignado',
                         text: data.message + ' La página se recargará.',
                         icon: 'success',
@@ -1245,7 +1361,7 @@
                 } else {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-check"></i> Asignar Vehículo';
-                    Swal.fire({
+                    swalAlert({
                         title: 'Error',
                         text: data.message || 'Error al asignar el vehículo.',
                         icon: 'error',
@@ -1256,7 +1372,7 @@
             .catch(function() {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-check"></i> Asignar Vehículo';
-                Swal.fire({
+                swalAlert({
                     title: 'Error',
                     text: 'Error de comunicación con el servidor.',
                     icon: 'error',
@@ -1277,7 +1393,7 @@
         // 1. Foto general SIEMPRE requerida
         var fotoEvidencia = document.getElementById('novedad_foto_evidencia');
         if (!fotoEvidencia || !fotoEvidencia.files || fotoEvidencia.files.length === 0) {
-            Swal.fire({ title: 'Foto requerida', text: 'Debe subir la foto de evidencia general.', icon: 'warning', confirmButtonText: 'Aceptar' });
+            swalAlert({ title: 'Foto requerida', text: 'Debe subir la foto de evidencia general.', icon: 'warning', confirmButtonText: 'Aceptar' });
             var panel = document.getElementById('novedadPanel');
             if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
@@ -1293,7 +1409,7 @@
             if (faltaSalida.length > 0) {
                 var html = '<strong>Debe subir las siguientes fotos de salida:</strong><br><br>';
                 for (var k = 0; k < faltaSalida.length; k++) { html += '• ' + faltaSalida[k] + '<br>'; }
-                Swal.fire({ title: 'Fotos de salida requeridas', html: html, icon: 'warning', confirmButtonText: 'Aceptar' });
+                swalAlert({ title: 'Fotos de salida requeridas', html: html, icon: 'warning', confirmButtonText: 'Aceptar' });
                 var salidaGrp = document.getElementById('novedadSalidaPhotosGroup');
                 if (salidaGrp) salidaGrp.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
@@ -1310,7 +1426,7 @@
                 if (faltaEntrada.length > 0) {
                     var htmlE = '<strong>Debe subir las siguientes fotos de entrada:</strong><br><br>';
                     for (var j = 0; j < faltaEntrada.length; j++) { htmlE += '• ' + faltaEntrada[j] + '<br>'; }
-                    Swal.fire({ title: 'Fotos de entrada requeridas', html: htmlE, icon: 'warning', confirmButtonText: 'Aceptar' });
+                    swalAlert({ title: 'Fotos de entrada requeridas', html: htmlE, icon: 'warning', confirmButtonText: 'Aceptar' });
                     var entradaGrp = document.getElementById('novedadEntradaPhotosGroup');
                     if (entradaGrp) entradaGrp.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     return;
@@ -1368,7 +1484,7 @@
             if (data.success) {
                 if (data.cambio_vehiculo) {
                     // Vehículo nuevo asignado → recargar página
-                    Swal.fire({ title: 'Vehículo actualizado', text: data.message + ' La página se recargará.', icon: 'success', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
+                    swalAlert({ title: 'Vehículo actualizado', text: data.message + ' La página se recargará.', icon: 'success', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
                 } else if (data.idvehiculo_final && parseInt(data.idvehiculo_final) > 0) {
                     // SÍ → el vehículo se mantiene: desbloquear secciones normalmente
                     var inlineForm = document.getElementById('novedadInlineForm');
@@ -1382,21 +1498,21 @@
                     if (selField) selField.value = data.idvehiculo_final;
                     desbloquearSeccionesVehiculo();
 
-                    Swal.fire({ title: 'Novedad registrada', text: data.message, icon: 'success', confirmButtonText: 'Aceptar', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+                    swalAlert({ title: 'Novedad registrada', text: data.message, icon: 'success', confirmButtonText: 'Aceptar', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
                 } else {
                     // FUERA_DE_SERVICIO sin vehículo nuevo → el vehículo fue desasignado
                     // en el servidor. Recargar la página para que el formulario refleje
                     // el nuevo estado (sin secciones de vehículo, panel de asignación, etc.).
-                    Swal.fire({ title: 'Vehículo fuera de servicio', text: data.message + ' La página se recargará.', icon: 'info', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
+                    swalAlert({ title: 'Vehículo fuera de servicio', text: data.message + ' La página se recargará.', icon: 'info', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
                 }
             } else {
-                Swal.fire({ title: 'Error', text: data.message || 'Error al procesar la novedad.', icon: 'error', confirmButtonText: 'Aceptar' });
+                swalAlert({ title: 'Error', text: data.message || 'Error al procesar la novedad.', icon: 'error', confirmButtonText: 'Aceptar' });
             }
         })
         .catch(function() {
             if (btnGuardar) { btnGuardar.disabled = false; btnGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar Novedad'; }
             if (btnCancelar) btnCancelar.disabled = false;
-            Swal.fire({ title: 'Error', text: 'Error de comunicación con el servidor.', icon: 'error', confirmButtonText: 'Aceptar' });
+            swalAlert({ title: 'Error', text: 'Error de comunicación con el servidor.', icon: 'error', confirmButtonText: 'Aceptar' });
         });
     }
 
@@ -1434,7 +1550,7 @@
             for (var k = 0; k < faltantes.length; k++) {
                 errorHtml += '• ' + faltantes[k] + '<br>';
             }
-            Swal.fire({ title: 'Fotos de entrega requeridas', html: errorHtml, icon: 'warning', confirmButtonText: 'Aceptar' });
+            swalAlert({ title: 'Fotos de entrega requeridas', html: errorHtml, icon: 'warning', confirmButtonText: 'Aceptar' });
             entregaSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return false;
         }
@@ -1474,7 +1590,7 @@
                 var container = document.getElementById('vehiculoSectionsContainer');
                 var novedadInfo = document.getElementById('vehiculoNovedadActivaInfo');
                 if (container && container.style.display === 'none' && novedadInfo && novedadInfo.style.display !== 'none') {
-                    await Swal.fire({
+                    await swalAlert({
                         title: 'Vehículo Fuera de Servicio',
                         html: '<div style="text-align:left; font-size:1.05em;">' +
                             '<p><strong>El vehículo asignado se encuentra <span style="color:#dc3545;">FUERA DE SERVICIO</span>.</strong></p>' +
@@ -1568,16 +1684,13 @@
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
             }
 
-            Swal.fire({
+            swalAlert({
                 title: 'Guardando preoperacional',
                 text: 'Por favor espere un momento.',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false,
-                heightAuto: false,
-                didOpen: function () {
-                    Swal.showLoading();
-                }
+                _iframeLoading: true
             });
 
             fetch((window.APP_BASE_URL ? window.APP_BASE_URL + '/controller/PreoperacionalController.php' : window.location.pathname), {
@@ -1596,7 +1709,7 @@
 
                     if (data.success) {
                         if (window.parent && window.parent !== window) {
-                            Swal.fire({
+                            swalAlert({
                                 toast: true,
                                 position: 'top-end',
                                 icon: 'success',
@@ -1604,8 +1717,6 @@
                                 showConfirmButton: false,
                                 timer: 1200,
                                 timerProgressBar: true,
-                                backdrop: false,
-                                heightAuto: false,
                                 didClose: function () {
                                     if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
                                         try {
@@ -1631,14 +1742,13 @@
                             return;
                         }
 
-                        Swal.fire({
+                        swalAlert({
                             title: 'Éxito',
                             text: data.message,
                             icon: 'success',
                             confirmButtonText: 'Aceptar',
                             allowOutsideClick: false,
-                            allowEscapeKey: false,
-                            heightAuto: false
+                            allowEscapeKey: false
                         }).then(function (result) {
                             if (!result.isConfirmed) {
                                 return;
@@ -1659,13 +1769,12 @@
                             }
                         });
                     } else {
-                        Swal.fire({
+                        swalAlert({
                             title: 'Error',
                             text: data.message || 'Ocurrió un error al guardar.',
                             icon: 'error',
                             confirmButtonText: 'Aceptar',
-                            allowOutsideClick: false,
-                            heightAuto: false
+                            allowOutsideClick: false
                         });
                     }
                 })
@@ -1675,13 +1784,12 @@
                         btn.innerHTML = '<i class="fas fa-save me-2"></i> Guardar';
                     }
 
-                    Swal.fire({
+                    swalAlert({
                         title: 'Error',
                         text: 'Error de comunicación con el servidor.',
                         icon: 'error',
                         confirmButtonText: 'Aceptar',
-                        allowOutsideClick: false,
-                        heightAuto: false
+                        allowOutsideClick: false
                     });
                 });
         });
