@@ -1,645 +1,94 @@
 /**
- * Reporte Conductor SST - Estilos Mobile-First
- * ------------------------------------------------------------
- * Prefijo global: rcsst-
- * Viewport base: 375px (mobile-first)
- * Breakpoint desktop: >= 768px
- * Colores del sistema: #1a73e8 (primary), #e53935 (required),
- *   #4caf50 (active/yes), #1557b0 (hover), #bbb (disabled)
- * ------------------------------------------------------------
+ * Reporte Conductor SST — Estilos complementarios
+ *
+ * Los estilos base de tarjetas, botones, radio buttons, textarea,
+ * contenedor de ubicación y layout general están en preoperacional.css.
+ * Este archivo solo contiene lo específico del módulo.
  */
 
-/* ==================== 1. LAYOUT ==================== */
+/* ==================== RADIO TOGGLE ACTIVO ==================== */
 
-.rcsst-container {
-    max-width: 500px;
-    margin: 0 auto;
-    min-height: 100vh;
-    background: #f5f5f5;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-        Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-    color: #333;
-    box-sizing: border-box;
+.radio-label.rcsst-active {
+    background: rgba(7, 79, 145, 0.08) !important;
+    border-color: rgba(7, 79, 145, 0.55) !important;
+    color: #074F91 !important;
 }
 
-.rcsst-container *,
-.rcsst-container *::before,
-.rcsst-container *::after {
-    box-sizing: inherit;
-}
+/* ==================== PANEL CONDICIONAL (SÍ) ==================== */
 
-/* ==================== 2. HEADER ==================== */
-
-.rcsst-header {
-    background: #1a73e8;
-    color: #fff;
-    padding: 16px;
-    text-align: center;
-}
-
-.rcsst-header-label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    opacity: 0.85;
-    margin-bottom: 4px;
-    display: block;
-}
-
-.rcsst-header-title {
-    font-size: 16px;
-    font-weight: 700;
-    margin: 0;
-    line-height: 1.3;
-}
-
-.rcsst-header-week {
-    font-size: 10px;
-    opacity: 0.75;
-    margin-top: 4px;
-    display: block;
-}
-
-/* ==================== 3. MAP SECTION ==================== */
-
-.rcsst-map-card {
-    background: #fff;
-    margin: 12px;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    overflow: hidden;
-}
-
-.rcsst-map-container {
-    width: 100%;
-    height: 200px;
-    background: #e9ecef;
-    position: relative;
-}
-
-.rcsst-map-status {
-    padding: 10px 12px;
-    font-size: 12px;
-    text-align: center;
-}
-
-.rcsst-map-status--loading {
-    background: #fff8e1;
-    color: #f57f17;
-    border-top: 1px solid #ffe082;
-}
-
-.rcsst-map-status--error {
-    background: #ffebee;
-    color: #c62828;
-    border-top: 1px solid #ef9a9a;
-}
-
-.rcsst-map-status--success {
-    background: #e8f5e9;
-    color: #2e7d32;
-    border-top: 1px solid #a5d6a7;
-}
-
-.rcsst-coords {
-    padding: 8px 12px;
-    font-size: 11px;
-    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
-    text-align: center;
-    color: #666;
-    border-top: 1px solid #eee;
-    background: #fafafa;
-    word-break: break-all;
-}
-
-/* ==================== 4. QUESTION CARDS ==================== */
-
-.rcsst-card {
-    background: #fff;
-    margin: 0 12px 8px 12px;
-    border-radius: 8px;
-    border-bottom: 1px solid #e0e0e0;
-    overflow: hidden;
-}
-
-.rcsst-card:last-of-type {
-    margin-bottom: 12px;
-}
-
-.rcsst-card-header {
-    padding: 16px;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-}
-
-.rcsst-card-emoji {
-    font-size: 22px;
-    line-height: 1.2;
-    flex-shrink: 0;
-}
-
-.rcsst-card-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #333;
-    margin: 0 0 2px 0;
-    line-height: 1.4;
-}
-
-.rcsst-card-desc {
-    font-size: 11px;
-    color: #888;
-    margin: 0;
-    line-height: 1.4;
-}
-
-/* ==================== 5. RADIO TOGGLES (Sí/No) ==================== */
-
-.rcsst-toggle-group {
-    display: flex;
-    gap: 8px;
-    padding: 0 16px 14px 16px;
-}
-
-.rcsst-toggle-label {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 0;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #888;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    user-select: none;
-    position: relative;
-}
-
-.rcsst-toggle-label:hover {
-    border-color: #aaa;
-    color: #555;
-}
-
-.rcsst-toggle-label input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-}
-
-/* Estado activo — Sí */
-.rcsst-toggle-label--si.rcsst-toggle--active {
-    border-color: #4caf50;
-    background: #f1f8e9;
-    color: #2e7d32;
-}
-
-/* Estado activo — No */
-.rcsst-toggle-label--no.rcsst-toggle--active {
-    border-color: #e53935;
-    background: #fce4ec;
-    color: #c62828;
-}
-
-/* ==================== 6. CONDITIONAL PANEL (visible cuando Sí) ==================== */
-
-.rcsst-conditional {
-    display: none;
-    margin: 0 16px 14px 16px;
-    padding: 12px;
-    background: #fff8e1;
-    border: 1px solid #ffe082;
-    border-radius: 8px;
-}
-
-.rcsst-conditional.rcsst-visible {
-    display: block;
-}
-
-.rcsst-conditional-label {
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    color: #e65100;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
-}
-
-.rcsst-conditional textarea,
-.rcsst-textarea {
-    width: 100%;
-    min-height: 80px;
-    padding: 10px 12px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    font-size: 13px;
-    font-family: inherit;
-    color: #333;
-    resize: vertical;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    background: #fff;
-}
-
-.rcsst-conditional textarea:focus,
-.rcsst-textarea:focus {
-    outline: none;
-    border-color: #1a73e8;
-    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
-}
-
-/* ==================== 7. FILE UPLOAD ZONE ==================== */
-
-.rcsst-upload-dropzone {
-    border: 2px dashed #bbb;
-    border-radius: 8px;
-    padding: 14px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease;
-    background: #fafafa;
-    position: relative;
-}
-
-.rcsst-upload-dropzone:hover,
-.rcsst-upload-dropzone.rcsst-dragover {
-    border-color: #1a73e8;
-    background: #e8f0fe;
-}
-
-.rcsst-upload-icon {
-    font-size: 28px;
-    display: block;
-    margin-bottom: 4px;
-    color: #1a73e8;
-}
-
-.rcsst-upload-text {
-    font-size: 12px;
-    color: #1a73e8;
-    font-weight: 600;
-    display: block;
-}
-
-.rcsst-upload-hint {
-    font-size: 10px;
-    color: #999;
-    display: block;
-    margin-top: 2px;
-}
-
-.rcsst-upload-dropzone input[type="file"] {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-}
-
-/* ------------------------------------------------------------
- * FUTURO: Dropzone para carga de video
- * Descomentar cuando se implemente la funcionalidad de video
- * ------------------------------------------------------------
- *
- * .rcsst-upload-dropzone--video {
- *     border-color: #ff9800;
- *     background: #fff8f0;
- * }
- *
- * .rcsst-upload-dropzone--video:hover,
- * .rcsst-upload-dropzone--video.rcsst-dragover {
- *     border-color: #e65100;
- *     background: #fff3e0;
- * }
- *
- * .rcsst-upload-dropzone--video .rcsst-upload-icon {
- *     color: #ff9800;
- * }
- *
- * .rcsst-upload-dropzone--video .rcsst-upload-text {
- *     color: #e65100;
- * }
- */
-
-/* ==================== 8. FILE PREVIEW ==================== */
-
-.rcsst-file-preview {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.rcsst-file-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    max-width: 200px;
-    overflow: hidden;
-}
-
-.rcsst-file-badge--image {
-    background: #e8f5e9;
-    color: #2e7d32;
-}
-
-.rcsst-file-badge--pdf {
-    background: #fce4ec;
-    color: #c62828;
-}
-
-.rcsst-file-name {
-    max-width: 140px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 11px;
-}
-
-.rcsst-file-remove {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 14px;
-    color: #888;
-    padding: 0;
-    line-height: 1;
-    flex-shrink: 0;
-    transition: color 0.15s ease;
-}
-
-.rcsst-file-remove:hover {
-    color: #e53935;
-}
-
-/* ==================== 9. SIN NOVEDAD TEXT ==================== */
-
-.rcsst-sin-novedad {
-    display: none;
-    text-align: center;
-    font-style: italic;
-    color: #999;
-    font-size: 12px;
-    padding: 10px 16px;
+.rcsst-panel-si.rcsst-visible {
+    display: block !important;
 }
 
 .rcsst-sin-novedad.rcsst-visible {
-    display: block;
+    display: block !important;
 }
 
-/* ==================== 10. SUBMIT BUTTON ==================== */
+/* ==================== DROPZONE HOVER ESTADO ==================== */
 
-.rcsst-submit-wrapper {
-    padding: 16px 12px 24px 12px;
-    text-align: center;
+.rcsst-upload-dropzone:hover,
+.rcsst-upload-dropzone.rcsst-dragover {
+    border-color: #074F91 !important;
+    background: rgba(7, 79, 145, 0.08) !important;
 }
 
-.rcsst-submit-btn {
-    width: 100%;
-    padding: 14px;
-    background: #1a73e8;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s ease, transform 0.1s ease;
-    letter-spacing: 0.3px;
-}
+/* ==================== VISTA PREVIA DE ARCHIVOS ==================== */
 
-.rcsst-submit-btn:hover {
-    background: #1557b0;
-}
-
-.rcsst-submit-btn:active {
-    transform: scale(0.98);
-}
-
-.rcsst-submit-btn:disabled,
-.rcsst-submit-btn.rcsst-disabled {
-    background: #bbb;
-    cursor: not-allowed;
-    color: #eee;
-}
-
-.rcsst-submit-btn:disabled:hover,
-.rcsst-submit-btn.rcsst-disabled:hover {
-    background: #bbb;
-    transform: none;
-}
-
-.rcsst-submit-footer {
-    font-size: 11px;
-    color: #999;
-    text-align: center;
-    margin-top: 8px;
-}
-
-/* ==================== REQUIRED BADGE ==================== */
-
-.rcsst-required {
-    color: #e53935;
-    font-weight: 700;
-    margin-left: 2px;
-}
-
-/* ==================== ERROR MESSAGE ==================== */
-
-.rcsst-error {
-    background: #ffebee;
-    color: #c62828;
-    font-size: 12px;
-    padding: 8px 12px;
-    border-radius: 6px;
-    margin: 8px 16px 0 16px;
-    border-left: 3px solid #e53935;
-}
-
-/* ==================== SUCCESS MESSAGE ==================== */
-
-.rcsst-success {
-    background: #e8f5e9;
-    color: #2e7d32;
-    font-size: 12px;
-    padding: 8px 12px;
-    border-radius: 6px;
-    margin: 8px 16px 0 16px;
-    border-left: 3px solid #4caf50;
-}
-
-/* ==================== LOADING SPINNER ==================== */
-
-.rcsst-loading {
-    display: flex;
+.rcsst-preview-item {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    padding: 32px 16px;
-    gap: 10px;
-    color: #888;
-    font-size: 13px;
+    gap: 4px;
+    background: rgba(232, 245, 233, 0.9);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    max-width: 220px;
+    border: 1px solid rgba(76, 175, 80, 0.25);
 }
 
-.rcsst-spinner {
-    width: 20px;
-    height: 20px;
-    border: 3px solid #e0e0e0;
-    border-top-color: #1a73e8;
-    border-radius: 50%;
-    animation: rcsst-spin 0.7s linear infinite;
+.rcsst-preview-item--pdf {
+    background: rgba(252, 228, 236, 0.9);
+    border-color: rgba(233, 30, 99, 0.25);
 }
 
-@keyframes rcsst-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* ==================== SECTION DIVIDER ==================== */
-
-.rcsst-divider {
+.rcsst-preview-remove {
+    cursor: pointer;
+    color: #999;
+    font-weight: bold;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 3px;
+    margin-left: 2px;
+    background: none;
     border: none;
-    border-top: 1px solid #e0e0e0;
-    margin: 4px 12px;
 }
 
-/* ==================== 11. DESKTOP @media (min-width: 768px) ==================== */
+.rcsst-preview-remove:hover {
+    color: #e53935;
+}
 
-@media (min-width: 768px) {
-    .rcsst-container {
-        padding: 20px 0;
+/* ==================== CSS PARA VISTA PREVIA DE NOMBRES ==================== */
+
+.rcsst-preview-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 160px;
+}
+
+/* ==================== UPLOAD INPUT OCULTO ==================== */
+
+.rcsst-upload-input {
+    display: none;
+}
+
+/* ==================== MEDIA QUERIES ==================== */
+
+@media (max-width: 768px) {
+    .rcsst-preview-item {
+        max-width: 170px;
     }
-
-    .rcsst-header {
-        border-radius: 10px 10px 0 0;
-        padding: 20px 24px;
-    }
-
-    .rcsst-header-label {
-        font-size: 12px;
-    }
-
-    .rcsst-header-title {
-        font-size: 18px;
-    }
-
-    .rcsst-header-week {
-        font-size: 11px;
-    }
-
-    .rcsst-map-card {
-        margin: 16px 20px;
-    }
-
-    .rcsst-map-container {
-        height: 250px;
-    }
-
-    .rcsst-map-status {
-        font-size: 13px;
-    }
-
-    .rcsst-coords {
-        font-size: 12px;
-    }
-
-    .rcsst-card {
-        margin: 0 20px 10px 20px;
-    }
-
-    .rcsst-card:last-of-type {
-        margin-bottom: 16px;
-    }
-
-    .rcsst-card-header {
-        padding: 20px 24px;
-    }
-
-    .rcsst-card-emoji {
-        font-size: 24px;
-    }
-
-    .rcsst-card-title {
-        font-size: 15px;
-    }
-
-    .rcsst-card-desc {
-        font-size: 12px;
-    }
-
-    .rcsst-toggle-group {
-        padding: 0 24px 18px 24px;
-        gap: 10px;
-    }
-
-    .rcsst-toggle-label {
-        padding: 12px 0;
-        font-size: 14px;
-    }
-
-    .rcsst-conditional {
-        margin: 0 24px 18px 24px;
-        padding: 16px;
-    }
-
-    .rcsst-conditional-label {
-        font-size: 12px;
-    }
-
-    .rcsst-conditional textarea,
-    .rcsst-textarea {
-        min-height: 100px;
-        font-size: 14px;
-    }
-
-    .rcsst-upload-dropzone {
-        padding: 20px;
-    }
-
-    .rcsst-upload-icon {
-        font-size: 32px;
-    }
-
-    .rcsst-upload-text {
-        font-size: 13px;
-    }
-
-    .rcsst-upload-hint {
-        font-size: 11px;
-    }
-
-    .rcsst-sin-novedad {
-        font-size: 13px;
-        padding: 12px 24px;
-    }
-
-    .rcsst-submit-wrapper {
-        padding: 20px 20px 32px 20px;
-    }
-
-    .rcsst-submit-btn {
-        font-size: 16px;
-        padding: 16px;
-    }
-
-    .rcsst-submit-footer {
-        font-size: 12px;
-    }
-
-    .rcsst-error,
-    .rcsst-success {
-        margin: 10px 20px 0 20px;
-        font-size: 13px;
-    }
-
-    .rcsst-divider {
-        margin: 6px 20px;
+    .rcsst-preview-name {
+        max-width: 120px;
     }
 }
