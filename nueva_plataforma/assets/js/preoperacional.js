@@ -1568,6 +1568,18 @@
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
             }
 
+            Swal.fire({
+                title: 'Guardando preoperacional',
+                text: 'Por favor espere un momento.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                heightAuto: false,
+                didOpen: function () {
+                    Swal.showLoading();
+                }
+            });
+
             fetch((window.APP_BASE_URL ? window.APP_BASE_URL + '/controller/PreoperacionalController.php' : window.location.pathname), {
                 method: 'POST',
                 body: formData,
@@ -1579,16 +1591,59 @@
                 .then(function (data) {
                     if (btn) {
                         btn.disabled = false;
-                        btn.innerHTML = 'Guardar';
+                        btn.innerHTML = '<i class="fas fa-save me-2"></i> Guardar';
                     }
 
                     if (data.success) {
+                        if (window.parent && window.parent !== window) {
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                icon: 'success',
+                                title: data.message || 'Preoperacional guardado.',
+                                showConfirmButton: false,
+                                timer: 1200,
+                                timerProgressBar: true,
+                                backdrop: false,
+                                heightAuto: false,
+                                didClose: function () {
+                                    if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
+                                        try {
+                                            window.parent.location.reload();
+                                        } catch (e) {
+                                            window.location.reload();
+                                        }
+                                        return;
+                                    }
+
+                                    if (typeof URL_REDIRECT !== 'undefined' && URL_REDIRECT) {
+                                        var redirectUrlIframe = new URL(URL_REDIRECT, window.location.href).href;
+                                        try {
+                                            window.parent.location.href = redirectUrlIframe;
+                                        } catch (e) {
+                                            window.location.href = redirectUrlIframe;
+                                        }
+                                    } else {
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                            return;
+                        }
+
                         Swal.fire({
                             title: 'Éxito',
                             text: data.message,
                             icon: 'success',
-                            confirmButtonText: 'Aceptar'
-                        }).then(function () {
+                            confirmButtonText: 'Aceptar',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            heightAuto: false
+                        }).then(function (result) {
+                            if (!result.isConfirmed) {
+                                return;
+                            }
+
                             if (typeof ES_VALIDACION !== 'undefined' && ES_VALIDACION) {
                                 window.close();
                             } else if (typeof URL_REDIRECT !== 'undefined' && URL_REDIRECT) {
@@ -1608,21 +1663,25 @@
                             title: 'Error',
                             text: data.message || 'Ocurrió un error al guardar.',
                             icon: 'error',
-                            confirmButtonText: 'Aceptar'
+                            confirmButtonText: 'Aceptar',
+                            allowOutsideClick: false,
+                            heightAuto: false
                         });
                     }
                 })
                 .catch(function (error) {
                     if (btn) {
                         btn.disabled = false;
-                        btn.innerHTML = 'Guardar';
+                        btn.innerHTML = '<i class="fas fa-save me-2"></i> Guardar';
                     }
 
                     Swal.fire({
                         title: 'Error',
                         text: 'Error de comunicación con el servidor.',
                         icon: 'error',
-                        confirmButtonText: 'Aceptar'
+                        confirmButtonText: 'Aceptar',
+                        allowOutsideClick: false,
+                        heightAuto: false
                     });
                 });
         });
