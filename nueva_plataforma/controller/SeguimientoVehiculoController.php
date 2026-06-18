@@ -1,5 +1,5 @@
 <?php
-// ==================== INICIO: BUFFER DE SALIDA ====================
+// ==================== INICIO: BUFFER DE SALIDA ===================
 ob_start();
 
 // ==================== GESTIÓN DE ERRORES ====================
