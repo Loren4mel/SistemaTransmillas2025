@@ -2764,12 +2764,13 @@ $(document).on('click', '#btnGuardarRevision', function () {
         Swal.fire('Error', 'Debe subir la evidencia de la consulta', 'error'); return;
     }
 
-    const archivo = evidencia.files[0];
-    if (!/(\.jpg|\.jpeg|\.png|\.pdf)$/i.test(archivo.name)) {
-        Swal.fire('Error', 'El archivo debe ser JPG, PNG o PDF', 'error'); return;
-    }
-    if (archivo.size > 5 * 1024 * 1024) {
-        Swal.fire('Error', 'El archivo es muy pesado (máx 5MB)', 'error'); return;
+    for (const archivo of evidencia.files) {
+        if (!/(\.jpg|\.jpeg|\.png|\.pdf)$/i.test(archivo.name)) {
+            Swal.fire('Error', 'Los archivos deben ser JPG, PNG o PDF', 'error'); return;
+        }
+        if (archivo.size > 5 * 1024 * 1024) {
+            Swal.fire('Error', `El archivo ${archivo.name} es muy pesado (max 5MB)`, 'error'); return;
+        }
     }
 
     const datos = new FormData(document.getElementById('formCargarRevision'));
@@ -2826,6 +2827,50 @@ $(document).on('click', '#btnGuardarRevision', function () {
     });
 });
 
+function normalizarEvidenciasRevision(valor) {
+    if (!valor) return [];
+
+    try {
+        const parsed = JSON.parse(valor);
+        if (Array.isArray(parsed)) {
+            return parsed.filter(Boolean);
+        }
+    } catch (e) {
+        // Valor antiguo: una sola ruta guardada como texto plano.
+    }
+
+    return [valor];
+}
+
+function renderEvidenciasRevision(evidencias) {
+    if (!evidencias.length) {
+        return '<span class="text-muted" style="font-size:11px;">Sin evidencia</span>';
+    }
+
+    return `
+        <div class="d-flex flex-wrap justify-content-center gap-1">
+            ${evidencias.map((ruta, idx) => {
+                const url = `${baseUrl}/${ruta}`;
+                const numero = idx + 1;
+
+                if (ruta.toLowerCase().endsWith('.pdf')) {
+                    return `<a href="${url}" target="_blank"
+                              class="btn btn-sm btn-outline-danger"
+                              title="Ver evidencia ${numero}">
+                              <i class="fas fa-file-pdf"></i> ${numero}
+                           </a>`;
+                }
+
+                return `<img src="${url}"
+                            style="height:48px;width:72px;object-fit:cover;
+                                   border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
+                            onclick="window.open('${url}','_blank')"
+                            title="Ver evidencia ${numero}">`;
+            }).join('')}
+        </div>
+    `;
+}
+
 // Abrir modal historial de revisiones
 $(document).on('click', '.btn-ver-revisiones', function () {
     const id = $(this).data('id');
@@ -2855,18 +2900,8 @@ $(document).on('click', '.btn-ver-revisiones', function () {
                 }
 
                 lista.forEach(function (r, i) {
-                    const evidencia = r.rev_evidencia
-                        ? r.rev_evidencia.toLowerCase().endsWith('.pdf')
-                            ? `<a href="${baseUrl}/${r.rev_evidencia}" target="_blank"
-                                  class="btn btn-sm btn-outline-danger">
-                                  <i class="fas fa-file-pdf"></i> Ver PDF
-                               </a>`
-                            : `<img src="${baseUrl}/${r.rev_evidencia}"
-                                    style="height:48px;width:72px;object-fit:cover;
-                                           border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
-                                    onclick="window.open('${baseUrl}/${r.rev_evidencia}','_blank')"
-                                    title="Ver evidencia">`
-                        : '<span class="text-muted" style="font-size:11px;">Sin evidencia</span>';
+                    const evidencias = normalizarEvidenciasRevision(r.rev_evidencia);
+                    const evidencia = renderEvidenciasRevision(evidencias);
 
                     $tbody.append(`
                         <tr>

@@ -780,9 +780,41 @@ public function eliminarEntrega($id) {
 
 // Guardar revisión de comparendos
 public function guardarRevisionComparendo($datos) {
-    $evidencia = '';
-    if (isset($_FILES['rev_evidencia']) && is_uploaded_file($_FILES['rev_evidencia']['tmp_name'])) {
-        $evidencia = $this->guardarImagen($_FILES['rev_evidencia'], 'uploads/revisiones_comparendos');
+    $evidencias = [];
+    if (isset($_FILES['rev_evidencia'])) {
+        $files = $_FILES['rev_evidencia'];
+
+        if (is_array($files['tmp_name'] ?? null)) {
+            foreach ($files['tmp_name'] as $idx => $tmpName) {
+                $file = [
+                    'name' => $files['name'][$idx] ?? '',
+                    'type' => $files['type'][$idx] ?? '',
+                    'tmp_name' => $tmpName,
+                    'error' => $files['error'][$idx] ?? UPLOAD_ERR_NO_FILE,
+                    'size' => $files['size'][$idx] ?? 0,
+                ];
+
+                if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file($file['tmp_name'])) {
+                    $ruta = $this->guardarImagen($file, 'uploads/revisiones_comparendos');
+                    if ($ruta !== '') {
+                        $evidencias[] = $ruta;
+                    }
+                }
+            }
+        } elseif (is_uploaded_file($files['tmp_name'])) {
+            $ruta = $this->guardarImagen($files, 'uploads/revisiones_comparendos');
+            if ($ruta !== '') {
+                $evidencias[] = $ruta;
+            }
+        }
+    }
+
+    $evidencia = count($evidencias) > 1
+        ? json_encode($evidencias, JSON_UNESCAPED_SLASHES)
+        : ($evidencias[0] ?? '');
+
+    if ($evidencia === '') {
+        return ['error' => 'Debe subir al menos una evidencia válida.'];
     }
 
     $idVehiculo = intval($datos['rev_vehiculo_id']);
