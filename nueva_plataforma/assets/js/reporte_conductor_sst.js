@@ -161,6 +161,8 @@
     // 3. actualizarCoordsTexto(lat, lng)
     // --------------------------------------------------------------------
     function actualizarCoordsTexto(lat, lng) {
+        // Las coordenadas se muestran en el popup del marcador Leaflet.
+        // Si en el futuro se agrega un elemento .rcsst-coords-text, se actualizará aquí.
         var coordsText = document.querySelector('.rcsst-coords-text');
         if (coordsText) {
             coordsText.textContent = lat.toFixed(6) + ', ' + lng.toFixed(6);
@@ -174,13 +176,14 @@
         var container = document.getElementById('rcsst_mapa_container');
         if (!container) return;
 
-        container.innerHTML = '<div class="ubicacion-status ubicacion-cargando" style="padding:20px;text-align:center;">' +
-            '<i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...' +
+        // Mostrar estado de carga (usa clases de preoperacional.css)
+        container.innerHTML = '<div class="ubicacion-status ubicacion-cargando">' +
+            '<i class="fas fa-spinner fa-spin me-2"></i> Obteniendo ubicación...' +
             '</div>';
 
         if (!navigator.geolocation) {
-            container.innerHTML = '<div class="ubicacion-status ubicacion-error" style="padding:20px;text-align:center;color:#dc3545;">' +
-                '<i class="fas fa-exclamation-triangle"></i> Geolocalización no soportada por el navegador' +
+            container.innerHTML = '<div class="ubicacion-status ubicacion-error">' +
+                '<i class="fas fa-exclamation-triangle me-2"></i> Geolocalización no soportada por el navegador' +
                 '</div>';
             return;
         }
@@ -192,11 +195,8 @@
                     lng: position.coords.longitude
                 };
 
-                container.innerHTML =
-                    '<div id="rcsst_mapa" class="mapa-ubicacion" style="height:280px;border-radius:10px;"></div>' +
-                    '<div class="rcsst-coords-text" style="margin-top:8px;font-size:0.9em;color:#555;">' +
-                    ubicacionCoords.lat.toFixed(6) + ', ' + ubicacionCoords.lng.toFixed(6) +
-                    '</div>';
+                // Usar la misma clase mapa-ubicacion que el preoperacional
+                container.innerHTML = '<div id="rcsst_mapa" class="mapa-ubicacion"></div>';
 
                 mapaInstancia = renderizarMapa(
                     ubicacionCoords.lat,
@@ -220,8 +220,8 @@
                     default:
                         msg = 'Error al obtener la ubicación.';
                 }
-                container.innerHTML = '<div class="ubicacion-status ubicacion-error" style="padding:20px;text-align:center;color:#dc3545;">' +
-                    '<i class="fas fa-exclamation-triangle"></i> ' + msg +
+                container.innerHTML = '<div class="ubicacion-status ubicacion-error">' +
+                    '<i class="fas fa-exclamation-triangle me-2"></i> ' + msg +
                     '</div>';
             },
             {
@@ -260,16 +260,16 @@
                         hiddenInput.value = (valor === 'si') ? '1' : '0';
                     }
 
-                    // Toggle panel y sin-novedad
+                    // Toggle panel y sin-novedad usando clases CSS
                     var panel = document.getElementById('rcsst_panel_' + tipoPadre);
                     var sinNovedad = document.getElementById('rcsst_sin_novedad_' + tipoPadre);
 
                     if (valor === 'si') {
-                        if (panel) panel.style.display = '';
-                        if (sinNovedad) sinNovedad.style.display = 'none';
+                        if (panel) { panel.classList.add('rcsst-visible'); }
+                        if (sinNovedad) { sinNovedad.classList.remove('rcsst-visible'); }
                     } else {
-                        if (panel) panel.style.display = 'none';
-                        if (sinNovedad) sinNovedad.style.display = '';
+                        if (panel) { panel.classList.remove('rcsst-visible'); }
+                        if (sinNovedad) { sinNovedad.classList.add('rcsst-visible'); }
                     }
                 });
             }
