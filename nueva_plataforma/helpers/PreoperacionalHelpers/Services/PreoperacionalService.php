@@ -643,18 +643,40 @@ class PreoperacionalService
     }
 
     /**
-     * Obtiene la lista de vehículos disponibles (sin conductor asignado)
+     * Obtiene la lista de vehículos disponibles para preoperacional.
      *
-     * @return array Lista de vehículos
+     * REGLAS DE DISPONIBILIDAD (aplicadas en el modelo):
+     * 1. veh_propiedad = 'empresa' — solo vehículos de la compañía.
+     *    veh_propiedad vacío o 'propio' = personal (excluidos).
+     * 2. veh_estado = 1 — solo vehículos activos
+     * 3. Último seguimiento NO es FUERA_DE_SERVICIO
+     * 4. Sin PREOPERACIONAL hoy de otro usuario — un vehículo solo puede
+     *    tener un preoperacional por día
+     *
+     * NOTA: Ya no se filtra por usu_vehiculo. Vehículos con conductor asignado
+     * se muestran si ese conductor no ha hecho preoperacional hoy.
+     *
+     * @param int|null $idUsuarioActual ID del usuario actual para filtrar
+     *                                   vehículos ya usados por otros hoy
+     * @return array Lista de vehículos disponibles
      */
-    public function obtenerVehiculosDisponibles()
+    public function obtenerVehiculosDisponibles($idUsuarioActual = null)
     {
-        return $this->model->obtenerVehiculosSinConductor();
+        return $this->model->obtenerVehiculosDisponibles($idUsuarioActual);
     }
 
     /**
      * Asigna un vehículo a un usuario en el flujo inicial
      * (cuando el usuario no tiene vehículo asignado).
+     *
+     * VALIDACIONES SERVIDOR:
+     * 1. veh_propiedad = 'empresa' — no se permiten vehículos personales
+     * 2. veh_estado = 1 — el vehículo debe estar activo
+     * 3. Sin PREOPERACIONAL hoy de otro usuario — un vehículo solo puede
+     *    tener un preoperacional por día
+     *
+     * Si el vehículo estaba asignado a otro conductor, se libera automáticamente
+     * antes de asignarlo al nuevo usuario.
      *
      * @param int $idVehiculo ID del vehículo a asignar
      * @param int $idUsuario  ID del usuario
@@ -666,8 +688,40 @@ class PreoperacionalService
             return ['success' => false, 'message' => 'Vehículo o usuario no válido.'];
         }
 
-        // Verificar que el vehículo esté disponible (sin conductor asignado)
-        $disponibles = $this->model->obtenerVehiculosSinConductor();
+        // --- VALIDACIÓN 1: El vehículo debe ser de propiedad de la empresa ---
+        // Verificamos directamente contra la tabla vehiculos. No usamos
+        // obtenerDatosVehiculoYUsuario() porque hace JOIN con usuarios.usu_vehiculo
+        // y para un vehículo aún no asignado no devolvería fila.
+        require_once __DIR__ . '/../../../model/VehiculosModel.php';
+        $vehiculoModel = new VehiculosModel();
+        $infoVehiculo = $vehiculoModel->obtenerVehiculoPorId($idVehiculo);
+
+        if (!$infoVehiculo) {
+            return ['success' => false, 'message' => 'El vehículo seleccionado no existe.'];
+        }
+
+        // REGLA 1: Solo vehículos de la empresa.
+        // veh_propiedad debe ser 'empresa' explícitamente.
+        // Valores vacíos ('') o 'propio' se tratan como vehículos personales (rechazados).
+        $propiedad = $infoVehiculo['veh_propiedad'] ?? '';
+        if ($propiedad !== 'empresa') {
+            return ['success' => false, 'message' => 'No se pueden asignar vehículos personales.'];
+        }
+
+        // REGLA 2: Solo vehículos activos
+        if ((int) ($infoVehiculo['veh_estado'] ?? 0) !== 1) {
+            return ['success' => false, 'message' => 'El vehículo seleccionado no está activo.'];
+        }
+
+        // REGLA 3: El vehículo no debe tener un PREOPERACIONAL hoy de otro usuario
+        try {
+            $this->verificarDisponibilidadDiaria($idVehiculo, $idUsuario);
+        } catch (\RuntimeException $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+
+        // Verificar que el vehículo esté en la lista de disponibles
+        $disponibles = $this->model->obtenerVehiculosDisponibles($idUsuario);
         $encontrado = false;
         foreach ($disponibles as $v) {
             if ((int) $v['idvehiculos'] === $idVehiculo) {
@@ -680,6 +734,8 @@ class PreoperacionalService
             return ['success' => false, 'message' => 'El vehículo seleccionado no está disponible.'];
         }
 
+        // Liberar el vehículo de cualquier conductor anterior antes de asignarlo
+        $this->model->liberarVehiculoDeCualquierUsuario($idVehiculo);
         $this->model->asignarVehiculoAUsuario($idVehiculo, $idUsuario);
 
         return [
@@ -687,6 +743,43 @@ class PreoperacionalService
             'message' => 'Vehículo asignado correctamente.',
             'redirect' => true
         ];
+    }
+
+    /**
+     * Verifica que un vehículo no tenga un PREOPERACIONAL registrado hoy
+     * por OTRO usuario. Lanza una RuntimeException si el vehículo ya fue
+     * usado por otro conductor en el día.
+     *
+     * REGLA: Un vehículo solo puede tener un preoperacional por día.
+     *        El mismo conductor sí puede volver a usar su vehículo.
+     *
+     * @param int $idVehiculo ID del vehículo
+     * @param int $idUsuario  ID del usuario que intenta asignarlo
+     * @throws RuntimeException si el vehículo ya fue usado hoy por otro usuario
+     */
+    private function verificarDisponibilidadDiaria($idVehiculo, $idUsuario)
+    {
+        $sql = "SELECT sv.id_conductor, sv.fecha_registro
+                FROM seguimiento_vehiculo sv
+                WHERE sv.id_vehiculo = ?
+                  AND sv.tipo_evento = 'PREOPERACIONAL'
+                  AND DATE(sv.fecha_registro) = CURDATE()
+                  AND sv.id_conductor IS NOT NULL
+                ORDER BY sv.fecha_registro DESC
+                LIMIT 1";
+        $db = (new Database())->connect();
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("i", $idVehiculo);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+
+        if ($row && (int) $row['id_conductor'] !== $idUsuario) {
+            throw new \RuntimeException(
+                'Este vehículo ya fue registrado hoy por otro conductor.'
+            );
+        }
+        // Si no hay registro o el registro es del mismo usuario, OK
     }
 
     /**
@@ -762,7 +855,8 @@ class PreoperacionalService
             $cambioVehiculo = false;
 
             if ($idVehiculoNuevo > 0) {
-                // Asignar vehículo nuevo
+                // Liberar el vehículo de cualquier conductor anterior, luego asignarlo
+                $this->model->liberarVehiculoDeCualquierUsuario($idVehiculoNuevo);
                 $this->model->asignarVehiculoAUsuario($idVehiculoNuevo, $idUsuario);
                 $idVehiculoFinal = $idVehiculoNuevo;
                 $cambioVehiculo = true;

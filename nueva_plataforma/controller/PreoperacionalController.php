@@ -157,11 +157,18 @@ function handleReportarNovedad($service)
 }
 
 /**
- * Busca vehículos disponibles sin conductor asignado
+ * Busca vehículos disponibles sin conductor asignado.
+ *
+ * Aplica las reglas de disponibilidad:
+ * 1. Solo vehículos de la empresa (veh_propiedad = 'empresa');
+ *    vacío o 'propio' = personal (excluidos)
+ * 2. Sin PREOPERACIONAL hoy de otro usuario
+ * 3. Solo vehículos activos (veh_estado = 1)
  */
 function handleBuscarVehiculosDisponibles($service)
 {
-    $vehiculos = $service->obtenerVehiculosDisponibles();
+    $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
+    $vehiculos = $service->obtenerVehiculosDisponibles($idUsuario);
     return ['success' => true, 'data' => $vehiculos];
 }
 
@@ -355,7 +362,7 @@ function loadView($service)
     $novedadHelper = new PreoperacionalNovedadHelper($service);
 
     // Siempre cargar vehículos disponibles (incluso sin vehículo asignado)
-    $vehiculosDisponibles = $service->obtenerVehiculosDisponibles();
+    $vehiculosDisponibles = $service->obtenerVehiculosDisponibles($iduser);
     $novedadVehiculo = null;
 
     $tieneVehiculoAsignado = !empty($datosVehiculo) && isset($datosVehiculo['idvehiculos']) && $datosVehiculo['idvehiculos'] > 0;

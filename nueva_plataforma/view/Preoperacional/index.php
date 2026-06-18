@@ -165,13 +165,17 @@ if ($esRegistroRelacional) {
                         <input type="hidden" name="idvehiculo_seleccionado" id="idvehiculo_seleccionado" value="<?= $datosVehiculo['idvehiculos'] ?? 0 ?>">
 
                         <!-- ==================== PANEL DE ESTADO / NOVEDAD VEHICULAR ==================== -->
-                        <?php if ($tieneVehiculoAsignado): ?>
+                        <!-- Solo se muestra a conductores (CARRO) o vehículo propio (MOTO).
+                             Roles administrativos y auxiliares de carga no deben ver este panel
+                             aunque tengan un vehículo residual asignado en la BD. -->
+                        <?php $esRolVehicular = in_array($tipovehiculo, ['CARRO', 'MOTO']); ?>
+                        <?php if ($esRolVehicular && $tieneVehiculoAsignado): ?>
                             <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles, $esValidacion) ?>
 
                             <!-- Datos del vehículo + alertas de documentos (centralizado: visible cuando hay vehículo asignado) -->
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
                             <?= $alertasVehiculoHtml ?>
-                        <?php else: ?>
+                        <?php elseif ($esRolVehicular && !$tieneVehiculoAsignado): ?>
                             <?= $novedadHelper->renderNoVehiclePanel($vehiculosDisponibles) ?>
                         <?php endif; ?>
 
@@ -368,9 +372,11 @@ if ($esRegistroRelacional) {
                             <!-- ==================== CONTENEDOR DE SECCIONES DE VEHÍCULO ==================== -->
                             <div id="vehiculoSectionsContainer">
 
-                            <!-- Datos del vehículo -->
-                            <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
-                            <?= $alertasVehiculoHtml ?>
+                            <!-- Datos del vehículo (solo conductores CARRO/MOTO) -->
+                            <?php if (in_array($tipovehiculo, ['CARRO', 'MOTO'])): ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
+                                <?= $alertasVehiculoHtml ?>
+                            <?php endif; ?>
 
                             <!-- Preoperacional vehículo legado -->
                             <?php if ($mostrarVehiculo && $tipovehiculo == 'MOTO'): ?>

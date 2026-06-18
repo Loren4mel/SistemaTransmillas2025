@@ -11,6 +11,7 @@
     $.fn.dataTable.ext.errMode = 'none';
 
     var tabla;
+    var kmChartInstance = null; // Instancia de Chart.js para kilometraje
 
     // ==================== HELPERS ====================
 
@@ -90,6 +91,7 @@
                     d.estado_general = $('#estado_general').val();
                     d.sede = $('#sede').val();
                     d.conductor = $('#conductor').val();
+                    d.fecha = $('#fecha_consulta').val();
                     d.search = { value: $('#search_placa').val(), regex: false };
                 },
                 error: function (xhr) {
@@ -102,7 +104,9 @@
                 { data: 'veh_placa' },
                 { data: 'veh_tipo', render: function (d, t, r) { return (r.veh_tipo || '') + ' / ' + (r.veh_tipov || ''); } },
                 { data: 'veh_marca', render: function (d, t, r) { return (r.veh_marca || '-') + ' / ' + (r.veh_modelo || '-'); } },
-                { data: 'estado_general_badge' },
+                // Columna 4 (índice 4): Estado General — valor crudo, no badge HTML
+                { data: 'estado_general', render: function (d) { return d; } },
+                { data: 'registro_dia_html', orderable: false },
                 { data: 'conductor_nombre' },
                 { data: 'kilometraje_actual_fmt' },
                 { data: 'ultimo_preop_link' },
@@ -127,6 +131,17 @@
                 if (textColor) {
                     $(row).css('color', textColor);
                     $(row).find('td').css('color', textColor);
+                }
+
+                // === CAMBIO 1: Full-cell background para Estado General ===
+                var estadoCell = $(row).find('td').eq(4);
+                var estado = data.estado_general;
+                if (estado === 'OPTIMO') {
+                    estadoCell.css({ 'background-color': '#e8f2ec', 'color': '#1e7f4f', 'font-weight': '700' });
+                } else if (estado === 'CON_NOVEDADES') {
+                    estadoCell.css({ 'background-color': '#fff4e5', 'color': '#b54708', 'font-weight': '700' });
+                } else if (estado === 'FUERA_DE_SERVICIO') {
+                    estadoCell.css({ 'background-color': '#fdecec', 'color': '#b42318', 'font-weight': '700' });
                 }
             },
             scrollX: true,
@@ -156,6 +171,10 @@
 
     function abrirHistorialKm(idVehiculo) {
         cargarPopup('historial_kilometraje', idVehiculo, 'Historial de Kilometraje');
+        // Inicializar gráfico cuando el modal esté visible
+        $('#popupModal').off('shown.bs.modal.kmChart').on('shown.bs.modal.kmChart', function () {
+            filtrarHistorialKm(idVehiculo);
+        });
     }
 
     function abrirComparendos(idVehiculo) {
@@ -174,6 +193,307 @@
                 tabla.ajax.reload();
             }
         }, 500);
+    }
+
+    // === CAMBIO 2: Historial de Estado ===
+
+    /** Abre el popup de historial de estado desde la celda de estado general */
+    function abrirHistorialEstado(idVehiculo) {
+        cargarPopup('historial_estado', idVehiculo, 'Historial de Estado');
+    }
+
+    /** Re-filtra el historial de estado vía AJAX */
+    function filtrarHistorialEstado(idVehiculo) {
+        var desde = $('#filtroDesdeEstado').val();
+        var hasta = $('#filtroHastaEstado').val();
+        var tipo = $('#filtroTipoEstado').val();
+
+        if (desde && hasta && desde > hasta) {
+            mostrarError('La fecha "Desde" debe ser menor o igual a "Hasta"');
+            return;
+        }
+
+        $.get(dirPage, {
+            accion: 'get_historial_estado',
+            id_vehiculo: idVehiculo,
+            desde: desde,
+            hasta: hasta,
+            tipo: tipo
+        })
+        .done(function (data) {
+            renderHistorialEstado(data);
+        })
+        .fail(function () {
+            mostrarError('Error al cargar el historial de estado');
+        });
+    }
+
+    /** Renderiza la tabla de historial de estado */
+    function renderHistorialEstado(data) {
+        var ultimaObs = data.ultima_obs;
+        var eventos = data.eventos;
+        var labelTipo = {
+            'PREOPERACIONAL': 'Preoperacional',
+            'MANTENIMIENTO': 'Mantenimiento',
+            'TRASLADO_ADMIN': 'Traslado Admin',
+            'POST_SINIESTRO': 'Post Siniestro',
+            'REVISION_SST': 'Revisión SST',
+            'OTRO': 'Otro'
+        };
+
+        // Actualizar card de última observación
+        var cardHtml = '<div style="font-weight:700; font-size:14px; margin-bottom:10px; color:#0c4582;">📋 Última Observación</div>';
+        if (ultimaObs) {
+            var claseObs = getEstadoBadgeClass(ultimaObs.estado_general || 'OPTIMO');
+            var fechaObs = formatFecha(ultimaObs.fecha_registro, true);
+            var kmObs = formatKm(ultimaObs.kilometraje || 0);
+            var obs = (ultimaObs.observaciones || 'Sin observaciones').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            cardHtml += '<div style="background:#fff; border-radius:8px; padding:14px;">' +
+                '<div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:8px;">' +
+                '<span class="' + claseObs + '" style="display:inline-block; border-radius:20px; padding:4px 12px; font-weight:600; font-size:12px;">' +
+                escHtml(ultimaObs.estado_general || 'OPTIMO') + '</span>' +
+                '<span style="font-size:12px; color:#888;">' + fechaObs + '</span></div>' +
+                '<p style="margin:0 0 8px 0; color:#333; font-style:italic;">"' + obs.replace(/\n/g, '<br>') + '"</p>' +
+                '<div style="font-size:12px; color:#888;">' +
+                '<strong>Registrado por:</strong> ' + escHtml(ultimaObs.responsable_nombre || '—') + ' &nbsp;|&nbsp;' +
+                '<strong>Conductor:</strong> ' + escHtml(ultimaObs.conductor_nombre || '—') + ' &nbsp;|&nbsp;' +
+                '<strong>Tipo:</strong> ' + escHtml(labelTipo[ultimaObs.tipo_evento] || ultimaObs.tipo_evento) + ' &nbsp;|&nbsp;' +
+                '<strong>Km:</strong> ' + kmObs + ' km</div></div>';
+        } else {
+            cardHtml += '<div style="background:#fff; border-radius:8px; padding:14px; color:#888; text-align:center;">Sin eventos no-preoperacionales registrados.</div>';
+        }
+        // Reemplazar solo el contenido de la card (primer div después del hr)
+        $('#popupModalBody').find('div[style*="background:#f0f2f5"]').first().html(cardHtml);
+
+        // Actualizar tabla
+        if (!eventos || eventos.length === 0) {
+            $('#historialEstadoTabla').html('<div class="alert alert-info">Sin eventos registrados en este período.</div>');
+        } else {
+            var tbody = '';
+            for (var i = 0; i < eventos.length; i++) {
+                var ev = eventos[i];
+                var claseEv = getEstadoBadgeClass(ev.estado_general || 'OPTIMO');
+                var tipoEv = labelTipo[ev.tipo_evento] || ev.tipo_evento;
+                var obsEv = ev.observaciones || '';
+                var obsCorto = obsEv.length > 100 ? obsEv.substring(0, 100) + '…' : obsEv;
+                var kmEv = formatKm(ev.kilometraje || 0);
+                var fechaEv = formatFecha(ev.fecha_registro, true);
+                var conductorEv = ev.conductor_nombre || '—';
+                var obsEscaped = escHtml(obsEv).replace(/\n/g, '\\n');
+
+                var baseUrl = (window.APP_BASE_URL ? window.APP_BASE_URL + '/' : '');
+                var fotoHtml = '—';
+                if (ev.foto_evidencia && ev.img_kilometraje) {
+                    fotoHtml = '<a href="' + baseUrl + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a> ' +
+                               '<a href="' + baseUrl + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
+                } else if (ev.foto_evidencia) {
+                    fotoHtml = '<a href="' + baseUrl + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a>';
+                } else if (ev.img_kilometraje) {
+                    fotoHtml = '<a href="' + baseUrl + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
+                }
+
+                tbody += '<tr>' +
+                    '<td>' + fechaEv + '</td>' +
+                    '<td>' + escHtml(conductorEv) + '</td>' +
+                    '<td><span class="badge bg-secondary">' + escHtml(tipoEv) + '</span></td>' +
+                    '<td><span class="' + claseEv + '" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;">' + escHtml(ev.estado_general || 'OPTIMO') + '</span></td>' +
+                    '<td style="max-width:250px;" title="' + escHtml(obsEv) + '">' + escHtml(obsCorto);
+                if (obsEv.length > 100) {
+                    tbody += '<br><small><a href="#" class="ver-mas-obs" data-obs="' + escAttr(obsEv) + '">Ver más</a></small>';
+                }
+                tbody += '</td><td class="text-center">' + kmEv + '</td><td class="text-center">' + fotoHtml + '</td></tr>';
+            }
+            $('#historialEstadoTabla').html(
+                '<div class="table-responsive"><table class="table table-sm table-hover" style="font-size:12px;">' +
+                '<thead><tr><th>Fecha</th><th>Conductor</th><th>Tipo</th><th>Estado</th><th>Observación</th><th>Km</th><th>Foto</th></tr></thead>' +
+                '<tbody>' + tbody + '</tbody></table></div>'
+            );
+        }
+    }
+
+    // ==================== HELPERS DE FORMATEO ====================
+
+    function formatKm(km) {
+        var n = parseInt(km, 10) || 0;
+        return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    function formatFecha(fechaStr, conHora) {
+        if (!fechaStr) return '—';
+        var d = new Date(fechaStr.replace(' ', 'T'));
+        if (isNaN(d.getTime())) return fechaStr;
+        var dd = String(d.getDate()).padStart(2, '0');
+        var mm = String(d.getMonth() + 1).padStart(2, '0');
+        var yyyy = d.getFullYear();
+        if (conHora) {
+            var hh = String(d.getHours()).padStart(2, '0');
+            var min = String(d.getMinutes()).padStart(2, '0');
+            return dd + '-' + mm + '-' + yyyy + ' ' + hh + ':' + min;
+        }
+        return dd + '-' + mm + '-' + yyyy;
+    }
+
+    function getEstadoBadgeClass(estado) {
+        if (estado === 'OPTIMO') return 'estado-optimo';
+        if (estado === 'CON_NOVEDADES') return 'estado-novedades';
+        if (estado === 'FUERA_DE_SERVICIO') return 'estado-fuera-servicio';
+        return 'bg-secondary';
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function escAttr(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, '&#10;');
+    }
+
+    // === CAMBIO 3: Historial de Kilometraje con gráfico ===
+
+    /** Re-filtra el historial de kilometraje y actualiza gráfico + tabla + resumen */
+    function filtrarHistorialKm(idVehiculo) {
+        var desde = $('#filtroDesdeKm').val();
+        var hasta = $('#filtroHastaKm').val();
+        var fuente = $('#filtroFuenteKm').val();
+
+        if (desde && hasta && desde > hasta) {
+            mostrarError('La fecha "Desde" debe ser menor o igual a "Hasta"');
+            return;
+        }
+
+        $.get(dirPage, {
+            accion: 'get_historial_km',
+            id_vehiculo: idVehiculo,
+            desde: desde || null,
+            hasta: hasta || null,
+            fuente: fuente || null
+        })
+        .done(function (data) {
+            actualizarResumenKm(data.resumen);
+            actualizarGraficoKm(data.grafico);
+            actualizarTablaKm(data.historial);
+        })
+        .fail(function () {
+            mostrarError('Error al cargar el historial de kilometraje');
+        });
+    }
+
+    /** Actualiza las tarjetas de resumen */
+    function actualizarResumenKm(resumen) {
+        if (resumen.km_actual !== null && resumen.km_actual !== undefined) {
+            $('#kmResumenActual').text(formatKm(resumen.km_actual));
+        } else {
+            $('#kmResumenActual').text('—');
+        }
+        if (resumen.km_recorridos !== null && resumen.km_recorridos !== undefined) {
+            var signo = resumen.km_recorridos >= 0 ? '+' : '';
+            $('#kmResumenRecorrido').text(signo + formatKm(resumen.km_recorridos));
+        } else {
+            $('#kmResumenRecorrido').text('—');
+        }
+        if (resumen.promedio_diario !== null && resumen.promedio_diario !== undefined) {
+            $('#kmResumenPromedio').text(formatKm(resumen.promedio_diario));
+        } else {
+            $('#kmResumenPromedio').text('—');
+        }
+    }
+
+    /** Crea o actualiza el gráfico de Chart.js */
+    function actualizarGraficoKm(grafico) {
+        // Destruir instancia previa si existe
+        if (kmChartInstance) {
+            kmChartInstance.destroy();
+            kmChartInstance = null;
+        }
+
+        var canvas = document.getElementById('kmChart');
+        if (!canvas) return;
+
+        var ctx = canvas.getContext('2d');
+
+        if (!grafico || !grafico.data || grafico.data.length === 0) {
+            $('#kmChart').hide();
+            $('#kmChartNoData').show();
+            return;
+        }
+
+        $('#kmChart').show();
+        $('#kmChartNoData').hide();
+
+        if (grafico.data.length < 2) {
+            // Mostrar aviso de datos insuficientes
+            $('#kmChartNoData').text('Datos insuficientes para tendencia (1 solo registro).').show();
+            $('#kmChart').hide();
+            return;
+        }
+
+        kmChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: grafico.labels,
+                datasets: [{
+                    label: 'Kilometraje',
+                    data: grafico.data,
+                    borderColor: '#0c4582',
+                    backgroundColor: 'rgba(12, 69, 130, 0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: grafico.colores,
+                    pointBorderColor: grafico.colores,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 }, color: '#888' }
+                    },
+                    y: {
+                        grid: { color: '#e6e9f0' },
+                        ticks: {
+                            font: { size: 10 },
+                            color: '#888',
+                            callback: function (value) {
+                                return formatKm(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /** Actualiza la tabla de historial */
+    function actualizarTablaKm(historial) {
+        if (!historial || historial.length === 0) {
+            $('#kmHistorialTabla').html('<div class="alert alert-info">Sin registros de kilometraje en este período.</div>');
+            return;
+        }
+
+        var tbody = '';
+        for (var i = 0; i < historial.length; i++) {
+            var h = historial[i];
+            tbody += '<tr>' +
+                '<td>' + formatFecha(h.fecha, true) + '</td>' +
+                '<td><span class="badge bg-secondary">' + escHtml(h.fuente) + '</span></td>' +
+                '<td><strong>' + formatKm(h.kilometraje || 0) + ' km</strong></td>' +
+                '<td>' + escHtml(h.detalle || '') + '</td>' +
+                '</tr>';
+        }
+
+        $('#kmHistorialTabla').html(
+            '<div class="table-responsive"><table class="table table-sm table-hover" style="font-size:12px;">' +
+            '<thead><tr><th>Fecha</th><th>Fuente</th><th>Kilometraje</th><th>Detalle</th></tr></thead>' +
+            '<tbody>' + tbody + '</tbody></table></div>'
+        );
     }
 
     // ==================== GUARDAR FORMULARIOS ====================
@@ -219,6 +539,9 @@
     // ==================== EVENTOS ====================
 
     function bindEvents() {
+        // Fecha cambia → recargar tabla
+        $('#fecha_consulta').on('change', recargarTabla);
+
         // Sede cambia → actualizar select de conductores
         $('#sede').on('change', function () {
             cargarConductores('#conductor', $(this).val());
@@ -226,6 +549,35 @@
 
         // Carga inicial de conductores
         cargarConductores('#conductor', $('#sede').val());
+
+        // Click en celda de estado general → abre historial de estado
+        $('#tablaVehiculos').on('click', 'td:nth-child(5)', function () {
+            var data = tabla.row($(this).closest('tr')).data();
+            if (data && data.idvehiculos) {
+                abrirHistorialEstado(data.idvehiculos);
+            }
+        });
+
+        // Click en "Ver más" de observaciones
+        $(document).on('click', '.ver-mas-obs', function (e) {
+            e.preventDefault();
+            var obs = $(this).data('obs');
+            Swal.fire({
+                title: 'Observación',
+                html: obs.replace(/&#10;/g, '<br>').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'"),
+                icon: 'info'
+            });
+        });
+
+        // Limpiar instancia de Chart.js al cerrar el modal
+        $('#popupModal').on('hidden.bs.modal', function () {
+            if (kmChartInstance) {
+                kmChartInstance.destroy();
+                kmChartInstance = null;
+            }
+            // Limpiar handlers de shown para evitar duplicados
+            $('#popupModal').off('shown.bs.modal.kmChart');
+        });
 
         // Hover: dropdowns de alerta
         $(document).on('mouseenter', '.alerta-wrapper', function () {
@@ -281,6 +633,9 @@
     window.abrirValidacionPreopVehiculo = abrirValidacionPreopVehiculo;
     window.guardarCambiarEstado = guardarCambiarEstado;
     window.guardarRegistroEvento = guardarRegistroEvento;
+    window.abrirHistorialEstado = abrirHistorialEstado;
+    window.filtrarHistorialEstado = filtrarHistorialEstado;
+    window.filtrarHistorialKm = filtrarHistorialKm;
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
