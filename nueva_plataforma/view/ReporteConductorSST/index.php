@@ -6,13 +6,13 @@
     <title>Reporte Conductor SST</title>
 
     <!-- Bootstrap 5 -->
-    <link rel="stylesheet" href="../../assets/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Estilos propios -->
-    <link rel="stylesheet" href="../../assets/css/reporte_conductor_sst.css">
+    <link rel="stylesheet" href="<?= $appBasePath ?>/assets/css/reporte_conductor_sst.css?<?= filemtime(__DIR__ . '/../../assets/css/reporte_conductor_sst.css') ?>">
 </head>
 <body>
 
@@ -153,7 +153,7 @@
 <!-- Dependencias JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="../../assets/js/reporte_conductor_sst.js"></script>
+<script src="<?= $appBasePath ?>/assets/js/reporte_conductor_sst.js?v=<?= filemtime(__DIR__ . '/../../assets/js/reporte_conductor_sst.js') ?>"></script>
 
 </body>
 </html>

@@ -73,6 +73,9 @@ function loadView($model)
     // Verificar si debe mostrarse el formulario semanal
     $mostrarFormularioSemanal = ($modo === 'semanal') ? $model->debeMostrarFormularioSemanal($idUsuario) : false;
 
+    // Calcular ruta base de la aplicación (mismo patrón que PreoperacionalController)
+    $appBasePath = dirname(dirname($_SERVER['SCRIPT_NAME']));
+
     ob_clean();
     require_once __DIR__ . '/../view/ReporteConductorSST/index.php';
 }
