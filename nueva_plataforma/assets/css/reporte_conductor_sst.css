@@ -36,133 +36,112 @@
 
 .rcsst-preview-list {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    flex-direction: column;
+    gap: 6px;
     margin-top: 12px;
 }
 
-/* ==================== TARJETA DE VISTA PREVIA (miniatura) ==================== */
+/* ==================== FILA DE ARCHIVO (estilo lista) ==================== */
 
-.rcsst-preview-card {
-    position: relative;
-    width: 120px;
+.rcsst-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     background: #fff;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    transition: box-shadow 0.2s ease, transform 0.15s ease;
+    padding: 8px 10px;
+    transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rcsst-file-row:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* --- Icono / miniatura pequeña --- */
+
+.rcsst-file-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
     flex-shrink: 0;
-}
-
-.rcsst-preview-card:hover {
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
-    transform: translateY(-1px);
-}
-
-/* --- Contenedor de miniatura de imagen --- */
-
-.rcsst-preview-img-container {
-    width: 100%;
-    height: 100px;
-    overflow: hidden;
-    background: #f5f5f5;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 20px;
+    background: #f5f5f5;
+    color: #666;
+    overflow: hidden;
 }
 
-.rcsst-preview-thumb {
+.rcsst-file-icon--pdf {
+    background: #fce4ec;
+    color: #c62828;
+}
+
+.rcsst-file-icon--generic {
+    background: #e3f2fd;
+    color: #1565C0;
+}
+
+.rcsst-file-thumb {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
 
-/* --- Icono de PDF --- */
-
-.rcsst-preview-pdf-icon {
-    width: 100%;
-    height: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #fce4ec, #f8bbd0);
-    color: #c62828;
-    font-size: 40px;
-}
-
-/* --- Icono genérico (otros archivos) --- */
-
-.rcsst-preview-generic-icon {
-    width: 100%;
-    height: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-    color: #1565C0;
-    font-size: 40px;
-}
-
-/* --- Etiqueta de tipo (PDF / ARCHIVO) --- */
-
-.rcsst-preview-pdf-label {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    background: rgba(0, 0, 0, 0.6);
-    color: #fff;
-    font-size: 9px;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    pointer-events: none;
-}
-
 /* --- Nombre del archivo --- */
 
-.rcsst-preview-card-name {
-    padding: 6px 8px;
-    font-size: 10px;
-    color: #555;
+.rcsst-file-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: #333;
+    font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-align: center;
     line-height: 1.3;
-    background: #fafafa;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-/* --- Botón eliminar (posición absoluta sobre la miniatura) --- */
+/* --- Tamaño del archivo --- */
 
-.rcsst-preview-remove-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.55);
-    color: #fff;
-    border: none;
+.rcsst-file-size {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: #999;
+    min-width: 40px;
+    text-align: right;
+}
+
+/* --- Botón eliminar (rojo claro, a la derecha) --- */
+
+.rcsst-file-remove-btn {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #ffcdd2;
+    color: #c62828;
+    border: 1px solid rgba(198, 40, 40, 0.15);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1;
     padding: 0;
-    transition: background 0.15s ease, transform 0.15s ease;
-    z-index: 2;
+    transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.rcsst-preview-remove-btn:hover {
-    background: #e53935;
-    transform: scale(1.1);
+.rcsst-file-remove-btn:hover {
+    background: #ef9a9a;
+    transform: scale(1.05);
+}
+
+.rcsst-file-remove-btn:active {
+    transform: scale(0.95);
 }
 
 /* ==================== UPLOAD INPUT OCULTO ==================== */
@@ -174,31 +153,28 @@
 /* ==================== MEDIA QUERIES ==================== */
 
 @media (max-width: 768px) {
-    .rcsst-preview-card {
-        width: 100px;
+    .rcsst-file-row {
+        padding: 6px 8px;
+        gap: 8px;
     }
 
-    .rcsst-preview-img-container,
-    .rcsst-preview-pdf-icon,
-    .rcsst-preview-generic-icon {
-        height: 84px;
+    .rcsst-file-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 17px;
     }
 
-    .rcsst-preview-pdf-icon,
-    .rcsst-preview-generic-icon {
-        font-size: 32px;
+    .rcsst-file-name {
+        font-size: 11px;
     }
 
-    .rcsst-preview-card-name {
+    .rcsst-file-size {
         font-size: 9px;
-        padding: 4px 6px;
     }
 
-    .rcsst-preview-remove-btn {
-        width: 20px;
-        height: 20px;
-        font-size: 10px;
-        top: 3px;
-        right: 3px;
+    .rcsst-file-remove-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
     }
 }

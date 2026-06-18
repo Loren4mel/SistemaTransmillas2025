@@ -343,94 +343,90 @@
 
     // --------------------------------------------------------------------
     // 8. renderizarPreviewItem(tipo, file, container)
-    //    Genera una miniatura visual para imágenes o un badge para PDFs.
+    //    Genera un item de lista con icono, nombre y botón de eliminar a la derecha.
     // --------------------------------------------------------------------
     function renderizarPreviewItem(tipo, file, container) {
         var isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
         var isImage = file.type.match(/^image\/(jpeg|png|gif|webp)$/);
 
-        var wrapper = document.createElement('div');
-        wrapper.className = 'rcsst-preview-card';
+        // --- Fila contenedora ---
+        var row = document.createElement('div');
+        row.className = 'rcsst-file-row';
+
+        // --- Icono (miniatura de imagen o icono de tipo) ---
+        var iconEl = document.createElement('div');
+        iconEl.className = 'rcsst-file-icon';
 
         if (isImage) {
-            // --- Miniatura de imagen ---
-            var img = document.createElement('img');
-            img.className = 'rcsst-preview-thumb';
-            img.alt = file.name;
-            img.title = file.name;
+            // Thumbnail pequeño de la imagen
+            var thumb = document.createElement('img');
+            thumb.src = URL.createObjectURL(file);
+            thumb.alt = file.name;
+            thumb.className = 'rcsst-file-thumb';
+            iconEl.appendChild(thumb);
 
-            // Generar URL de objeto para preview inmediato
-            var objectUrl = URL.createObjectURL(file);
-            img.src = objectUrl;
-
-            // Limpiar la URL cuando la imagen se descargue o se elimine
-            img.onload = function () {
-                // La URL ya no se necesita después de cargar la imagen en memoria,
-                // pero la mantenemos hasta que se elimine el elemento del DOM.
-            };
-
-            var imgContainer = document.createElement('div');
-            imgContainer.className = 'rcsst-preview-img-container';
-            imgContainer.appendChild(img);
-            wrapper.appendChild(imgContainer);
-
-            // Guardar la URL para limpiarla después
-            wrapper._objectUrl = objectUrl;
-
+            // Guardar la URL para liberarla al eliminar
+            row._objectUrl = thumb.src;
         } else if (isPdf) {
-            // --- Badge de PDF ---
-            var pdfIcon = document.createElement('div');
-            pdfIcon.className = 'rcsst-preview-pdf-icon';
-            pdfIcon.innerHTML = '<i class="fas fa-file-pdf"></i>';
-            wrapper.appendChild(pdfIcon);
-
-            var pdfLabel = document.createElement('div');
-            pdfLabel.className = 'rcsst-preview-pdf-label';
-            pdfLabel.textContent = 'PDF';
-            wrapper.appendChild(pdfLabel);
-
+            iconEl.innerHTML = '<i class="fas fa-file-pdf"></i>';
+            iconEl.classList.add('rcsst-file-icon--pdf');
         } else {
-            // --- Tipo genérico (fallback) ---
-            var genericIcon = document.createElement('div');
-            genericIcon.className = 'rcsst-preview-generic-icon';
-            genericIcon.innerHTML = '<i class="fas fa-file"></i>';
-            wrapper.appendChild(genericIcon);
-
-            var genericLabel = document.createElement('div');
-            genericLabel.className = 'rcsst-preview-pdf-label';
-            genericLabel.textContent = 'ARCHIVO';
-            wrapper.appendChild(genericLabel);
+            iconEl.innerHTML = '<i class="fas fa-file"></i>';
+            iconEl.classList.add('rcsst-file-icon--generic');
         }
 
+        row.appendChild(iconEl);
+
         // --- Nombre del archivo ---
-        var nameEl = document.createElement('div');
-        nameEl.className = 'rcsst-preview-card-name';
+        var nameEl = document.createElement('span');
+        nameEl.className = 'rcsst-file-name';
         nameEl.textContent = file.name;
         nameEl.title = file.name;
-        wrapper.appendChild(nameEl);
+        row.appendChild(nameEl);
 
-        // --- Botón eliminar ---
+        // --- Tamaño del archivo (legible) ---
+        var sizeEl = document.createElement('span');
+        sizeEl.className = 'rcsst-file-size';
+        sizeEl.textContent = formatoTamaño(file.size);
+        row.appendChild(sizeEl);
+
+        // --- Botón eliminar (rojo claro, a la derecha) ---
         var removeBtn = document.createElement('button');
         removeBtn.type = 'button';
-        removeBtn.className = 'rcsst-preview-remove-btn';
+        removeBtn.className = 'rcsst-file-remove-btn';
         removeBtn.title = 'Quitar archivo';
-        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+        removeBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
         removeBtn.addEventListener('click', function () {
             // Liberar la URL del objeto si existe
-            if (wrapper._objectUrl) {
-                URL.revokeObjectURL(wrapper._objectUrl);
+            if (row._objectUrl) {
+                URL.revokeObjectURL(row._objectUrl);
             }
             // Buscar índice y eliminar del array
             var idx = archivosPorTipo[tipo].indexOf(file);
             if (idx !== -1) {
                 archivosPorTipo[tipo].splice(idx, 1);
             }
-            // Quitar del DOM
-            container.removeChild(wrapper);
+            // Quitar del DOM con animación
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(20px)';
+            setTimeout(function () {
+                container.removeChild(row);
+            }, 200);
         });
-        wrapper.appendChild(removeBtn);
+        row.appendChild(removeBtn);
 
-        container.appendChild(wrapper);
+        container.appendChild(row);
+    }
+
+    // --------------------------------------------------------------------
+    // 8b. formatoTamaño(bytes)
+    //     Convierte bytes a formato legible (KB o MB).
+    // --------------------------------------------------------------------
+    function formatoTamaño(bytes) {
+        if (bytes >= 1048576) {
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+        return (bytes / 1024).toFixed(0) + ' KB';
     }
 
     // --------------------------------------------------------------------
