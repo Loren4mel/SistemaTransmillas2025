@@ -32,48 +32,137 @@
     background: rgba(7, 79, 145, 0.08) !important;
 }
 
-/* ==================== VISTA PREVIA DE ARCHIVOS ==================== */
+/* ==================== GRID DE VISTA PREVIA DE ARCHIVOS ==================== */
 
-.rcsst-preview-item {
-    display: inline-flex;
+.rcsst-preview-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+/* ==================== TARJETA DE VISTA PREVIA (miniatura) ==================== */
+
+.rcsst-preview-card {
+    position: relative;
+    width: 120px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+    flex-shrink: 0;
+}
+
+.rcsst-preview-card:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+    transform: translateY(-1px);
+}
+
+/* --- Contenedor de miniatura de imagen --- */
+
+.rcsst-preview-img-container {
+    width: 100%;
+    height: 100px;
+    overflow: hidden;
+    background: #f5f5f5;
+    display: flex;
     align-items: center;
-    gap: 4px;
-    background: rgba(232, 245, 233, 0.9);
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    max-width: 220px;
-    border: 1px solid rgba(76, 175, 80, 0.25);
+    justify-content: center;
 }
 
-.rcsst-preview-item--pdf {
-    background: rgba(252, 228, 236, 0.9);
-    border-color: rgba(233, 30, 99, 0.25);
+.rcsst-preview-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
-.rcsst-preview-remove {
-    cursor: pointer;
-    color: #999;
-    font-weight: bold;
-    font-size: 15px;
-    line-height: 1;
-    padding: 0 3px;
-    margin-left: 2px;
-    background: none;
-    border: none;
+/* --- Icono de PDF --- */
+
+.rcsst-preview-pdf-icon {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #fce4ec, #f8bbd0);
+    color: #c62828;
+    font-size: 40px;
 }
 
-.rcsst-preview-remove:hover {
-    color: #e53935;
+/* --- Icono genérico (otros archivos) --- */
+
+.rcsst-preview-generic-icon {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    color: #1565C0;
+    font-size: 40px;
 }
 
-/* ==================== CSS PARA VISTA PREVIA DE NOMBRES ==================== */
+/* --- Etiqueta de tipo (PDF / ARCHIVO) --- */
 
-.rcsst-preview-name {
+.rcsst-preview-pdf-label {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+}
+
+/* --- Nombre del archivo --- */
+
+.rcsst-preview-card-name {
+    padding: 6px 8px;
+    font-size: 10px;
+    color: #555;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 160px;
+    text-align: center;
+    line-height: 1.3;
+    background: #fafafa;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* --- Botón eliminar (posición absoluta sobre la miniatura) --- */
+
+.rcsst-preview-remove-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.15s ease, transform 0.15s ease;
+    z-index: 2;
+}
+
+.rcsst-preview-remove-btn:hover {
+    background: #e53935;
+    transform: scale(1.1);
 }
 
 /* ==================== UPLOAD INPUT OCULTO ==================== */
@@ -85,10 +174,31 @@
 /* ==================== MEDIA QUERIES ==================== */
 
 @media (max-width: 768px) {
-    .rcsst-preview-item {
-        max-width: 170px;
+    .rcsst-preview-card {
+        width: 100px;
     }
-    .rcsst-preview-name {
-        max-width: 120px;
+
+    .rcsst-preview-img-container,
+    .rcsst-preview-pdf-icon,
+    .rcsst-preview-generic-icon {
+        height: 84px;
+    }
+
+    .rcsst-preview-pdf-icon,
+    .rcsst-preview-generic-icon {
+        font-size: 32px;
+    }
+
+    .rcsst-preview-card-name {
+        font-size: 9px;
+        padding: 4px 6px;
+    }
+
+    .rcsst-preview-remove-btn {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+        top: 3px;
+        right: 3px;
     }
 }
