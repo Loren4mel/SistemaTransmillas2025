@@ -60,6 +60,12 @@ function loadView($model)
     $tipoFiltro = $_GET['tipo'] ?? null;
     $nombreUsuario = $_SESSION['usuario_nombre'] ?? 'Conductor';
 
+    // Obtener info del conductor (cedula, placa, vehiculo asignado)
+    $infoConductor = $model->obtenerInfoConductor($idUsuario);
+    $cedula = $infoConductor['usu_identificacion'] ?? '—';
+    $placa = $infoConductor['veh_placa'] ?? 'Sin vehículo asignado';
+    $idVehiculo = $infoConductor['usu_vehiculo'] ?? null;
+
     // Calcular la semana actual
     $semana = $model->calcularSemana(date('Y-m-d'));
 
@@ -168,6 +174,10 @@ function guardar($model)
 {
     $idUsuario = (int) $_SESSION['usuario_id'];
 
+    // Obtener id_vehiculo del conductor para asociarlo al reporte
+    $infoConductor = $model->obtenerInfoConductor($idUsuario);
+    $idVehiculo = $infoConductor['usu_vehiculo'] ?? null;
+
     // --- 1. Validar ubicacion ---
     $ubicacion = $_POST['ubicacion'] ?? '';
     if (empty($ubicacion)) {
@@ -236,6 +246,32 @@ function guardar($model)
                     'message' => "La observacion es requerida cuando se reporta un $tipo (indice $index)"
                 ], 400);
             }
+
+            // Validar gravedad requerida cuando respuesta es "si"
+            $gravedad = $reporte['gravedad'] ?? null;
+            if ($gravedad !== null) {
+                $gravedad = (int) $gravedad;
+                if ($tipo === 'accidente') {
+                    if (!in_array($gravedad, ReporteConductorSSTModel::GRAVEDAD_ACCIDENTE, true)) {
+                        ErrorHandler::sendJsonResponse([
+                            'success' => false,
+                            'message' => "La gravedad para $tipo debe ser un valor entre 1 y 4 (indice $index)"
+                        ], 400);
+                    }
+                } elseif ($tipo === 'comparendo') {
+                    if (!in_array($gravedad, ReporteConductorSSTModel::GRAVEDAD_COMPARENDO, true)) {
+                        ErrorHandler::sendJsonResponse([
+                            'success' => false,
+                            'message' => "La gravedad para $tipo debe ser un valor entre 1 y 3 (indice $index)"
+                        ], 400);
+                    }
+                }
+            } else {
+                ErrorHandler::sendJsonResponse([
+                    'success' => false,
+                    'message' => "La gravedad es requerida cuando se reporta un $tipo (indice $index)"
+                ], 400);
+            }
         }
 
         // Validar que existan archivos subidos para este tipo
@@ -254,16 +290,21 @@ function guardar($model)
         $tipo = $reporte['tipo'];
         $respuesta = $reporte['respuesta'];
         $observacion = $reporte['observacion'] ?? '';
+        $gravedad = null;
+        if (($respuesta === '1' || $respuesta === 'si') && isset($reporte['gravedad'])) {
+            $gravedad = (int) $reporte['gravedad'];
+        }
 
         $datosReportes[] = [
             'id_usuario'  => $idUsuario,
-            'id_vehiculo' => null, // Por ahora no se asocia a vehiculo
+            'id_vehiculo' => $idVehiculo,
             'fecha'       => date('Y-m-d'),
             'tipo'        => $tipo,
             'tipo_evento' => $tipoEvento,
             'respuesta'   => ($respuesta === '1' || $respuesta === 'si') ? 'si' : 'no',
             'observacion' => $observacion,
             'ubicacion'   => $ubicacion,
+            'gravedad'    => $gravedad,
         ];
     }
 

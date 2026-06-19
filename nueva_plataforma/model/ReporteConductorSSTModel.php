@@ -26,6 +26,10 @@ class ReporteConductorSSTModel
     ];
     const MAX_FILE_SIZE = 10485760; // 10 MB
 
+    // Niveles de gravedad válidos por tipo
+    const GRAVEDAD_ACCIDENTE  = [1, 2, 3, 4];
+    const GRAVEDAD_COMPARENDO = [1, 2, 3];
+
     /**
      * Constructor - Inicializa la conexion a base de datos
      */
@@ -115,6 +119,25 @@ class ReporteConductorSSTModel
             'inicio' => $lunes,
             'fin'    => $domingo,
         ];
+    }
+
+    // ==================== INFO DEL CONDUCTOR ====================
+
+    /**
+     * Obtiene los datos basicos del conductor: nombre, cedula y placa del vehiculo asignado
+     *
+     * @param int $idUsuario ID del usuario
+     * @return array|null Datos del conductor o null
+     */
+    public function obtenerInfoConductor($idUsuario)
+    {
+        $sql = "SELECT u.usu_nombre, u.usu_identificacion, u.usu_vehiculo,
+                       v.veh_placa
+                FROM usuarios u
+                LEFT JOIN vehiculos v ON u.usu_vehiculo = v.idvehiculos
+                WHERE u.idusuarios = ?
+                LIMIT 1";
+        return $this->executeQuery($sql, "i", [$idUsuario]);
     }
 
     // ==================== CONSULTAS ====================
@@ -209,6 +232,7 @@ class ReporteConductorSSTModel
      *   - respuesta (string: 'si' o 'no')
      *   - observacion (string|null)
      *   - ubicacion (string|null)
+     *   - gravedad (int|null) 1-4 para accidente, 1-3 para comparendo
      * @return int|false ID del registro insertado o false en caso de error
      */
     public function insertarReporte($datos)
@@ -226,8 +250,8 @@ class ReporteConductorSSTModel
         }
 
         $sql = "INSERT INTO reporte_conductor_sst
-                (id_usuario, id_vehiculo, fecha, tipo, tipo_evento, respuesta, observacion, ubicacion)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                (id_usuario, id_vehiculo, fecha, tipo, tipo_evento, respuesta, observacion, ubicacion, gravedad)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $this->db->prepare($sql);
         if (!$stmt) {
@@ -238,9 +262,10 @@ class ReporteConductorSSTModel
         $idVehiculo = $datos['id_vehiculo'] ?? null;
         $observacion = $datos['observacion'] ?? null;
         $ubicacion = $datos['ubicacion'] ?? null;
+        $gravedad = $datos['gravedad'] ?? null;
 
         $stmt->bind_param(
-            "iissssss",
+            "iissssssi",
             $datos['id_usuario'],
             $idVehiculo,
             $datos['fecha'],
@@ -248,7 +273,8 @@ class ReporteConductorSSTModel
             $datos['tipo_evento'],
             $datos['respuesta'],
             $observacion,
-            $ubicacion
+            $ubicacion,
+            $gravedad
         );
 
         if ($stmt->execute()) {

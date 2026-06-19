@@ -6,6 +6,51 @@
  * Este archivo solo contiene lo específico del módulo.
  */
 
+/* ==================== PANEL INFORMATIVO DEL CONDUCTOR ==================== */
+
+.rcsst-conductor-card .preop-card-header {
+    /* Verde oscuro — ya definido inline en el HTML */
+}
+
+.rcsst-conductor-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.rcsst-conductor-item {
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rcsst-conductor-label {
+    font-size: 11px;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rcsst-conductor-value {
+    font-size: 14px;
+    color: #222;
+    font-weight: 600;
+}
+
+.rcsst-placa {
+    background: rgba(46, 125, 50, 0.1);
+    color: #2E7D32;
+    padding: 2px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    font-family: monospace;
+    font-size: 15px;
+    letter-spacing: 1px;
+}
+
 /* ==================== RADIO TOGGLE ACTIVO ==================== */
 
 .radio-label.rcsst-active {
@@ -22,6 +67,248 @@
 
 .rcsst-sin-novedad.rcsst-visible {
     display: block !important;
+}
+
+/* ==================== SELECTOR DE GRAVEDAD ==================== */
+
+.rcsst-gravedad-section {
+    margin-top: 12px;
+    padding: 12px;
+    background: #fafafa;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.rcsst-gravedad-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.rcsst-gravedad-radios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.rcsst-gravedad-radio {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 12px;
+    background: #fff;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.rcsst-gravedad-radio:hover {
+    border-color: #bdbdbd;
+    background: #f5f5f5;
+}
+
+.rcsst-gravedad-radio input[type="radio"] {
+    display: none;
+}
+
+.rcsst-gravedad-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    color: #666;
+    font-weight: 700;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.rcsst-gravedad-tag {
+    font-weight: 600;
+    color: #555;
+}
+
+/* Estados activos por tipo */
+.rcsst-gravedad-radio--accidente.rcsst-gravedad-active {
+    border-color: #c62828;
+    background: rgba(198, 40, 40, 0.06);
+}
+.rcsst-gravedad-radio--accidente.rcsst-gravedad-active .rcsst-gravedad-num {
+    background: #c62828;
+    color: #fff;
+}
+.rcsst-gravedad-radio--accidente.rcsst-gravedad-active .rcsst-gravedad-tag {
+    color: #c62828;
+}
+
+.rcsst-gravedad-radio--comparendo.rcsst-gravedad-active {
+    border-color: #c88010;
+    background: rgba(200, 128, 16, 0.06);
+}
+.rcsst-gravedad-radio--comparendo.rcsst-gravedad-active .rcsst-gravedad-num {
+    background: #c88010;
+    color: #fff;
+}
+.rcsst-gravedad-radio--comparendo.rcsst-gravedad-active .rcsst-gravedad-tag {
+    color: #c88010;
+}
+
+/* ==================== BOTÓN INFO TOGGLE ==================== */
+
+.rcsst-info-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 6px 4px;
+    margin-top: 8px;
+    transition: color 0.15s ease;
+}
+
+.rcsst-info-toggle:hover {
+    color: #074F91;
+}
+
+.rcsst-info-chevron {
+    font-size: 9px;
+    transition: transform 0.25s ease;
+}
+
+/* ==================== TABLA INFORMATIVA DE GRAVEDAD ==================== */
+
+.rcsst-info-table-wrapper {
+    margin-top: 8px;
+    overflow-x: auto;
+}
+
+.rcsst-info-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.rcsst-info-table thead th {
+    background: #f5f5f5;
+    color: #555;
+    font-weight: 600;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rcsst-info-table tbody td {
+    padding: 8px 10px;
+    border-top: 1px solid #f0f0f0;
+    color: #444;
+    vertical-align: top;
+}
+
+.rcsst-info-num {
+    font-weight: 700;
+    text-align: center;
+}
+
+.rcsst-info-tag {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.rcsst-info-desc {
+    line-height: 1.4;
+}
+
+/* Filas coloreadas según gravedad */
+.rcsst-info-row--Leve td,
+.rcsst-info-row--Normal td {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+.rcsst-info-row--Moderado td,
+.rcsst-info-row--Media td {
+    background: #fff8e1;
+    color: #e65100;
+}
+.rcsst-info-row--Grave td,
+.rcsst-info-row--Alta td {
+    background: #ffebee;
+    color: #c62828;
+}
+.rcsst-info-row--Crítico td {
+    background: #fce4ec;
+    color: #880e4f;
+    font-weight: 600;
+}
+
+/* ==================== GUÍA DE OBSERVACIÓN ==================== */
+
+.rcsst-guia-obs {
+    margin-top: 8px;
+}
+
+.rcsst-guia-toggle {
+    color: #e65100;
+    font-size: 11px;
+}
+
+.rcsst-guia-toggle:hover {
+    color: #bf360c;
+}
+
+.rcsst-guia-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0 0;
+    font-size: 11px;
+}
+
+.rcsst-guia-list li {
+    padding: 6px 10px;
+    border-left: 3px solid #ff9800;
+    background: #fff3e0;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 4px;
+    color: #555;
+    line-height: 1.4;
+}
+
+.rcsst-guia-list li i {
+    color: #ff9800;
+}
+
+/* ==================== RECORDATORIO DE EVIDENCIA ==================== */
+
+.rcsst-evidence-reminder {
+    padding: 8px 12px;
+    background: #fff3e0;
+    border: 1px solid rgba(255, 152, 0, 0.2);
+    border-radius: 8px;
+    font-size: 11px;
+    color: #e65100;
+    line-height: 1.4;
+}
+
+.rcsst-evidence-reminder i {
+    color: #ff9800;
+}
+
+.rcsst-evidence-reminder strong {
+    color: #bf360c;
 }
 
 /* ==================== DROPZONE HOVER ESTADO ==================== */
@@ -153,6 +440,38 @@
 /* ==================== MEDIA QUERIES ==================== */
 
 @media (max-width: 768px) {
+    .rcsst-conductor-grid {
+        gap: 10px;
+    }
+
+    .rcsst-conductor-item {
+        min-width: 100px;
+    }
+
+    .rcsst-conductor-value {
+        font-size: 13px;
+    }
+
+    .rcsst-placa {
+        font-size: 13px;
+    }
+
+    .rcsst-gravedad-radios {
+        gap: 4px;
+    }
+
+    .rcsst-gravedad-radio {
+        padding: 5px 10px;
+        font-size: 11px;
+        border-radius: 8px;
+    }
+
+    .rcsst-gravedad-num {
+        width: 20px;
+        height: 20px;
+        font-size: 11px;
+    }
+
     .rcsst-file-row {
         padding: 6px 8px;
         gap: 8px;
@@ -176,5 +495,19 @@
         width: 28px;
         height: 28px;
         font-size: 12px;
+    }
+
+    .rcsst-info-table {
+        font-size: 10px;
+    }
+
+    .rcsst-info-table thead th,
+    .rcsst-info-table tbody td {
+        padding: 6px 8px;
+    }
+
+    .rcsst-guia-list li {
+        font-size: 10px;
+        padding: 5px 8px;
     }
 }

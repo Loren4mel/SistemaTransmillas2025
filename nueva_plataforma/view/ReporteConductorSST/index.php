@@ -11,6 +11,8 @@
  *   $tiposAMostrar    array de strings ['accidente', 'comparendo'] o subconjunto
  *   $semana           ['inicio' => 'Y-m-d', 'fin' => 'Y-m-d']
  *   $nombreUsuario    string nombre del conductor
+ *   $cedula           string cédula del conductor
+ *   $placa            string placa del vehículo asignado
  *   $appBasePath      string ruta base de la app
  */
 ?>
@@ -81,6 +83,30 @@
 
                         <div class="preop-sections-wrapper">
 
+                            <!-- ===== TARJETA: PANEL INFORMATIVO DEL CONDUCTOR ===== -->
+                            <div class="preop-card rcsst-conductor-card" style="border-left: 4px solid #1B5E20;">
+                                <div class="preop-card-header" style="background: linear-gradient(135deg, #2E7D32, #1B5E20);">
+                                    <i class="fas fa-id-card"></i>
+                                    Datos del Conductor
+                                </div>
+                                <div class="preop-card-body">
+                                    <div class="rcsst-conductor-grid">
+                                        <div class="rcsst-conductor-item">
+                                            <span class="rcsst-conductor-label"><i class="fas fa-user me-1"></i> Nombre</span>
+                                            <span class="rcsst-conductor-value"><?= htmlspecialchars($nombreUsuario) ?></span>
+                                        </div>
+                                        <div class="rcsst-conductor-item">
+                                            <span class="rcsst-conductor-label"><i class="fas fa-id-card me-1"></i> Cédula</span>
+                                            <span class="rcsst-conductor-value"><?= htmlspecialchars($cedula) ?></span>
+                                        </div>
+                                        <div class="rcsst-conductor-item">
+                                            <span class="rcsst-conductor-label"><i class="fas fa-truck me-1"></i> Placa</span>
+                                            <span class="rcsst-conductor-value rcsst-placa"><?= htmlspecialchars($placa) ?></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- ===== TARJETA: INFO DE SEMANA ===== -->
                             <div class="preop-card" style="border-left: 4px solid #074F91;">
                                 <div class="preop-card-header" style="background: linear-gradient(135deg, #074F91, #053A6E);">
@@ -145,7 +171,6 @@
                                     'desc'        => 'Reporte cualquier incidente de tránsito, así no haya tenido lesiones.',
                                     'header_color'=> 'linear-gradient(135deg, #E05050, #C03030)',
                                     'border_color'=> '#E05050',
-                                    'placeholder' => 'Describa detalladamente: fecha, hora, lugar, cómo ocurrió, personas involucradas, daños materiales, lesiones, intervención de autoridades...',
                                 ],
                                 'comparendo' => [
                                     'emoji'       => '🚔',
@@ -154,7 +179,41 @@
                                     'desc'        => 'Comparendos, multas, retenes o cualquier interacción con autoridades de tránsito.',
                                     'header_color'=> 'linear-gradient(135deg, #E8A020, #C88010)',
                                     'border_color'=> '#E8A020',
-                                    'placeholder' => 'Describa detalladamente: fecha, hora, lugar, motivo del comparendo, autoridad que lo expidió, número de comparendo (si lo tiene)...',
+                                ],
+                            ];
+
+                            // Guías de observación por tipo
+                            $guiasObservacion = [
+                                'accidente' => [
+                                    'Descripción detallada del siniestro',
+                                    'Hubo afectación a personas: ¿Quiénes?',
+                                    'Hubo afectación al medio ambiente: ¿Cuáles?',
+                                    'Hubo afectación a la imagen corporativa: ¿Cuál?',
+                                    'Daños y consecuencias (material y humana)',
+                                    'Consecutivo del informe policial',
+                                    'Nombre del organismo de tránsito que elaboró el informe policial',
+                                ],
+                                'comparendo' => [
+                                    'Descripción detallada del comparendo',
+                                    'Entidad que impuso el comparendo o la inmovilización',
+                                    'Número o consecutivo del comparendo (si aplica)',
+                                    '¿Hubo inmovilización del vehículo? Detallar',
+                                    '¿Hubo afectación a la licencia de conducción?',
+                                ],
+                            ];
+
+                            // Información de niveles de gravedad
+                            $gravedadInfo = [
+                                'accidente' => [
+                                    ['nivel' => 1, 'etiqueta' => 'Leve',    'desc' => 'Primeros auxilios, afectación de costos menor a $1.000.000, quejas o reclamos.'],
+                                    ['nivel' => 2, 'etiqueta' => 'Moderado', 'desc' => 'Incapacidad hasta 30 días, afectación entre $1.000.000 y $10.000.000, investigaciones y sanciones bajas.'],
+                                    ['nivel' => 3, 'etiqueta' => 'Grave',    'desc' => 'Incapacidad > 30 días, afectación entre $10.000.000 y $100.000.000, investigaciones y sanciones medias.'],
+                                    ['nivel' => 4, 'etiqueta' => 'Crítico',  'desc' => 'Muerte, afectación > $100.000.000, investigaciones y sanciones críticas.'],
+                                ],
+                                'comparendo' => [
+                                    ['nivel' => 1, 'etiqueta' => 'Normal', 'desc' => 'Multa sin inmovilización del vehículo.'],
+                                    ['nivel' => 2, 'etiqueta' => 'Media',  'desc' => 'Multa con inmovilización, sin afectación a la licencia de conducción.'],
+                                    ['nivel' => 3, 'etiqueta' => 'Alta',   'desc' => 'Multa con inmovilización y/o afectación a la licencia de conducción.'],
                                 ],
                             ];
                             ?>
@@ -192,6 +251,69 @@
 
                                         <!-- Panel condicional: responde SÍ -->
                                         <div id="rcsst_panel_<?= $tipo; ?>" class="rcsst-panel-si" style="display: none;">
+
+                                            <!-- ===== SELECTOR DE GRAVEDAD ===== -->
+                                            <div class="rcsst-gravedad-section">
+                                                <label class="rcsst-gravedad-label">
+                                                    <i class="fas fa-exclamation-circle me-1"></i> Nivel de gravedad
+                                                </label>
+
+                                                <!-- Radio buttons de gravedad -->
+                                                <div class="rcsst-gravedad-radios" id="rcsst_gravedad_radios_<?= $tipo; ?>">
+                                                    <?php foreach ($gravedadInfo[$tipo] as $g): ?>
+                                                        <label class="rcsst-gravedad-radio rcsst-gravedad-radio--<?= $tipo; ?>" data-gravedad="<?= $g['nivel'] ?>">
+                                                            <input type="radio" name="rcsst_gravedad_<?= $tipo; ?>" value="<?= $g['nivel'] ?>">
+                                                            <span class="rcsst-gravedad-num"><?= $g['nivel'] ?></span>
+                                                            <span class="rcsst-gravedad-tag"><?= $g['etiqueta'] ?></span>
+                                                        </label>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                                <input type="hidden" id="rcsst_gravedad_<?= $tipo; ?>" value="">
+
+                                                <!-- Botón para expandir tabla informativa de gravedad -->
+                                                <button type="button" class="rcsst-info-toggle" id="rcsst_info_toggle_<?= $tipo; ?>" data-tipo="<?= $tipo; ?>">
+                                                    <i class="fas fa-info-circle me-1"></i> ¿Qué significa cada nivel?
+                                                    <i class="fas fa-chevron-down rcsst-info-chevron ms-1"></i>
+                                                </button>
+
+                                                <!-- Tabla informativa de gravedad (colapsable) -->
+                                                <div class="rcsst-info-table-wrapper" id="rcsst_info_table_<?= $tipo; ?>" style="display: none;">
+                                                    <table class="rcsst-info-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Nivel</th>
+                                                                <th>Gravedad</th>
+                                                                <th>Descripción</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <?php foreach ($gravedadInfo[$tipo] as $g): ?>
+                                                                <tr class="rcsst-info-row--<?= $g['etiqueta'] ?>">
+                                                                    <td class="rcsst-info-num"><?= $g['nivel'] ?></td>
+                                                                    <td class="rcsst-info-tag"><?= $g['etiqueta'] ?></td>
+                                                                    <td class="rcsst-info-desc"><?= $g['desc'] ?></td>
+                                                                </tr>
+                                                            <?php endforeach; ?>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <!-- ===== GUÍA DE OBSERVACIÓN ===== -->
+                                            <div class="rcsst-guia-obs" style="margin-top: 12px;">
+                                                <button type="button" class="rcsst-info-toggle rcsst-guia-toggle" id="rcsst_guia_toggle_<?= $tipo; ?>" data-tipo="<?= $tipo; ?>">
+                                                    <i class="fas fa-lightbulb me-1"></i> Guía: ¿Qué debo incluir en la descripción?
+                                                    <i class="fas fa-chevron-down rcsst-info-chevron ms-1"></i>
+                                                </button>
+                                                <ul class="rcsst-guia-list" id="rcsst_guia_list_<?= $tipo; ?>" style="display: none;">
+                                                    <?php foreach ($guiasObservacion[$tipo] as $item): ?>
+                                                        <li>
+                                                            <i class="fas fa-check-circle me-1"></i> <?= $item ?>
+                                                        </li>
+                                                    <?php endforeach; ?>
+                                                </ul>
+                                            </div>
+
                                             <!-- Observación -->
                                             <div style="margin-top: 14px;">
                                                 <label class="fw-bold mb-2" style="font-size: 13px; color: #E07000;" for="rcsst_obs_<?= $tipo; ?>">
@@ -200,26 +322,21 @@
                                                 <textarea
                                                     id="rcsst_obs_<?= $tipo; ?>"
                                                     class="form-textarea"
-                                                    placeholder="<?= $cfg['placeholder']; ?>"
+                                                    rows="4"
                                                 ></textarea>
                                             </div>
 
+                                            <!-- Recordatorio de subir evidencia -->
+                                            <div class="rcsst-evidence-reminder" style="margin-top: 12px;">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                <strong>Importante:</strong> Suba evidencia del incidente (fotos, documentos, comparendos). Esto es obligatorio.
+                                            </div>
+
                                             <!-- Subida de archivos -->
-                                            <div class="photo-upload-container" style="margin-top: 14px;">
+                                            <div class="photo-upload-container" style="margin-top: 10px;">
                                                 <label class="photo-label">
                                                     <i class="fas fa-camera me-1"></i> Adjuntar evidencia (fotos o documentos)
                                                 </label>
-
-                                                <!-- FUTURO — Subida de video:
-                                                <div id="rcsst_dropzone_video_<?= $tipo; ?>" class="rcsst-upload-dropzone rcsst-upload-dropzone--video"
-                                                     style="margin-top: 8px; border: 2px dashed #ff9800; border-radius: 12px; padding: 14px; text-align: center; cursor: pointer; background: #fff8e1;">
-                                                    <div style="font-size: 24px;">🎥</div>
-                                                    <div style="font-size: 12px; color: #e65100; font-weight: 500;">Grabar o seleccionar video</div>
-                                                    <div style="font-size: 10px; color: #999;">MP4, WebM — máx. 10 MB</div>
-                                                </div>
-                                                <input type="file" id="rcsst_input_video_<?= $tipo; ?>" class="rcsst-upload-input"
-                                                       accept="video/*" capture="environment" multiple style="display:none;">
-                                                -->
 
                                                 <!-- Dropzone de archivos -->
                                                 <div id="rcsst_dropzone_<?= $tipo; ?>" class="rcsst-upload-dropzone"

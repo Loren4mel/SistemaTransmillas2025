@@ -5,6 +5,8 @@
  *   - Geolocalización con mapa Leaflet
  *   - Toggle Sí/No para secciones de accidente y comparendo
  *   - Paneles condicionales con observación + subida de archivos
+ *   - Selector de gravedad con radio buttons y tabla informativa
+ *   - Guía de observación colapsable
  *   - Validación de formulario
  *   - Envío AJAX con FormData
  *
@@ -161,8 +163,6 @@
     // 3. actualizarCoordsTexto(lat, lng)
     // --------------------------------------------------------------------
     function actualizarCoordsTexto(lat, lng) {
-        // Las coordenadas se muestran en el popup del marcador Leaflet.
-        // Si en el futuro se agrega un elemento .rcsst-coords-text, se actualizará aquí.
         var coordsText = document.querySelector('.rcsst-coords-text');
         if (coordsText) {
             coordsText.textContent = lat.toFixed(6) + ', ' + lng.toFixed(6);
@@ -176,7 +176,6 @@
         var container = document.getElementById('rcsst_mapa_container');
         if (!container) return;
 
-        // Mostrar estado de carga (usa clases de preoperacional.css)
         container.innerHTML = '<div class="ubicacion-status ubicacion-cargando">' +
             '<i class="fas fa-spinner fa-spin me-2"></i> Obteniendo ubicación...' +
             '</div>';
@@ -195,7 +194,6 @@
                     lng: position.coords.longitude
                 };
 
-                // Usar la misma clase mapa-ubicacion que el preoperacional
                 container.innerHTML = '<div id="rcsst_mapa" class="mapa-ubicacion"></div>';
 
                 mapaInstancia = renderizarMapa(
@@ -242,7 +240,7 @@
 
             for (var r = 0; r < radios.length; r++) {
                 radios[r].addEventListener('click', function () {
-                    var tipoPadre = this.getAttribute('data-tipo') || this.closest('[class*="rcsst-radio-"]') ? this.className.match(/rcsst-radio-(\w+)/)[1] : tipo;
+                    var tipoPadre = this.className.match(/rcsst-radio-(\w+)/)[1];
 
                     // Remover clase active de todos los radios de este tipo
                     var grupo = document.querySelectorAll('.rcsst-radio-' + tipoPadre);
@@ -260,7 +258,7 @@
                         hiddenInput.value = (valor === 'si') ? '1' : '0';
                     }
 
-                    // Toggle panel y sin-novedad usando clases CSS
+                    // Toggle panel y sin-novedad
                     var panel = document.getElementById('rcsst_panel_' + tipoPadre);
                     var sinNovedad = document.getElementById('rcsst_sin_novedad_' + tipoPadre);
 
@@ -270,9 +268,99 @@
                     } else {
                         if (panel) { panel.classList.remove('rcsst-visible'); }
                         if (sinNovedad) { sinNovedad.classList.add('rcsst-visible'); }
+                        // Resetear gravedad si cambia a No
+                        resetGravedad(tipoPadre);
                     }
                 });
             }
+        }
+    }
+
+    // --------------------------------------------------------------------
+    // 5b. initGravedad() — Selector de gravedad con radio buttons
+    // --------------------------------------------------------------------
+    function initGravedad() {
+        for (var t = 0; t < TIPOS.length; t++) {
+            (function (tipo) {
+                var radiosContainer = document.getElementById('rcsst_gravedad_radios_' + tipo);
+                if (!radiosContainer) return;
+
+                var gravedadRadios = radiosContainer.querySelectorAll('.rcsst-gravedad-radio');
+                for (var r = 0; r < gravedadRadios.length; r++) {
+                    gravedadRadios[r].addEventListener('click', function () {
+                        var gravedad = this.getAttribute('data-gravedad');
+
+                        // Quitar clase activa de todos los radios de gravedad de este tipo
+                        var grupo = radiosContainer.querySelectorAll('.rcsst-gravedad-radio');
+                        for (var i = 0; i < grupo.length; i++) {
+                            grupo[i].classList.remove('rcsst-gravedad-active');
+                        }
+
+                        // Activar el seleccionado
+                        this.classList.add('rcsst-gravedad-active');
+
+                        // Guardar valor en hidden input
+                        var hiddenGravedad = document.getElementById('rcsst_gravedad_' + tipo);
+                        if (hiddenGravedad) {
+                            hiddenGravedad.value = gravedad;
+                        }
+                    });
+                }
+            })(TIPOS[t]);
+        }
+    }
+
+    // --------------------------------------------------------------------
+    // 5c. resetGravedad(tipo) — Resetea el selector de gravedad
+    // --------------------------------------------------------------------
+    function resetGravedad(tipo) {
+        var hiddenGravedad = document.getElementById('rcsst_gravedad_' + tipo);
+        if (hiddenGravedad) {
+            hiddenGravedad.value = '';
+        }
+        var radiosContainer = document.getElementById('rcsst_gravedad_radios_' + tipo);
+        if (radiosContainer) {
+            var grupos = radiosContainer.querySelectorAll('.rcsst-gravedad-radio');
+            for (var i = 0; i < grupos.length; i++) {
+                grupos[i].classList.remove('rcsst-gravedad-active');
+            }
+        }
+    }
+
+    // --------------------------------------------------------------------
+    // 5d. initInfoToggles() — Toggle para tablas informativas y guías
+    // --------------------------------------------------------------------
+    function initInfoToggles() {
+        for (var t = 0; t < TIPOS.length; t++) {
+            (function (tipo) {
+                // Toggle tabla de gravedad
+                var toggleBtn = document.getElementById('rcsst_info_toggle_' + tipo);
+                var infoTable = document.getElementById('rcsst_info_table_' + tipo);
+                if (toggleBtn && infoTable) {
+                    toggleBtn.addEventListener('click', function () {
+                        var isVisible = infoTable.style.display !== 'none';
+                        infoTable.style.display = isVisible ? 'none' : 'block';
+                        var chevron = toggleBtn.querySelector('.rcsst-info-chevron');
+                        if (chevron) {
+                            chevron.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+                        }
+                    });
+                }
+
+                // Toggle guía de observación
+                var guiaToggle = document.getElementById('rcsst_guia_toggle_' + tipo);
+                var guiaList = document.getElementById('rcsst_guia_list_' + tipo);
+                if (guiaToggle && guiaList) {
+                    guiaToggle.addEventListener('click', function () {
+                        var isVisible = guiaList.style.display !== 'none';
+                        guiaList.style.display = isVisible ? 'none' : 'block';
+                        var chevron = guiaToggle.querySelector('.rcsst-info-chevron');
+                        if (chevron) {
+                            chevron.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+                        }
+                    });
+                }
+            })(TIPOS[t]);
         }
     }
 
@@ -343,29 +431,24 @@
 
     // --------------------------------------------------------------------
     // 8. renderizarPreviewItem(tipo, file, container)
-    //    Genera un item de lista con icono, nombre y botón de eliminar a la derecha.
     // --------------------------------------------------------------------
     function renderizarPreviewItem(tipo, file, container) {
         var isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
         var isImage = file.type.match(/^image\/(jpeg|png|gif|webp)$/);
 
-        // --- Fila contenedora ---
         var row = document.createElement('div');
         row.className = 'rcsst-file-row';
 
-        // --- Icono (miniatura de imagen o icono de tipo) ---
+        // Icono
         var iconEl = document.createElement('div');
         iconEl.className = 'rcsst-file-icon';
 
         if (isImage) {
-            // Thumbnail pequeño de la imagen
             var thumb = document.createElement('img');
             thumb.src = URL.createObjectURL(file);
             thumb.alt = file.name;
             thumb.className = 'rcsst-file-thumb';
             iconEl.appendChild(thumb);
-
-            // Guardar la URL para liberarla al eliminar
             row._objectUrl = thumb.src;
         } else if (isPdf) {
             iconEl.innerHTML = '<i class="fas fa-file-pdf"></i>';
@@ -377,36 +460,33 @@
 
         row.appendChild(iconEl);
 
-        // --- Nombre del archivo ---
+        // Nombre
         var nameEl = document.createElement('span');
         nameEl.className = 'rcsst-file-name';
         nameEl.textContent = file.name;
         nameEl.title = file.name;
         row.appendChild(nameEl);
 
-        // --- Tamaño del archivo (legible) ---
+        // Tamaño
         var sizeEl = document.createElement('span');
         sizeEl.className = 'rcsst-file-size';
         sizeEl.textContent = formatoTamaño(file.size);
         row.appendChild(sizeEl);
 
-        // --- Botón eliminar (rojo claro, a la derecha) ---
+        // Botón eliminar
         var removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'rcsst-file-remove-btn';
         removeBtn.title = 'Quitar archivo';
         removeBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
         removeBtn.addEventListener('click', function () {
-            // Liberar la URL del objeto si existe
             if (row._objectUrl) {
                 URL.revokeObjectURL(row._objectUrl);
             }
-            // Buscar índice y eliminar del array
             var idx = archivosPorTipo[tipo].indexOf(file);
             if (idx !== -1) {
                 archivosPorTipo[tipo].splice(idx, 1);
             }
-            // Quitar del DOM con animación
             row.style.opacity = '0';
             row.style.transform = 'translateX(20px)';
             setTimeout(function () {
@@ -420,7 +500,6 @@
 
     // --------------------------------------------------------------------
     // 8b. formatoTamaño(bytes)
-    //     Convierte bytes a formato legible (KB o MB).
     // --------------------------------------------------------------------
     function formatoTamaño(bytes) {
         if (bytes >= 1048576) {
@@ -464,10 +543,24 @@
             var respuesta = hiddenInput ? hiddenInput.value : '0';
 
             if (respuesta === '1') {
+                var labelTipo = (tipo === 'accidente') ? 'Accidente' : 'Comparendo';
+
+                // Validar gravedad seleccionada
+                var hiddenGravedad = document.getElementById('rcsst_gravedad_' + tipo);
+                var gravedadVal = hiddenGravedad ? hiddenGravedad.value : '';
+                if (!gravedadVal || gravedadVal === '') {
+                    swalAlert({
+                        title: 'Gravedad requerida',
+                        text: 'Debe seleccionar el nivel de gravedad en la sección de ' + labelTipo + '.',
+                        icon: 'error',
+                        confirmButtonText: 'Aceptar'
+                    });
+                    return false;
+                }
+
                 // Validar observación no vacía
                 var obsTextarea = document.getElementById('rcsst_obs_' + tipo);
                 if (!obsTextarea || !obsTextarea.value.trim()) {
-                    var labelTipo = (tipo === 'accidente') ? 'Accidente' : 'Comparendo';
                     swalAlert({
                         title: 'Campo requerido',
                         text: 'Debe describir lo sucedido en la sección de ' + labelTipo + '.',
@@ -479,20 +572,19 @@
 
                 // Validar al menos un archivo
                 if (archivosPorTipo[tipo].length === 0) {
-                    var labelTipo2 = (tipo === 'accidente') ? 'Accidente' : 'Comparendo';
                     swalAlert({
                         title: 'Evidencia requerida',
-                        text: 'Debe adjuntar al menos una evidencia en la sección de ' + labelTipo2 + '.',
+                        text: 'Debe adjuntar al menos una evidencia en la sección de ' + labelTipo + '.',
                         icon: 'error',
                         confirmButtonText: 'Aceptar'
                     });
                     return false;
                 }
 
-                // Validar tamaño de cada archivo (< 10 MB)
+                // Validar tamaño de cada archivo
                 for (var f = 0; f < archivosPorTipo[tipo].length; f++) {
                     var file = archivosPorTipo[tipo][f];
-                    var maxSize = 10 * 1024 * 1024; // 10 MB
+                    var maxSize = 10 * 1024 * 1024;
                     if (file.size > maxSize) {
                         swalAlert({
                             title: 'Archivo demasiado grande',
@@ -528,11 +620,20 @@
             var tipo = TIPOS[t];
             var hiddenInput = document.getElementById('rcsst_respuesta_' + tipo);
             var obsTextarea = document.getElementById('rcsst_obs_' + tipo);
-            reportes.push({
+            var hiddenGravedad = document.getElementById('rcsst_gravedad_' + tipo);
+
+            var reporteItem = {
                 tipo: tipo,
                 respuesta: hiddenInput ? parseInt(hiddenInput.value, 10) : 0,
                 observacion: obsTextarea ? obsTextarea.value : ''
-            });
+            };
+
+            // Incluir gravedad solo si la respuesta es Sí
+            if (reporteItem.respuesta === 1 && hiddenGravedad && hiddenGravedad.value) {
+                reporteItem.gravedad = parseInt(hiddenGravedad.value, 10);
+            }
+
+            reportes.push(reporteItem);
         }
 
         // Construir FormData
@@ -596,14 +697,14 @@
                 } else {
                     swalAlert({
                         title: 'Error',
-                        text: data.error || 'Ocurrió un error al enviar el reporte.',
+                        text: data.message || 'Ocurrió un error al enviar el reporte.',
                         icon: 'error',
                         confirmButtonText: 'Aceptar',
                         allowOutsideClick: false
                     });
                     if (btn) {
                         btn.disabled = false;
-                        btn.innerHTML = 'Enviar Reporte';
+                        btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i> Enviar Reporte SST';
                     }
                 }
             })
@@ -617,7 +718,7 @@
                 });
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = 'Enviar Reporte';
+                    btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i> Enviar Reporte SST';
                 }
             });
     }
@@ -629,6 +730,8 @@
         try {
             obtenerUbicacion();
             initRadios();
+            initGravedad();
+            initInfoToggles();
             initFileUploads();
 
             var btnSubmit = document.getElementById('rcsst_btn_submit');
