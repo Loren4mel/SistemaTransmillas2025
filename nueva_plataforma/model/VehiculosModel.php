@@ -260,6 +260,14 @@ private function guardarImagen(array $file, string $carpetaRelativa)
 
     return $carpetaRelativa . "/" . $nombre;
 }
+
+private function columnaExiste(string $tabla, string $columna): bool
+{
+    $tabla = $this->dbname->real_escape_string($tabla);
+    $columna = $this->dbname->real_escape_string($columna);
+    $result = $this->dbname->query("SHOW COLUMNS FROM `$tabla` LIKE '$columna'");
+    return $result && $result->num_rows > 0;
+}
 // Funcion para obtener lista de dueños activos para el dropdown
 public function obtenerDueños() {
     $sql = "SELECT idusuarios AS iddueños, usu_nombre AS due_nombre 
@@ -358,8 +366,8 @@ public function obtenerOperadoresActivos() {
 //Funcion para guardar entrega de vehículo con validación de usuario, hoja de vida y manejo de imágenes
 public function guardarEntregaVehiculo($datos) {
 
-    $ent_img_frente  = $this->guardarImagen($_FILES['ent_img_frente'],  "uploads/vehiculos");
-    $ent_img_trasera = $this->guardarImagen($_FILES['ent_img_trasera'], "uploads/vehiculos");
+    $ent_img_frente  = $this->guardarImagen($_FILES['ent_img_frente'] ?? [],  "uploads/vehiculos");
+    $ent_img_trasera = $this->guardarImagen($_FILES['ent_img_trasera'] ?? [], "uploads/vehiculos");
 
 // Procesar fotos individuales de herramientas
 $equipoJson = $datos['ent_equipo_carretera'] ?? '[]';
@@ -418,24 +426,35 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
         $ent_firma_path = 'uploads/firmas_entrega/' . $nombreFirma;
     }
 
-    $ent_video_url = $this->dbname->real_escape_string($datos['ent_video_url'] ?? '');
+    $tieneVideoUrl = $this->columnaExiste('entregavehiculo', 'ent_video_url');
+    $columnas = [
+        'ent_fechaentrega', 'ent_vehiculo', 'ent_idvehiculo', 'ent_userregistra',
+        'ent_idusuario', 'ent_idusuarioencargado', 'ent_tipoentrega', 'ent_fecharegistra',
+        'ent_idhojadevida', 'ent_sede', 'ent_img_frente', 'ent_img_trasera',
+        'ent_equipo_carretera', 'ent_observaciones', 'ent_firma'
+    ];
+    if ($tieneVideoUrl) {
+        $columnas[] = 'ent_video_url';
+    }
 
-    $sql = "INSERT INTO entregavehiculo (
-            ent_fechaentrega, ent_vehiculo, ent_userregistra, ent_idusuario,
-            ent_tipoentrega, ent_fecharegistra, ent_idhojadevida, ent_sede,
-            ent_img_frente, ent_img_trasera, ent_equipo_carretera,
-            ent_observaciones, ent_firma, ent_video_url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO entregavehiculo (" . implode(', ', $columnas) . ")
+            VALUES (" . implode(', ', array_fill(0, count($columnas), '?')) . ")";
 
     $stmt = $this->dbname->prepare($sql);
     if (!$stmt) return ['error' => 'Prepare falló: ' . $this->dbname->error];
 
-    $stmt->bind_param(
-        "sssississsssss",
+    $idVehiculo = intval($datos['ent_idvehiculo'] ?? $datos['ent_vehiculo_id'] ?? 0);
+    $idUsuarioEncargado = isset($datos['ent_idusuarioencargado']) && $datos['ent_idusuarioencargado'] !== ''
+        ? intval($datos['ent_idusuarioencargado'])
+        : null;
+    $tipos = $tieneVideoUrl ? "ssissississsssss" : "ssissississssss";
+    $valores = [
         $datos['ent_fechaentrega'],
         $datos['ent_vehiculo'],
+        $idVehiculo,
         $datos['ent_userregistra'],
-        $datos['ent_idusuario'],
+        (string) $datos['ent_idusuario'],
+        $idUsuarioEncargado,
         $datos['ent_tipoentrega'],
         $datos['ent_fecharegistra'],
         $idHojaDeVida,
@@ -444,9 +463,13 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
         $ent_img_trasera,
         $datos['ent_equipo_carretera'],
         $datos['ent_observaciones'],
-        $ent_firma_path,
-        $ent_video_url
-    );
+        $ent_firma_path
+    ];
+    if ($tieneVideoUrl) {
+        $valores[] = $datos['ent_video_url'] ?? '';
+    }
+
+    $stmt->bind_param($tipos, ...$valores);
 
     $resultado = $stmt->execute();
     if (!$resultado) return ['error' => 'Execute falló: ' . $stmt->error];
@@ -650,6 +673,10 @@ public function obtenerHistorialConductoresPorVehiculo($idVehiculo) {
     if (!$rowPlaca) return [];
     $placa = $this->dbname->real_escape_string($rowPlaca['veh_placa']);
 
+    $videoSelect = $this->columnaExiste('entregavehiculo', 'ent_video_url')
+        ? "e.ent_video_url"
+        : "'' AS ent_video_url";
+
     $sql = "SELECT 
             e.identregavehiculo,
             e.ent_tipoentrega,
@@ -662,7 +689,7 @@ public function obtenerHistorialConductoresPorVehiculo($idVehiculo) {
             e.ent_img_frente,
             e.ent_img_trasera,
             e.ent_firma,
-            e.ent_video_url,
+            $videoSelect,
             u.usu_nombre AS conductor_nombre
         FROM entregavehiculo e
         LEFT JOIN usuarios u ON e.ent_idusuario = u.idusuarios

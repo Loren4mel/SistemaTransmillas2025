@@ -643,7 +643,7 @@
                                 <span class="text-danger">*</span>
                             </label>
                             <input type="date" class="form-control"
-                                   name="ent_fecharegist"
+                                   name="ent_fecharegistra"
                                    value="<?= date('Y-m-d') ?>"
                                    required>
                         </div>
@@ -674,12 +674,12 @@
                                        name="ent_video_file" 
                                        class="form-control" 
                                        accept="video/*">
-                        <div class="progress" style="height:8px;">
+                        <div class="progress mt-1" id="ent_video_progress" style="height:8px; display:none;">
                             <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
                                  id="ent_video_progress_bar" 
                                  role="progressbar" style="width:0%"></div>
                             </div>
-                        </div>
+                            <small class="text-muted d-block mt-1" id="ent_video_progress_text"></small>
                         <div id="ent_video_preview" class="mt-2" style="display:none;">
                             <video controls style="max-width:100%; border-radius:6px; border:1px solid #dee2e6; max-height:200px;">
                                 <source id="ent_video_preview_src" src="" type="video/mp4">
@@ -740,7 +740,7 @@
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-secondary" 
                         data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btnGuardarEntrega">
+                <button type="submit" form="formEntregaVehiculo" class="btn btn-primary" id="btnGuardarEntrega">
                      Guardar
                 </button>
             </div>
@@ -928,13 +928,13 @@
                         <label class="form-label fw-bold text-secondary">
                             📷 Evidencia / Pantallazo <span class="text-danger">*</span>
                         </label>
-                        <input type="file" name="rev_evidencia"
+                        <input type="file" name="rev_evidencia[]"
                                id="rev_evidencia"
                                class="form-control"
-                               accept=".jpg,.jpeg,.png,.pdf" required>
+                               accept=".jpg,.jpeg,.png,.pdf" multiple required>
                         <small class="text-muted">
                             <i class="fas fa-info-circle me-1"></i>
-                            Sube el pantallazo de la consulta en SIMIT u otra entidad.
+                            Sube uno o varios pantallazos de la consulta en SIMIT u otra entidad.
                         </small>
                     </div>
 
