@@ -154,15 +154,19 @@ $(document).ready(function () {
             {
                 data: 'veh_fechamantenimiento',
                 render: function (data, type, row) {
-                    return `<button type="button" 
+                    // Pasa valores fuente + calculados al popup de aceite
+                    return `<button type="button"
                     class="btn btn-sm btn-link btn-editar-aceite p-0"
                     style="text-decoration:none; color:#1a3a5c; font-weight:600;"
-                    title="Clic para actualizar Cambio de Aceite"
+                    title="Clic para ver estado y actualizar Cambio de Aceite"
                     data-id="${row.idvehiculos}"
                     data-fecha="${data ?? ''}"
                     data-kilactual="${row.veh_kilactual ?? ''}"
                     data-kmcambio="${row.veh_kmactual_cambioaceite ?? ''}"
-                    data-limite="${row.veh_calkmcambioaceite ?? ''}">
+                    data-limite="${row.veh_calkmcambioaceite ?? ''}"
+                    data-recorridos="${row.veh_km_recorridos_aceite ?? ''}"
+                    data-restantes="${row.veh_km_restantes_aceite ?? ''}"
+                    data-proximo="${row.veh_km_proximo_aceite ?? ''}">
                     ${data ?? 'Sin fecha'} <i class="fas fa-pen" style="font-size:10px; opacity:0.6;"></i>
                 </button>`;
                 }
@@ -171,38 +175,35 @@ $(document).ready(function () {
             { data: 'veh_kilactual' },
             { data: 'veh_kmactual_cambioaceite' },
 
+            // Columna "Límite Km cambio aceite" — usa datos calculados desde el backend (SQL)
+            // Fuente: veh_km_recorridos_aceite, veh_km_restantes_aceite (calculados en obtenerVehiculos())
+            // Columnas fuente de verdad: veh_kilactual, veh_kmactual_cambioaceite, veh_calkmcambioaceite
             {
                 data: null,
                 render: function (data, type, row) {
-                    const limpiarKm = v => parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0;
-                    const kmActual = limpiarKm(row.veh_kilactual);
-                    const kmAlCambio = limpiarKm(row.veh_kmactual_cambioaceite);
-                    const limite = limpiarKm(row.veh_calkmcambioaceite);
+                    // Usar valores pre-calculados por el backend en lugar de recalcular en frontend
+                    const kmRecorridos = parseInt(row.veh_km_recorridos_aceite) || 0;
+                    const kmRestantes  = parseInt(row.veh_km_restantes_aceite) || 0;
+                    const limite       = parseInt(row.veh_calkmcambioaceite) || 0;
+                    const kmAlCambio   = parseInt(row.veh_kmactual_cambioaceite) || 0;
 
                     if (!limite || !kmAlCambio) {
                         return '<span class="text-muted" style="font-size:12px;">Sin datos</span>';
                     }
 
-                    // Km recorridos desde el último cambio
-                    const kmRecorridos = kmActual - kmAlCambio;
-                    // Km restantes para el próximo cambio
-                    const kmRestantes = limite - kmRecorridos;
-
                     const recorridosStr = kmRecorridos.toLocaleString('es-CO');
                     const limiteStr = limite.toLocaleString('es-CO');
 
-                    let color, icono, badge;
+                    let color, badge;
 
                     if (kmRestantes <= 500) {
                         color = '#c0392b';
-                        icono = '';
                         badge = `<span style="background:#c0392b; color:#fff; font-size:11px; font-weight:bold;
               padding:4px 8px; border-radius:5px; display:inline-block; white-space:nowrap;">
                 Faltan ${kmRestantes.toLocaleString('es-CO')} km
              </span>`;
                     } else {
                         color = '#27ae60';
-                        icono = '';
                         badge = `<span style="background:#27ae60; color:#fff; font-size:11px; font-weight:bold;
               padding:4px 8px; border-radius:5px; display:inline-block; white-space:nowrap;">
                 Faltan ${kmRestantes.toLocaleString('es-CO')} km
@@ -212,7 +213,7 @@ $(document).ready(function () {
                     return `
             <div style="text-align:center; line-height:1.6;">
                 <div style="font-size:13px; font-weight:600; color:${color};">
-                    ${icono} ${recorridosStr} / ${limiteStr} km
+                    ${recorridosStr} / ${limiteStr} km
                 </div>
                 ${badge}
             </div>`;
@@ -439,23 +440,17 @@ $(document).ready(function () {
                 $(row).find('td').attr('style', 'background-color: #fdd1d1 !important;');
             }
 
-            //Alerta preventiva aceite por KM
-            const limpiarKm = v => {
-                if (!v) return 0;
-                // Elimina puntos de miles, reemplaza coma decimal
-                return parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0;
-            };
+            // Alerta preventiva aceite por KM — usa datos calculados por el backend (SQL)
+            // Fuente: veh_km_recorridos_aceite, veh_km_restantes_aceite (alias en obtenerVehiculos())
+            const kmRecorridos = parseInt(data.veh_km_recorridos_aceite) || 0;
+            const kmRestantes  = parseInt(data.veh_km_restantes_aceite) || 0;
+            const limiteKm     = parseInt(data.veh_calkmcambioaceite) || 0;
+            const kmAlCambio   = parseInt(data.veh_kmactual_cambioaceite) || 0;
 
-            const kmActual = limpiarKm(data.veh_kilactual);
-            const kmAlCambio = limpiarKm(data.veh_kmactual_cambioaceite);
-            const limiteKm = limpiarKm(data.veh_calkmcambioaceite);
-
-            // DEBUG — quita esta línea después de confirmar
-            console.log(`[${data.veh_placa}] kmActual=${kmActual} kmAlCambio=${kmAlCambio} limiteKm=${limiteKm} recorridos=${kmActual - kmAlCambio} restantes=${limiteKm - (kmActual - kmAlCambio)}`);
-
-            if (limiteKm > 0 && kmAlCambio > 0) {
-                const kmRecorridos = kmActual - kmAlCambio;
-                const kmRestantes = limiteKm - kmRecorridos;
+            // Fila en amarillo si está a menos de 500km del cambio de aceite
+            if (!parseInt(data.comparendos_pendientes) && limiteKm > 0 && kmAlCambio > 0 && kmRestantes <= 500) {
+                $(row).attr('style', 'background-color: #fff8e1 !important;');
+                $(row).find('td').attr('style', 'background-color: #fff8e1 !important;');
             }
         }
     });
@@ -739,6 +734,8 @@ $('#tablaVehiculos tbody').on('click', '.btn-editar-modal', function () {
                 }
 
                 $('#edit_veh_dueno').val(v.veh_dueño);
+                $('#edit_veh_kilactual').val(v.veh_kilactual);
+                $('#edit_veh_kmactual_cambioaceite').val(v.veh_kmactual_cambioaceite);
                 $('#edit_veh_calkmcambioaceite').val(v.veh_calkmcambioaceite);
                 $('#edit_veh_chasis').val(v.veh_chasis);
                 $('#edit_veh_motor').val(v.veh_motor);
@@ -1984,31 +1981,89 @@ function renderizarHistorial(res) {
     });
 }
 
-//Modal editar cambio de aceite
+// ============================================================
+// MODAL ESTADO Y CAMBIO DE ACEITE
+// ============================================================
+
+// Abrir modal — llenar sección de estado actual + prellenar formulario de registro
 $(document).on('click', '#tablaVehiculos tbody .btn-editar-aceite', function () {
-    document.getElementById('aceite_veh_id').value = $(this).data('id');
-    document.getElementById('aceite_fecha').value = $(this).data('fecha');
-    document.getElementById('aceite_kilactual').value = $(this).data('kilactual');
-    document.getElementById('aceite_kmcambio').value = $(this).data('kmcambio');
-    document.getElementById('aceite_limite').value = $(this).data('limite');
+    const $btn = $(this);
+
+    // Datos del vehículo
+    const id         = $btn.data('id');
+    const fechaUlt   = $btn.data('fecha');
+    const kmActual   = parseInt($btn.data('kilactual')) || 0;
+    const kmUltCambio = parseInt($btn.data('kmcambio')) || 0;
+    const intervalo  = parseInt($btn.data('limite')) || 0;
+    const recorridos = parseInt($btn.data('recorridos')) || 0;
+    const restantes  = parseInt($btn.data('restantes')) || 0;
+
+    // ID oculto
+    document.getElementById('aceite_veh_id').value = id;
+
+    // --- SECCIÓN 1: Estado actual (display) ---
+    $('#aceite_kilactual_display').text(kmActual.toLocaleString('es-CO'));
+    $('#aceite_intervalo_display').text(intervalo.toLocaleString('es-CO'));
+    $('#aceite_limite_display').text(intervalo.toLocaleString('es-CO'));
+
+    // Barra de progreso
+    const pct = intervalo > 0 ? Math.min(100, Math.round((recorridos / intervalo) * 100)) : 0;
+    const $barra = $('#aceite_barra_progreso');
+    $barra.css('width', pct + '%');
+    $barra.attr('aria-valuenow', pct);
+    $('#aceite_pct_texto').text(pct + '%');
+
+    // Color de barra según estado
+    $barra.removeClass('bg-success bg-warning bg-danger');
+    if (restantes <= 0) {
+        $barra.addClass('bg-danger');
+    } else if (restantes <= 500) {
+        $barra.addClass('bg-warning');
+    } else {
+        $barra.addClass('bg-success');
+    }
+
+    // Km recorridos
+    $('#aceite_recorridos_texto').text(recorridos.toLocaleString('es-CO'));
+
+    // Km restantes con color
+    const $restantesTexto = $('#aceite_restantes_texto');
+    const $alertaTexto = $('#aceite_alerta_texto');
+    $restantesTexto.removeClass('text-success text-warning text-danger');
+
+    if (intervalo === 0 || kmUltCambio === 0) {
+        $restantesTexto.text('—');
+        $alertaTexto.text('Sin datos de cambio de aceite').removeClass('text-success text-warning text-danger').addClass('text-muted');
+    } else if (restantes <= 0) {
+        $restantesTexto.text(Math.abs(restantes).toLocaleString('es-CO')).addClass('text-danger');
+        $alertaTexto.text('⚠️ Excedido — ¡Cambie el aceite!').removeClass('text-success text-warning').addClass('text-danger');
+    } else if (restantes <= 500) {
+        $restantesTexto.text(restantes.toLocaleString('es-CO')).addClass('text-warning');
+        $alertaTexto.text('⚠️ Próximo a vencer').removeClass('text-success text-danger').addClass('text-warning');
+    } else {
+        $restantesTexto.text(restantes.toLocaleString('es-CO')).addClass('text-success');
+        $alertaTexto.text('✅ Dentro del rango').removeClass('text-warning text-danger').addClass('text-success');
+    }
+
+    // --- SECCIÓN 2: Prellenar formulario de nuevo cambio ---
+    document.getElementById('aceite_fecha').value = ''; // fecha en blanco (nuevo cambio)
+    document.getElementById('aceite_kmcambio').value = kmActual; // sugerir km actual
+
     new bootstrap.Modal(document.getElementById('modalEditarAceite')).show();
 });
 
-// Guardar cambio de aceite
+// Guardar nuevo cambio de aceite
 $(document).on('click', '#btnGuardarAceite', function () {
     const id = $('#aceite_veh_id').val();
     const fecha = $('#aceite_fecha').val();
-    const kilactual = $('#aceite_kilactual').val().trim();
     const kmcambio = $('#aceite_kmcambio').val().trim();
-    const limite = $('#aceite_limite').val().trim();
 
-    if (!fecha) { Swal.fire('Error', 'Ingrese la fecha de cambio de aceite', 'error'); return; }
-    if (!kilactual) { Swal.fire('Error', 'Ingrese el kilometraje actual', 'error'); return; }
-    if (!kmcambio) { Swal.fire('Error', 'Ingrese el km actual al cambio de aceite', 'error'); return; }
-    if (!limite) { Swal.fire('Error', 'Ingrese el límite de km', 'error'); return; }
+    if (!fecha) { Swal.fire('Error', 'Ingrese la fecha del cambio de aceite', 'error'); return; }
+    if (!kmcambio) { Swal.fire('Error', 'Ingrese el kilometraje al momento del cambio', 'error'); return; }
 
     Swal.fire({
-        title: 'Guardando...',
+        title: 'Registrando cambio de aceite...',
+        text: 'Actualizando historial y estado del vehículo',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
     });
@@ -2019,10 +2074,8 @@ $(document).on('click', '#btnGuardarAceite', function () {
         data: {
             actualizar_aceite: true,
             id: id,
-            veh_kilactual: kilactual,
             veh_fechamantenimiento: fecha,
-            veh_kmactual_cambioaceite: kmcambio,
-            veh_calkmcambioaceite: limite
+            veh_kmactual_cambioaceite: kmcambio
         },
         success: function (res) {
             Swal.close();
@@ -2030,8 +2083,11 @@ $(document).on('click', '#btnGuardarAceite', function () {
                 const r = typeof res === 'object' ? res : JSON.parse(res);
                 if (r.success) {
                     Swal.fire({
-                        icon: 'success', title: '¡Actualizado!',
-                        text: r.mensaje, timer: 2000, showConfirmButton: false
+                        icon: 'success',
+                        title: '¡Cambio de aceite registrado!',
+                        text: 'El historial de aceite y el estado del vehículo fueron actualizados.',
+                        timer: 2500,
+                        showConfirmButton: false
                     });
                     bootstrap.Modal.getInstance(
                         document.getElementById('modalEditarAceite')).hide();

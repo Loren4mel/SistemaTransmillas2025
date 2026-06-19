@@ -1,6 +1,49 @@
 <?php
 require_once "../config/database.php";
 
+/**
+ * Modelo de Vehículos
+ *
+ * ============================================================================
+ * JERARQUÍA DE COLUMNAS DE KILOMETRAJE Y CAMBIO DE ACEITE
+ * ============================================================================
+ *
+ * COLUMNAS FUENTE DE VERDAD (se actualizan explícitamente):
+ *   veh_kilactual               → Kilometraje actual del vehículo.
+ *                                 Actualizado por: PreoperacionalModel::actualizarKilometrajeVehiculo()
+ *
+ *   veh_kmactual_cambioaceite   → Kilometraje al que se hizo el último cambio de aceite.
+ *                                 Actualizado por: VehiculosModel::actualizarDatosAceite()
+ *
+ *   veh_calkmcambioaceite       → Intervalo límite entre cambios de aceite (ej. 5000 km).
+ *                                 Configurado en: Crear/Editar Vehículo.
+ *
+ *   veh_fechamantenimiento      → Fecha del último cambio de aceite.
+ *                                 Actualizado por: VehiculosModel::actualizarDatosAceite()
+ *
+ * ----------------------------------------------------------------------------
+ * COLUMNAS CALCULADAS (derivables — NO USAR COMO FUENTE DE VERDAD):
+ *
+ *   veh_km_recorridos_aceite = veh_kilactual - veh_kmactual_cambioaceite
+ *       → Km recorridos desde el último cambio de aceite.
+ *       → Calculado en: VehiculosModel::calcularEstadoAceite()
+ *       → También calculado en SQL como alias en obtenerVehiculos()
+ *
+ *   veh_km_restantes_aceite  = veh_calkmcambioaceite - (veh_kilactual - veh_kmactual_cambioaceite)
+ *       → Km que faltan para el próximo cambio de aceite.
+ *       → Si es ≤ 0, toca cambio de aceite.
+ *
+ *   veh_km_proximo_aceite    = veh_kmactual_cambioaceite + veh_calkmcambioaceite
+ *       → Kilometraje exacto al que toca el próximo cambio.
+ *
+ * ----------------------------------------------------------------------------
+ * COLUMNAS LEGACY (obsoletas, mantenidas por compatibilidad — NO USAR):
+ *   veh_aceitekil               → [LEGACY] Mismo propósito que veh_calkmcambioaceite.
+ *   veh_restankmaceite          → [LEGACY] Reemplazado por veh_km_recorridos_aceite (calculado).
+ *   veh_faltaparacambioaceite   → [LEGACY] Reemplazado por veh_km_restantes_aceite (calculado).
+ *   veh_kmalcambaceite          → [LEGACY] Reemplazado por veh_km_proximo_aceite (calculado).
+ * ============================================================================
+ */
 class VehiculosModel {
     private $dbname;
 
@@ -17,6 +60,10 @@ class VehiculosModel {
     v.`veh_faltaparacambioaceite`, v.`veh_kmalcambaceite`,
     v.`veh_img_anverso`, v.`veh_img_reverso`, v.`veh_img_actual_frente`, v.`veh_img_actual_trasera`,
     v.`veh_img_soat`, v.`veh_img_tecnomecanica`,
+     -- Columnas calculadas de aceite (fuente de verdad: veh_kilactual, veh_kmactual_cambioaceite, veh_calkmcambioaceite)
+     (v.`veh_kilactual` - v.`veh_kmactual_cambioaceite`) AS veh_km_recorridos_aceite,
+     (v.`veh_calkmcambioaceite` - (v.`veh_kilactual` - v.`veh_kmactual_cambioaceite`)) AS veh_km_restantes_aceite,
+     (v.`veh_kmactual_cambioaceite` + v.`veh_calkmcambioaceite`) AS veh_km_proximo_aceite,
      IF(u.idusuarios = 14, 'Transmillas', u.usu_nombre) AS usu_nombre,
      COALESCE(c.total_comparendos, 0) AS total_comparendos,
      COALESCE(c.comparendos_pendientes, 0) AS comparendos_pendientes,
@@ -316,6 +363,9 @@ $datos['veh_equipo_carretera'] = $this->procesarFotosHerramientas(
         veh_tipov                 = ?,
         veh_propiedad             = ?,
         veh_dueño                 = ?,
+        veh_kilactual             = ?,
+        veh_kmactual_cambioaceite = ?,
+        veh_calkmcambioaceite     = ?,
         veh_chasis                = ?,
         veh_motor                 = ?,
         veh_cilidraje             = ?,
@@ -329,7 +379,7 @@ $datos['veh_equipo_carretera'] = $this->procesarFotosHerramientas(
     $stmt = $this->dbname->prepare($sql);
 
     $stmt->bind_param(
-        "sssssssssssssss",
+        "ssssssssssssssssss",
         $datos['veh_tipo'],
         $datos['veh_marca'],
         $datos['veh_placa'],
@@ -338,6 +388,9 @@ $datos['veh_equipo_carretera'] = $this->procesarFotosHerramientas(
         $datos['veh_tipov'],
         $datos['veh_propiedad'],
         $datos['veh_dueno'],
+        $datos['veh_kilactual'],
+        $datos['veh_kmactual_cambioaceite'],
+        $datos['veh_calkmcambioaceite'],
         $datos['veh_chasis'],
         $datos['veh_motor'],
         $datos['veh_cilidraje'],
@@ -701,24 +754,65 @@ public function obtenerHistorialConductoresPorVehiculo($idVehiculo) {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
-public function actualizarDatosAceite($datos) {
-    $id      = intval($datos['id']);
-    $fecha   = $this->dbname->real_escape_string($datos['veh_fechamantenimiento']);
-    $kilact  = $this->dbname->real_escape_string($datos['veh_kilactual']);
-    $kmcambio = $this->dbname->real_escape_string($datos['veh_kmactual_cambioaceite']);
-    $limite  = $this->dbname->real_escape_string($datos['veh_calkmcambioaceite']);
+	/**
+	 * Calcula el estado actual del aceite para un vehiculo.
+	 * Metodo centralizado — usar SIEMPRE este metodo en lugar de leer las columnas legacy.
+	 *
+	 * @param int $idVehiculo
+	 * @return array|null { km_actual, km_ultimo_cambio, intervalo_km, km_recorridos, km_restantes, km_proximo_cambio, porcentaje_uso, alerta, necesita_cambio, fecha_ultimo_cambio }
+	 */
+	public function calcularEstadoAceite($idVehiculo) {
+	    $v = $this->obtenerVehiculoPorId($idVehiculo);
+	    if (!$v) return null;
 
-    $sql = "UPDATE vehiculos SET 
-                veh_fechamantenimiento    = '$fecha',
-                veh_kilactual             = '$kilact',
-                veh_kmactual_cambioaceite = '$kmcambio',
-                veh_calkmcambioaceite     = '$limite'
-            WHERE idvehiculos = $id";
+	    $kmActual    = intval(str_replace('.', '', $v['veh_kilactual'] ?? '0'));
+	    $kmUltCambio = intval(str_replace('.', '', $v['veh_kmactual_cambioaceite'] ?? '0'));
+	    $intervalo   = intval(str_replace('.', '', $v['veh_calkmcambioaceite'] ?? '0'));
 
-    return $this->dbname->query($sql) ? true : false;
-}
+	    $kmRecorridos = $kmActual - $kmUltCambio;
+	    $kmRestantes  = $intervalo - $kmRecorridos;
+	    $kmProximo    = $kmUltCambio + $intervalo;
+	    $porcentaje   = $intervalo > 0 ? round(($kmRecorridos / $intervalo) * 100, 1) : 0;
 
-public function actualizarSoat($datos) {
+	    // Alerta: rojo <= 500km, amarillo <= 1000km, verde > 1000km
+	    $alerta = $kmRestantes <= 500 ? 'rojo' : ($kmRestantes <= 1000 ? 'amarillo' : 'verde');
+
+	    return [
+	        'km_actual'          => $kmActual,
+	        'km_ultimo_cambio'   => $kmUltCambio,
+	        'intervalo_km'       => $intervalo,
+	        'km_recorridos'      => $kmRecorridos,
+	        'km_restantes'       => $kmRestantes,
+	        'km_proximo_cambio'  => $kmProximo,
+	        'porcentaje_uso'     => $porcentaje,
+	        'alerta'             => $alerta,
+	        'necesita_cambio'    => $kmRestantes <= 0,
+	        'fecha_ultimo_cambio'=> $v['veh_fechamantenimiento'] ?? null,
+	    ];
+	}
+
+	public function actualizarDatosAceite($datos) {
+	    $id      = intval($datos['id']);
+	    $fecha   = $this->dbname->real_escape_string($datos['veh_fechamantenimiento']);
+	    $kmcambio = $this->dbname->real_escape_string($datos['veh_kmactual_cambioaceite']);
+
+	    // 1. Actualizar tabla vehiculos (columnas fuente de verdad)
+	    $sql = "UPDATE vehiculos SET
+	                veh_fechamantenimiento    = '$fecha',
+	                veh_kmactual_cambioaceite = '$kmcambio'
+	            WHERE idvehiculos = $id";
+
+	    $resultado = $this->dbname->query($sql);
+	    if (!$resultado) return false;
+
+	    // 2. Insertar en tabla aceite para trazabilidad historica
+	    //    (el modulo SeguimientoVehiculo lee de esta tabla en su grafico de historial)
+	    $sqlAceite = "INSERT INTO aceite (ace_idvehiculo, ace_fechacambio, ace_kiloalcambio)
+	                  VALUES ('$id', '$fecha', '$kmcambio')";
+	    $this->dbname->query($sqlAceite); // best-effort: no romper si la tabla no existe aun
+
+	    return true;
+	}public function actualizarSoat($datos) {
     $id    = intval($datos['id']);
     $fecha = $this->dbname->real_escape_string($datos['veh_fechaseguro']);
 
