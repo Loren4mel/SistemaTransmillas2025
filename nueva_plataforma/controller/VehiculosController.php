@@ -268,6 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $Vehiculos   = $modelo->obtenerVehiculosParaSelect();
     $Sedes       = $modelo->obtenerSedes();
     $operadoresActivos = $modelo->obtenerOperadoresActivos();
+    $baseUrl     = dirname(dirname($_SERVER['SCRIPT_NAME']));
     include "../view/Vehiculos/index.php";
 }   
 
