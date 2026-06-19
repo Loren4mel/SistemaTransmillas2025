@@ -151,7 +151,9 @@ class SeguimientoVehiculoModel
     {
         $sql = "SELECT COUNT(DISTINCT v.idvehiculos) as total
                 FROM vehiculos v
-                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos AND u.usu_estado = 1
+                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos
+                    AND u.usu_estado = 1
+                    AND u.idusuarios = (SELECT MIN(u2.idusuarios) FROM usuarios u2 WHERE u2.usu_vehiculo = v.idvehiculos AND u2.usu_estado = 1)
                 LEFT JOIN sedes s ON s.idsedes = u.usu_idsede
                 WHERE 1=1";
         $params = [];
@@ -190,7 +192,9 @@ class SeguimientoVehiculoModel
                     u.usu_idsede as conductor_sede,
                     s.sed_nombre as sede_nombre
                 FROM vehiculos v
-                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos AND u.usu_estado = 1
+                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos
+                    AND u.usu_estado = 1
+                    AND u.idusuarios = (SELECT MIN(u2.idusuarios) FROM usuarios u2 WHERE u2.usu_vehiculo = v.idvehiculos AND u2.usu_estado = 1)
                 LEFT JOIN sedes s ON s.idsedes = u.usu_idsede
                 WHERE 1=1";
         $params = [];
@@ -865,7 +869,9 @@ class SeguimientoVehiculoModel
         $sql = "SELECT v.*, u.idusuarios as conductor_id, u.usu_nombre as conductor_nombre,
                        s.sed_nombre as sede_conductor
                 FROM vehiculos v
-                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos AND u.usu_estado = 1
+                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos
+                    AND u.usu_estado = 1
+                    AND u.idusuarios = (SELECT MIN(u2.idusuarios) FROM usuarios u2 WHERE u2.usu_vehiculo = v.idvehiculos AND u2.usu_estado = 1)
                 LEFT JOIN sedes s ON s.idsedes = u.usu_idsede
                 WHERE v.idvehiculos = ?";
         $stmt = $this->db->prepare($sql);
