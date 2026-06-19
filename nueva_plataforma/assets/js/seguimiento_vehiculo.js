@@ -964,41 +964,46 @@
             $('#popupModal .modal-dialog').removeClass('modal-xl');
         });
 
-        // Hover: dropdowns de badge duplicado
-        $(document).on('mouseenter', '.badge-duplicado-wrapper', function () {
-            var $wrapper = $(this);
-            var $dropdown = $wrapper.find('.badge-duplicado-dropdown');
-            if (!$dropdown.length) return;
-            var rect = $wrapper[0].getBoundingClientRect();
-            $dropdown.data('_parentDupWrapper', $wrapper);
-            $dropdown.appendTo('body').css({
-                position: 'fixed', left: rect.left, top: rect.bottom,
-                display: 'block', zIndex: 99999
-            });
-        });
+        // Click en badge de vehículo duplicado → popup con información completa
+        $(document).on('click', '.badge-duplicado', function (e) {
+            e.stopPropagation();
+            var $badge = $(this);
+            var vehiculoId = $badge.data('vehiculo-id');
+            var vehiculoPlaca = $badge.data('vehiculo-placa');
+            var duplicadoTotal = $badge.data('duplicado-total');
+            var duplicadoInfo = $badge.data('duplicado-info');
 
-        $(document).on('mouseleave', '.badge-duplicado-wrapper', function (e) {
-            if ($(e.relatedTarget).closest('.badge-duplicado-dropdown').length) return;
-            cerrarDuplicadoDropdown($(this));
-        });
-
-        $(document).on('mouseleave', '.badge-duplicado-dropdown', function (e) {
-            var $dropdown = $(this);
-            var $wrapper = $dropdown.data('_parentDupWrapper');
-            if ($wrapper && $.contains($wrapper[0], e.relatedTarget)) return;
-            cerrarDuplicadoDropdown($wrapper);
-        });
-
-        function cerrarDuplicadoDropdown($wrapper) {
-            if (!$wrapper || !$wrapper.length) return;
-            var $dropdown = $('.badge-duplicado-dropdown').filter(function () {
-                return $(this).data('_parentDupWrapper') && $(this).data('_parentDupWrapper').is($wrapper);
-            });
-            if ($dropdown.length) {
-                $dropdown.css({ position: '', left: '', top: '', display: '', zIndex: '' });
-                $dropdown.appendTo($wrapper);
+            // Construir lista HTML de usuarios
+            var usuariosHtml = '';
+            if (Array.isArray(duplicadoInfo)) {
+                duplicadoInfo.forEach(function (u) {
+                    var esActivo = u.indexOf('(Activo)') !== -1;
+                    var icono = esActivo ? '🟢' : '⚫';
+                    var color = esActivo ? '#1e7f4f' : '#6b7280';
+                    usuariosHtml += '<li style="padding:6px 0; color:' + color + '; font-size:14px; border-bottom:1px solid #f3f4f6;">'
+                        + icono + ' ' + escHtml(u) + '</li>';
+                });
             }
-        }
+
+            Swal.fire({
+                title: '<i class="fas fa-exclamation-triangle" style="color:#d97706;"></i> Vehículo Duplicado',
+                html: '<div style="text-align:left; font-size:14px;">'
+                    + '<p style="margin-bottom:12px;"><strong>Placa:</strong> ' + escHtml(vehiculoPlaca) + '</p>'
+                    + '<p style="margin-bottom:8px;"><strong>Este vehículo aparece registrado a <span style="color:#d97706;">' + duplicadoTotal + ' usuarios</span> diferentes:</strong></p>'
+                    + '<ul style="list-style:none; margin:0; padding:8px 12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px;">'
+                    + usuariosHtml
+                    + '</ul>'
+                    + '<p style="margin-top:12px; color:#92400e; font-size:13px;">'
+                    + '<i class="fas fa-info-circle"></i> Se requiere un flujo de verificación para depurar la asignación y liberar esta alerta.</p>'
+                    + '</div>',
+                icon: 'warning',
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#d97706',
+                customClass: {
+                    popup: 'text-left'
+                }
+            });
+        });
 
         // Hover: dropdowns de alerta
         $(document).on('mouseenter', '.alerta-wrapper', function () {

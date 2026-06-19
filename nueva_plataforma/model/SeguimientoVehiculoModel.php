@@ -612,19 +612,22 @@ class SeguimientoVehiculoModel
         $row['es_duplicado'] = $dupInfo !== null;
 
         if ($dupInfo !== null) {
-            // Badge de alerta: vehículo asignado a múltiples usuarios
-            $listaUsuarios = str_replace('||', ' | ', htmlspecialchars($dupInfo['usuarios']));
+            // Badge clickeable: abre popup con información completa de la duplicidad
             $row['conductor_nombre'] = $row['conductor_nombre'] ?? 'Sin asignar';
-            $row['conductor_html'] = '<span class="badge-duplicado-wrapper" style="position:relative; display:inline-block; cursor:pointer;">'
-                . '<span class="badge-duplicado" title="' . $listaUsuarios . '">'
+            // Escapar datos para data-attributes (JSON para JS)
+            $usuariosArray = explode('||', $dupInfo['usuarios']);
+            $usuariosJson = htmlspecialchars(json_encode($usuariosArray), ENT_QUOTES, 'UTF-8');
+            $placa = htmlspecialchars($row['veh_placa'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+            $row['duplicado_info_json'] = $usuariosJson;
+            $row['conductor_html'] = '<span class="badge-duplicado"'
+                . ' data-vehiculo-id="' . (int)$idVehiculo . '"'
+                . ' data-vehiculo-placa="' . $placa . '"'
+                . ' data-duplicado-total="' . $dupInfo['total'] . '"'
+                . ' data-duplicado-info="' . $usuariosJson . '"'
+                . ' style="cursor:pointer;"'
+                . ' title="Click para ver detalle de duplicidad">'
                 . '⚠️ Múltiples (' . $dupInfo['total'] . ')'
-                . '</span>'
-                . '<div class="badge-duplicado-dropdown" style="display:none; position:absolute; background:white; border:1px solid #ddd; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:10px 14px; left:0; top:100%; margin-top:4px; min-width:260px; white-space:nowrap; z-index:99999;">'
-                . '<ul style="list-style:none; margin:0; padding:0;">';
-            foreach (explode('||', $dupInfo['usuarios']) as $usuario) {
-                $row['conductor_html'] .= '<li style="padding:3px 0; color:#92400e; font-size:13px;">' . htmlspecialchars($usuario) . '</li>';
-            }
-            $row['conductor_html'] .= '</ul></div></span>';
+                . '</span>';
         } else {
             $row['conductor_nombre'] = $row['conductor_nombre'] ?? 'Sin asignar';
             $row['conductor_html'] = $row['conductor_nombre'];

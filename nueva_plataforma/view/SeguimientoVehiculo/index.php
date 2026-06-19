@@ -104,19 +104,11 @@
             display: inline-block;
             white-space: nowrap;
             cursor: pointer;
-            transition: filter 0.2s ease;
+            transition: filter 0.2s ease, transform 0.2s ease;
         }
         .badge-duplicado:hover {
-            filter: brightness(0.95);
-        }
-        .badge-duplicado-dropdown {
-            font-size: 13px;
-        }
-        .badge-duplicado-dropdown ul li {
-            border-bottom: 1px solid #fef3c7;
-        }
-        .badge-duplicado-dropdown ul li:last-child {
-            border-bottom: none;
+            filter: brightness(0.92);
+            transform: scale(1.05);
         }
 
         /* Celda de estado general clickeable */
