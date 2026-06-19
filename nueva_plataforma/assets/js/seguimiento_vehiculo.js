@@ -450,7 +450,10 @@
                     d.sede = $('#sede').val();
                     d.conductor = $('#conductor').val();
                     d.fecha = $('#fecha_consulta').val();
-                    d.search = { value: $('#search_placa').val(), regex: false };
+                    // Si la búsqueda nativa de DataTable tiene valor, usarla; si no, usar el input personalizado
+                    if (!d.search.value) {
+                        d.search.value = $('#search_placa').val();
+                    }
                 },
                 error: function (xhr) {
                     console.error('Error AJAX DataTable:', xhr);
@@ -512,6 +515,8 @@
     }
 
     function recargarTabla() {
+        // Sincronizar el input de búsqueda personalizado al buscador nativo de DataTable
+        tabla.search($('#search_placa').val());
         tabla.ajax.reload();
     }
 
