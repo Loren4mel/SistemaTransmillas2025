@@ -160,35 +160,29 @@
     color: #c88010;
 }
 
-/* ==================== BOTÓN INFO TOGGLE ==================== */
+/* ==================== ETIQUETA INFORMATIVA (siempre visible) ==================== */
 
-.rcsst-info-toggle {
-    display: inline-flex;
+.rcsst-info-label {
+    display: flex;
     align-items: center;
     gap: 4px;
-    background: none;
-    border: none;
-    color: #666;
+    color: #555;
     font-size: 11px;
-    cursor: pointer;
-    padding: 6px 4px;
-    margin-top: 8px;
-    transition: color 0.15s ease;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 10px;
+    margin-bottom: 6px;
 }
 
-.rcsst-info-toggle:hover {
-    color: #074F91;
-}
-
-.rcsst-info-chevron {
-    font-size: 9px;
-    transition: transform 0.25s ease;
+.rcsst-guia-label {
+    color: #e65100;
+    margin-bottom: 8px;
 }
 
 /* ==================== TABLA INFORMATIVA DE GRAVEDAD ==================== */
 
 .rcsst-info-table-wrapper {
-    margin-top: 8px;
     overflow-x: auto;
 }
 
@@ -259,15 +253,6 @@
 
 .rcsst-guia-obs {
     margin-top: 8px;
-}
-
-.rcsst-guia-toggle {
-    color: #e65100;
-    font-size: 11px;
-}
-
-.rcsst-guia-toggle:hover {
-    color: #bf360c;
 }
 
 .rcsst-guia-list {

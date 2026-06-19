@@ -328,43 +328,6 @@
     }
 
     // --------------------------------------------------------------------
-    // 5d. initInfoToggles() — Toggle para tablas informativas y guías
-    // --------------------------------------------------------------------
-    function initInfoToggles() {
-        for (var t = 0; t < TIPOS.length; t++) {
-            (function (tipo) {
-                // Toggle tabla de gravedad
-                var toggleBtn = document.getElementById('rcsst_info_toggle_' + tipo);
-                var infoTable = document.getElementById('rcsst_info_table_' + tipo);
-                if (toggleBtn && infoTable) {
-                    toggleBtn.addEventListener('click', function () {
-                        var isVisible = infoTable.style.display !== 'none';
-                        infoTable.style.display = isVisible ? 'none' : 'block';
-                        var chevron = toggleBtn.querySelector('.rcsst-info-chevron');
-                        if (chevron) {
-                            chevron.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
-                        }
-                    });
-                }
-
-                // Toggle guía de observación
-                var guiaToggle = document.getElementById('rcsst_guia_toggle_' + tipo);
-                var guiaList = document.getElementById('rcsst_guia_list_' + tipo);
-                if (guiaToggle && guiaList) {
-                    guiaToggle.addEventListener('click', function () {
-                        var isVisible = guiaList.style.display !== 'none';
-                        guiaList.style.display = isVisible ? 'none' : 'block';
-                        var chevron = guiaToggle.querySelector('.rcsst-info-chevron');
-                        if (chevron) {
-                            chevron.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
-                        }
-                    });
-                }
-            })(TIPOS[t]);
-        }
-    }
-
-    // --------------------------------------------------------------------
     // 6. initFileUploads()
     // --------------------------------------------------------------------
     function initFileUploads() {
@@ -731,7 +694,6 @@
             obtenerUbicacion();
             initRadios();
             initGravedad();
-            initInfoToggles();
             initFileUploads();
 
             var btnSubmit = document.getElementById('rcsst_btn_submit');

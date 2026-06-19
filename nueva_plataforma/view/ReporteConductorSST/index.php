@@ -270,14 +270,11 @@
                                                 </div>
                                                 <input type="hidden" id="rcsst_gravedad_<?= $tipo; ?>" value="">
 
-                                                <!-- Botón para expandir tabla informativa de gravedad -->
-                                                <button type="button" class="rcsst-info-toggle" id="rcsst_info_toggle_<?= $tipo; ?>" data-tipo="<?= $tipo; ?>">
-                                                    <i class="fas fa-info-circle me-1"></i> ¿Qué significa cada nivel?
-                                                    <i class="fas fa-chevron-down rcsst-info-chevron ms-1"></i>
-                                                </button>
-
-                                                <!-- Tabla informativa de gravedad (colapsable) -->
-                                                <div class="rcsst-info-table-wrapper" id="rcsst_info_table_<?= $tipo; ?>" style="display: none;">
+                                                <!-- Tabla informativa de gravedad (siempre visible) -->
+                                                <div class="rcsst-info-label">
+                                                    <i class="fas fa-info-circle me-1"></i> Significado de cada nivel
+                                                </div>
+                                                <div class="rcsst-info-table-wrapper">
                                                     <table class="rcsst-info-table">
                                                         <thead>
                                                             <tr>
@@ -301,11 +298,10 @@
 
                                             <!-- ===== GUÍA DE OBSERVACIÓN ===== -->
                                             <div class="rcsst-guia-obs" style="margin-top: 12px;">
-                                                <button type="button" class="rcsst-info-toggle rcsst-guia-toggle" id="rcsst_guia_toggle_<?= $tipo; ?>" data-tipo="<?= $tipo; ?>">
-                                                    <i class="fas fa-lightbulb me-1"></i> Guía: ¿Qué debo incluir en la descripción?
-                                                    <i class="fas fa-chevron-down rcsst-info-chevron ms-1"></i>
-                                                </button>
-                                                <ul class="rcsst-guia-list" id="rcsst_guia_list_<?= $tipo; ?>" style="display: none;">
+                                                <div class="rcsst-info-label rcsst-guia-label">
+                                                    <i class="fas fa-lightbulb me-1"></i> ¿Qué debo incluir en la descripción?
+                                                </div>
+                                                <ul class="rcsst-guia-list">
                                                     <?php foreach ($guiasObservacion[$tipo] as $item): ?>
                                                         <li>
                                                             <i class="fas fa-check-circle me-1"></i> <?= $item ?>
