@@ -1128,12 +1128,13 @@ $('#ent_tipoentrega').on('change', function () {
 });
 
 // GUARDAR ENTREGA DE VEHÍCULO
-$('#btnGuardarEntrega').on('click', function () {
+$('#formEntregaVehiculo').on('submit', function (e) {
+    e.preventDefault();
 
     const tipoEntrega = document.getElementById('ent_tipoentrega');
     const vehiculoSelect = document.getElementById('ent_vehiculo_id');
     const fechaEntrega = $('[name="ent_fechaentrega"]').val();
-    const fechaRegistro = $('[name="ent_fecharegist"]').val();
+    const fechaRegistro = $('[name="ent_fecharegistra"]').val();
     const sedeEl = document.getElementById('ent_sede');
     const sede = sedeEl ? (sedeEl.value || '').trim() : '';
 
@@ -1191,7 +1192,7 @@ $('#btnGuardarEntrega').on('click', function () {
     datos.append('guardar_entrega', true);
     datos.append('ent_vehiculo', textoVehiculo);
     datos.append('ent_fechaentrega', fechaEntrega);
-    datos.append('ent_fecharegist', fechaRegistro);
+    datos.append('ent_fecharegistra', fechaRegistro);
     datos.append('ent_sede', sede);
     datos.append('ent_observaciones', $('[name="ent_observaciones"]').val());
 
@@ -1859,7 +1860,7 @@ function renderizarHistorial(res) {
 
         //Fecha Final (ent_fecharegista — cuando el conductor devuelve el vehículo)
         const fechaFinal = e.ent_tipoentrega === 'final'
-            ? `<span class="fw-semibold text-warning">${e.ent_fecharegista || '—'}</span>`
+            ? `<span class="fw-semibold text-warning">${e.ent_fecharegistra || '—'}</span>`
             : '<span class="text-muted">—</span>';
         //Checklist equipo
         let equipoHtml = '<span class="text-muted" style="font-size:11px;">Sin equipo</span>';
