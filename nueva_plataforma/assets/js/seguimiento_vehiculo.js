@@ -971,30 +971,52 @@
             var vehiculoId = $badge.data('vehiculo-id');
             var vehiculoPlaca = $badge.data('vehiculo-placa');
             var duplicadoTotal = $badge.data('duplicado-total');
+            var duplicadoActivos = $badge.data('duplicado-activos') || 0;
+            var duplicadoInactivos = $badge.data('duplicado-inactivos') || 0;
             var duplicadoInfo = $badge.data('duplicado-info');
 
-            // Construir lista HTML de usuarios
+            // Construir lista HTML de usuarios (solo activos)
             var usuariosHtml = '';
             if (Array.isArray(duplicadoInfo)) {
                 duplicadoInfo.forEach(function (u) {
                     var esActivo = u.indexOf('(Activo)') !== -1;
-                    var icono = esActivo ? '🟢' : '⚫';
-                    var color = esActivo ? '#1e7f4f' : '#6b7280';
-                    usuariosHtml += '<li style="padding:6px 0; color:' + color + '; font-size:14px; border-bottom:1px solid #f3f4f6;">'
-                        + icono + ' ' + escHtml(u) + '</li>';
+                    if (!esActivo) return;
+                    usuariosHtml += '<li style="padding:6px 0; color:#1e7f4f; font-size:14px; border-bottom:1px solid #f3f4f6;">'
+                        + '🟢 ' + escHtml(u) + '</li>';
                 });
             }
 
+            // Mensaje principal: informar a todos los usuarios activos
+            var mensajeInactivos = '';
+            if (duplicadoInactivos > 0) {
+                mensajeInactivos = '<div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin-bottom:16px;">'
+                    + '<i class="fas fa-exclamation-triangle" style="color:#d97706;"></i> '
+                    + '<strong style="color:#92400e;">Hay ' + duplicadoInactivos + ' conductor(es) inactivo(s) que aún tienen asignado el vehículo</strong>'
+                    + '</div>';
+            }
+
+            // Resumen de la situación
+            var resumenHtml = '<div style="display:flex; gap:16px; margin-bottom:12px; text-align:center;">'
+                + '<div style="flex:1; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px;">'
+                + '<div style="font-size:20px; font-weight:700; color:#1e7f4f;">' + duplicadoActivos + '</div>'
+                + '<div style="font-size:12px; color:#555;">Conductor(es) activo(s)</div></div>'
+                + '<div style="flex:1; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:10px;">'
+                + '<div style="font-size:20px; font-weight:700; color:#6b7280;">' + duplicadoInactivos + '</div>'
+                + '<div style="font-size:12px; color:#555;">Inactivo(s)</div></div>'
+                + '</div>';
+
             Swal.fire({
-                title: '<i class="fas fa-exclamation-triangle" style="color:#d97706;"></i> Vehículo Duplicado',
+                title: '<i class="fas fa-exclamation-triangle" style="color:#d97706;"></i> Vehículo con Múltiples Registros',
                 html: '<div style="text-align:left; font-size:14px;">'
                     + '<p style="margin-bottom:12px;"><strong>Placa:</strong> ' + escHtml(vehiculoPlaca) + '</p>'
+                    + mensajeInactivos
                     + '<p style="margin-bottom:8px;"><strong>Este vehículo aparece registrado a <span style="color:#d97706;">' + duplicadoTotal + ' usuarios</span> diferentes:</strong></p>'
+                    + resumenHtml
                     + '<ul style="list-style:none; margin:0; padding:8px 12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px;">'
                     + usuariosHtml
                     + '</ul>'
-                    + '<p style="margin-top:12px; color:#92400e; font-size:13px;">'
-                    + '<i class="fas fa-info-circle"></i> Se requiere un flujo de verificación para depurar la asignación y liberar esta alerta.</p>'
+                    + '<p style="margin-top:12px; color:#0c4582; font-size:13px;">'
+                    + '<i class="fas fa-bullhorn"></i> <strong>Se debe informar a todos los usuarios activos</strong> sobre esta situación para coordinar la depuración de la asignación del vehículo.</p>'
                     + '</div>',
                 icon: 'warning',
                 confirmButtonText: 'Entendido',

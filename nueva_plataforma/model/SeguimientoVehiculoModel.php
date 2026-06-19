@@ -508,7 +508,7 @@ class SeguimientoVehiculoModel
      * Detecta vehículos asignados a múltiples usuarios (activos o inactivos).
      *
      * @param array $ids  IDs de vehículos a verificar
-     * @return array  Indexado por idvehiculos => ['total' => N, 'usuarios' => 'Nombre1 (Activo)||Nombre2 (Inactivo)']
+     * @return array  Indexado por idvehiculos => ['total' => N, 'activos' => N, 'inactivos' => N, 'usuarios' => 'Nombre1 (Activo)||Nombre2 (Inactivo)']
      */
     private function cargarVehiculosDuplicados(array $ids): array
     {
@@ -516,6 +516,8 @@ class SeguimientoVehiculoModel
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $sql = "SELECT u.usu_vehiculo,
                        COUNT(*) AS total_usuarios,
+                       SUM(CASE WHEN u.usu_estado = 1 THEN 1 ELSE 0 END) AS activos,
+                       SUM(CASE WHEN u.usu_estado != 1 THEN 1 ELSE 0 END) AS inactivos,
                        GROUP_CONCAT(
                            CONCAT(u.usu_nombre, ' (', IF(u.usu_estado = 1, 'Activo', 'Inactivo'), ')')
                            SEPARATOR '||'
@@ -540,6 +542,8 @@ class SeguimientoVehiculoModel
         while ($row = $result->fetch_assoc()) {
             $index[$row['usu_vehiculo']] = [
                 'total' => (int) $row['total_usuarios'],
+                'activos' => (int) $row['activos'],
+                'inactivos' => (int) $row['inactivos'],
                 'usuarios' => $row['usuarios_lista'],
             ];
         }
@@ -617,12 +621,16 @@ class SeguimientoVehiculoModel
             // Escapar datos para data-attributes (JSON para JS)
             $usuariosArray = explode('||', $dupInfo['usuarios']);
             $usuariosJson = htmlspecialchars(json_encode($usuariosArray), ENT_QUOTES, 'UTF-8');
+            $activos = $dupInfo['activos'];
+            $inactivos = $dupInfo['inactivos'];
             $placa = htmlspecialchars($row['veh_placa'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
             $row['duplicado_info_json'] = $usuariosJson;
             $row['conductor_html'] = '<span class="badge-duplicado"'
                 . ' data-vehiculo-id="' . (int)$idVehiculo . '"'
                 . ' data-vehiculo-placa="' . $placa . '"'
                 . ' data-duplicado-total="' . $dupInfo['total'] . '"'
+                . ' data-duplicado-activos="' . $activos . '"'
+                . ' data-duplicado-inactivos="' . $inactivos . '"'
                 . ' data-duplicado-info="' . $usuariosJson . '"'
                 . ' style="cursor:pointer;"'
                 . ' title="Click para ver detalle de duplicidad">'
