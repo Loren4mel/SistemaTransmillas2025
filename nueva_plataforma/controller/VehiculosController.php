@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_entrega'])) {
         'ent_idusuario'     => intval($_POST['ent_idusuario']),
         'ent_idusuarioencargado' => $_SESSION['usuario_id'] ?? null,
         'ent_tipoentrega'   => $_POST['ent_tipoentrega'],
-        'ent_fecharegistra' => date('Y-m-d'),
+        'ent_fecharegistra' => $_POST['ent_fecharegistra'] ?? $_POST['ent_fecharegist'] ?? date('Y-m-d'),
         'ent_sede'          => $_POST['ent_sede'] ?? '',
         'ent_equipo_carretera'=> $_POST['ent_equipo_carretera'] ?? '[]',
         'ent_observaciones'    => $_POST['ent_observaciones'] ?? '',
