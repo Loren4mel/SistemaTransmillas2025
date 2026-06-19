@@ -151,7 +151,9 @@ class SeguimientoVehiculoModel
     {
         $sql = "SELECT COUNT(DISTINCT v.idvehiculos) as total
                 FROM vehiculos v
-                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos AND u.usu_estado = 1
+                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos
+                    AND u.usu_estado = 1
+                    AND u.idusuarios = (SELECT MIN(u2.idusuarios) FROM usuarios u2 WHERE u2.usu_vehiculo = v.idvehiculos AND u2.usu_estado = 1)
                 LEFT JOIN sedes s ON s.idsedes = u.usu_idsede
                 WHERE 1=1";
         $params = [];
@@ -190,7 +192,9 @@ class SeguimientoVehiculoModel
                     u.usu_idsede as conductor_sede,
                     s.sed_nombre as sede_nombre
                 FROM vehiculos v
-                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos AND u.usu_estado = 1
+                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos
+                    AND u.usu_estado = 1
+                    AND u.idusuarios = (SELECT MIN(u2.idusuarios) FROM usuarios u2 WHERE u2.usu_vehiculo = v.idvehiculos AND u2.usu_estado = 1)
                 LEFT JOIN sedes s ON s.idsedes = u.usu_idsede
                 WHERE 1=1";
         $params = [];
@@ -245,6 +249,7 @@ class SeguimientoVehiculoModel
         $comparendosIndex = $this->cargarComparendosPendientes($ids);
         $hojavidaIndex = $this->cargarHojavidaConductores($vehiculos);
         $preopsDelDia = $this->getPreoperacionalesDelDia($ids, $fechaConsulta);
+        $duplicadosIndex = $this->cargarVehiculosDuplicados($ids);
 
         // Enriquecer y procesar filas
         foreach ($vehiculos as &$row) {
@@ -255,7 +260,7 @@ class SeguimientoVehiculoModel
             $comparendos = $comparendosIndex[$id] ?? 0;
             $preopDia = $preopsDelDia[$id] ?? null;
 
-            $row = $this->enriquecerFila($row, $evento, $preop, $aceite, $comparendos, $hojavidaIndex, $preopDia);
+            $row = $this->enriquecerFila($row, $evento, $preop, $aceite, $comparendos, $hojavidaIndex, $preopDia, $duplicadosIndex);
         }
 
         return $vehiculos;
@@ -503,12 +508,58 @@ class SeguimientoVehiculoModel
         return $index;
     }
 
+    /**
+     * Detecta vehículos asignados a múltiples usuarios (activos o inactivos).
+     *
+     * @param array $ids  IDs de vehículos a verificar
+     * @return array  Indexado por idvehiculos => ['total' => N, 'activos' => N, 'inactivos' => N, 'usuarios' => 'Nombre1 (Activo)||Nombre2 (Inactivo)']
+     */
+    private function cargarVehiculosDuplicados(array $ids): array
+    {
+        if (empty($ids)) return [];
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT u.usu_vehiculo,
+                       COUNT(*) AS total_usuarios,
+                       SUM(CASE WHEN u.usu_estado = 1 THEN 1 ELSE 0 END) AS activos,
+                       SUM(CASE WHEN u.usu_estado != 1 THEN 1 ELSE 0 END) AS inactivos,
+                       GROUP_CONCAT(
+                           CONCAT(u.usu_nombre, ' (', IF(u.usu_estado = 1, 'Activo', 'Inactivo'), ')')
+                           SEPARATOR '||'
+                       ) AS usuarios_lista
+                FROM usuarios u
+                WHERE u.usu_vehiculo IN ($placeholders)
+                GROUP BY u.usu_vehiculo
+                HAVING COUNT(*) > 1";
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("cargarVehiculosDuplicados prepare error: " . $this->db->error);
+            return [];
+        }
+        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
+        $ok = $stmt->execute();
+        if (!$ok) {
+            error_log("cargarVehiculosDuplicados execute error: " . $stmt->error);
+            return [];
+        }
+        $result = $stmt->get_result();
+        $index = [];
+        while ($row = $result->fetch_assoc()) {
+            $index[$row['usu_vehiculo']] = [
+                'total' => (int) $row['total_usuarios'],
+                'activos' => (int) $row['activos'],
+                'inactivos' => (int) $row['inactivos'],
+                'usuarios' => $row['usuarios_lista'],
+            ];
+        }
+        return $index;
+    }
+
     // ==================== ENRIQUECIMIENTO DE FILAS ====================
 
     /**
      * Enriquece una fila de vehículo con datos calculados y HTML para la vista.
      */
-    private function enriquecerFila(array $row, ?array $evento, ?array $preop, ?array $aceite, int $comparendos, array $hojavidaIndex, ?array $preopDia = null): array
+    private function enriquecerFila(array $row, ?array $evento, ?array $preop, ?array $aceite, int $comparendos, array $hojavidaIndex, ?array $preopDia = null, array $duplicadosIndex = []): array
     {
         $hoy = date('Y-m-d');
 
@@ -563,8 +614,36 @@ class SeguimientoVehiculoModel
             ? "<span class='estado-fuera-servicio'>$comparendos pend.</span>"
             : "<span class='estado-optimo'>0</span>";
 
-        // Conductor
-        $row['conductor_nombre'] = $row['conductor_nombre'] ?? 'Sin asignar';
+        // Conductor — con detección de vehículos duplicados
+        $idVehiculo = $row['idvehiculos'];
+        $dupInfo = $duplicadosIndex[$idVehiculo] ?? null;
+        $row['es_duplicado'] = $dupInfo !== null;
+
+        if ($dupInfo !== null) {
+            // Badge clickeable: abre popup con información completa de la duplicidad
+            $row['conductor_nombre'] = $row['conductor_nombre'] ?? 'Sin asignar';
+            // Escapar datos para data-attributes (JSON para JS)
+            $usuariosArray = explode('||', $dupInfo['usuarios']);
+            $usuariosJson = htmlspecialchars(json_encode($usuariosArray), ENT_QUOTES, 'UTF-8');
+            $activos = $dupInfo['activos'];
+            $inactivos = $dupInfo['inactivos'];
+            $placa = htmlspecialchars($row['veh_placa'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+            $row['duplicado_info_json'] = $usuariosJson;
+            $row['conductor_html'] = '<span class="badge-duplicado"'
+                . ' data-vehiculo-id="' . (int)$idVehiculo . '"'
+                . ' data-vehiculo-placa="' . $placa . '"'
+                . ' data-duplicado-total="' . $dupInfo['total'] . '"'
+                . ' data-duplicado-activos="' . $activos . '"'
+                . ' data-duplicado-inactivos="' . $inactivos . '"'
+                . ' data-duplicado-info="' . $usuariosJson . '"'
+                . ' style="cursor:pointer;"'
+                . ' title="Click para ver detalle de duplicidad">'
+                . '⚠️ Múltiples (' . $dupInfo['total'] . ')'
+                . '</span>';
+        } else {
+            $row['conductor_nombre'] = $row['conductor_nombre'] ?? 'Sin asignar';
+            $row['conductor_html'] = $row['conductor_nombre'];
+        }
 
         // Hoja de vida del conductor
         $cedula = $row['conductor_identificacion'] ?? '';
@@ -573,7 +652,7 @@ class SeguimientoVehiculoModel
         $row['conductor_falta_cuenta'] = $hv['falta_cuenta'] ?? 0;
 
         // Color de fila
-        $row['row_color'] = $this->determinarColorFila($row, $estadoGeneral);
+        $row['row_color'] = $this->determinarColorFila($row, $estadoGeneral, $row['es_duplicado']);
         $row['row_text_color'] = '#333333';
 
         // Acciones
@@ -714,8 +793,11 @@ class SeguimientoVehiculoModel
     /**
      * Determina el color de fondo de la fila según estado y alertas.
      */
-    private function determinarColorFila(array $row, string $estadoGeneral): string
+    private function determinarColorFila(array $row, string $estadoGeneral, bool $esDuplicado = false): string
     {
+        // Prioridad máxima: vehículo duplicado (asignado a múltiples usuarios)
+        if ($esDuplicado) return '#fff0e0';
+
         if ($estadoGeneral === 'FUERA_DE_SERVICIO') return '#fdecec';
         if ($estadoGeneral === 'CON_NOVEDADES') return '#fff8ee';
 
@@ -757,6 +839,9 @@ class SeguimientoVehiculoModel
         // Detalle
         $html .= "<button class='btn btn-sm btn-outline-primary' onclick='abrirDetalleVehiculo($id)' title='Ver detalle'><i class='fas fa-info-circle'></i></button>";
 
+        // Consulta SST
+        $html .= "<button class='btn btn-sm btn-outline-info' onclick='abrirConsultaSST($id)' title='Consulta SST del conductor'><i class='fas fa-clipboard-check'></i></button>";
+
         return $html;
     }
 
@@ -784,7 +869,9 @@ class SeguimientoVehiculoModel
         $sql = "SELECT v.*, u.idusuarios as conductor_id, u.usu_nombre as conductor_nombre,
                        s.sed_nombre as sede_conductor
                 FROM vehiculos v
-                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos AND u.usu_estado = 1
+                LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos
+                    AND u.usu_estado = 1
+                    AND u.idusuarios = (SELECT MIN(u2.idusuarios) FROM usuarios u2 WHERE u2.usu_vehiculo = v.idvehiculos AND u2.usu_estado = 1)
                 LEFT JOIN sedes s ON s.idsedes = u.usu_idsede
                 WHERE v.idvehiculos = ?";
         $stmt = $this->db->prepare($sql);
@@ -819,12 +906,16 @@ class SeguimientoVehiculoModel
 
         // 1. Eventos de seguimiento_vehiculo
         if ($consultarEvento) {
-            $sql = "SELECT fecha_registro as fecha, 'Evento' as fuente, kilometraje,
-                           tipo_evento as detalle
-                    FROM seguimiento_vehiculo
-                    WHERE id_vehiculo = ? AND kilometraje > 0"
-                    . ($desde && $hasta ? ' AND fecha_registro >= ? AND fecha_registro <= ?' : '')
-                    . " ORDER BY fecha_registro DESC";
+            $sql = "SELECT sv.fecha_registro as fecha, 'Evento' as fuente, sv.kilometraje,
+                           sv.tipo_evento as detalle,
+                           sv.id_preoperacional,
+                           sv.id_responsable as id_usuario,
+                           u.usu_nombre as usuario_nombre
+                    FROM seguimiento_vehiculo sv
+                    LEFT JOIN usuarios u ON u.idusuarios = sv.id_responsable
+                    WHERE sv.id_vehiculo = ? AND sv.kilometraje > 0"
+                    . ($desde && $hasta ? ' AND sv.fecha_registro >= ? AND sv.fecha_registro <= ?' : '')
+                    . " ORDER BY sv.fecha_registro DESC";
             $stmt = $this->db->prepare($sql);
             if ($desde && $hasta) {
                 $stmt->bind_param("iss", $idVehiculo, $paramsFecha[0], $paramsFecha[1]);
@@ -835,19 +926,26 @@ class SeguimientoVehiculoModel
             $result = $stmt->get_result();
             while ($row = $result->fetch_assoc()) {
                 $row['kilometraje'] = (int) $row['kilometraje'];
+                $row['usuario_nombre'] = $row['usuario_nombre'] ?? null;
+                $row['id_preoperacional'] = $row['id_preoperacional'] ?? null;
                 $historial[] = $row;
             }
         }
 
         // 2. Preoperacionales con kilometraje
         if ($consultarPreop) {
-            $sql = "SELECT prefechaingreso as fecha, 'Preoperacional' as fuente,
-                           CAST(pre_kilrecorridos AS UNSIGNED) as kilometraje,
-                           preestado as detalle
-                    FROM `pre-operacional`
-                    WHERE prevehiculo = ? AND pre_kilrecorridos IS NOT NULL AND pre_kilrecorridos != ''"
-                    . ($desde && $hasta ? ' AND prefechaingreso >= ? AND prefechaingreso <= ?' : '')
-                    . " ORDER BY prefechaingreso DESC";
+            $sql = "SELECT po.prefechaingreso as fecha, 'Preoperacional' as fuente,
+                           CAST(po.pre_kilrecorridos AS UNSIGNED) as kilometraje,
+                           po.preestado as detalle,
+                           po.idpreoperacinal as id_preoperacional,
+                           po.preidusuario as id_usuario,
+                           u2.usu_nombre as usuario_nombre,
+                           DATE(po.prefechaingreso) as fecha_date
+                    FROM `pre-operacional` po
+                    LEFT JOIN usuarios u2 ON u2.idusuarios = po.preidusuario
+                    WHERE po.prevehiculo = ? AND po.pre_kilrecorridos IS NOT NULL AND po.pre_kilrecorridos != ''"
+                    . ($desde && $hasta ? ' AND po.prefechaingreso >= ? AND po.prefechaingreso <= ?' : '')
+                    . " ORDER BY po.prefechaingreso DESC";
             $stmt = $this->db->prepare($sql);
             if ($desde && $hasta) {
                 $stmt->bind_param("iss", $idVehiculo, $paramsFecha[0], $paramsFecha[1]);
@@ -858,6 +956,8 @@ class SeguimientoVehiculoModel
             $result = $stmt->get_result();
             while ($row = $result->fetch_assoc()) {
                 $row['kilometraje'] = (int) $row['kilometraje'];
+                $row['usuario_nombre'] = $row['usuario_nombre'] ?? null;
+                $row['id_preoperacional'] = $row['id_preoperacional'] ?? null;
                 if ($row['kilometraje'] > 0) {
                     $historial[] = $row;
                 }
@@ -884,6 +984,8 @@ class SeguimientoVehiculoModel
             $result = $stmt->get_result();
             while ($row = $result->fetch_assoc()) {
                 $row['kilometraje'] = (int) $row['kilometraje'];
+                $row['usuario_nombre'] = $row['usuario_nombre'] ?? null;
+                $row['id_preoperacional'] = $row['id_preoperacional'] ?? null;
                 if ($row['kilometraje'] > 0) {
                     $historial[] = $row;
                 }
