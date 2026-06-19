@@ -333,53 +333,57 @@ class ReporteConductorSSTModel
      */
     public function obtenerReportes($filtros)
     {
-        $sql = "SELECT * FROM reporte_conductor_sst WHERE 1=1";
+        $sql = "SELECT rcs.*, u.usu_nombre, v.veh_placa
+                FROM reporte_conductor_sst rcs
+                LEFT JOIN usuarios u ON u.idusuarios = rcs.id_usuario
+                LEFT JOIN vehiculos v ON v.idvehiculos = rcs.id_vehiculo
+                WHERE 1=1";
         $types = '';
         $params = [];
 
         // Filtro por vehiculo
         if (!empty($filtros['id_vehiculo'])) {
-            $sql .= " AND id_vehiculo = ?";
+            $sql .= " AND rcs.id_vehiculo = ?";
             $types .= 'i';
             $params[] = $filtros['id_vehiculo'];
         }
 
         // Filtro por usuario
         if (!empty($filtros['id_usuario'])) {
-            $sql .= " AND id_usuario = ?";
+            $sql .= " AND rcs.id_usuario = ?";
             $types .= 'i';
             $params[] = $filtros['id_usuario'];
         }
 
         // Filtro por fecha desde
         if (!empty($filtros['fecha_desde'])) {
-            $sql .= " AND fecha >= ?";
+            $sql .= " AND rcs.fecha >= ?";
             $types .= 's';
             $params[] = $filtros['fecha_desde'];
         }
 
         // Filtro por fecha hasta
         if (!empty($filtros['fecha_hasta'])) {
-            $sql .= " AND fecha <= ?";
+            $sql .= " AND rcs.fecha <= ?";
             $types .= 's';
             $params[] = $filtros['fecha_hasta'];
         }
 
         // Filtro por tipo
         if (!empty($filtros['tipo']) && in_array($filtros['tipo'], self::TIPOS_VALIDOS, true)) {
-            $sql .= " AND tipo = ?";
+            $sql .= " AND rcs.tipo = ?";
             $types .= 's';
             $params[] = $filtros['tipo'];
         }
 
         // Filtro por estado
         if (!empty($filtros['estado']) && in_array($filtros['estado'], self::ESTADOS_VALIDOS, true)) {
-            $sql .= " AND estado = ?";
+            $sql .= " AND rcs.estado = ?";
             $types .= 's';
             $params[] = $filtros['estado'];
         }
 
-        $sql .= " ORDER BY creado_en DESC LIMIT 500";
+        $sql .= " ORDER BY rcs.creado_en DESC LIMIT 500";
 
         if (empty($params)) {
             // Sin filtros: ejecutar consulta directa sin bind_param
@@ -394,6 +398,60 @@ class ReporteConductorSSTModel
             }
             return $rows;
         }
+
+        return $this->executeAll($sql, $types, $params);
+    }
+
+    // ==================== RESUMEN SEMANAL ====================
+
+    /**
+     * Obtiene el resumen semanal de cuestionarios SST completados por conductor
+     *
+     * Para cada conductor activo con vehiculo asignado, indica si completo o no
+     * el cuestionario de accidente y comparendo en la semana dada.
+     *
+     * @param string $fechaInicio Fecha inicio de la semana (Y-m-d, lunes)
+     * @param string $fechaFin    Fecha fin de la semana (Y-m-d, domingo)
+     * @param int|null $idConductor (opcional) Filtrar por conductor especifico
+     * @return array Lista de conductores con indicadores de completitud
+     */
+    public function obtenerResumenSemanal($fechaInicio, $fechaFin, $idConductor = null)
+    {
+        $sql = "SELECT u.idusuarios, u.usu_nombre, u.usu_identificacion,
+                       v.idvehiculos, v.veh_placa,
+                       MAX(CASE WHEN rcs.tipo = 'accidente'
+                           AND rcs.tipo_evento = 'semanal'
+                           AND rcs.fecha BETWEEN ? AND ? THEN 1 ELSE 0 END) as accidente_completado,
+                       MAX(CASE WHEN rcs.tipo = 'comparendo'
+                           AND rcs.tipo_evento = 'semanal'
+                           AND rcs.fecha BETWEEN ? AND ? THEN 1 ELSE 0 END) as comparendo_completado
+                FROM usuarios u
+                INNER JOIN vehiculos v ON u.usu_vehiculo = v.idvehiculos
+                LEFT JOIN reporte_conductor_sst rcs ON rcs.id_usuario = u.idusuarios
+                    AND rcs.tipo_evento = 'semanal'
+                    AND rcs.fecha BETWEEN ? AND ?
+                WHERE u.usu_estado = 1 AND u.usu_filtro = 1";
+
+        // Los parametros se repiten: fechaInicio, fechaFin para cada CASE + el LEFT JOIN
+        // CASE accidente: ?, ?
+        // CASE comparendo: ?, ?
+        // LEFT JOIN: ?, ?
+        // Total: 6 parametros de fecha (3 pares de fechaInicio, fechaFin)
+        $params = [
+            $fechaInicio, $fechaFin,  // CASE accidente
+            $fechaInicio, $fechaFin,  // CASE comparendo
+            $fechaInicio, $fechaFin,  // LEFT JOIN
+        ];
+        $types = 'ssssss';
+
+        if ($idConductor !== null) {
+            $sql .= " AND u.idusuarios = ?";
+            $params[] = $idConductor;
+            $types .= 'i';
+        }
+
+        $sql .= " GROUP BY u.idusuarios, v.idvehiculos, v.veh_placa
+                  ORDER BY u.usu_nombre";
 
         return $this->executeAll($sql, $types, $params);
     }

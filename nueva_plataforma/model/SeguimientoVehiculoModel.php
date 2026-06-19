@@ -245,6 +245,7 @@ class SeguimientoVehiculoModel
         $comparendosIndex = $this->cargarComparendosPendientes($ids);
         $hojavidaIndex = $this->cargarHojavidaConductores($vehiculos);
         $preopsDelDia = $this->getPreoperacionalesDelDia($ids, $fechaConsulta);
+        $duplicadosIndex = $this->cargarVehiculosDuplicados($ids);
 
         // Enriquecer y procesar filas
         foreach ($vehiculos as &$row) {
@@ -255,7 +256,7 @@ class SeguimientoVehiculoModel
             $comparendos = $comparendosIndex[$id] ?? 0;
             $preopDia = $preopsDelDia[$id] ?? null;
 
-            $row = $this->enriquecerFila($row, $evento, $preop, $aceite, $comparendos, $hojavidaIndex, $preopDia);
+            $row = $this->enriquecerFila($row, $evento, $preop, $aceite, $comparendos, $hojavidaIndex, $preopDia, $duplicadosIndex);
         }
 
         return $vehiculos;
@@ -503,12 +504,54 @@ class SeguimientoVehiculoModel
         return $index;
     }
 
+    /**
+     * Detecta vehículos asignados a múltiples usuarios (activos o inactivos).
+     *
+     * @param array $ids  IDs de vehículos a verificar
+     * @return array  Indexado por idvehiculos => ['total' => N, 'usuarios' => 'Nombre1 (Activo)||Nombre2 (Inactivo)']
+     */
+    private function cargarVehiculosDuplicados(array $ids): array
+    {
+        if (empty($ids)) return [];
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT u.usu_vehiculo,
+                       COUNT(*) AS total_usuarios,
+                       GROUP_CONCAT(
+                           CONCAT(u.usu_nombre, ' (', IF(u.usu_estado = 1, 'Activo', 'Inactivo'), ')')
+                           SEPARATOR '||'
+                       ) AS usuarios_lista
+                FROM usuarios u
+                WHERE u.usu_vehiculo IN ($placeholders)
+                GROUP BY u.usu_vehiculo
+                HAVING COUNT(*) > 1";
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("cargarVehiculosDuplicados prepare error: " . $this->db->error);
+            return [];
+        }
+        $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
+        $ok = $stmt->execute();
+        if (!$ok) {
+            error_log("cargarVehiculosDuplicados execute error: " . $stmt->error);
+            return [];
+        }
+        $result = $stmt->get_result();
+        $index = [];
+        while ($row = $result->fetch_assoc()) {
+            $index[$row['usu_vehiculo']] = [
+                'total' => (int) $row['total_usuarios'],
+                'usuarios' => $row['usuarios_lista'],
+            ];
+        }
+        return $index;
+    }
+
     // ==================== ENRIQUECIMIENTO DE FILAS ====================
 
     /**
      * Enriquece una fila de vehículo con datos calculados y HTML para la vista.
      */
-    private function enriquecerFila(array $row, ?array $evento, ?array $preop, ?array $aceite, int $comparendos, array $hojavidaIndex, ?array $preopDia = null): array
+    private function enriquecerFila(array $row, ?array $evento, ?array $preop, ?array $aceite, int $comparendos, array $hojavidaIndex, ?array $preopDia = null, array $duplicadosIndex = []): array
     {
         $hoy = date('Y-m-d');
 
@@ -563,8 +606,29 @@ class SeguimientoVehiculoModel
             ? "<span class='estado-fuera-servicio'>$comparendos pend.</span>"
             : "<span class='estado-optimo'>0</span>";
 
-        // Conductor
-        $row['conductor_nombre'] = $row['conductor_nombre'] ?? 'Sin asignar';
+        // Conductor — con detección de vehículos duplicados
+        $idVehiculo = $row['idvehiculos'];
+        $dupInfo = $duplicadosIndex[$idVehiculo] ?? null;
+        $row['es_duplicado'] = $dupInfo !== null;
+
+        if ($dupInfo !== null) {
+            // Badge de alerta: vehículo asignado a múltiples usuarios
+            $listaUsuarios = str_replace('||', ' | ', htmlspecialchars($dupInfo['usuarios']));
+            $row['conductor_nombre'] = $row['conductor_nombre'] ?? 'Sin asignar';
+            $row['conductor_html'] = '<span class="badge-duplicado-wrapper" style="position:relative; display:inline-block; cursor:pointer;">'
+                . '<span class="badge-duplicado" title="' . $listaUsuarios . '">'
+                . '⚠️ Múltiples (' . $dupInfo['total'] . ')'
+                . '</span>'
+                . '<div class="badge-duplicado-dropdown" style="display:none; position:absolute; background:white; border:1px solid #ddd; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:10px 14px; left:0; top:100%; margin-top:4px; min-width:260px; white-space:nowrap; z-index:99999;">'
+                . '<ul style="list-style:none; margin:0; padding:0;">';
+            foreach (explode('||', $dupInfo['usuarios']) as $usuario) {
+                $row['conductor_html'] .= '<li style="padding:3px 0; color:#92400e; font-size:13px;">' . htmlspecialchars($usuario) . '</li>';
+            }
+            $row['conductor_html'] .= '</ul></div></span>';
+        } else {
+            $row['conductor_nombre'] = $row['conductor_nombre'] ?? 'Sin asignar';
+            $row['conductor_html'] = $row['conductor_nombre'];
+        }
 
         // Hoja de vida del conductor
         $cedula = $row['conductor_identificacion'] ?? '';
@@ -573,7 +637,7 @@ class SeguimientoVehiculoModel
         $row['conductor_falta_cuenta'] = $hv['falta_cuenta'] ?? 0;
 
         // Color de fila
-        $row['row_color'] = $this->determinarColorFila($row, $estadoGeneral);
+        $row['row_color'] = $this->determinarColorFila($row, $estadoGeneral, $row['es_duplicado']);
         $row['row_text_color'] = '#333333';
 
         // Acciones
@@ -714,8 +778,11 @@ class SeguimientoVehiculoModel
     /**
      * Determina el color de fondo de la fila según estado y alertas.
      */
-    private function determinarColorFila(array $row, string $estadoGeneral): string
+    private function determinarColorFila(array $row, string $estadoGeneral, bool $esDuplicado = false): string
     {
+        // Prioridad máxima: vehículo duplicado (asignado a múltiples usuarios)
+        if ($esDuplicado) return '#fff0e0';
+
         if ($estadoGeneral === 'FUERA_DE_SERVICIO') return '#fdecec';
         if ($estadoGeneral === 'CON_NOVEDADES') return '#fff8ee';
 
@@ -756,6 +823,9 @@ class SeguimientoVehiculoModel
 
         // Detalle
         $html .= "<button class='btn btn-sm btn-outline-primary' onclick='abrirDetalleVehiculo($id)' title='Ver detalle'><i class='fas fa-info-circle'></i></button>";
+
+        // Consulta SST
+        $html .= "<button class='btn btn-sm btn-outline-info' onclick='abrirConsultaSST($id)' title='Consulta SST del conductor'><i class='fas fa-clipboard-check'></i></button>";
 
         return $html;
     }

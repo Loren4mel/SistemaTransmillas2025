@@ -77,6 +77,361 @@
             });
     }
 
+    /** Abre el popup de consulta SST */
+    function abrirConsultaSST(idVehiculo) {
+        var params = { accion: 'form_popup', tipo: 'consulta_sst' };
+        if (idVehiculo) {
+            params.id = idVehiculo;
+        }
+        $('#popupModal .modal-title').text('Consulta SST');
+        $('#popupModalBody').html('<div class="text-center"><i class="fas fa-spinner fa-pulse"></i> Cargando...</div>');
+        $('#popupModal').modal('show');
+
+        $.get(dirPage, params)
+            .done(function (html) {
+                $('#popupModalBody').html(html);
+                // Inicializar Select2 para conductor
+                initSelect2($('#sstConductorSelect'), 'Todos los conductores');
+                // Bindear eventos del popup
+                initConsultaSST();
+                // Cargar datos de la primera pestaña
+                cargarResumenSemanal();
+                // Marcar el modal como mas ancho para las tablas
+                $('#popupModal .modal-dialog').addClass('modal-xl');
+            })
+            .fail(function () {
+                $('#popupModalBody').html('<div class="alert alert-danger">Error al cargar el formulario.</div>');
+            });
+    }
+
+    /** Carga el resumen semanal via AJAX */
+    function cargarResumenSemanal() {
+        var semanaInput = $('#sstSemanaInput').val(); // Formato: YYYY-Www
+        var conductorId = $('#sstConductorSelect').val() || '';
+        var fechaInicio, fechaFin;
+
+        if (semanaInput) {
+            // Convertir YYYY-Www a fecha lunes de esa semana
+            var parts = semanaInput.split('-W');
+            var year = parseInt(parts[0], 10);
+            var week = parseInt(parts[1], 10);
+            // Calcular el lunes de esa semana ISO
+            var simple = new Date(year, 0, 1 + (week - 1) * 7);
+            var dayOfWeek = simple.getDay();
+            var ISOweekStart = simple;
+            if (dayOfWeek <= 4) {
+                ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+            } else {
+                ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+            }
+            fechaInicio = formatDateYMD(ISOweekStart);
+            var fechaFinDate = new Date(ISOweekStart);
+            fechaFinDate.setDate(fechaFinDate.getDate() + 6);
+            fechaFin = formatDateYMD(fechaFinDate);
+        } else {
+            // Fallback: semana actual
+            var now = new Date();
+            var diaSem = now.getDay() || 7; // dom=7
+            var lunes = new Date(now);
+            lunes.setDate(now.getDate() - (diaSem - 1));
+            fechaInicio = formatDateYMD(lunes);
+            var domingo = new Date(lunes);
+            domingo.setDate(lunes.getDate() + 6);
+            fechaFin = formatDateYMD(domingo);
+        }
+
+        // Mostrar loading
+        $('#sstResumenLoading').show();
+        $('#sstResumenContent').hide();
+
+        var sstEndpoint = (window.APP_BASE_URL || '') + '/controller/ReporteConductorSSTController.php';
+        var params = {
+            ajax: 'resumen_semanal',
+            fecha_inicio: fechaInicio,
+            fecha_fin: fechaFin
+        };
+        if (conductorId) {
+            params.id_conductor = conductorId;
+        }
+
+        $.get(sstEndpoint, params)
+            .done(function (resp) {
+                if (!resp.success) {
+                    $('#sstResumenLoading').html('<div class="alert alert-danger">' +
+                        escHtml(resp.message || 'Error al cargar resumen') + '</div>');
+                    return;
+                }
+                renderResumenSemanal(resp);
+                $('#sstResumenLoading').hide();
+                $('#sstResumenContent').show();
+            })
+            .fail(function () {
+                $('#sstResumenLoading').html('<div class="alert alert-danger">Error de conexion al cargar resumen.</div>');
+            });
+    }
+
+    /** Formatea un objeto Date a Y-m-d */
+    function formatDateYMD(d) {
+        var yyyy = d.getFullYear();
+        var mm = String(d.getMonth() + 1).padStart(2, '0');
+        var dd = String(d.getDate()).padStart(2, '0');
+        return yyyy + '-' + mm + '-' + dd;
+    }
+
+    /** Renderiza la tabla de resumen semanal */
+    function renderResumenSemanal(resp) {
+        var data = resp.data || [];
+        var stats = resp.estadisticas || {};
+        var semana = resp.semana || {};
+
+        // Actualizar titulo del modal
+        var titulo = 'Consulta SST';
+        if (semana.inicio && semana.fin) {
+            titulo += ' - Semana del ' + formatFecha(semana.inicio) + ' al ' + formatFecha(semana.fin);
+        }
+        $('#popupModal .modal-title').text(titulo);
+
+        // Contadores
+        var statsHtml = '<div class="d-flex flex-wrap gap-3">';
+        statsHtml += '<span class="badge fs-6" style="background-color:#e8f2ec;color:#1e7f4f;padding:8px 16px;">' +
+            '<i class="fas fa-check-circle me-1"></i> Al dia: <strong>' + (stats.al_dia || 0) + '</strong></span>';
+        statsHtml += '<span class="badge fs-6" style="background-color:#fff4e5;color:#b54708;padding:8px 16px;">' +
+            '<i class="fas fa-exclamation-triangle me-1"></i> Incompletos: <strong>' + (stats.incompletos || 0) + '</strong></span>';
+        statsHtml += '<span class="badge fs-6" style="background-color:#fdecec;color:#b42318;padding:8px 16px;">' +
+            '<i class="fas fa-times-circle me-1"></i> Pendientes: <strong>' + (stats.pendientes || 0) + '</strong></span>';
+        statsHtml += '<span class="badge fs-6" style="background-color:#dbeafe;color:#1e40af;padding:8px 16px;">' +
+            '<i class="fas fa-users me-1"></i> Total: <strong>' + (resp.total || 0) + '</strong></span>';
+        statsHtml += '</div>';
+        $('#sstResumenStats').html(statsHtml);
+
+        // Tabla
+        if (!data.length) {
+            $('#sstResumenTable').hide();
+            $('#sstResumenEmpty').show();
+            return;
+        }
+        $('#sstResumenTable').show();
+        $('#sstResumenEmpty').hide();
+
+        var tbody = '';
+        for (var i = 0; i < data.length; i++) {
+            var r = data[i];
+            var accOk = parseInt(r.accidente_completado) === 1;
+            var compOk = parseInt(r.comparendo_completado) === 1;
+            var ambosOk = accOk && compOk;
+            var ningunoOk = !accOk && !compOk;
+
+            var estadoLabel, estadoColor, rowBg;
+            if (ambosOk) {
+                estadoLabel = 'Al dia';
+                estadoColor = '#e8f2ec';
+                rowBg = 'background-color:#f6fdf9;';
+            } else if (ningunoOk) {
+                estadoLabel = 'Pendiente';
+                estadoColor = '#fdecec';
+                rowBg = 'background-color:#fffafb;';
+            } else {
+                estadoLabel = 'Incompleto';
+                estadoColor = '#fff4e5';
+                rowBg = 'background-color:#fffefa;';
+            }
+
+            var accBadge = accOk
+                ? '<span style="color:#1e7f4f;font-size:16px;">&#10004;</span>'
+                : '<span style="color:#b42318;font-size:16px;">&#10060;</span>';
+            var compBadge = compOk
+                ? '<span style="color:#1e7f4f;font-size:16px;">&#10004;</span>'
+                : '<span style="color:#b42318;font-size:16px;">&#10060;</span>';
+
+            tbody += '<tr style="' + rowBg + 'cursor:pointer;" ' +
+                'onclick="irAHistorialDesdeResumen(' + r.idusuarios + ',\'' +
+                escAttr(r.usu_nombre) + '\')" ' +
+                'title="Click para ver historial de ' + escAttr(r.usu_nombre) + '">' +
+                '<td><strong>' + escHtml(r.usu_nombre) + '</strong></td>' +
+                '<td><span style="font-family:monospace;background:#e9ecef;padding:2px 8px;border-radius:4px;">' +
+                escHtml(r.veh_placa || '—') + '</span></td>' +
+                '<td class="text-center">' + accBadge + '</td>' +
+                '<td class="text-center">' + compBadge + '</td>' +
+                '<td class="text-center"><span style="background-color:' + estadoColor +
+                ';padding:4px 12px;border-radius:14px;font-weight:600;font-size:12px;">' +
+                estadoLabel + '</span></td>' +
+                '</tr>';
+        }
+        $('#sstResumenBody').html(tbody);
+    }
+
+    /** Navega de resumen semanal a historial con datos del conductor */
+    function irAHistorialDesdeResumen(idConductor, nombre) {
+        // Cambiar a pestaña historial
+        $('#sstHistorialTab').tab('show');
+        // Pre-seleccionar conductor y cargar
+        $('#sstConductorSelect').val(idConductor).trigger('change');
+        // Cargar historial
+        cargarHistorialSST();
+    }
+
+    /** Carga el historial de reportes via AJAX */
+    function cargarHistorialSST() {
+        var semanaInput = $('#sstSemanaInput').val();
+        var conductorId = $('#sstConductorSelect').val() || '';
+        var tipo = $('#sstHistTipo').val() || '';
+        var tipoEvento = $('#sstHistEvento').val() || '';
+        var preVehiculoId = $('#sstPreVehiculoId').val() || '';
+
+        // Calcular fechas desde el input week (mismo calculo que resumen)
+        var fechaDesde, fechaHasta;
+        if (semanaInput) {
+            var parts = semanaInput.split('-W');
+            var year = parseInt(parts[0], 10);
+            var week = parseInt(parts[1], 10);
+            var simple = new Date(year, 0, 1 + (week - 1) * 7);
+            var dayOfWeek = simple.getDay();
+            var ISOweekStart = simple;
+            if (dayOfWeek <= 4) {
+                ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+            } else {
+                ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+            }
+            fechaDesde = formatDateYMD(ISOweekStart);
+            var fechaFinDate = new Date(ISOweekStart);
+            fechaFinDate.setDate(fechaFinDate.getDate() + 6);
+            fechaHasta = formatDateYMD(fechaFinDate);
+        } else {
+            // Si no hay semana, usar rango amplio (ultimos 90 dias)
+            var hoy = new Date();
+            fechaHasta = formatDateYMD(hoy);
+            var hace90 = new Date(hoy);
+            hace90.setDate(hace90.getDate() - 90);
+            fechaDesde = formatDateYMD(hace90);
+        }
+
+        $('#sstHistorialLoading').show();
+        $('#sstHistorialContent').hide();
+
+        var sstEndpoint = (window.APP_BASE_URL || '') + '/controller/ReporteConductorSSTController.php';
+        var params = {
+            ajax: 'consulta',
+            fecha_desde: fechaDesde,
+            fecha_hasta: fechaHasta
+        };
+        if (preVehiculoId) {
+            params.id_vehiculo = preVehiculoId;
+        }
+        if (conductorId) {
+            params.id_usuario = conductorId;
+        }
+        if (tipo) {
+            params.tipo = tipo;
+        }
+
+        $.get(sstEndpoint, params)
+            .done(function (resp) {
+                if (!resp.success) {
+                    $('#sstHistorialLoading').html('<div class="alert alert-danger">' +
+                        escHtml(resp.message || 'Error al cargar historial') + '</div>');
+                    return;
+                }
+                var datos = resp.data || [];
+                // Filtrar por tipo_evento en cliente si es necesario
+                if (tipoEvento) {
+                    datos = datos.filter(function (r) { return r.tipo_evento === tipoEvento; });
+                }
+                renderHistorialSST(datos);
+                $('#sstHistorialLoading').hide();
+                $('#sstHistorialContent').show();
+            })
+            .fail(function () {
+                $('#sstHistorialLoading').html('<div class="alert alert-danger">Error de conexion al cargar historial.</div>');
+            });
+    }
+
+    /** Renderiza la tabla de historial de reportes */
+    function renderHistorialSST(reportes) {
+        if (!reportes || reportes.length === 0) {
+            $('#sstHistorialTable').hide();
+            $('#sstHistorialEmpty').show();
+            return;
+        }
+        $('#sstHistorialTable').show();
+        $('#sstHistorialEmpty').hide();
+
+        var gravedadLabels = {
+            '1': { label: 'Leve', color: '#1e7f4f' },
+            '2': { label: 'Moderado', color: '#b54708' },
+            '3': { label: 'Grave', color: '#b42318' },
+            '4': { label: 'Critico', color: '#7f1d1d' }
+        };
+        var estadoBadge = {
+            'pendiente': '<span style="background-color:#fff4e5;color:#b54708;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">Pendiente</span>',
+            'revisado': '<span style="background-color:#e8f2ec;color:#1e7f4f;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">Revisado</span>'
+        };
+        var tipoBadge = {
+            'accidente': '<span style="background-color:#fdecec;color:#b42318;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">🚨 Accidente</span>',
+            'comparendo': '<span style="background-color:#fff4e5;color:#b54708;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">📋 Comparendo</span>'
+        };
+
+        var tbody = '';
+        for (var i = 0; i < reportes.length; i++) {
+            var r = reportes[i];
+            var grav = gravedadLabels[r.gravedad] || { label: r.gravedad || '—', color: '#888' };
+            var respuestaBadge = (r.respuesta === 'si')
+                ? '<span style="color:#b42318;font-weight:700;">⚠️ Sí</span>'
+                : '<span style="color:#1e7f4f;">No</span>';
+
+            // Archivos
+            var archivosHtml = '—';
+            if (r.archivos && r.archivos.length > 0) {
+                archivosHtml = '';
+                for (var a = 0; a < r.archivos.length; a++) {
+                    var arch = r.archivos[a];
+                    var icono = '📄';
+                    if (arch.doc_ruta && arch.doc_ruta.match(/\.(jpg|jpeg|png|gif|webp)$/i)) icono = '🖼️';
+                    if (arch.doc_ruta && arch.doc_ruta.match(/\.pdf$/i)) icono = '📎';
+                    archivosHtml += '<a href="' + (window.APP_BASE_URL || '') + '/' +
+                        escHtml(arch.doc_ruta) + '" target="_blank" title="' +
+                        escHtml(arch.doc_nombre || 'Archivo') + '" class="me-1">' + icono + '</a>';
+                }
+            }
+
+            tbody += '<tr>' +
+                '<td>' + formatFecha(r.fecha) + '</td>' +
+                '<td>' + escHtml(r.usu_nombre || '—') + '</td>' +
+                '<td><span style="font-family:monospace;font-size:11px;">' + escHtml(r.veh_placa || '—') + '</span></td>' +
+                '<td>' + (tipoBadge[r.tipo] || escHtml(r.tipo)) + '</td>' +
+                '<td>' + escHtml(r.tipo_evento === 'semanal' ? 'Semanal' : 'Momento') + '</td>' +
+                '<td class="text-center"><span style="color:' + grav.color + ';font-weight:600;">' + grav.label + '</span></td>' +
+                '<td class="text-center">' + respuestaBadge + '</td>' +
+                '<td class="text-center">' + (estadoBadge[r.estado] || escHtml(r.estado)) + '</td>' +
+                '<td class="text-center">' + archivosHtml + '</td>' +
+                '</tr>';
+        }
+        $('#sstHistorialBody').html(tbody);
+    }
+
+    /** Inicializa el popup de consulta SST despues de cargar el HTML */
+    function initConsultaSST() {
+        // Boton Buscar en la barra principal
+        $('#sstBuscarBtn').off('click').on('click', function () {
+            cargarResumenSemanal();
+            cargarHistorialSST();
+        });
+
+        // Boton Filtrar en la pestaña historial
+        $('#sstHistBuscarBtn').off('click').on('click', function () {
+            cargarHistorialSST();
+        });
+
+        // Cambio de semana recarga resumen
+        $('#sstSemanaInput').off('change').on('change', function () {
+            cargarResumenSemanal();
+        });
+
+        // Cambio de pestaña: cargar historial si se navega a esa pestaña
+        $('#sstHistorialTab').off('shown.bs.tab').on('shown.bs.tab', function () {
+            cargarHistorialSST();
+        });
+    }
+
     // ==================== DATATABLE ====================
 
     function initDataTable() {
@@ -110,7 +465,7 @@
                 // Columna 4 (índice 4): Estado General — valor crudo, no badge HTML
                 { data: 'estado_general', render: function (d) { return d; } },
                 { data: 'registro_dia_html', orderable: false },
-                { data: 'conductor_nombre' },
+                { data: 'conductor_html' },
                 { data: 'kilometraje_actual_fmt' },
                 { data: 'ultimo_preop_link' },
                 { data: 'alerta_soat' },
@@ -578,6 +933,14 @@
             }
         });
 
+        // Click en placa → abre consulta SST para ese vehiculo
+        $('#tablaVehiculos').on('click', 'td:nth-child(2)', function () {
+            var data = tabla.row($(this).closest('tr')).data();
+            if (data && data.idvehiculos) {
+                abrirConsultaSST(data.idvehiculos);
+            }
+        });
+
         // Click en "Ver más" de observaciones
         $(document).on('click', '.ver-mas-obs', function (e) {
             e.preventDefault();
@@ -597,7 +960,45 @@
             }
             // Limpiar handlers de shown para evitar duplicados
             $('#popupModal').off('shown.bs.modal.kmChart');
+            // Restaurar tamanio del modal
+            $('#popupModal .modal-dialog').removeClass('modal-xl');
         });
+
+        // Hover: dropdowns de badge duplicado
+        $(document).on('mouseenter', '.badge-duplicado-wrapper', function () {
+            var $wrapper = $(this);
+            var $dropdown = $wrapper.find('.badge-duplicado-dropdown');
+            if (!$dropdown.length) return;
+            var rect = $wrapper[0].getBoundingClientRect();
+            $dropdown.data('_parentDupWrapper', $wrapper);
+            $dropdown.appendTo('body').css({
+                position: 'fixed', left: rect.left, top: rect.bottom,
+                display: 'block', zIndex: 99999
+            });
+        });
+
+        $(document).on('mouseleave', '.badge-duplicado-wrapper', function (e) {
+            if ($(e.relatedTarget).closest('.badge-duplicado-dropdown').length) return;
+            cerrarDuplicadoDropdown($(this));
+        });
+
+        $(document).on('mouseleave', '.badge-duplicado-dropdown', function (e) {
+            var $dropdown = $(this);
+            var $wrapper = $dropdown.data('_parentDupWrapper');
+            if ($wrapper && $.contains($wrapper[0], e.relatedTarget)) return;
+            cerrarDuplicadoDropdown($wrapper);
+        });
+
+        function cerrarDuplicadoDropdown($wrapper) {
+            if (!$wrapper || !$wrapper.length) return;
+            var $dropdown = $('.badge-duplicado-dropdown').filter(function () {
+                return $(this).data('_parentDupWrapper') && $(this).data('_parentDupWrapper').is($wrapper);
+            });
+            if ($dropdown.length) {
+                $dropdown.css({ position: '', left: '', top: '', display: '', zIndex: '' });
+                $dropdown.appendTo($wrapper);
+            }
+        }
 
         // Hover: dropdowns de alerta
         $(document).on('mouseenter', '.alerta-wrapper', function () {
@@ -656,6 +1057,11 @@
     window.abrirHistorialEstado = abrirHistorialEstado;
     window.filtrarHistorialEstado = filtrarHistorialEstado;
     window.filtrarHistorialKm = filtrarHistorialKm;
+    window.abrirConsultaSST = abrirConsultaSST;
+    window.initConsultaSST = initConsultaSST;
+    window.cargarResumenSemanal = cargarResumenSemanal;
+    window.cargarHistorialSST = cargarHistorialSST;
+    window.irAHistorialDesdeResumen = irAHistorialDesdeResumen;
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

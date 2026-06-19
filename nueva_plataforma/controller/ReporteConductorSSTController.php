@@ -140,6 +140,10 @@ function handleAjaxGetRequest($model)
                 detalle($model);
                 break;
 
+            case 'resumen_semanal':
+                resumenSemanal($model);
+                break;
+
             default:
                 ErrorHandler::sendJsonResponse([
                     'success' => false,
@@ -398,6 +402,63 @@ function verificarSemana($model)
 }
 
 /**
+ * Obtiene el resumen semanal de cuestionarios SST por conductor
+ *
+ * Endpoint para consulta desde Seguimiento Vehicular.
+ * Devuelve para cada conductor activo si completo los cuestionarios
+ * de accidente y comparendo en la semana indicada.
+ *
+ * Parametros GET:
+ *   - fecha_inicio (string Y-m-d): Inicio de la semana
+ *   - fecha_fin (string Y-m-d): Fin de la semana
+ *   - id_conductor (int|null, opcional): Filtrar por conductor
+ *
+ * @param ReporteConductorSSTModel $model Instancia del modelo
+ */
+function resumenSemanal($model)
+{
+    $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('monday this week'));
+    $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d', strtotime('sunday this week'));
+    $idConductor = !empty($_GET['id_conductor']) ? (int) $_GET['id_conductor'] : null;
+
+    // Validar formato de fechas
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) ||
+        !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Formato de fecha invalido. Use Y-m-d.'
+        ], 400);
+    }
+
+    $resumen = $model->obtenerResumenSemanal($fechaInicio, $fechaFin, $idConductor);
+
+    // Calcular estadisticas
+    $total = count($resumen);
+    $alDia = count(array_filter($resumen, function ($r) {
+        return $r['accidente_completado'] && $r['comparendo_completado'];
+    }));
+    $incompletos = count(array_filter($resumen, function ($r) {
+        return $r['accidente_completado'] || $r['comparendo_completado'];
+    })) - $alDia;
+    $pendientes = $total - $alDia - $incompletos;
+
+    ErrorHandler::sendJsonResponse([
+        'success'    => true,
+        'data'       => $resumen,
+        'total'      => $total,
+        'estadisticas' => [
+            'al_dia'      => $alDia,
+            'incompletos' => $incompletos,
+            'pendientes'  => $pendientes,
+        ],
+        'semana' => [
+            'inicio' => $fechaInicio,
+            'fin'    => $fechaFin,
+        ],
+    ]);
+}
+
+/**
  * Consulta reportes SST con filtros opcionales
  *
  * Endpoint para consultas desde Seguimiento Vehicular y panel administrativo.
@@ -506,15 +567,13 @@ function detalle($model)
  * Estado actual: NO IMPLEMENTADO — acceso directo por URL por ahora.
  * =============================================================================
  *
- * INTEGRACIÓN PENDIENTE — Consulta desde Seguimiento Vehicular:
+ * INTEGRACIÓN — Consulta desde Seguimiento Vehicular:
  *
- * En seguimiento_vehiculo.js o en el popup de detalle, consumir:
- *   GET ReporteConductorSSTController?ajax=consulta&id_vehiculo=X
+ * ✅ IMPLEMENTADO — El endpoint ajax=consulta se consume desde el popup
+ *    consulta_sst de SeguimientoVehiculo (tipo=consulta_sst en form_popup).
+ *    También disponible ajax=resumen_semanal para el resumen semanal.
  *
- * La respuesta incluye todos los reportes del vehículo con sus archivos.
- * Renderizar como tabla o timeline en el popup de detalle.
- *
- * Estado actual: NO IMPLEMENTADO — endpoints listos, falta UI en SegVehiculo.
+ * Estado actual: COMPLETADO.
  * =============================================================================
  *
  * FUTURO — Subida de video:

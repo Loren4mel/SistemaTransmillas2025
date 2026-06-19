@@ -317,6 +317,20 @@ if (isset($_GET['accion'])) {
                         ob_clean();
                         include "../view/SeguimientoVehiculo/popups/historial_estado.php";
                         exit;
+
+                    case 'consulta_sst':
+                        $vehiculo = $idVehiculo > 0 ? $modelo->getVehiculoById($idVehiculo) : null;
+                        // Calcular semana actual
+                        $hoy = date('Y-m-d');
+                        $diaSemana = (int) date('N', strtotime($hoy));
+                        $lunes = date('Y-m-d', strtotime('-' . ($diaSemana - 1) . ' days', strtotime($hoy)));
+                        $domingo = date('Y-m-d', strtotime('+' . (7 - $diaSemana) . ' days', strtotime($hoy)));
+                        $semana = ['inicio' => $lunes, 'fin' => $domingo];
+                        // Obtener lista de conductores activos para el filtro
+                        $conductores = $modelo->getConductores();
+                        ob_clean();
+                        include "../view/SeguimientoVehiculo/popups/consulta_sst.php";
+                        exit;
                 }
                 break;
         }
