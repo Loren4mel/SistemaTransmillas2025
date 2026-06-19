@@ -10,11 +10,8 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<!-- <link rel="stylesheet" href="/SistemaTransmillas2025/nueva_plataforma/assets/css/vehiculos.css">
-<link rel="shortcut icon" href="/SistemaTransmillas2025/images/Logo Google Nuevo.png"> -->
-<!-- Produccion -->
-<link rel="stylesheet" href="../assets/css/vehiculos.css">
-<link rel="shortcut icon" href="../../images/Logo Google Nuevo.png">
+<link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/vehiculos.css">
+<link rel="shortcut icon" href="<?= dirname($baseUrl) ?>/images/Logo Google Nuevo.png">
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -97,8 +94,8 @@
                 <th>Fecha Vencimiento Tecnomecánica</th>
                 <th>Fecha Ultimo Cambio Aceite</th>
                 <th>Kilometraje Actual</th>
-                <th>Km Al Cambio de Aceite</th>
-                <th>Limite Km cambio aceite</th>
+                <th>Km Último Cambio Aceite</th>
+                <th>Cada cuántos km cambia aceite</th>
                 <th>Tarjeta de Propiedad (Frente)</th>
                 <th>Tarjeta de Propiedad (Respaldo)</th>
                 <th>Revision Comparendos</th>
@@ -239,17 +236,21 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Kilometraje Actual Al Cambio de Aceite
+                            <label class="form-label fw-bold text-secondary">Km al Último Cambio de Aceite
                                 <span class="text-danger">*</span>
                             </label>
                             <input type="text" class="form-control" name="veh_kmactual_cambioaceite" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">Limite Km cambio aceite 
+                            <label class="form-label fw-bold text-secondary">Intervalo entre Cambios (km)
                                 <span class="text-danger">*</span>
                             </label>
                             <input type="text" class="form-control" name="veh_calkmcambioaceite" required>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Cada cuántos km se cambia el aceite. Ej: 5000 = cambiar cada 5,000 km
+                            </small>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -427,6 +428,25 @@
                             </select>
                         </div>
  
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Kilometraje Actual</label>
+                            <input type="text" class="form-control" name="veh_kilactual" id="edit_veh_kilactual" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Km al Último Cambio de Aceite</label>
+                            <input type="text" class="form-control" name="veh_kmactual_cambioaceite" id="edit_veh_kmactual_cambioaceite" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">Intervalo entre Cambios (km)</label>
+                            <input type="text" class="form-control" name="veh_calkmcambioaceite" id="edit_veh_calkmcambioaceite" required>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Cada cuántos km se cambia el aceite. Ej: 5000 = cambiar cada 5,000 km
+                            </small>
+                        </div>
+
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">Número Chasis</label>
                             <input type="text" class="form-control" name="veh_chasis" id="edit_veh_chasis" required>
@@ -1356,66 +1376,106 @@
     </div>
 </div>
 
-<!-- MODAL EDITAR FECHA ULTIMO CAMBIO DE ACEITE -->
+<!-- MODAL ESTADO Y CAMBIO DE ACEITE -->
 <div class="modal fade" id="modalEditarAceite" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-md">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
 
             <div class="modal-header mi-header text-white">
                 <h5 class="modal-title">
-                    Actualizar Cambio de Aceite
+                    <i class="fas fa-oil-can me-2"></i> Estado y Cambio de Aceite
                 </h5>
-                <button type="button" class="btn-close btn-close-white" 
+                <button type="button" class="btn-close btn-close-white"
                         data-bs-dismiss="modal"></button>
             </div>
 
             <div class="modal-body">
                 <form id="formEditarAceite">
                     <input type="hidden" id="aceite_veh_id">
-                    <div class="row">
 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">
-                                Kilometraje Actual
-                            </label>
-                            <input type="text" class="form-control" 
-                                   id="aceite_kilactual" name="veh_kilactual">
+                    <!-- ===== SECCIÓN 1: ESTADO ACTUAL (solo lectura, calculado) ===== -->
+                    <div class="mb-3 px-2 py-2 rounded" style="background-color:#f8f9fa; border-left:4px solid #1a3a5c;">
+                        <h6 class="fw-bold text-secondary mb-2">
+                            <i class="fas fa-chart-bar me-1"></i> Estado Actual del Aceite
+                        </h6>
+
+                        <div class="row align-items-center">
+                            <!-- Km actual + intervalo -->
+                            <div class="col-md-4 text-center">
+                                <small class="text-muted">Kilometraje Actual</small>
+                                <div class="fs-4 fw-bold text-dark" id="aceite_kilactual_display">—</div>
+                                <small class="text-muted">Intervalo: <strong id="aceite_intervalo_display">—</strong> km</small>
+                            </div>
+
+                            <!-- Barra de progreso -->
+                            <div class="col-md-4 text-center">
+                                <small class="text-muted">Uso del aceite</small>
+                                <div class="progress mt-1" style="height:22px;">
+                                    <div class="progress-bar progress-bar-striped"
+                                         id="aceite_barra_progreso"
+                                         role="progressbar"
+                                         style="width:0%;"
+                                         aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                        <span id="aceite_pct_texto" class="fw-bold" style="font-size:11px;">0%</span>
+                                    </div>
+                                </div>
+                                <small class="mt-1 d-block">
+                                    <span id="aceite_recorridos_texto" class="fw-semibold">—</span> km recorridos de
+                                    <strong id="aceite_limite_display">—</strong> km
+                                </small>
+                            </div>
+
+                            <!-- Alerta / restantes -->
+                            <div class="col-md-4 text-center" id="aceite_alerta_box">
+                                <small class="text-muted">Kilómetros restantes</small>
+                                <div class="fs-3 fw-bold" id="aceite_restantes_texto">—</div>
+                                <small id="aceite_alerta_texto" class="fw-semibold"></small>
+                            </div>
                         </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">
-                                📅 Fecha Cambio de Aceite
-                            </label>
-                            <input type="date" class="form-control" 
-                                   id="aceite_fecha" name="veh_fechamantenimiento">
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">
-                                Km Actual Al Cambio de Aceite
-                            </label>
-                            <input type="text" class="form-control" 
-                                   id="aceite_kmcambio" name="veh_kmactual_cambioaceite">
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-secondary">
-                                Limite Km cambio aceite
-                            </label>
-                            <input type="text" class="form-control" 
-                                   id="aceite_limite" name="veh_calkmcambioaceite">
-                        </div>
-
                     </div>
+
+                    <!-- ===== SECCIÓN 2: REGISTRAR NUEVO CAMBIO ===== -->
+                    <div class="mt-3 px-2 py-2 rounded" style="border:1px dashed #dee2e6;">
+                        <h6 class="fw-bold text-secondary mb-2">
+                            <i class="fas fa-plus-circle me-1"></i> Registrar Nuevo Cambio de Aceite
+                        </h6>
+                        <small class="text-muted d-block mb-2">
+                            Complete los datos del cambio de aceite recién realizado. Esto actualizará el historial.
+                        </small>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold text-secondary">
+                                    📅 Fecha del Cambio <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" class="form-control"
+                                       id="aceite_fecha" name="veh_fechamantenimiento" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold text-secondary">
+                                    Km al Momento del Cambio <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control"
+                                       id="aceite_kmcambio" name="veh_kmactual_cambioaceite"
+                                       placeholder="Kilometraje del odómetro al cambiar el aceite" required>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Normalmente es igual al kilometraje actual del vehículo
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
                 </form>
             </div>
 
             <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" 
+                <button type="button" class="btn btn-secondary"
                         data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" 
+                <button type="button" class="btn btn-primary"
                         id="btnGuardarAceite">
-                         Guardar
+                    <i class="fas fa-save me-1"></i> Registrar Cambio de Aceite
                 </button>
             </div>
 
@@ -1525,7 +1585,6 @@
 <!-- DataTables -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-<!-- <script src="/SistemaTransmillas2025/nueva_plataforma/assets/js/vehiculos.js"></script> -->
-<script src="../assets/js/vehiculos.js?v=<?= filemtime(__DIR__ . '/../../assets/js/vehiculos.js') ?>"></script>
+<script src="<?= $baseUrl ?>/assets/js/vehiculos.js?v=<?= filemtime(__DIR__ . '/../../assets/js/vehiculos.js') ?>"></script>
 </body>
 </html>
