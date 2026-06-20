@@ -182,6 +182,15 @@ function guardar($model)
     $infoConductor = $model->obtenerInfoConductor($idUsuario);
     $idVehiculo = $infoConductor['usu_vehiculo'] ?? null;
 
+    // Validar que el vehiculo exista realmente (evitar FK constraint violation)
+    if ($idVehiculo !== null) {
+        $vehiculoExiste = $model->verificarVehiculoExiste($idVehiculo);
+        if (!$vehiculoExiste) {
+            $idVehiculo = null;
+            error_log("ReporteConductorSSTController: vehiculo $idVehiculo no existe, usando null");
+        }
+    }
+
     // --- 1. Validar ubicacion ---
     $ubicacion = $_POST['ubicacion'] ?? '';
     if (empty($ubicacion)) {
@@ -242,7 +251,7 @@ function guardar($model)
             ], 400);
         }
 
-        // Si la respuesta es "si" (hubo incidente), validar que tenga observacion
+        // Si la respuesta es "si" (hubo incidente), validar todos los campos requeridos
         if ($respuesta === '1' || $respuesta === 'si') {
             if (empty(trim($observacion))) {
                 ErrorHandler::sendJsonResponse([
@@ -259,7 +268,7 @@ function guardar($model)
                     if (!in_array($gravedad, ReporteConductorSSTModel::GRAVEDAD_ACCIDENTE, true)) {
                         ErrorHandler::sendJsonResponse([
                             'success' => false,
-                            'message' => "La gravedad para $tipo debe ser un valor entre 1 y 4 (indice $index)"
+                            'message' => "La gravedad para $tipo debe ser 1 (Baja) o 2 (Alta) (indice $index)"
                         ], 400);
                     }
                 } elseif ($tipo === 'comparendo') {
@@ -276,15 +285,15 @@ function guardar($model)
                     'message' => "La gravedad es requerida cuando se reporta un $tipo (indice $index)"
                 ], 400);
             }
-        }
 
-        // Validar que existan archivos subidos para este tipo
-        $fileKey = 'archivos_' . $tipo;
-        if (!isset($_FILES[$fileKey]) || empty($_FILES[$fileKey]['name'][0])) {
-            ErrorHandler::sendJsonResponse([
-                'success' => false,
-                'message' => "Se requiere al menos un archivo de evidencia para '$tipo' (indice $index)"
-            ], 400);
+            // Validar minimo 4 archivos adjuntos
+            $fileKey = 'archivos_' . $tipo;
+            if (!isset($_FILES[$fileKey]) || !isset($_FILES[$fileKey]['name']) || count(array_filter($_FILES[$fileKey]['name'])) < 4) {
+                ErrorHandler::sendJsonResponse([
+                    'success' => false,
+                    'message' => "Se requieren minimo 4 archivos de evidencia para '$tipo' (indice $index)"
+                ], 400);
+            }
         }
     }
 

@@ -533,11 +533,11 @@
                     return false;
                 }
 
-                // Validar al menos un archivo
-                if (archivosPorTipo[tipo].length === 0) {
+                // Validar minimo 4 archivos
+                if (archivosPorTipo[tipo].length < 4) {
                     swalAlert({
-                        title: 'Evidencia requerida',
-                        text: 'Debe adjuntar al menos una evidencia en la sección de ' + labelTipo + '.',
+                        title: 'Evidencia insuficiente',
+                        text: 'Debe adjuntar minimo 4 evidencias en la seccion de ' + labelTipo + '. Ha adjuntado ' + archivosPorTipo[tipo].length + '.',
                         icon: 'error',
                         confirmButtonText: 'Aceptar'
                     });

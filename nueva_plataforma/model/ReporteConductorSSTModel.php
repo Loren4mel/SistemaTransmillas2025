@@ -27,7 +27,7 @@ class ReporteConductorSSTModel
     const MAX_FILE_SIZE = 10485760; // 10 MB
 
     // Niveles de gravedad válidos por tipo
-    const GRAVEDAD_ACCIDENTE  = [1, 2, 3, 4];
+    const GRAVEDAD_ACCIDENTE  = [1, 2];
     const GRAVEDAD_COMPARENDO = [1, 2, 3];
 
     /**
@@ -95,6 +95,26 @@ class ReporteConductorSSTModel
         if (!is_dir($dir)) {
             mkdir($dir, 0777, true);
         }
+    }
+
+    /**
+     * Verifica si un vehiculo existe en la base de datos
+     *
+     * @param int $idVehiculo ID del vehiculo
+     * @return bool True si existe
+     */
+    public function verificarVehiculoExiste($idVehiculo)
+    {
+        $sql = "SELECT COUNT(*) as total FROM vehiculos WHERE idvehiculos = ? LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param("i", $idVehiculo);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        return $row && $row['total'] > 0;
     }
 
     // ==================== CALCULO DE SEMANA ====================
