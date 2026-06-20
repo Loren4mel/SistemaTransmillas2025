@@ -108,9 +108,10 @@ $badgeClase = [
                         <th>Conductor</th>
                         <th>Tipo</th>
                         <th>Estado</th>
+                        <th>Hallazgos</th>
                         <th>Observación</th>
                         <th>Km</th>
-                        <th>Foto</th>
+                        <th>Ver</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -122,13 +123,18 @@ $badgeClase = [
                             $obsEv = $ev['observaciones'] ?? '';
                             $obsCorto = mb_strlen($obsEv) > 100 ? mb_substr($obsEv, 0, 100) . '…' : $obsEv;
                             $kmEv = number_format((int)($ev['kilometraje'] ?? 0), 0, ',', '.');
-                            $fotoEv = !empty($ev['foto_evidencia']) || !empty($ev['img_kilometraje']);
+                            $hallazgosEv = $ev['hallazgos'] ?? '';
+                            $esPreop = ($ev['tipo_evento'] ?? '') === 'PREOPERACIONAL' && !empty($ev['id_preoperacional']);
+                            $tieneFotos = !empty($ev['foto_evidencia']) || !empty($ev['img_kilometraje']);
                         ?>
                         <tr>
                             <td><?= date('d-m-Y H:i', strtotime($ev['fecha_registro'] ?? '')) ?></td>
                             <td><?= htmlspecialchars($ev['conductor_nombre'] ?? '—') ?></td>
                             <td><span class="badge bg-secondary"><?= htmlspecialchars($tipoEv) ?></span></td>
                             <td><span class="<?= $claseEv ?>" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;"><?= htmlspecialchars($estadoEv) ?></span></td>
+                            <td style="max-width:200px;" title="<?= htmlspecialchars($hallazgosEv) ?>">
+                                <?= $hallazgosEv ? htmlspecialchars($hallazgosEv) : '—' ?>
+                            </td>
                             <td style="max-width:250px;" title="<?= htmlspecialchars($obsEv) ?>">
                                 <?= htmlspecialchars($obsCorto) ?>
                                 <?php if (mb_strlen($obsEv) > 100): ?>
@@ -137,13 +143,18 @@ $badgeClase = [
                             </td>
                             <td class="text-center"><?= $kmEv ?></td>
                             <td class="text-center">
-                                <?php if (!empty($ev['foto_evidencia'])): ?>
-                                    <a href="<?= $appBasePath . '/' . htmlspecialchars($ev['foto_evidencia']) ?>" target="_blank" title="Ver foto evidencia">📷</a>
+                                <?php if ($esPreop): ?>
+                                    <a href="<?= $appBasePath ?>/controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre=<?= (int)$ev['id_preoperacional'] ?>" target="_blank" title="Ver preoperacional completo">🔍 Ver</a>
+                                <?php elseif (!empty($ev['foto_evidencia'])): ?>
+                                    <a href="<?= $appBasePath . '/' . htmlspecialchars($ev['foto_evidencia']) ?>" target="_blank" title="Foto evidencia">📷</a>
+                                    <?php if (!empty($ev['img_kilometraje'])): ?>
+                                        <a href="<?= $appBasePath . '/' . htmlspecialchars($ev['img_kilometraje']) ?>" target="_blank" title="Foto odómetro">🖼️</a>
+                                    <?php endif; ?>
+                                <?php elseif (!empty($ev['img_kilometraje'])): ?>
+                                    <a href="<?= $appBasePath . '/' . htmlspecialchars($ev['img_kilometraje']) ?>" target="_blank" title="Foto odómetro">🖼️</a>
+                                <?php else: ?>
+                                    —
                                 <?php endif; ?>
-                                <?php if (!empty($ev['img_kilometraje'])): ?>
-                                    <a href="<?= $appBasePath . '/' . htmlspecialchars($ev['img_kilometraje']) ?>" target="_blank" title="Ver foto odómetro">🖼️</a>
-                                <?php endif; ?>
-                                <?php if (!$fotoEv): ?>—<?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>

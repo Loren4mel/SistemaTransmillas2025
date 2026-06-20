@@ -343,6 +343,35 @@ if (isset($_GET['accion'])) {
                         $hastaDefecto = date('Y-m-d');
                         $ultimaObs = $modelo->getUltimaObservacionNoPreop($idVehiculo);
                         $eventos = $modelo->getHistorialEstado($idVehiculo, $desdeDefecto, $hastaDefecto, 'Todos');
+
+                        // Enriquecer eventos PREOPERACIONAL con hallazgos (respuestas negativas)
+                        require_once __DIR__ . '/../model/PreoperacionalModel.php';
+                        $preopModel = new PreoperacionalModel();
+                        foreach ($eventos as &$evento) {
+                            $evento['hallazgos'] = '';
+                            if (($evento['tipo_evento'] ?? '') === 'PREOPERACIONAL'
+                                && !empty($evento['id_preoperacional'])) {
+                                $idPreop = (int) $evento['id_preoperacional'];
+                                $todasRespuestas = $preopModel->obtenerTodasRespuestas($idPreop);
+                                $codigosNegativos = [];
+                                foreach ($todasRespuestas as $codigo => $valor) {
+                                    if ((string) $valor === '2') {
+                                        $codigosNegativos[] = $codigo;
+                                    }
+                                }
+                                if (!empty($codigosNegativos)) {
+                                    $textos = $preopModel->obtenerTextoPorCodigos($codigosNegativos);
+                                    $descripciones = [];
+                                    foreach ($codigosNegativos as $codigo) {
+                                        $texto = $textos[$codigo] ?? $codigo;
+                                        $descripciones[] = $texto . ' (respuesta negativa)';
+                                    }
+                                    $evento['hallazgos'] = implode('; ', $descripciones);
+                                }
+                            }
+                        }
+                        unset($evento);
+
                         ob_clean();
                         include "../view/SeguimientoVehiculo/popups/historial_estado.php";
                         exit;
