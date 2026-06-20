@@ -260,7 +260,7 @@ function guardar($model)
         }
 
         // Si la respuesta es "si" (hubo incidente), validar todos los campos requeridos
-        if ($respuesta === '1' || $respuesta === 'si') {
+        if ($respuesta == 1 || $respuesta === 'si' || $respuesta === '1') {
             if (empty(trim($observacion))) {
                 ErrorHandler::sendJsonResponse([
                     'success' => false,
@@ -312,7 +312,7 @@ function guardar($model)
         $respuesta = $reporte['respuesta'];
         $observacion = $reporte['observacion'] ?? '';
         $gravedad = null;
-        if (($respuesta === '1' || $respuesta === 'si') && isset($reporte['gravedad'])) {
+        if (($respuesta == 1 || $respuesta === 'si' || $respuesta === '1') && isset($reporte['gravedad'])) {
             $gravedad = (int) $reporte['gravedad'];
         }
 
@@ -322,7 +322,7 @@ function guardar($model)
             'fecha'       => date('Y-m-d'),
             'tipo'        => $tipo,
             'tipo_evento' => $tipoEvento,
-            'respuesta'   => ($respuesta === '1' || $respuesta === 'si') ? 'si' : 'no',
+            'respuesta'   => ($respuesta == 1 || $respuesta === 'si' || $respuesta === '1') ? 1 : 0,
             'observacion' => $observacion,
             'ubicacion'   => $ubicacion,
             'gravedad'    => $gravedad,

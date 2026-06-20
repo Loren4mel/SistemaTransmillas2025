@@ -286,7 +286,7 @@ class ReporteConductorSSTModel
         $gravedad = $datos['gravedad'] ?? null;
 
         $stmt->bind_param(
-            "iissssssi",
+            "iiississi",
             $datos['id_usuario'],
             $idVehiculo,
             $datos['fecha'],

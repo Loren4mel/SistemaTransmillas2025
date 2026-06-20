@@ -378,7 +378,7 @@
             var r = reportes[i];
             var gNum = parseInt(r.gravedad, 10);
             var grav = gravedadLabels[gNum] || { label: (r.gravedad || '—'), color: '#888' };
-            var respuestaBadge = (r.respuesta === 'si')
+            var respuestaBadge = (r.respuesta == 1 || r.respuesta === 'si')
                 ? '<span style="color:#c62828;font-weight:700;">⚠️ Sí</span>'
                 : '<span style="color:#2e7d32;">✅ No</span>';
 
@@ -523,7 +523,7 @@
             ? '<span class="sst-badge sst-badge--accidente">🚨 Accidente</span>'
             : '<span class="sst-badge sst-badge--comparendo">📋 Comparendo</span>';
 
-        var respuestaHtml = (d.respuesta === 'si')
+        var respuestaHtml = (d.respuesta == 1 || d.respuesta === 'si')
             ? '<span style="color:#c62828;font-weight:700;">⚠️ Sí</span>'
             : '<span style="color:#2e7d32;">✅ No</span>';
 

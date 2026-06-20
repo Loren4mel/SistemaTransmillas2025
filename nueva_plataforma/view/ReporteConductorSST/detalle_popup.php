@@ -82,7 +82,7 @@
             <div class="sst-info-item">
                 <span class="sst-info-label">¿Ocurrió?</span>
                 <span class="sst-info-value">
-                    <?php if (($reporte['respuesta'] ?? '') === 'si'): ?>
+                    <?php if (($reporte['respuesta'] ?? 0) == 1): ?>
                         <span style="color:#c62828;font-weight:700;">⚠️ Sí</span>
                     <?php else: ?>
                         <span style="color:#2e7d32;">✅ No</span>
