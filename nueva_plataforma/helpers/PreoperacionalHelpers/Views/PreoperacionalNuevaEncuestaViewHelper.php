@@ -649,6 +649,25 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     /**
+     * Verifica si el rol del usuario está autorizado para operaciones vehiculares
+     * (asignación de vehículos, reporte de novedades, inspección preoperacional).
+     *
+     * Solo los roles listados aquí pueden ver y usar funciones de vehículos.
+     * Para ajustar qué roles tienen acceso, modifique el array $rolesAutorizados.
+     *
+     * @param int $rol ID del rol del usuario (de $_SESSION['usuario_rol'])
+     * @return bool True si el rol está autorizado para operaciones vehiculares
+     */
+    public static function esRolVehicularAutorizado($rol)
+    {
+        $rolesAutorizados = [
+            3, // Operadores (conductores de carro y moto)
+            8, // CONDUCTOR EXTERNO
+        ];
+        return in_array((int) $rol, $rolesAutorizados, true);
+    }
+
+    /**
      * Convierte una ruta absoluta del servidor a una URL accesible desde el navegador
      */
     private static function rutaAbsolutaAUrl($rutaAbsoluta)

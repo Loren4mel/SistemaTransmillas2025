@@ -387,12 +387,15 @@ function loadView($service)
     // Determinar qué secciones mostrar basadas en el rol y tipo de vehículo
     require_once __DIR__ . '/../helpers/PreoperacionalHelpers/Views/PreoperacionalNuevaEncuestaViewHelper.php';
 
-    // Determinar si es conductor (CARRO)
-    $esConductor = PreoperacionalNuevaEncuestaViewHelper::esConductor($tipovehiculo);
+    // Verificar si el rol del usuario está autorizado para operaciones vehiculares
+    $esRolVehicularAutorizado = PreoperacionalNuevaEncuestaViewHelper::esRolVehicularAutorizado($nivel_acceso);
+
+    // Determinar si es conductor (CARRO) — solo si el rol está autorizado
+    $esConductor = $esRolVehicularAutorizado && PreoperacionalNuevaEncuestaViewHelper::esConductor($tipovehiculo);
 
     // NUEVO FORMATO: Solo secciones basadas en rol (SIN COVID, SIN FATIGA)
     // Cuando es conductor o vehículo propio, NO se muestran preguntas administrativas
-    $esVehiculoPropio = PreoperacionalNuevaEncuestaViewHelper::tieneVehiculoPropio($tipovehiculo);
+    $esVehiculoPropio = $esRolVehicularAutorizado && PreoperacionalNuevaEncuestaViewHelper::tieneVehiculoPropio($tipovehiculo);
     $mostrarSecciones = [
         'administrativo' => !$esConductor && !$esVehiculoPropio && PreoperacionalNuevaEncuestaViewHelper::esPersonalAdministrativo($nivel_acceso),
         'conductor' => $esConductor,
@@ -402,8 +405,8 @@ function loadView($service)
         // usuario tiene un vehículo asignado. Después de reportar una novedad
         // y quedar sin vehículo, el tipo de vehículo del perfil puede seguir
         // siendo CARRO/MOTO, pero no hay qué inspeccionar.
-        'preoperacional_vehiculo' => ($tipovehiculo === 'CARRO') && $tieneVehiculoAsignado,
-        'preoperacional_moto' => ($tipovehiculo === 'MOTO') && $tieneVehiculoAsignado
+        'preoperacional_vehiculo' => ($tipovehiculo === 'CARRO') && $tieneVehiculoAsignado && $esRolVehicularAutorizado,
+        'preoperacional_moto' => ($tipovehiculo === 'MOTO') && $tieneVehiculoAsignado && $esRolVehicularAutorizado
     ];
 
     // Fallback: si ningún cuestionario de rol aplica, usar preguntas administrativas por defecto

@@ -8,6 +8,7 @@
 
 require_once __DIR__ . '/../../../model/PreoperacionalModel.php';
 require_once __DIR__ . '/../../../model/VehiculosModel.php';
+require_once __DIR__ . '/../Views/PreoperacionalNuevaEncuestaViewHelper.php';
 
 class PreoperacionalService
 {
@@ -688,6 +689,12 @@ class PreoperacionalService
             return ['success' => false, 'message' => 'Vehículo o usuario no válido.'];
         }
 
+        // SEGURIDAD: verificar que el rol del usuario esté autorizado para asignar vehículos
+        $rol = $_SESSION['usuario_rol'] ?? 0;
+        if (!PreoperacionalNuevaEncuestaViewHelper::esRolVehicularAutorizado($rol)) {
+            return ['success' => false, 'message' => 'No tiene permisos para asignar vehículos.'];
+        }
+
         // --- VALIDACIÓN 1: El vehículo debe ser de propiedad de la empresa ---
         // Verificamos directamente contra la tabla vehiculos. No usamos
         // obtenerDatosVehiculoYUsuario() porque hace JOIN con usuarios.usu_vehiculo
@@ -797,6 +804,12 @@ class PreoperacionalService
         $puedeSerOperado = ($datos['puede_ser_operado'] ?? '') === 'si';
         $observaciones = $datos['observaciones'] ?? '';
         $idVehiculoNuevo = (int) ($datos['idvehiculo_nuevo'] ?? 0);
+
+        // SEGURIDAD: verificar que el rol del usuario esté autorizado para reportar novedades vehiculares
+        $rol = $_SESSION['usuario_rol'] ?? 0;
+        if (!PreoperacionalNuevaEncuestaViewHelper::esRolVehicularAutorizado($rol)) {
+            return ['success' => false, 'message' => 'No tiene permisos para reportar novedades de vehículos.'];
+        }
 
         // Procesar fotos enviadas desde el formulario
         $fotos = $this->procesarFotosNovedad($files);
