@@ -1011,15 +1011,25 @@
                 var conductorEv = ev.conductor_nombre || '—';
                 var obsEscaped = escHtml(obsEv).replace(/\n/g, '\\n');
 
+                // Hallazgos: respuestas negativas del preoperacional
+                var hallazgosEv = ev.hallazgos || '';
+                var hallazgosHtml = hallazgosEv ? escHtml(hallazgosEv) : '—';
+
+                // Columna "Ver": para PREOPERACIONAL, enlace al preoperacional completo;
+                // para otros tipos con fotos, mantener enlaces a las imágenes
                 var baseUrl = (window.APP_BASE_URL ? window.APP_BASE_URL + '/' : '');
-                var fotoHtml = '—';
-                if (ev.foto_evidencia && ev.img_kilometraje) {
-                    fotoHtml = '<a href="' + baseUrl + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a> ' +
-                               '<a href="' + baseUrl + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
+                var verHtml = '—';
+                var esPreop = (ev.tipo_evento === 'PREOPERACIONAL') && ev.id_preoperacional;
+                if (esPreop) {
+                    var preopUrl = baseUrl + 'controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre=' + ev.id_preoperacional;
+                    verHtml = '<a href="' + preopUrl + '" target="_blank" title="Ver preoperacional completo">🔍 Ver</a>';
+                } else if (ev.foto_evidencia && ev.img_kilometraje) {
+                    verHtml = '<a href="' + baseUrl + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a> ' +
+                              '<a href="' + baseUrl + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
                 } else if (ev.foto_evidencia) {
-                    fotoHtml = '<a href="' + baseUrl + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a>';
+                    verHtml = '<a href="' + baseUrl + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a>';
                 } else if (ev.img_kilometraje) {
-                    fotoHtml = '<a href="' + baseUrl + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
+                    verHtml = '<a href="' + baseUrl + escHtml(ev.img_kilometraje) + '" target="_blank" title="Foto odómetro">🖼️</a>';
                 }
 
                 tbody += '<tr>' +
@@ -1027,15 +1037,16 @@
                     '<td>' + escHtml(conductorEv) + '</td>' +
                     '<td><span class="badge bg-secondary">' + escHtml(tipoEv) + '</span></td>' +
                     '<td><span class="' + claseEv + '" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;">' + escHtml(ev.estado_general || 'OPTIMO') + '</span></td>' +
+                    '<td style="max-width:200px;" title="' + escHtml(hallazgosEv) + '">' + hallazgosHtml + '</td>' +
                     '<td style="max-width:250px;" title="' + escHtml(obsEv) + '">' + escHtml(obsCorto);
                 if (obsEv.length > 100) {
                     tbody += '<br><small><a href="#" class="ver-mas-obs" data-obs="' + escAttr(obsEv) + '">Ver más</a></small>';
                 }
-                tbody += '</td><td class="text-center">' + kmEv + '</td><td class="text-center">' + fotoHtml + '</td></tr>';
+                tbody += '</td><td class="text-center">' + kmEv + '</td><td class="text-center">' + verHtml + '</td></tr>';
             }
             $('#historialEstadoTabla').html(
                 '<div class="table-responsive"><table class="table table-sm table-hover" style="font-size:12px;">' +
-                '<thead><tr><th>Fecha</th><th>Conductor</th><th>Tipo</th><th>Estado</th><th>Observación</th><th>Km</th><th>Foto</th></tr></thead>' +
+                '<thead><tr><th>Fecha</th><th>Conductor</th><th>Tipo</th><th>Estado</th><th>Hallazgos</th><th>Observación</th><th>Km</th><th>Ver</th></tr></thead>' +
                 '<tbody>' + tbody + '</tbody></table></div>'
             );
         }
