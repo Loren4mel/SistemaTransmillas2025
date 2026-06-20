@@ -32,6 +32,15 @@ $badgeClase = [
 <h6><i class="fas fa-history"></i> Historial de Estado — <?= htmlspecialchars($vehiculo['veh_placa']) ?></h6>
 <hr>
 
+<!-- Leyenda de estados -->
+<div style="background:#eaf2fb; border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:12px;">
+    <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
+        <span><span class="estado-optimo" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;">OPTIMO</span> Vehículo sin novedades</span>
+        <span><span class="estado-novedades" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;">CON NOVEDADES</span> Tiene hallazgos, pero puede operar</span>
+        <span><span class="estado-fuera-servicio" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;">FUERA DE SERVICIO</span> No puede ser operado</span>
+    </div>
+</div>
+
 <!-- Card: Última Observación No-Preoperacional -->
 <div style="background:#f0f2f5; border-radius:12px; padding:16px; margin-bottom:20px;">
     <div style="font-weight:700; font-size:14px; margin-bottom:10px; color:var(--azul-principal, #0c4582);">
@@ -132,19 +141,28 @@ $badgeClase = [
                             <td><?= htmlspecialchars($ev['conductor_nombre'] ?? '—') ?></td>
                             <td><span class="badge bg-secondary"><?= htmlspecialchars($tipoEv) ?></span></td>
                             <td><span class="<?= $claseEv ?>" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;"><?= htmlspecialchars($estadoEv) ?></span></td>
-                            <td style="max-width:200px;" title="<?= htmlspecialchars($hallazgosEv) ?>">
-                                <?= $hallazgosEv ? htmlspecialchars($hallazgosEv) : '—' ?>
+                            <td style="max-width:200px;">
+                                <?= $hallazgosEv ?: '—' ?>
                             </td>
                             <td style="max-width:250px;" title="<?= htmlspecialchars($obsEv) ?>">
                                 <?= htmlspecialchars($obsCorto) ?>
                                 <?php if (mb_strlen($obsEv) > 100): ?>
-                                    <br><small><a href="#" onclick="Swal.fire({title:'Observación', html:<?= json_encode(nl2br(htmlspecialchars($obsEv))) ?>, icon:'info'}); return false;">Ver más</a></small>
+                                    <br><small><a href="#" class="ver-mas-obs" data-obs="<?= str_replace("\n", '&#10;', htmlspecialchars($obsEv, ENT_QUOTES, 'UTF-8')) ?>">Ver más</a></small>
                                 <?php endif; ?>
                             </td>
                             <td class="text-center"><?= $kmEv ?></td>
                             <td class="text-center">
-                                <?php if ($esPreop): ?>
-                                    <a href="<?= $appBasePath ?>/controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre=<?= (int)$ev['id_preoperacional'] ?>" target="_blank" title="Ver preoperacional completo">🔍 Ver</a>
+                                <?php if ($esPreop):
+                                        $fechaEv = date('Y-m-d', strtotime($ev['fecha_registro'] ?? 'now'));
+                                        $verUrl = $appBasePath . '/controller/PreoperacionalController.php'
+                                            . '?preoperacional=validarpreoperacional'
+                                            . '&idpre=' . (int)$ev['id_preoperacional']
+                                            . '&iduser=' . (int)($ev['id_conductor'] ?? 0)
+                                            . '&fecha=' . urlencode($fechaEv)
+                                            . '&idvehiculo=' . (int)$vehiculo['idvehiculos']
+                                            . '&param4=ingresado&param5=vista';
+                                    ?>
+                                    <a href="<?= $verUrl ?>" target="_blank" title="Ver preoperacional completo">🔍 Ver</a>
                                 <?php elseif (!empty($ev['foto_evidencia'])): ?>
                                     <a href="<?= $appBasePath . '/' . htmlspecialchars($ev['foto_evidencia']) ?>" target="_blank" title="Foto evidencia">📷</a>
                                     <?php if (!empty($ev['img_kilometraje'])): ?>

@@ -172,9 +172,7 @@ if ($esRegistroRelacional) {
                              aunque tengan un vehículo residual asignado en la BD. -->
                         <?php $esRolVehicular = in_array($tipovehiculo, ['CARRO', 'MOTO']) && $esRolVehicularAutorizado; ?>
                         <?php if ($esRolVehicular && $tieneVehiculoAsignado): ?>
-                            <?php if (!$esSoloLectura): ?>
-                                <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles, $esValidacion) ?>
-                            <?php endif; ?>
+                            <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles, $esValidacion) ?>
 
                             <!-- Datos del vehículo + alertas de documentos (centralizado: visible cuando hay vehículo asignado) -->
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>

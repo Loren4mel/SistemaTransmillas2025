@@ -1011,9 +1011,8 @@
                 var conductorEv = ev.conductor_nombre || '—';
                 var obsEscaped = escHtml(obsEv).replace(/\n/g, '\\n');
 
-                // Hallazgos: respuestas negativas del preoperacional
-                var hallazgosEv = ev.hallazgos || '';
-                var hallazgosHtml = hallazgosEv ? escHtml(hallazgosEv) : '—';
+                // Hallazgos: HTML ya generado por el servidor (lista con <ul><li>)
+                var hallazgosHtml = ev.hallazgos || '—';
 
                 // Columna "Ver": para PREOPERACIONAL, enlace al preoperacional completo;
                 // para otros tipos con fotos, mantener enlaces a las imágenes
@@ -1021,7 +1020,14 @@
                 var verHtml = '—';
                 var esPreop = (ev.tipo_evento === 'PREOPERACIONAL') && ev.id_preoperacional;
                 if (esPreop) {
-                    var preopUrl = baseUrl + 'controller/PreoperacionalController.php?preoperacional=validarpreoperacional&idpre=' + ev.id_preoperacional;
+                    var fechaEv = (ev.fecha_registro || '').split(' ')[0];
+                    var preopUrl = baseUrl + 'controller/PreoperacionalController.php' +
+                        '?preoperacional=validarpreoperacional' +
+                        '&idpre=' + ev.id_preoperacional +
+                        '&iduser=' + (ev.id_conductor || '') +
+                        '&fecha=' + fechaEv +
+                        '&idvehiculo=' + (ev.id_vehiculo || '') +
+                        '&param4=ingresado&param5=vista';
                     verHtml = '<a href="' + preopUrl + '" target="_blank" title="Ver preoperacional completo">🔍 Ver</a>';
                 } else if (ev.foto_evidencia && ev.img_kilometraje) {
                     verHtml = '<a href="' + baseUrl + escHtml(ev.foto_evidencia) + '" target="_blank" title="Foto evidencia">📷</a> ' +
@@ -1037,7 +1043,7 @@
                     '<td>' + escHtml(conductorEv) + '</td>' +
                     '<td><span class="badge bg-secondary">' + escHtml(tipoEv) + '</span></td>' +
                     '<td><span class="' + claseEv + '" style="display:inline-block; border-radius:20px; padding:2px 10px; font-weight:600; font-size:11px;">' + escHtml(ev.estado_general || 'OPTIMO') + '</span></td>' +
-                    '<td style="max-width:200px;" title="' + escHtml(hallazgosEv) + '">' + hallazgosHtml + '</td>' +
+                    '<td style="max-width:200px;" title="Hallazgos del preoperacional">' + hallazgosHtml + '</td>' +
                     '<td style="max-width:250px;" title="' + escHtml(obsEv) + '">' + escHtml(obsCorto);
                 if (obsEv.length > 100) {
                     tbody += '<br><small><a href="#" class="ver-mas-obs" data-obs="' + escAttr(obsEv) + '">Ver más</a></small>';
@@ -1327,16 +1333,18 @@
         // Click en "Ver más" de observaciones
         $(document).on('click', '.ver-mas-obs', function (e) {
             e.preventDefault();
-            var obs = $(this).data('obs');
+            // Usar .attr() en vez de .data() para evitar que jQuery
+            // desescape automáticamente las entidades HTML del atributo
+            var raw = $(this).attr('data-obs') || '';
             // Revertir el escapado de escAttr para reconstruir el texto original
-            var texto = obs
+            var texto = raw
                 .replace(/&#10;/g, '\n')
                 .replace(/&amp;/g, '&')
                 .replace(/&lt;/g, '<')
                 .replace(/&gt;/g, '>')
                 .replace(/&quot;/g, '"')
-                .replace(/&#39;/g, "'");
-            // Convertir saltos de línea reales a <br> para HTML
+                .replace(/&#0?39;/g, "'");
+            // Escapar para HTML seguro y convertir saltos de línea
             var html = escHtml(texto).replace(/\n/g, '<br>');
             Swal.fire({
                 title: 'Observación',

@@ -20,6 +20,21 @@ class PreoperacionalService
     }
 
     /**
+     * Códigos internos de todas las preguntas de la sección VEHÍCULO (carro y moto).
+     * Se usa para identificar qué respuestas requieren foto+observación al ser NO.
+     */
+    const CODIGOS_VEHICULO = [
+        'inspec_1', 'luces_1', 'cabina_1', 'cabina_2',
+        'seguridad_1', 'seguridad_2', 'seguridad_3', 'seguridad_4', 'seguridad_5',
+        'seguridad_6', 'seguridad_7', 'seguridad_8', 'seguridad_9', 'seguridad_10',
+        'indicador_1', 'indicador_2', 'indicador_3', 'indicador_4',
+        'llanta_1', 'llanta_2',
+        'moto_llanta_1', 'moto_trans_1', 'moto_trans_2', 'moto_luz_1', 'moto_luz_2',
+        'moto_luz_3', 'moto_fuga_1', 'moto_mando_1', 'moto_mando_2',
+        'moto_entorno_1', 'moto_entorno_2', 'moto_entorno_3', 'moto_epp_1'
+    ];
+
+    /**
      * Procesa el guardado de un registro preoperacional (nuevo o actualización)
      */
     public function guardarRegistro($postData, $files)
@@ -269,6 +284,18 @@ class PreoperacionalService
     public function obtenerDocumentosPorPreoperacional($idPreoperacional)
     {
         return $this->model->obtenerDocumentosPorPreoperacional($idPreoperacional);
+    }
+
+    /**
+     * Obtiene los documentos de novedad (doc_version=5) asociados a un seguimiento vehiculo.
+     * Recorre: seguimiento_vehiculo -> pre-operacional -> documentos
+     *
+     * @param int $idSeguimiento ID del registro en seguimiento_vehiculo
+     * @return array Lista de documentos
+     */
+    public function obtenerDocumentosNovedadPorSeguimiento($idSeguimiento)
+    {
+        return $this->model->obtenerDocumentosNovedadPorSeguimiento($idSeguimiento);
     }
 
     // ==================== DETECCIÓN DE FORMATO ====================
@@ -524,7 +551,7 @@ class PreoperacionalService
      * @param int $idVersion
      * @return bool
      */
-    public function guardarRespuestasRelacionales($idPreoperacional, $respuestasFormulario, $idVersion)
+    public function guardarRespuestasRelacionales($idPreoperacional, $respuestasFormulario, $idVersion, $files = [])
     {
         // Cargar mapping codigo_interno => id_pregunta desde DB
         $mapping = $this->model->obtenerMappingCodigosAPreguntas($idVersion);
@@ -544,12 +571,31 @@ class PreoperacionalService
             if ($valor === null || $valor === '') {
                 continue;
             }
+            // Saltar claves de observación (terminan en _obs)
+            if (substr($codigo, -4) === '_obs') {
+                continue;
+            }
+
+            $rutaFoto = null;
+
+            // Si es una pregunta vehicular con NO, procesar la foto
+            if ($valor == '2' && in_array($codigo, self::CODIGOS_VEHICULO)) {
+                // Buscar foto subida para esta pregunta
+                $fileKey = $codigo . '_foto';
+                if (isset($files[$fileKey]) && $files[$fileKey]['error'] === UPLOAD_ERR_OK) {
+                    $rutaFoto = $this->procesarImagenPreguntaVehiculo($files[$fileKey], $codigo, $idPreoperacional);
+                }
+            }
+
+            // Obtener observación del formulario (enviada como {codigo}_obs)
+            $observacion = $respuestasFormulario[$codigo . '_obs'] ?? null;
 
             $batch[] = [
                 'id_preoperacional' => $idPreoperacional,
                 'id_pregunta' => $mapping[$codigo],
                 'respuesta_dada' => (string) $valor,
-                'ruta_foto' => null
+                'ruta_foto' => $rutaFoto,
+                'observacion' => $observacion
             ];
         }
 
@@ -857,6 +903,18 @@ class PreoperacionalService
                 'entrega_inicial_usuario' => null
             ]);
 
+            // Guardar fotos múltiples de evidencia en documentos
+            if (!empty($fotos['evidencia_fotos'])) {
+                foreach ($fotos['evidencia_fotos'] as $rutaFoto) {
+                    $this->model->guardarImagenDesdeRutaSimple(
+                        $rutaFoto,
+                        basename($rutaFoto),
+                        $idPreopVinculado ?? 0,
+                        5 // doc_version = 5 (novedad_evidencia)
+                    );
+                }
+            }
+
             return [
                 'success' => true,
                 'message' => 'Novedad registrada. El vehículo puede ser operado.',
@@ -919,6 +977,18 @@ class PreoperacionalService
                 'entrega_final_usuario' => $idEntregaFinal,
                 'entrega_inicial_usuario' => $idEntregaInicial
             ]);
+
+            // Guardar fotos múltiples de evidencia en documentos
+            if (!empty($fotos['evidencia_fotos'])) {
+                foreach ($fotos['evidencia_fotos'] as $rutaFoto) {
+                    $this->model->guardarImagenDesdeRutaSimple(
+                        $rutaFoto,
+                        basename($rutaFoto),
+                        $idPreopVinculado ?? 0,
+                        5 // doc_version = 5 (novedad_evidencia)
+                    );
+                }
+            }
 
             return [
                 'success' => true,
@@ -986,6 +1056,38 @@ class PreoperacionalService
             }
         }
         return false;
+    }
+
+    /**
+     * Procesa la foto de una pregunta vehicular respondida con NO.
+     * Guarda en uploads/pre-operacional/ y retorna la ruta absoluta.
+     *
+     * @param array $file Archivo de $_FILES
+     * @param string $codigo Código de la pregunta (ej: luces_1)
+     * @param int $idPreoperacional ID del preoperacional
+     * @return string|null Ruta absoluta del archivo guardado, o null si falló
+     */
+    private function procesarImagenPreguntaVehiculo($file, $codigo, $idPreoperacional)
+    {
+        if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            return null;
+        }
+
+        $nombreArchivo = $codigo . '_' . date("Y-m-d-H-i-s") . '_' . $file['name'];
+        $rutaBase = dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'pre-operacional' . DIRECTORY_SEPARATOR;
+
+        if (!is_dir($rutaBase)) {
+            mkdir($rutaBase, 0777, true);
+        }
+
+        $rutaDestino = $rutaBase . $nombreArchivo;
+
+        if (move_uploaded_file($file['tmp_name'], $rutaDestino)) {
+            return $rutaDestino;
+        }
+
+        error_log("PreoperacionalService: Error al mover imagen de pregunta vehicular: $codigo");
+        return null;
     }
 
     /**
@@ -1256,8 +1358,23 @@ class PreoperacionalService
             // === ESQUEMA RELACIONAL: Siempre activo ===
             $versiones = $this->resolverVersionesAplicables($tipoVehiculo, $_SESSION['usuario_rol'] ?? 0);
             if (is_array($datosEncuesta)) {
+                // Extraer observaciones de preguntas vehiculares del POST original
+                // (vienen como campos separados, no dentro de dataJson)
+                $observacionesVehiculo = [];
+                foreach ($_POST as $key => $value) {
+                    if (substr($key, -4) === '_obs') {
+                        $observacionesVehiculo[$key] = $value;
+                    }
+                }
+                // Fusionar observaciones en datosEncuesta para que estén disponibles en guardarRespuestasRelacionales
+                foreach ($observacionesVehiculo as $key => $value) {
+                    $datosEncuesta[$key] = $value;
+                }
+                // Reconstruir dataJson incluyendo observaciones
+                $dataJson = json_encode($datosEncuesta, JSON_UNESCAPED_UNICODE);
+
                 foreach ($versiones['ids_versiones'] as $idVersion) {
-                    $this->guardarRespuestasRelacionales($idInsertado, $datosEncuesta, $idVersion);
+                    $this->guardarRespuestasRelacionales($idInsertado, $datosEncuesta, $idVersion, $files);
                 }
                 // Marcar el registro con la versión principal (vehículo tiene prioridad)
                 $versionPrincipal = $versiones['version_vehiculo'] ?? $versiones['version_usuario'] ?? null;
@@ -1553,7 +1670,6 @@ class PreoperacionalService
         ];
 
         $mapeo = [
-            'novedad_foto_evidencia'  => 'foto_evidencia',
             'novedad_salida_frente'   => 'salida_frente',
             'novedad_salida_trasera'  => 'salida_trasera',
             'novedad_entrada_frente'  => 'entrada_frente',
@@ -1565,6 +1681,26 @@ class PreoperacionalService
                 $ruta = $this->procesarImagenEntrega($files[$fileKey], $destKey);
                 if ($ruta) {
                     $resultado[$destKey] = $ruta;
+                }
+            }
+        }
+
+        // Procesar múltiples fotos de evidencia (novedad_fotos[])
+        $resultado['evidencia_fotos'] = [];
+        if (isset($files['novedad_fotos'])) {
+            foreach ($files['novedad_fotos']['name'] as $i => $name) {
+                if ($files['novedad_fotos']['error'][$i] === UPLOAD_ERR_OK) {
+                    $file = [
+                        'name'     => $name,
+                        'type'     => $files['novedad_fotos']['type'][$i] ?? '',
+                        'tmp_name' => $files['novedad_fotos']['tmp_name'][$i],
+                        'error'    => $files['novedad_fotos']['error'][$i],
+                        'size'     => $files['novedad_fotos']['size'][$i] ?? 0
+                    ];
+                    $ruta = $this->procesarImagenEntrega($file, 'novedad_evidencia_' . $i);
+                    if ($ruta) {
+                        $resultado['evidencia_fotos'][] = $ruta;
+                    }
                 }
             }
         }

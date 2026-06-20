@@ -270,6 +270,43 @@ function loadView($service)
                 $param4 = 'ingresado';
             }
         }
+
+        // Derivar iduser desde el registro original cuando no viene en la URL.
+        // Esto es esencial cuando se accede desde seguimientoVehiculo (historial de estado)
+        // donde el enlace solo incluye idpre sin iduser, y el fallback a $_SESSION
+        // apuntaría al admin que no tiene vehículo asignado.
+        if ($registroExistente && empty($_GET['iduser']) && !empty($registroExistente['preidusuario'])) {
+            $iduser = (int) $registroExistente['preidusuario'];
+        }
+
+        // Derivar idvehiculo desde el registro original cuando no viene en la URL.
+        if ($registroExistente && empty($_GET['idvehiculo']) && !empty($registroExistente['prevehiculo'])) {
+            $idvehiculo = (int) $registroExistente['prevehiculo'];
+        }
+
+        // Re-consultar datos del vehículo con iduser e idvehiculo corregidos.
+        // Necesario cuando se accede desde seguimientoVehiculo sin estos parámetros
+        // y fueron derivados del registro original en los bloques anteriores.
+        if ($registroExistente && (empty($_GET['iduser']) || empty($_GET['idvehiculo']))) {
+            $datosVehiculo = $service->obtenerDatosVehiculoYUsuario($iduser, $idvehiculo);
+            if ($datosVehiculo === null) {
+                $datosVehiculo = [];
+            }
+
+            // Recalcular tipovehiculo desde los datos recién consultados
+            $tipovehiculo = strtoupper($datosVehiculo['veh_tipo'] ?? '');
+            if (empty($tipovehiculo)) {
+                $tipovehiculo = strtoupper($service->obtenerTipoVehiculoUsuario($iduser) ?? '');
+            }
+
+            // Recalcular estado de documentos del vehículo
+            $estadoDocumentos = !empty($datosVehiculo)
+                ? $service->getEstadoDocumentosVehiculo($datosVehiculo)
+                : ['alertas' => [], 'expired' => false, 'max_severity' => 0, 'bloquear' => false];
+            $alertasVehiculoHtml = $service->generarHtmlAlertasVehiculo($estadoDocumentos);
+            $alertaSeveridadVehiculo = $estadoDocumentos['max_severity'] ?? 0;
+            $mostrarAlertaVencidos = $estadoDocumentos['expired'] && !$esValidacion;
+        }
     }
 
     // Re-evaluar esCovid: param4 pudo ser auto-detectado del registro

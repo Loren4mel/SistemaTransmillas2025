@@ -250,7 +250,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Renderiza una pregunta individual con checkboxes SÍ/NO
      */
-    private static function renderQuestionItem($name, $texto, $valoresExistentes = null, $requirePhoto = false, $expectedAnswer = null, $esValidacion = false)
+    private static function renderQuestionItem($name, $texto, $valoresExistentes = null, $requirePhoto = false, $expectedAnswer = null, $esValidacion = false, $esVehiculo = false)
     {
         $checkedSi = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '1') ? 'checked' : '';
         $checkedNo = ($valoresExistentes !== null && isset($valoresExistentes[$name]) && $valoresExistentes[$name] == '2') ? 'checked' : '';
@@ -287,8 +287,49 @@ class PreoperacionalNuevaEncuestaViewHelper
             $html .= '</div>';
         }
 
-        // Foto si es requerida (solo en modo nuevo, no en validación)
-        if ($requirePhoto && !$esValidacion) {
+        // Foto y observación para preguntas de vehículo o preguntas con require_photo
+        if ($esVehiculo) {
+            $fotoGuardada = ($valoresExistentes !== null && isset($valoresExistentes[$name . '_foto'])) ? $valoresExistentes[$name . '_foto'] : null;
+            $obsGuardada = ($valoresExistentes !== null && isset($valoresExistentes[$name . '_obs'])) ? $valoresExistentes[$name . '_obs'] : '';
+
+            if ($esValidacion) {
+                // En validación: mostrar la foto guardada si existe
+                if ($fotoGuardada) {
+                    $urlFoto = self::rutaAbsolutaAUrl($fotoGuardada);
+                    $html .= '<div class="photo-row" id="' . $name . '_photo_row">';
+                    $html .= '<div class="photo-upload-container">';
+                    $html .= '<label class="photo-label"><i class="fas fa-camera"></i> Fotografía del problema</label>';
+                    $html .= '<a href="' . htmlspecialchars($urlFoto) . '" target="_blank">';
+                    $html .= '<img src="' . htmlspecialchars($urlFoto) . '" alt="Foto ' . htmlspecialchars($texto) . '" style="max-width:100%; max-height:200px; border-radius:8px; border:2px solid rgba(0,0,0,0.1);">';
+                    $html .= '</a>';
+                    $html .= '<small class="photo-hint"><a href="' . htmlspecialchars($urlFoto) . '" target="_blank">Ver ampliada</a></small>';
+                    $html .= '</div></div>';
+                }
+                // Mostrar observación guardada
+                if ($obsGuardada) {
+                    $html .= '<div class="observation-row" id="' . $name . '_obs_row">';
+                    $html .= '<div class="observation-display">';
+                    $html .= '<label class="obs-label"><i class="fas fa-comment"></i> Observación:</label>';
+                    $html .= '<p class="obs-text">' . htmlspecialchars($obsGuardada) . '</p>';
+                    $html .= '</div></div>';
+                }
+            } else {
+                // Modo edición: foto + observación
+                $html .= '<div class="photo-row" id="' . $name . '_photo_row" style="display:none;">';
+                $html .= '<div class="photo-upload-container">';
+                $html .= '<label class="photo-label"><i class="fas fa-camera"></i> Subir fotografía <span class="required-star">*</span></label>';
+                $html .= '<input type="file" name="' . $name . '_foto" id="' . $name . '_foto" class="photo-input" accept="image/*" data-trigger="' . $name . '" data-required-photo="true">';
+                $html .= '<div class="photo-alert photo-alert-vehiculo">';
+                $html .= '<i class="fas fa-exclamation-triangle"></i> <strong>ATENCIÓN:</strong> Debe subir una fotografía que evidencie el problema reportado.';
+                $html .= '</div></div>';
+                // Observación opcional
+                $html .= '<div class="obs-upload-container" style="margin-top:8px;">';
+                $html .= '<label class="obs-label" for="' . $name . '_obs"><i class="fas fa-comment"></i> Observación (opcional):</label>';
+                $html .= '<textarea name="' . $name . '_obs" id="' . $name . '_obs" class="form-textarea obs-textarea" placeholder="Describa el problema encontrado..." rows="2">' . htmlspecialchars($obsGuardada) . '</textarea>';
+                $html .= '</div></div>';
+            }
+        } elseif ($requirePhoto && !$esValidacion) {
+            // Comportamiento original para preguntas con require_photo (como inspec_1 legacy)
             $html .= '<div class="photo-row" id="' . $name . '_photo_row" style="display:none;">';
             $html .= '<div class="photo-upload-container">';
             $html .= '<label class="photo-label"><i class="fas fa-camera"></i> Subir fotografía del problema</label>';
@@ -345,7 +386,7 @@ class PreoperacionalNuevaEncuestaViewHelper
             $name = $preg[0];
             $texto = $preg[1];
             $requirePhoto = isset($preg['require_photo']) && $preg['require_photo'];
-            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, $requirePhoto, null, $esValidacion);
+            $html .= self::renderQuestionItem($name, $texto, $valoresExistentes, $requirePhoto, null, $esValidacion, true);
         }
 
         $html .= '</div></div>';
