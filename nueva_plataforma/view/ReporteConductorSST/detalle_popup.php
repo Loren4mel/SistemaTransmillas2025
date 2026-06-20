@@ -93,16 +93,48 @@
                 <span class="sst-info-label">Gravedad</span>
                 <span class="sst-info-value">
                     <?php
-                    $grav = $reporte['gravedad'] ?? null;
-                    $gravLabel = [
-                        1 => ['text' => 'Leve / Normal', 'color' => '#1e7f4f'],
-                        2 => ['text' => 'Moderado / Media', 'color' => '#b54708'],
-                        3 => ['text' => 'Grave / Alta', 'color' => '#b42318'],
-                        4 => ['text' => 'Crítico', 'color' => '#7f1d1d'],
-                    ];
-                    $g = $gravLabel[$grav] ?? ['text' => '—', 'color' => '#888'];
+                    $tipoReporte = $reporte['tipo'] ?? '';
+                    $gravConductor = $reporte['gravedad'] ?? null;
+                    $gravValidador = $reporte['gravedad_validacion'] ?? null;
+
+                    // Labels simplificados (conductor) por tipo
+                    $gravSimpleAcc = [1 => '1 - Baja', 2 => '2 - Alta'];
+                    $gravSimpleComp = [1 => '1 - Normal', 2 => '2 - Media', 3 => '3 - Alta'];
+                    $gravColorsSimpleAcc = [1 => '#1e7f4f', 2 => '#b42318'];
+                    $gravColorsSimpleComp = [1 => '#1e7f4f', 2 => '#b54708', 3 => '#b42318'];
+
+                    // Labels originales (validador) por tipo
+                    $gravValAcc = [1 => '1 - Leve', 2 => '2 - Moderado', 3 => '3 - Grave', 4 => '4 - Crítico'];
+                    $gravValComp = [1 => '1 - Normal', 2 => '2 - Media', 3 => '3 - Alta'];
+                    $gravColorsValAcc = [1 => '#1e7f4f', 2 => '#b54708', 3 => '#b42318', 4 => '#7f1d1d'];
+                    $gravColorsValComp = [1 => '#1e7f4f', 2 => '#b54708', 3 => '#b42318'];
+
+                    if ($gravValidador !== null && $gravValidador !== '') {
+                        // Mostrar gravedad del validador (escala original)
+                        $labels = ($tipoReporte === 'accidente') ? $gravValAcc : $gravValComp;
+                        $colors = ($tipoReporte === 'accidente') ? $gravColorsValAcc : $gravColorsValComp;
+                        $texto = $labels[$gravValidador] ?? $gravValidador;
+                        $color = $colors[$gravValidador] ?? '#888';
+                        $esEstimada = false;
+                    } elseif ($gravConductor !== null && $gravConductor !== '') {
+                        // Mostrar gravedad del conductor (escala simplificada)
+                        $labels = ($tipoReporte === 'accidente') ? $gravSimpleAcc : $gravSimpleComp;
+                        $colors = ($tipoReporte === 'accidente') ? $gravColorsSimpleAcc : $gravColorsSimpleComp;
+                        $texto = $labels[$gravConductor] ?? $gravConductor;
+                        $color = $colors[$gravConductor] ?? '#888';
+                        $esEstimada = true;
+                    } else {
+                        $texto = '—';
+                        $color = '#888';
+                        $esEstimada = false;
+                    }
                     ?>
-                    <span style="color:<?= $g['color'] ?>;font-weight:600;"><?= $g['text'] ?></span>
+                    <span style="color:<?= $color ?>;font-weight:600;"><?= htmlspecialchars($texto) ?></span>
+                    <?php if ($esEstimada): ?>
+                        <br><small style="color:#888;font-size:10px;"><i class="fas fa-info-circle"></i> Gravedad estimada del conductor</small>
+                    <?php elseif ($gravValidador !== null && $gravValidador !== ''): ?>
+                        <br><small style="color:#1e7f4f;font-size:10px;"><i class="fas fa-check-circle"></i> Gravedad verificada por validador</small>
+                    <?php endif; ?>
                 </span>
             </div>
             <div class="sst-info-item">
@@ -211,6 +243,38 @@
                     <option value="pendiente" <?= ($estado === 'pendiente') ? 'selected' : '' ?>>⏳ Pendiente</option>
                     <option value="revisado" <?= ($estado === 'revisado') ? 'selected' : '' ?>>✅ Revisado</option>
                     <option value="resuelto" <?= ($estado === 'resuelto') ? 'selected' : '' ?>>✔️ Resuelto</option>
+                </select>
+            </div>
+
+            <!-- Selector de gravedad (escala original para validador) -->
+            <div class="sst-form-group">
+                <label class="sst-form-label">
+                    Nivel de gravedad (según validador):
+                    <small class="text-muted">(Escala original detallada)</small>
+                </label>
+                <?php
+                $tipoR = $reporte['tipo'] ?? '';
+                $gravValActual = $reporte['gravedad_validacion'] ?? $reporte['gravedad'] ?? 0;
+                if ($tipoR === 'accidente'):
+                    $niveles = [
+                        1 => '1 - Leve: Daños materiales, sin afectación a persona',
+                        2 => '2 - Moderado: Lesiones leves sin hospitalización',
+                        3 => '3 - Grave: Lesiones con atención médica u hospitalización',
+                        4 => '4 - Crítico: Víctimas fatales o lesiones permanentes graves',
+                    ];
+                else:
+                    $niveles = [
+                        1 => '1 - Normal: Multa sin inmovilización',
+                        2 => '2 - Media: Multa con inmovilización, sin afectación a licencia',
+                        3 => '3 - Alta: Multa con inmovilización y/o afectación a licencia',
+                    ];
+                endif;
+                ?>
+                <select id="sstValidarGravedad" class="sst-form-select">
+                    <option value="">— Sin cambios —</option>
+                    <?php foreach ($niveles as $v => $label): ?>
+                        <option value="<?= $v ?>" <?= ((int)$gravValActual === $v) ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+                    <?php endforeach; ?>
                 </select>
             </div>
 

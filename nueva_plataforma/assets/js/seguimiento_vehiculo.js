@@ -355,12 +355,15 @@
         $('#sstHistorialTable').show();
         $('#sstHistorialEmpty').hide();
 
-        // Mapeo de gravedad — unificado para ambos tipos
-        var gravedadLabels = {
-            1: { label: 'Leve / Normal', color: '#1e7f4f' },
-            2: { label: 'Moderado / Media', color: '#b54708' },
-            3: { label: 'Grave / Alta', color: '#b42318' },
-            4: { label: 'Crítico', color: '#7f1d1d' }
+        // Mapeo de gravedad — diferenciado por tipo
+        var gravedadAccLabels = {
+            1: { label: '1 - Baja', color: '#1e7f4f' },
+            2: { label: '2 - Alta', color: '#b42318' }
+        };
+        var gravedadCompLabels = {
+            1: { label: '1 - Normal', color: '#1e7f4f' },
+            2: { label: '2 - Media', color: '#b54708' },
+            3: { label: '3 - Alta', color: '#b42318' }
         };
         var estadoBadge = {
             'pendiente': '<span style="background-color:#fff4e5;color:#b54708;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">⏳ Pendiente</span>',
@@ -376,8 +379,19 @@
         var tbody = '';
         for (var i = 0; i < reportes.length; i++) {
             var r = reportes[i];
-            var gNum = parseInt(r.gravedad, 10);
-            var grav = gravedadLabels[gNum] || { label: (r.gravedad || '—'), color: '#888' };
+            // Usar gravedad_validacion si existe, sino la del conductor como "estimada"
+            var gNum, grav, esEstimada = false;
+            if (r.gravedad_validacion !== null && r.gravedad_validacion !== undefined && r.gravedad_validacion !== '') {
+                gNum = parseInt(r.gravedad_validacion, 10);
+                esEstimada = false;
+            } else if (r.gravedad !== null && r.gravedad !== undefined && r.gravedad !== '') {
+                gNum = parseInt(r.gravedad, 10);
+                esEstimada = true;
+            } else {
+                gNum = NaN;
+            }
+            var labelsPorTipo = (r.tipo === 'accidente') ? gravedadAccLabels : gravedadCompLabels;
+            grav = labelsPorTipo[gNum] || { label: (gNum || '—'), color: '#888' };
             var respuestaBadge = (r.respuesta == 1 || r.respuesta === 'si')
                 ? '<span style="color:#c62828;font-weight:700;">⚠️ Sí</span>'
                 : '<span style="color:#2e7d32;">✅ No</span>';
@@ -417,7 +431,8 @@
                 '<td><span style="font-family:monospace;font-size:11px;">' + escHtml(r.veh_placa || '—') + '</span></td>' +
                 '<td>' + (tipoBadge[r.tipo] || escHtml(r.tipo)) + '</td>' +
                 '<td>' + escHtml(r.tipo_evento === 'semanal' ? '📅 Semanal' : '⚡ Momento') + '</td>' +
-                '<td class="text-center"><span style="color:' + grav.color + ';font-weight:600;font-size:11px;">' + grav.label + '</span></td>' +
+                '<td class="text-center"><span style="color:' + grav.color + ';font-weight:600;font-size:11px;">' + grav.label + '</span>' +
+                (esEstimada ? '<br><small style="color:#888;font-size:9px;">(est. conductor)</small>' : '<br><small style="color:#1e7f4f;font-size:9px;">(validado)</small>') + '</td>' +
                 '<td class="text-center">' + respuestaBadge + '</td>' +
                 '<td class="text-center">' + (estadoBadge[r.estado] || escHtml(r.estado)) + '</td>' +
                 '<td class="text-center">' + archivosHtml + '</td>' +
@@ -510,14 +525,43 @@
             'resuelto': '✔️ Resuelto'
         }[estado] || 'Pendiente';
 
-        var gravLabels = {
-            1: { text: 'Leve / Normal', color: '#1e7f4f' },
-            2: { text: 'Moderado / Media', color: '#b54708' },
-            3: { text: 'Grave / Alta', color: '#b42318' },
-            4: { text: 'Crítico', color: '#7f1d1d' }
+        // Labels de gravedad diferenciados por tipo (escala conductor)
+        var gravAccLabelsSimple = {
+            1: { text: '1 - Baja', color: '#1e7f4f' },
+            2: { text: '2 - Alta', color: '#b42318' }
         };
-        var gNum = parseInt(d.gravedad, 10);
-        var grav = gravLabels[gNum] || { text: d.gravedad || '—', color: '#888' };
+        var gravCompLabelsSimple = {
+            1: { text: '1 - Normal', color: '#1e7f4f' },
+            2: { text: '2 - Media', color: '#b54708' },
+            3: { text: '3 - Alta', color: '#b42318' }
+        };
+        // Labels de gravedad para validador (escala original completa)
+        var gravAccLabelsVal = {
+            1: { text: '1 - Leve', color: '#1e7f4f' },
+            2: { text: '2 - Moderado', color: '#b54708' },
+            3: { text: '3 - Grave', color: '#b42318' },
+            4: { text: '4 - Crítico', color: '#7f1d1d' }
+        };
+        var gravCompLabelsVal = {
+            1: { text: '1 - Normal', color: '#1e7f4f' },
+            2: { text: '2 - Media', color: '#b54708' },
+            3: { text: '3 - Alta', color: '#b42318' }
+        };
+
+        // Determinar qué gravedad mostrar (validación > conductor estimado)
+        var gNum, grav, esEstimadaGrav = false;
+        if (d.gravedad_validacion !== null && d.gravedad_validacion !== undefined && d.gravedad_validacion !== '') {
+            gNum = parseInt(d.gravedad_validacion, 10);
+            var labelsVal = (d.tipo === 'accidente') ? gravAccLabelsVal : gravCompLabelsVal;
+            grav = labelsVal[gNum] || { text: d.gravedad_validacion || '—', color: '#888' };
+        } else if (d.gravedad !== null && d.gravedad !== undefined && d.gravedad !== '') {
+            gNum = parseInt(d.gravedad, 10);
+            var labelsSimple = (d.tipo === 'accidente') ? gravAccLabelsSimple : gravCompLabelsSimple;
+            grav = labelsSimple[gNum] || { text: d.gravedad || '—', color: '#888' };
+            esEstimadaGrav = true;
+        } else {
+            grav = { text: '—', color: '#888' };
+        }
 
         var tipoBadge = d.tipo === 'accidente'
             ? '<span class="sst-badge sst-badge--accidente">🚨 Accidente</span>'
@@ -588,6 +632,30 @@
             var selPendiente = estado === 'pendiente' ? ' selected' : '';
             var selRevisado = estado === 'revisado' ? ' selected' : '';
             var selResuelto = estado === 'resuelto' ? ' selected' : '';
+
+            // Construir opciones de gravedad según tipo (escala original para validador)
+            var gravActual = (d.gravedad_validacion !== null && d.gravedad_validacion !== undefined && d.gravedad_validacion !== '')
+                ? parseInt(d.gravedad_validacion, 10) : (parseInt(d.gravedad, 10) || 0);
+            var opcionesGravedad = '';
+            if (d.tipo === 'accidente') {
+                var niveles = [
+                    { v: 1, l: '1 - Leve: Daños materiales, sin afectación a persona' },
+                    { v: 2, l: '2 - Moderado: Lesiones leves sin hospitalización' },
+                    { v: 3, l: '3 - Grave: Lesiones con atención médica u hospitalización' },
+                    { v: 4, l: '4 - Crítico: Víctimas fatales o lesiones permanentes graves' }
+                ];
+            } else {
+                var niveles = [
+                    { v: 1, l: '1 - Normal: Multa sin inmovilización' },
+                    { v: 2, l: '2 - Media: Multa con inmovilización, sin afectación a licencia' },
+                    { v: 3, l: '3 - Alta: Multa con inmovilización y/o afectación a licencia' }
+                ];
+            }
+            for (var ni = 0; ni < niveles.length; ni++) {
+                var sel = (niveles[ni].v === gravActual) ? ' selected' : '';
+                opcionesGravedad += '<option value="' + niveles[ni].v + '"' + sel + '>' + niveles[ni].l + '</option>';
+            }
+
             panelValidacionHtml = '<div class="sst-detalle-section sst-validacion-panel">' +
                 '<h4 class="sst-section-title"><i class="fas fa-check-double"></i> Validar Reporte</h4>' +
                 '<div class="sst-validacion-form">' +
@@ -597,6 +665,13 @@
                 '<option value="pendiente"' + selPendiente + '>⏳ Pendiente</option>' +
                 '<option value="revisado"' + selRevisado + '>✅ Revisado</option>' +
                 '<option value="resuelto"' + selResuelto + '>✔️ Resuelto</option>' +
+                '</select></div>' +
+                '<div class="sst-form-group">' +
+                '<label class="sst-form-label">Nivel de gravedad (según validador): ' +
+                '<small class="text-muted">(Escala original detallada)</small></label>' +
+                '<select id="sstValidarGravedad" class="sst-form-select">' +
+                '<option value="">— Sin cambios —</option>' +
+                opcionesGravedad +
                 '</select></div>' +
                 '<div class="sst-form-group">' +
                 '<label class="sst-form-label">Comentario de validación: ' +
@@ -629,7 +704,10 @@
             '<div class="sst-info-grid sst-info-grid--4col">' +
             '<div class="sst-info-item"><span class="sst-info-label">Tipo de Evento</span><span class="sst-info-value">' + (d.tipo_evento === 'semanal' ? '📅 Semanal' : '⚡ En el momento') + '</span></div>' +
             '<div class="sst-info-item"><span class="sst-info-label">¿Ocurrió?</span><span class="sst-info-value">' + respuestaHtml + '</span></div>' +
-            '<div class="sst-info-item"><span class="sst-info-label">Gravedad</span><span class="sst-info-value"><span style="color:' + grav.color + ';font-weight:600;">' + grav.text + '</span></span></div>' +
+            '<div class="sst-info-item"><span class="sst-info-label">Gravedad</span><span class="sst-info-value">' +
+                '<span style="color:' + grav.color + ';font-weight:600;">' + grav.text + '</span>' +
+                (esEstimadaGrav ? '<br><small style="color:#888;font-size:10px;"><i class="fas fa-info-circle"></i> Gravedad estimada del conductor</small>' : '<br><small style="color:#1e7f4f;font-size:10px;"><i class="fas fa-check-circle"></i> Gravedad verificada por validador</small>') +
+                '</span></div>' +
             '<div class="sst-info-item"><span class="sst-info-label">Ubicación GPS</span><span class="sst-info-value" style="font-family:monospace;font-size:12px;">' + escHtml(d.ubicacion || '—') + '</span></div>' +
             '</div></div>' +
 
@@ -652,6 +730,7 @@
         var sstEndpoint = (window.APP_BASE_URL || '') + '/controller/ReporteConductorSSTController.php';
         var estado = $('#sstValidarEstado').val();
         var comentario = $('#sstValidarComentario').val().trim();
+        var gravedadValidacion = $('#sstValidarGravedad').val();
 
         if (!estado) {
             Swal.fire({ title: 'Atención', text: 'Seleccione un estado', icon: 'warning' });
@@ -661,12 +740,17 @@
         var btn = $('#sstValidarBtn');
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
 
-        $.post(sstEndpoint, {
+        var postData = {
             accion: 'validar',
             id: id,
             estado: estado,
             comentario: comentario
-        })
+        };
+        if (gravedadValidacion !== '' && gravedadValidacion !== null) {
+            postData.gravedad_validacion = gravedadValidacion;
+        }
+
+        $.post(sstEndpoint, postData)
         .done(function (resp) {
             if (!resp.success) {
                 Swal.fire({ title: 'Error', text: resp.message || 'Error al validar', icon: 'error' });

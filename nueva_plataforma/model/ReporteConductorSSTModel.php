@@ -27,9 +27,41 @@ class ReporteConductorSSTModel
     ];
     const MAX_FILE_SIZE = 10485760; // 10 MB
 
-    // Niveles de gravedad válidos por tipo
+    // Niveles de gravedad válidos por tipo (escala simplificada — conductor)
     const GRAVEDAD_ACCIDENTE  = [1, 2];
     const GRAVEDAD_COMPARENDO = [1, 2, 3];
+
+    // Niveles de gravedad para validador (escala original completa)
+    const GRAVEDAD_VAL_ACCIDENTE  = [1, 2, 3, 4];
+    const GRAVEDAD_VAL_COMPARENDO = [1, 2, 3];
+
+    // Etiquetas de gravedad por tipo
+    const GRAVEDAD_LABELS = [
+        'accidente' => [
+            1 => ['etiqueta' => 'Leve',       'desc' => 'Daños materiales, ningún tipo de afectación a persona.'],
+            2 => ['etiqueta' => 'Moderado',    'desc' => 'Lesiones leves que no requieren hospitalización.'],
+            3 => ['etiqueta' => 'Grave',       'desc' => 'Lesiones que requieren atención médica u hospitalización.'],
+            4 => ['etiqueta' => 'Crítico',     'desc' => 'Víctimas fatales o lesiones permanentes graves.'],
+        ],
+        'comparendo' => [
+            1 => ['etiqueta' => 'Normal', 'desc' => 'Multa sin inmovilización del vehículo.'],
+            2 => ['etiqueta' => 'Media',  'desc' => 'Multa con inmovilización, sin afectación a la licencia de conducción.'],
+            3 => ['etiqueta' => 'Alta',   'desc' => 'Multa con inmovilización y/o afectación a la licencia de conducción.'],
+        ],
+    ];
+
+    // Etiquetas de gravedad simplificadas (conductor)
+    const GRAVEDAD_SIMPLE_LABELS = [
+        'accidente' => [
+            1 => ['etiqueta' => 'Baja', 'desc' => 'Daños materiales, ningún tipo de afectación a persona.'],
+            2 => ['etiqueta' => 'Alta', 'desc' => 'Hay afectación física a alguna persona derivada del accidente, sea de la índole que sea.'],
+        ],
+        'comparendo' => [
+            1 => ['etiqueta' => 'Normal', 'desc' => 'Multa sin inmovilización del vehículo.'],
+            2 => ['etiqueta' => 'Media',  'desc' => 'Multa con inmovilización, sin afectación a la licencia de conducción.'],
+            3 => ['etiqueta' => 'Alta',   'desc' => 'Multa con inmovilización y/o afectación a la licencia de conducción.'],
+        ],
+    ];
 
     /**
      * Constructor - Inicializa la conexion a base de datos
@@ -53,8 +85,9 @@ class ReporteConductorSSTModel
     {
         $stmt = $this->db->prepare($sql);
         if (!$stmt) {
-            error_log("ReporteConductorSSTModel: executeQuery - Error preparando SQL: " . $this->db->error);
-            return null;
+            $errorMsg = "ReporteConductorSSTModel: executeQuery - Error preparando SQL: " . $this->db->error;
+            error_log($errorMsg);
+            throw new \RuntimeException($errorMsg);
         }
         $stmt->bind_param($types, ...$params);
         $stmt->execute();
@@ -74,8 +107,9 @@ class ReporteConductorSSTModel
     {
         $stmt = $this->db->prepare($sql);
         if (!$stmt) {
-            error_log("ReporteConductorSSTModel: executeAll - Error preparando SQL: " . $this->db->error);
-            return [];
+            $errorMsg = "ReporteConductorSSTModel: executeAll - Error preparando SQL: " . $this->db->error;
+            error_log($errorMsg);
+            throw new \RuntimeException($errorMsg);
         }
         $stmt->bind_param($types, ...$params);
         $stmt->execute();
@@ -286,7 +320,7 @@ class ReporteConductorSSTModel
         $gravedad = $datos['gravedad'] ?? null;
 
         $stmt->bind_param(
-            "iiississi",
+            "iisssissi",
             $datos['id_usuario'],
             $idVehiculo,
             $datos['fecha'],
@@ -494,13 +528,14 @@ class ReporteConductorSSTModel
     /**
      * Cambia el estado de un reporte y registra quién validó
      *
-     * @param int    $id           ID del reporte
-     * @param string $estado       Nuevo estado ('pendiente', 'revisado', 'resuelto')
-     * @param int    $idValidador  ID del usuario que valida
-     * @param string $comentario   Comentario del validador (ya incluye prefijo de nombre)
+     * @param int    $id                  ID del reporte
+     * @param string $estado              Nuevo estado ('pendiente', 'revisado', 'resuelto')
+     * @param int    $idValidador         ID del usuario que valida
+     * @param string $comentario          Comentario del validador (ya incluye prefijo de nombre)
+     * @param int    $gravedadValidacion  Nivel de gravedad según validador (escala original: 1-4 acc, 1-3 comp)
      * @return bool True si la actualización fue exitosa
      */
-    public function cambiarEstado($id, $estado, $idValidador = null, $comentario = null)
+    public function cambiarEstado($id, $estado, $idValidador = null, $comentario = null, $gravedadValidacion = null)
     {
         if (!in_array($estado, self::ESTADOS_VALIDOS, true)) {
             error_log("ReporteConductorSSTModel: cambiarEstado - Estado invalido: $estado");
@@ -511,7 +546,8 @@ class ReporteConductorSSTModel
                 SET estado = ?,
                     id_validador = ?,
                     comentario_validador = ?,
-                    fecha_validacion = NOW()
+                    fecha_validacion = NOW(),
+                    gravedad_validacion = ?
                 WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         if (!$stmt) {
@@ -519,7 +555,7 @@ class ReporteConductorSSTModel
             return false;
         }
 
-        $stmt->bind_param("sisi", $estado, $idValidador, $comentario, $id);
+        $stmt->bind_param("sisii", $estado, $idValidador, $comentario, $gravedadValidacion, $id);
         $result = $stmt->execute();
 
         if (!$result) {

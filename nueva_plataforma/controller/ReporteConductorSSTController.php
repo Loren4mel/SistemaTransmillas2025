@@ -605,15 +605,17 @@ function detalleVista($model)
 }
 
 /**
- * Valida un reporte SST — cambia estado y registra comentario del validador
+ * Valida un reporte SST — cambia estado, registra comentario del validador y gravedad de validación
  *
  * Solo accesible por roles administradores (1, 12).
  * El comentario se guarda con prefijo automático: "NombreValidador - comentario"
+ * La gravedad de validación usa la escala original (1-4 accidente, 1-3 comparendo)
  *
  * Parámetros POST:
- *   - id         (int):    ID del reporte
- *   - estado     (string): Nuevo estado ('pendiente', 'revisado', 'resuelto')
- *   - comentario (string): Comentario del validador (se prefija automáticamente)
+ *   - id                   (int):    ID del reporte
+ *   - estado               (string): Nuevo estado ('pendiente', 'revisado', 'resuelto')
+ *   - comentario           (string): Comentario del validador (se prefija automáticamente)
+ *   - gravedad_validacion  (int):    Nivel de gravedad según validador (escala original)
  *
  * @param ReporteConductorSSTModel $model Instancia del modelo
  */
@@ -630,6 +632,7 @@ function validarReporte($model)
     $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
     $estado = $_POST['estado'] ?? '';
     $comentarioRaw = trim($_POST['comentario'] ?? '');
+    $gravedadValidacionRaw = $_POST['gravedad_validacion'] ?? null;
 
     if ($id <= 0) {
         ErrorHandler::sendJsonResponse([
@@ -654,6 +657,28 @@ function validarReporte($model)
         ], 404);
     }
 
+    // Validar gravedad_validacion si se envió (usa escala original: 1-4 acc, 1-3 comp)
+    $gravedadValidacion = null;
+    if ($gravedadValidacionRaw !== null && $gravedadValidacionRaw !== '') {
+        $gravedadValidacion = (int) $gravedadValidacionRaw;
+        $tipoReporte = $reporte['tipo'] ?? '';
+        if ($tipoReporte === 'accidente') {
+            if (!in_array($gravedadValidacion, ReporteConductorSSTModel::GRAVEDAD_VAL_ACCIDENTE, true)) {
+                ErrorHandler::sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Gravedad de validación inválida para accidente. Use: ' . implode(', ', ReporteConductorSSTModel::GRAVEDAD_VAL_ACCIDENTE)
+                ], 400);
+            }
+        } elseif ($tipoReporte === 'comparendo') {
+            if (!in_array($gravedadValidacion, ReporteConductorSSTModel::GRAVEDAD_VAL_COMPARENDO, true)) {
+                ErrorHandler::sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Gravedad de validación inválida para comparendo. Use: ' . implode(', ', ReporteConductorSSTModel::GRAVEDAD_VAL_COMPARENDO)
+                ], 400);
+            }
+        }
+    }
+
     // Auto-prefijar comentario con nombre del validador (patrón preoperacional)
     $nombreValidador = $_SESSION['usuario_nombre'] ?? 'Sistema';
     $comentarioFinal = $nombreValidador;
@@ -663,7 +688,7 @@ function validarReporte($model)
 
     $idValidador = (int) $_SESSION['usuario_id'];
 
-    $ok = $model->cambiarEstado($id, $estado, $idValidador, $comentarioFinal);
+    $ok = $model->cambiarEstado($id, $estado, $idValidador, $comentarioFinal, $gravedadValidacion);
 
     if (!$ok) {
         ErrorHandler::sendJsonResponse([
@@ -673,12 +698,13 @@ function validarReporte($model)
     }
 
     ErrorHandler::sendJsonResponse([
-        'success'           => true,
-        'message'           => 'Reporte validado correctamente',
-        'estado'            => $estado,
-        'comentario'        => $comentarioFinal,
-        'fecha_validacion'  => date('Y-m-d H:i:s'),
-        'validador_nombre'  => $nombreValidador,
+        'success'              => true,
+        'message'              => 'Reporte validado correctamente',
+        'estado'               => $estado,
+        'comentario'           => $comentarioFinal,
+        'fecha_validacion'     => date('Y-m-d H:i:s'),
+        'validador_nombre'     => $nombreValidador,
+        'gravedad_validacion'  => $gravedadValidacion,
     ]);
 }
 
