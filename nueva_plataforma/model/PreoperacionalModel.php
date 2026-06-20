@@ -38,6 +38,19 @@ class PreoperacionalModel
     }
 
     /**
+     * Obtiene el rol de un usuario por ID.
+     *
+     * @param int $idUsuario
+     * @return int|null Rol del usuario o null si no existe
+     */
+    public function obtenerRolUsuario($idUsuario)
+    {
+        $sql = "SELECT roles_idroles FROM usuarios WHERE idusuarios = ? LIMIT 1";
+        $row = $this->executeQuery($sql, "i", [$idUsuario]);
+        return $row ? (int) ($row['roles_idroles'] ?? 0) : null;
+    }
+
+    /**
      * Obtiene los datos del vehículo y usuario.
      * Si $idVehiculo es null, devuelve el primer vehículo asignado al usuario.
      * 
@@ -47,24 +60,29 @@ class PreoperacionalModel
      */
     public function obtenerDatosVehiculoYUsuario($idUsuario, $idVehiculo = null)
     {
+        // Si se especifica un idVehiculo positivo explícitamente, buscarlo directamente
+        // sin exigir que el usuario actual lo tenga asignado (importante para
+        // el modo vista de preoperacionales históricos).
+        if (!empty($idVehiculo) && $idVehiculo > 0) {
+            $sql = "SELECT v.idvehiculos, v.veh_tipo, v.veh_placa, v.veh_marca, v.veh_modelo, v.veh_kilactual,
+                           v.veh_fechaseguro, v.veh_fechategnomecanica,
+                           u.usu_nombre, u.usu_identificacion, u.usu_licencia, u.usu_fechalicencia
+                    FROM vehiculos v
+                    LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos AND u.idusuarios = ?
+                    WHERE v.idvehiculos = ?
+                    LIMIT 1";
+            return $this->executeQuery($sql, "ii", [$idUsuario, $idVehiculo]);
+        }
+
         $sql = "SELECT v.idvehiculos, v.veh_tipo, v.veh_placa, v.veh_marca, v.veh_modelo, v.veh_kilactual,
                        v.veh_fechaseguro, v.veh_fechategnomecanica,
                        u.usu_nombre, u.usu_identificacion, u.usu_licencia, u.usu_fechalicencia
                 FROM vehiculos v
                 INNER JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos
-                WHERE u.idusuarios = ?";
-        $params = [$idUsuario];
-        $types = "i";
+                WHERE u.idusuarios = ?
+                LIMIT 1";
 
-        if ($idVehiculo !== null) {
-            $sql .= " AND v.idvehiculos = ?";
-            $params[] = $idVehiculo;
-            $types .= "i";
-        }
-
-        $sql .= " LIMIT 1";
-
-        return $this->executeQuery($sql, $types, $params);
+        return $this->executeQuery($sql, "i", [$idUsuario]);
     }
 
     /**
@@ -598,6 +616,37 @@ class PreoperacionalModel
         $map = [];
         while ($row = $result->fetch_assoc()) {
             $map[$row['codigo_interno']] = $row['id_pregunta'];
+        }
+        return $map;
+    }
+
+    /**
+     * Obtiene el texto legible de preguntas dado un conjunto de códigos internos.
+     * Usado para generar observaciones automáticas desde las respuestas del preoperacional.
+     *
+     * @param array $codigos Lista de códigos internos (ej: ['inspec_1', 'seguridad_3'])
+     * @return array [codigo_interno => texto_pregunta]
+     */
+    public function obtenerTextoPorCodigos(array $codigos): array
+    {
+        if (empty($codigos)) return [];
+        $placeholders = implode(',', array_fill(0, count($codigos), '?'));
+        $sql = "SELECT codigo_interno, texto_pregunta
+                FROM preop_preguntas
+                WHERE codigo_interno IN ($placeholders)
+                GROUP BY codigo_interno";
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("obtenerTextoPorCodigos prepare error: " . $this->db->error);
+            return [];
+        }
+        $types = str_repeat('s', count($codigos));
+        $stmt->bind_param($types, ...$codigos);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $map = [];
+        while ($row = $result->fetch_assoc()) {
+            $map[$row['codigo_interno']] = $row['texto_pregunta'];
         }
         return $map;
     }

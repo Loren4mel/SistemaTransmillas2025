@@ -1317,10 +1317,22 @@
         $(document).on('click', '.ver-mas-obs', function (e) {
             e.preventDefault();
             var obs = $(this).data('obs');
+            // Revertir el escapado de escAttr para reconstruir el texto original
+            var texto = obs
+                .replace(/&#10;/g, '\n')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'");
+            // Convertir saltos de línea reales a <br> para HTML
+            var html = escHtml(texto).replace(/\n/g, '<br>');
             Swal.fire({
                 title: 'Observación',
-                html: obs.replace(/&#10;/g, '<br>').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'"),
-                icon: 'info'
+                html: '<div style="max-height:60vh; overflow-y:auto; text-align:left; white-space:pre-wrap; word-break:break-word; padding:12px; background:#f8f9fa; border-radius:8px; font-size:14px;">' + html + '</div>',
+                width: '700px',
+                icon: 'info',
+                confirmButtonText: 'Cerrar'
             });
         });
 

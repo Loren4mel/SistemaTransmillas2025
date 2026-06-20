@@ -387,26 +387,37 @@ function loadView($service)
     // Determinar qué secciones mostrar basadas en el rol y tipo de vehículo
     require_once __DIR__ . '/../helpers/PreoperacionalHelpers/Views/PreoperacionalNuevaEncuestaViewHelper.php';
 
-    // Verificar si el rol del usuario está autorizado para operaciones vehiculares
-    $esRolVehicularAutorizado = PreoperacionalNuevaEncuestaViewHelper::esRolVehicularAutorizado($nivel_acceso);
+    // En modo validación/vista, las secciones se determinan a partir del registro
+    // ORIGINAL (el conductor que llenó el preop), no del rol de quien está viendo.
+    if ($esValidacion && $registroExistente && !empty($registroExistente['preidusuario'])) {
+        $rolParaSecciones = $service->obtenerRolUsuario((int) $registroExistente['preidusuario']) ?? 0;
+        $tipoVehiculoParaSecciones = strtoupper($registroExistente['pretipovehiculo'] ?? '');
+        // En validación/vista, el vehículo SIEMPRE estuvo asignado al momento del registro
+        $tieneVehiculoParaSecciones = !empty($tipoVehiculoParaSecciones);
+    } else {
+        $rolParaSecciones = $nivel_acceso;
+        $tipoVehiculoParaSecciones = $tipovehiculo;
+        $tieneVehiculoParaSecciones = $tieneVehiculoAsignado;
+    }
+
+    // Verificar si el rol del usuario ORIGINAL está autorizado para operaciones vehiculares
+    $esRolVehicularAutorizado = PreoperacionalNuevaEncuestaViewHelper::esRolVehicularAutorizado($rolParaSecciones);
 
     // Determinar si es conductor (CARRO) — solo si el rol está autorizado
-    $esConductor = $esRolVehicularAutorizado && PreoperacionalNuevaEncuestaViewHelper::esConductor($tipovehiculo);
+    $esConductor = $esRolVehicularAutorizado && PreoperacionalNuevaEncuestaViewHelper::esConductor($tipoVehiculoParaSecciones);
 
     // NUEVO FORMATO: Solo secciones basadas en rol (SIN COVID, SIN FATIGA)
     // Cuando es conductor o vehículo propio, NO se muestran preguntas administrativas
-    $esVehiculoPropio = $esRolVehicularAutorizado && PreoperacionalNuevaEncuestaViewHelper::tieneVehiculoPropio($tipovehiculo);
+    $esVehiculoPropio = $esRolVehicularAutorizado && PreoperacionalNuevaEncuestaViewHelper::tieneVehiculoPropio($tipoVehiculoParaSecciones);
     $mostrarSecciones = [
-        'administrativo' => !$esConductor && !$esVehiculoPropio && PreoperacionalNuevaEncuestaViewHelper::esPersonalAdministrativo($nivel_acceso),
+        'administrativo' => !$esConductor && !$esVehiculoPropio && PreoperacionalNuevaEncuestaViewHelper::esPersonalAdministrativo($rolParaSecciones),
         'conductor' => $esConductor,
         'vehiculo_propio' => $esVehiculoPropio,
-        'auxiliar_carga' => PreoperacionalNuevaEncuestaViewHelper::esAuxiliarCarga($nivel_acceso),
+        'auxiliar_carga' => PreoperacionalNuevaEncuestaViewHelper::esAuxiliarCarga($rolParaSecciones),
         // Las secciones de inspección del vehículo solo se muestran si el
-        // usuario tiene un vehículo asignado. Después de reportar una novedad
-        // y quedar sin vehículo, el tipo de vehículo del perfil puede seguir
-        // siendo CARRO/MOTO, pero no hay qué inspeccionar.
-        'preoperacional_vehiculo' => ($tipovehiculo === 'CARRO') && $tieneVehiculoAsignado && $esRolVehicularAutorizado,
-        'preoperacional_moto' => ($tipovehiculo === 'MOTO') && $tieneVehiculoAsignado && $esRolVehicularAutorizado
+        // usuario ORIGINAL tenía un vehículo asignado al momento del registro.
+        'preoperacional_vehiculo' => ($tipoVehiculoParaSecciones === 'CARRO') && $tieneVehiculoParaSecciones && $esRolVehicularAutorizado,
+        'preoperacional_moto' => ($tipoVehiculoParaSecciones === 'MOTO') && $tieneVehiculoParaSecciones && $esRolVehicularAutorizado
     ];
 
     // Fallback: si ningún cuestionario de rol aplica, usar preguntas administrativas por defecto
