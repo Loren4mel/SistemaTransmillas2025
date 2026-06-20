@@ -1013,8 +1013,9 @@
                                 <th>Fecha Consulta</th>
                                 <th>Evidencia</th>
                                 <th>Usuario</th>
-                                <th>Fecha Registro</th>   
-                                <th>Eliminar</th>                             
+                                <th>Fecha Registro</th>
+                                <th>Estado</th>
+                                <th id="thAccionRevision" style="display:none;">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="cuerpoTablaRevisiones">
@@ -1614,6 +1615,11 @@
 <!-- DataTables -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<!-- Variables globales para JS -->
+<script>
+    const usuarioRol = <?= (int)($_SESSION['usuario_rol'] ?? 0) ?>;
+    const usuarioNombre = '<?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Sin sesión', ENT_QUOTES) ?>';
+</script>
 <script src="<?= $baseUrl ?>/assets/js/vehiculos.js?v=<?= filemtime(__DIR__ . '/../../assets/js/vehiculos.js') ?>"></script>
 </body>
 </html>

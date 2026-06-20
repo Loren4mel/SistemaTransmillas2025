@@ -16,7 +16,7 @@ class VehiculosModel {
     v.`veh_observaciones`, v.`veh_calkmcambioaceite`, v.`veh_restankmaceite`,
     v.`veh_faltaparacambioaceite`, v.`veh_kmalcambaceite`,
     v.`veh_img_anverso`, v.`veh_img_reverso`, v.`veh_img_actual_frente`, v.`veh_img_actual_trasera`,
-    v.`veh_img_soat`, v.`veh_img_tecnomecanica`,
+    v.`veh_img_soat`, v.`veh_img_tecnomecanica`, v.`veh_equipo_carretera`,
      -- Columnas calculadas de aceite (fuente de verdad: veh_kilactual, veh_kmactual_cambioaceite, veh_calkmcambioaceite)
      (v.`veh_kilactual` - v.`veh_kmactual_cambioaceite`) AS veh_km_recorridos_aceite,
      (v.`veh_calkmcambioaceite` - (v.`veh_kilactual` - v.`veh_kmactual_cambioaceite`)) AS veh_km_restantes_aceite,
@@ -53,7 +53,24 @@ class VehiculosModel {
     }
 
     $result = $this->dbname->query($sql);
-    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    $vehiculos = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+
+    // Post-procesar: contar herramientas inactivas (existe = 'no') por vehículo
+    foreach ($vehiculos as &$v) {
+        $equipo = json_decode($v['veh_equipo_carretera'] ?: '[]', true);
+        $inactivas = 0;
+        if (is_array($equipo)) {
+            foreach ($equipo as $h) {
+                if (is_array($h) && ($h['existe'] ?? 'si') === 'no') {
+                    $inactivas++;
+                }
+            }
+        }
+        $v['herramientas_inactivas'] = $inactivas;
+    }
+    unset($v);
+
+    return $vehiculos;
 }
 
     public function obtenerVehiculosParaSelect($filtroEstado = '') {
@@ -922,9 +939,26 @@ public function obtenerRevisionesPorVehiculo($idVehiculo) {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
-public function eliminarRevision($id) {
-    $id  = intval($id);
-    $sql = "DELETE FROM revision_comparendos WHERE idrevision = $id";
+public function confirmarRevision($id, $usuario) {
+    $id = intval($id);
+
+    // Verificar si ya está confirmada (evitar doble confirmación)
+    $check = "SELECT rev_confirmado FROM revision_comparendos WHERE idrevision = $id";
+    $result = $this->dbname->query($check);
+    if ($result && $row = $result->fetch_assoc()) {
+        if ($row['rev_confirmado'] == 1) {
+            return ['error' => 'Esta revisión ya fue confirmada anteriormente.'];
+        }
+    } else {
+        return ['error' => 'La revisión no existe.'];
+    }
+
+    $usuario = $this->dbname->real_escape_string($usuario);
+    $sql = "UPDATE revision_comparendos
+            SET rev_confirmado = 1,
+                rev_usuario_confirma = '$usuario',
+                rev_fecha_confirmacion = NOW()
+            WHERE idrevision = $id";
     return $this->dbname->query($sql) ? true : ['error' => $this->dbname->error];
 }
 

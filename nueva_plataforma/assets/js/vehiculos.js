@@ -407,10 +407,15 @@ $(document).ready(function () {
                 orderable: false,
                 searchable: false,
                 render: function (data, type, row) {
+                    const inactivas = parseInt(row.herramientas_inactivas ?? 0);
+                    let badge = '';
+                    if (inactivas > 0) {
+                        badge = `<span class="badge bg-danger" style="position:relative;top:-8px;right:-2px;font-size:11px;">${inactivas}</span>`;
+                    }
                     return `
-                        <button class="btn btn-sm btn-outline-primary btn-editar-modal" 
-                                title="Editar" data-id="${row.idvehiculos}">
-                            <i class="fas fa-edit"></i>
+                        <button class="btn btn-sm btn-outline-primary btn-editar-modal"
+                                title="Editar${inactivas > 0 ? ' — ' + inactivas + ' herramienta(s) inactiva(s)' : ''}" data-id="${row.idvehiculos}">
+                            <i class="fas fa-edit"></i>${badge}
                         </button>`;
                 }
             },
@@ -2975,8 +2980,17 @@ $(document).on('click', '.btn-ver-revisiones', function () {
     const placa = $(this).data('placa');
 
     $('#tituloPlacaRevision').text(placa);
+
+    // Mostrar/ocultar columna de acción según el rol
+    const colspan = (typeof usuarioRol !== 'undefined' && (usuarioRol == 1 || usuarioRol == 5)) ? 7 : 6;
+    if (typeof usuarioRol !== 'undefined' && (usuarioRol == 1 || usuarioRol == 5)) {
+        $('#thAccionRevision').show();
+    } else {
+        $('#thAccionRevision').hide();
+    }
+
     $('#cuerpoTablaRevisiones').html(
-        '<tr><td colspan="6" class="text-muted">Cargando...</td></tr>'
+        `<tr><td colspan="${colspan}" class="text-muted">Cargando...</td></tr>`
     );
     new bootstrap.Modal(document.getElementById('modalHistorialRevisiones')).show();
 
@@ -2992,79 +3006,111 @@ $(document).on('click', '.btn-ver-revisiones', function () {
 
                 if (!lista || lista.length === 0) {
                     $tbody.html(
-                        '<tr><td colspan="6" class="text-muted">Sin revisiones registradas</td></tr>'
+                        `<tr><td colspan="${colspan}" class="text-muted">Sin revisiones registradas</td></tr>`
                     );
                     return;
                 }
+
+                const esRolAutorizado = (typeof usuarioRol !== 'undefined' && (usuarioRol == 1 || usuarioRol == 5));
 
                 lista.forEach(function (r, i) {
                     const evidencias = normalizarEvidenciasRevision(r.rev_evidencia);
                     const evidencia = renderEvidenciasRevision(evidencias);
 
-                    $tbody.append(`
+                    // Determinar estado de confirmación
+                    const confirmado = (r.rev_confirmado == 1);
+                    let estadoHtml = '';
+                    let accionHtml = '';
+
+                    if (confirmado) {
+                        estadoHtml = `<span class="badge bg-success" title="Confirmado por ${r.rev_usuario_confirma || 'N/A'} el ${r.rev_fecha_confirmacion || 'N/A'}">
+                            <i class="fas fa-check-circle"></i> Confirmado
+                        </span>`;
+                    } else {
+                        estadoHtml = `<span class="badge bg-warning text-dark">
+                            <i class="fas fa-clock"></i> Pendiente
+                        </span>`;
+                    }
+
+                    if (esRolAutorizado) {
+                        if (confirmado) {
+                            accionHtml = `<small class="text-muted">${r.rev_usuario_confirma || ''}<br>${r.rev_fecha_confirmacion || ''}</small>`;
+                        } else {
+                            accionHtml = `<button class="btn btn-sm btn-success btn-confirmar-revision"
+                                       title="Confirmar revisión"
+                                       data-id="${r.idrevision}">
+                                    <i class="fas fa-check"></i> Confirmar
+                                </button>`;
+                        }
+                    }
+
+                    let filaHtml = `
                         <tr>
                             <td>${i + 1}</td>
                             <td>${r.rev_fecha_consulta}</td>
                             <td>${evidencia}</td>
                             <td>${r.rev_usuario}</td>
                             <td>${r.rev_fecha_creacion}</td>
-                            <td>
-                                <button class="btn btn-sm btn-danger btn-eliminar-revision"
-                                       title="Eliminar revisión"
-                                       data-id="${r.idrevision}">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `);
+                            <td>${estadoHtml}</td>`;
+
+                    if (esRolAutorizado) {
+                        filaHtml += `<td>${accionHtml}</td>`;
+                    }
+
+                    filaHtml += `</tr>`;
+                    $tbody.append(filaHtml);
                 });
 
             } catch (e) {
                 $('#cuerpoTablaRevisiones').html(
-                    '<tr><td colspan="6" class="text-danger">Error al cargar los datos</td></tr>'
+                    `<tr><td colspan="${colspan}" class="text-danger">Error al cargar los datos</td></tr>`
                 );
             }
         },
         error: function () {
             $('#cuerpoTablaRevisiones').html(
-                '<tr><td colspan="6" class="text-danger">Error de conexión</td></tr>'
+                `<tr><td colspan="${colspan}" class="text-danger">Error de conexión</td></tr>`
             );
         }
     });
 });
 
-// ELIMINAR REVISIÓN DE COMPARENDO
-$(document).on('click', '.btn-eliminar-revision', function () {
+// CONFIRMAR REVISIÓN DE COMPARENDO (solo rol 1)
+$(document).on('click', '.btn-confirmar-revision', function () {
     const id = $(this).data('id');
-    const $fila = $(this).closest('tr');
-    const $vehiculo = $('#tituloPlacaRevision').text();
+    const $btn = $(this);
 
     Swal.fire({
-        title: '¿Eliminar revisión?',
-        text: 'Esta acción no se puede deshacer',
-        icon: 'warning',
+        title: '¿Confirmar revisión?',
+        text: 'Se marcará esta revisión como verificada.',
+        icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
+        confirmButtonText: 'Sí, confirmar',
         cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#d33'
+        confirmButtonColor: '#198754'
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
                 url: urlController,
                 type: 'POST',
-                data: { eliminar_revision: true, id: id },
+                data: { confirmar_revision: true, id: id },
                 success: function (res) {
                     try {
                         const r = typeof res === 'object' ? res : JSON.parse(res);
                         if (r.success) {
-                            $fila.fadeOut(300, function () { $(this).remove(); });
                             Swal.fire({
                                 icon: 'success',
-                                title: '¡Eliminado!',
+                                title: '¡Confirmado!',
                                 text: r.mensaje,
                                 timer: 1500,
                                 showConfirmButton: false
                             });
+                            // Reemplazar inline: badge de estado y dato de quién confirmó
+                            const $tdEstado = $btn.closest('td').prev('td');
+                            $tdEstado.html(`<span class="badge bg-success" title="Confirmado por ${usuarioNombre || 'N/A'}">
+                                <i class="fas fa-check-circle"></i> Confirmado
+                            </span>`);
+                            $btn.replaceWith(`<small class="text-muted">${usuarioNombre || ''}<br><small>Ahora</small></small>`);
                         } else {
                             Swal.fire('Error', r.mensaje, 'error');
                         }
