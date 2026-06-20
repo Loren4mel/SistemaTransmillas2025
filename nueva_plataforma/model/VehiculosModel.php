@@ -1,49 +1,6 @@
 <?php
 require_once "../config/database.php";
 
-/**
- * Modelo de Vehículos
- *
- * ============================================================================
- * JERARQUÍA DE COLUMNAS DE KILOMETRAJE Y CAMBIO DE ACEITE
- * ============================================================================
- *
- * COLUMNAS FUENTE DE VERDAD (se actualizan explícitamente):
- *   veh_kilactual               → Kilometraje actual del vehículo.
- *                                 Actualizado por: PreoperacionalModel::actualizarKilometrajeVehiculo()
- *
- *   veh_kmactual_cambioaceite   → Kilometraje al que se hizo el último cambio de aceite.
- *                                 Actualizado por: VehiculosModel::actualizarDatosAceite()
- *
- *   veh_calkmcambioaceite       → Intervalo límite entre cambios de aceite (ej. 5000 km).
- *                                 Configurado en: Crear/Editar Vehículo.
- *
- *   veh_fechamantenimiento      → Fecha del último cambio de aceite.
- *                                 Actualizado por: VehiculosModel::actualizarDatosAceite()
- *
- * ----------------------------------------------------------------------------
- * COLUMNAS CALCULADAS (derivables — NO USAR COMO FUENTE DE VERDAD):
- *
- *   veh_km_recorridos_aceite = veh_kilactual - veh_kmactual_cambioaceite
- *       → Km recorridos desde el último cambio de aceite.
- *       → Calculado en: VehiculosModel::calcularEstadoAceite()
- *       → También calculado en SQL como alias en obtenerVehiculos()
- *
- *   veh_km_restantes_aceite  = veh_calkmcambioaceite - (veh_kilactual - veh_kmactual_cambioaceite)
- *       → Km que faltan para el próximo cambio de aceite.
- *       → Si es ≤ 0, toca cambio de aceite.
- *
- *   veh_km_proximo_aceite    = veh_kmactual_cambioaceite + veh_calkmcambioaceite
- *       → Kilometraje exacto al que toca el próximo cambio.
- *
- * ----------------------------------------------------------------------------
- * COLUMNAS LEGACY (obsoletas, mantenidas por compatibilidad — NO USAR):
- *   veh_aceitekil               → [LEGACY] Mismo propósito que veh_calkmcambioaceite.
- *   veh_restankmaceite          → [LEGACY] Reemplazado por veh_km_recorridos_aceite (calculado).
- *   veh_faltaparacambioaceite   → [LEGACY] Reemplazado por veh_km_restantes_aceite (calculado).
- *   veh_kmalcambaceite          → [LEGACY] Reemplazado por veh_km_proximo_aceite (calculado).
- * ============================================================================
- */
 class VehiculosModel {
     private $dbname;
 
@@ -618,13 +575,15 @@ public function guardarComparendo($datos) {
 
    $sql  = "INSERT INTO comparendos
              (com_operador_id, com_vehiculo_id, com_estado, com_foto, com_fecha,
-             com_hojadevida_id, com_valor, com_numerocompa, com_titularcompa, com_foto_curso)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+             com_hojadevida_id, com_valor, com_numerocompa, com_titularcompa, com_foto_curso, com_observacion)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt = $this->dbname->prepare($sql);
     if (!$stmt) return ['error' => $this->dbname->error];
 
+    $observacion = isset($datos['com_observacion']) ? $datos['com_observacion'] : null;
+
     $stmt->bind_param(
-        "iisssissss",
+        "iisssisssss",
         $datos['com_operador_id'],
         $datos['com_vehiculo_id'],
         $datos['com_estado'],
@@ -634,7 +593,8 @@ public function guardarComparendo($datos) {
         $datos['com_valor'],
         $datos['com_numerocompa'],
         $datos['com_titularcompa'],
-        $com_foto_curso
+        $com_foto_curso,
+        $observacion
     );
 
     $ok = $stmt->execute();
@@ -697,6 +657,7 @@ public function actualizarComparendo($datos) {
     $valor = floatval($valor);
     $numero  = $this->dbname->real_escape_string($datos['com_numerocompa']);
     $titular = $this->dbname->real_escape_string($datos['com_titularcompa']);
+    $observacion = isset($datos['com_observacion']) ? $this->dbname->real_escape_string($datos['com_observacion']) : '';
 
     $sqlFotos = '';
     if ($com_foto)       $sqlFotos .= ", com_foto = '" . $this->dbname->real_escape_string($com_foto) . "'";
@@ -706,7 +667,8 @@ public function actualizarComparendo($datos) {
                 com_estado       = '$estado',
                 com_valor        = '$valor',
                 com_numerocompa  = '$numero',
-                com_titularcompa = '$titular'
+                com_titularcompa = '$titular',
+                com_observacion  = '$observacion'
                 {$sqlFotos}
             WHERE idcomparendos = $id";
 

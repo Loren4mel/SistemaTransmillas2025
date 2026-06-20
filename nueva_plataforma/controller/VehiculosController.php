@@ -115,8 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_comparendo'])
         'com_valor' => str_replace(['.', ','], ['', '.'], $_POST['com_valor']),
         'com_numerocompa' => $_POST['com_numerocompa'],
         'com_titularcompa'=> $_POST['com_titularcompa'],
+        'com_observacion' => $_POST['com_observacion'] ?? null,
     ];
-    
+
     $resultado = $modelo->guardarComparendo($datos);
     if (ob_get_length()) ob_clean();
     echo json_encode($resultado === true
@@ -134,6 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comparendo
         'com_valor' => str_replace(['.', ','], ['', '.'], $_POST['com_valor']),
         'com_numerocompa' => $_POST['com_numerocompa'],
         'com_titularcompa' => $_POST['com_titularcompa'],
+        'com_observacion' => $_POST['com_observacion'] ?? null,
     ];
     $resultado = $modelo->actualizarComparendo($datos);
     if (ob_get_length()) ob_clean();

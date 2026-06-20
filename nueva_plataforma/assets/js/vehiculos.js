@@ -175,9 +175,6 @@ $(document).ready(function () {
             { data: 'veh_kilactual' },
             { data: 'veh_kmactual_cambioaceite' },
 
-            // Columna "Límite Km cambio aceite" — usa datos calculados desde el backend (SQL)
-            // Fuente: veh_km_recorridos_aceite, veh_km_restantes_aceite (calculados en obtenerVehiculos())
-            // Columnas fuente de verdad: veh_kilactual, veh_kmactual_cambioaceite, veh_calkmcambioaceite
             {
                 data: null,
                 render: function (data, type, row) {
@@ -270,9 +267,7 @@ $(document).ready(function () {
                     title="Ver imagen completa">`;
                 }
             },
-
-
-
+            
             // Revisión de Comparendos
             {
                 data: null,
@@ -1378,6 +1373,27 @@ document.getElementById('modalEntregaVehiculo').addEventListener('hidden.bs.moda
     $('#ent_video_preview').hide();
 });
 
+// COMPARENDOS - Al cambiar el titular, condicionar la obligatoriedad del operador
+$(document).on('change', '#com_titularcompa', function () {
+    const titular = $(this).val();
+    const $operador = $('#com_operador_id');
+    const $asterisco = $('#asterisco_operador_comparendo');
+
+    if (titular === 'Operador') {
+        $asterisco.show();
+        $operador.attr('required', 'required');
+    } else if (titular === 'Empresa') {
+        $asterisco.hide();
+        $operador.removeAttr('required');
+        $operador.val('');          // limpiar selección previa
+        $('#infoHojaVida').hide();  // ocultar info de hoja de vida
+    } else {
+        // Sin selección: restaurar asterisco por defecto
+        $asterisco.show();
+        $operador.removeAttr('required');
+    }
+});
+
 // COMPARENDOS - Al seleccionar operador mostrar info de hoja de vida
 $(document).on('change', '#com_operador_id', function () {
     const idOp = $(this).val();
@@ -1418,13 +1434,15 @@ $(document).on('click', '#btnGuardarComparendo', function () {
     const numero = $('#com_numerocompa').val().trim();
     const titular = $('#com_titularcompa').val();
 
-    if (!operador) { Swal.fire('Error', 'Debe seleccionar un operador', 'error'); return; }
+    if (!titular) { Swal.fire('Error', 'Debe seleccionar el titular del comparendo', 'error'); return; }
+    if (titular === 'Operador' && !operador) {
+        Swal.fire('Error', 'Debe seleccionar un operador (el comparendo está a nombre del operador)', 'error'); return;
+    }
     if (!vehiculo) { Swal.fire('Error', 'Debe seleccionar un vehículo', 'error'); return; }
     if (!estado) { Swal.fire('Error', 'Debe seleccionar el estado del comparendo', 'error'); return; }
     if (!fecha) { Swal.fire('Error', 'Debe ingresar la fecha del comparendo', 'error'); return; }
     if (!valor) { Swal.fire('Error', 'Debe ingresar el valor del comparendo', 'error'); return; }
     if (!numero) { Swal.fire('Error', 'Debe ingresar el número del comparendo', 'error'); return; }
-    if (!titular) { Swal.fire('Error', 'Debe seleccionar el titular del comparendo', 'error'); return; }
 
     const inputFoto = document.getElementById('com_foto');
     if (inputFoto && inputFoto.files.length > 0) {
@@ -1480,6 +1498,9 @@ $(document).on('click', '#btnGuardarComparendo', function () {
                     });
                     $('#modalAgregarComparendo').modal('hide');
                     document.getElementById('formComparendo').reset();
+                    $('#asterisco_operador_comparendo').show();
+                    $('#com_operador_id').removeAttr('required');
+                    $('#contador_obs').text(0);
                     $('#infoHojaVida').hide();
                     if ($.fn.DataTable.isDataTable('#tablaVehiculos')) {
                         $('#tablaVehiculos').DataTable().ajax.reload(null, false);
@@ -1506,7 +1527,7 @@ $(document).on('click', '.btn-ver-comparendos', function () {
     window._idVehiculoComparendos = idVehiculo;
 
     $('#tituloPlacaComparendo').text(placa);
-    $('#cuerpoTablaComparendos').html('<tr><td colspan="10" class="text-muted">Cargando...</td></tr>');
+    $('#cuerpoTablaComparendos').html('<tr><td colspan="11" class="text-muted">Cargando...</td></tr>');
     $('#modalVerComparendos').modal('show');
 
     $.ajax({
@@ -1545,6 +1566,7 @@ function recargarTablaComparendos(res) {
             data-titular="${c.com_titularcompa ?? ''}"
             data-foto="${c.com_foto ?? ''}"
             data-fotocurso="${c.com_foto_curso ?? ''}"
+            data-observacion="${c.com_observacion ?? ''}"
             title="Clic para editar comparendo">
             Pagado &nbsp;<i class="fas fa-pen" style="font-size:10px;opacity:0.85;"></i>
         </span>`
@@ -1557,6 +1579,7 @@ function recargarTablaComparendos(res) {
             data-titular="${c.com_titularcompa ?? ''}"
             data-foto="${c.com_foto ?? ''}"
             data-fotocurso="${c.com_foto_curso ?? ''}"
+            data-observacion="${c.com_observacion ?? ''}"
             title="Clic para editar comparendo">
             Pendiente &nbsp;<i class="fas fa-pen" style="font-size:10px;opacity:0.85;"></i>
         </span>`;
@@ -1597,12 +1620,13 @@ function recargarTablaComparendos(res) {
                     <td>${c.com_titularcompa ?? '—'}</td>
                     <td>${foto}</td>
                     <td>${fotoCurso}</td>
+                    <td>${c.com_observacion ? c.com_observacion.length > 50 ? c.com_observacion.substring(0, 50) + '...' : c.com_observacion : '<span class="text-muted">—</span>'}</td>
                 </tr>
             `);
         });
 
     } catch (e) {
-        $('#cuerpoTablaComparendos').html('<tr><td colspan="10" class="text-danger">Error al cargar los datos</td></tr>');
+        $('#cuerpoTablaComparendos').html('<tr><td colspan="11" class="text-danger">Error al cargar los datos</td></tr>');
     }
 }
 
@@ -1615,12 +1639,17 @@ $(document).on('click', '.btn-editar-comparendo', function () {
     const titular = $(this).data('titular');
     const foto = $(this).data('foto');
     const fotoCurso = $(this).data('fotocurso');
+    const observacion = $(this).data('observacion');
 
     $('#edit_com_id').val(id);
     $('#edit_com_estado').val(estado);
     $('#edit_com_valor').val(valor ? Number(valor).toLocaleString('es-CO') : '');
     $('#edit_com_numerocompa').val(numero);
     $('#edit_com_titularcompa').val(titular);
+    $('#edit_com_observacion').val(observacion || '');
+    // Actualizar contador de caracteres al cargar
+    const obsLen = (observacion || '').length;
+    $('#edit_contador_obs').text(obsLen);
 
 
     // Preview foto comparendo
@@ -1665,6 +1694,18 @@ $(document).on('click', '.btn-editar-comparendo', function () {
 
     const modalEditar = new bootstrap.Modal(document.getElementById('modalEditarComparendo'));
     modalEditar.show();
+});
+
+// CONTADOR DE CARACTERES PARA OBSERVACIÓN (CREAR)
+$(document).on('input', '#com_observacion', function () {
+    const len = $(this).val().length;
+    $('#contador_obs').text(len);
+});
+
+// CONTADOR DE CARACTERES PARA OBSERVACIÓN (EDITAR)
+$(document).on('input', '#edit_com_observacion', function () {
+    const len = $(this).val().length;
+    $('#edit_contador_obs').text(len);
 });
 
 // GUARDAR CAMBIOS DEL COMPARENDO 
