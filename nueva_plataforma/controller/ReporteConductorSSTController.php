@@ -105,6 +105,10 @@ function handleAjaxRequest($model)
                 verificarSemana($model);
                 break;
 
+            case 'validar':
+                validarReporte($model);
+                break;
+
             default:
                 ErrorHandler::sendJsonResponse([
                     'success' => false,
@@ -142,6 +146,10 @@ function handleAjaxGetRequest($model)
 
             case 'resumen_semanal':
                 resumenSemanal($model);
+                break;
+
+            case 'detalle_vista':
+                detalleVista($model);
                 break;
 
             default:
@@ -546,6 +554,131 @@ function detalle($model)
     ErrorHandler::sendJsonResponse([
         'success' => true,
         'data'    => $reporte,
+    ]);
+}
+
+/**
+ * Obtiene el detalle completo de un reporte para la vista de revisión
+ *
+ * Endpoint para el popup de detalle desde Seguimiento Vehicular.
+ * Retorna todos los datos necesarios para mostrar el detalle y,
+ * si el usuario es admin, habilitar los controles de validación.
+ *
+ * Parámetros GET:
+ *   - id (int): ID del reporte
+ *
+ * @param ReporteConductorSSTModel $model Instancia del modelo
+ */
+function detalleVista($model)
+{
+    $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+    if ($id <= 0) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'ID de reporte inválido'
+        ], 400);
+    }
+
+    $reporte = $model->obtenerReporteCompleto($id);
+
+    if ($reporte === null) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Reporte no encontrado'
+        ], 404);
+    }
+
+    // Determinar si el usuario actual puede validar
+    $rolActual = (int) ($_SESSION['usuario_rol'] ?? 0);
+    $puedeValidar = in_array($rolActual, ReporteConductorSSTModel::ROLES_VALIDADOR, true);
+
+    ErrorHandler::sendJsonResponse([
+        'success'       => true,
+        'data'          => $reporte,
+        'puede_validar' => $puedeValidar,
+        'usuario_actual' => [
+            'id'     => (int) $_SESSION['usuario_id'],
+            'nombre' => $_SESSION['usuario_nombre'] ?? '',
+        ],
+    ]);
+}
+
+/**
+ * Valida un reporte SST — cambia estado y registra comentario del validador
+ *
+ * Solo accesible por roles administradores (1, 12).
+ * El comentario se guarda con prefijo automático: "NombreValidador - comentario"
+ *
+ * Parámetros POST:
+ *   - id         (int):    ID del reporte
+ *   - estado     (string): Nuevo estado ('pendiente', 'revisado', 'resuelto')
+ *   - comentario (string): Comentario del validador (se prefija automáticamente)
+ *
+ * @param ReporteConductorSSTModel $model Instancia del modelo
+ */
+function validarReporte($model)
+{
+    $rolActual = (int) ($_SESSION['usuario_rol'] ?? 0);
+    if (!in_array($rolActual, ReporteConductorSSTModel::ROLES_VALIDADOR, true)) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Acceso denegado. Solo administradores pueden validar reportes.'
+        ], 403);
+    }
+
+    $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+    $estado = $_POST['estado'] ?? '';
+    $comentarioRaw = trim($_POST['comentario'] ?? '');
+
+    if ($id <= 0) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'ID de reporte inválido'
+        ], 400);
+    }
+
+    if (!in_array($estado, ReporteConductorSSTModel::ESTADOS_VALIDOS, true)) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Estado no válido. Use: ' . implode(', ', ReporteConductorSSTModel::ESTADOS_VALIDOS)
+        ], 400);
+    }
+
+    // Verificar que el reporte existe
+    $reporte = $model->obtenerReportePorId($id);
+    if ($reporte === null) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Reporte no encontrado'
+        ], 404);
+    }
+
+    // Auto-prefijar comentario con nombre del validador (patrón preoperacional)
+    $nombreValidador = $_SESSION['usuario_nombre'] ?? 'Sistema';
+    $comentarioFinal = $nombreValidador;
+    if (!empty($comentarioRaw)) {
+        $comentarioFinal .= " - " . $comentarioRaw;
+    }
+
+    $idValidador = (int) $_SESSION['usuario_id'];
+
+    $ok = $model->cambiarEstado($id, $estado, $idValidador, $comentarioFinal);
+
+    if (!$ok) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Error al actualizar el reporte en la base de datos'
+        ], 500);
+    }
+
+    ErrorHandler::sendJsonResponse([
+        'success'           => true,
+        'message'           => 'Reporte validado correctamente',
+        'estado'            => $estado,
+        'comentario'        => $comentarioFinal,
+        'fecha_validacion'  => date('Y-m-d H:i:s'),
+        'validador_nombre'  => $nombreValidador,
     ]);
 }
 

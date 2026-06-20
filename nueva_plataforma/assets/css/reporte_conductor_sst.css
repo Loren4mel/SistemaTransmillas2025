@@ -8,10 +8,6 @@
 
 /* ==================== PANEL INFORMATIVO DEL CONDUCTOR ==================== */
 
-.rcsst-conductor-card .preop-card-header {
-    /* Verde oscuro — ya definido inline en el HTML */
-}
-
 .rcsst-conductor-grid {
     display: flex;
     flex-wrap: wrap;
@@ -494,5 +490,382 @@
     .rcsst-guia-list li {
         font-size: 10px;
         padding: 5px 8px;
+    }
+}
+
+/* ==================== POPUP DETALLE SST ==================== */
+
+.sst-detalle-container {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+/* --- Cabecera --- */
+
+.sst-detalle-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.sst-detalle-tipo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sst-detalle-fecha {
+    font-size: 13px;
+    color: #888;
+}
+
+.sst-badge {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+}
+
+.sst-badge--accidente {
+    background: #fdecec;
+    color: #b42318;
+    border: 1px solid rgba(180, 35, 24, 0.15);
+}
+
+.sst-badge--comparendo {
+    background: #fff4e5;
+    color: #b54708;
+    border: 1px solid rgba(181, 71, 8, 0.15);
+}
+
+/* --- Estado --- */
+
+.sst-estado {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.3px;
+}
+
+.sst-estado--pendiente {
+    background: #fff4e5;
+    color: #b54708;
+    border: 1px solid rgba(181, 71, 8, 0.15);
+}
+
+.sst-estado--revisado {
+    background: #e3f2fd;
+    color: #0d47a1;
+    border: 1px solid rgba(13, 71, 161, 0.15);
+}
+
+.sst-estado--resuelto {
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid rgba(27, 94, 32, 0.15);
+}
+
+/* --- Secciones --- */
+
+.sst-detalle-section {
+    margin-bottom: 18px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 12px;
+}
+
+.sst-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #444;
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.sst-section-title i {
+    color: #074F91;
+    font-size: 14px;
+}
+
+/* --- Grid de información --- */
+
+.sst-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.sst-info-grid--4col {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.sst-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.sst-info-label {
+    font-size: 10px;
+    color: #999;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.sst-info-value {
+    font-size: 13px;
+    color: #333;
+    font-weight: 600;
+}
+
+.sst-placa-badge {
+    display: inline-block;
+    background: rgba(46, 125, 50, 0.08);
+    color: #2E7D32;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+
+/* --- Observación --- */
+
+.sst-observacion-box {
+    background: #fafafa;
+    border-left: 4px solid #ff9800;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #444;
+    line-height: 1.6;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* --- Grid de evidencia --- */
+
+.sst-evidencia-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+}
+
+.sst-evidencia-item {
+    aspect-ratio: 1;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sst-evidencia-item:hover {
+    transform: scale(1.03);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sst-evidencia-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    text-decoration: none;
+    background: #fafafa;
+}
+
+.sst-evidencia-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.sst-evidencia-link--pdf {
+    flex-direction: column;
+    gap: 4px;
+    background: #fce4ec;
+}
+
+.sst-evidencia-pdf-icon {
+    font-size: 28px;
+}
+
+.sst-evidencia-pdf-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #c62828;
+    text-transform: uppercase;
+}
+
+.sst-evidencia-link--generic {
+    background: #e3f2fd;
+}
+
+.sst-evidencia-generic-icon {
+    font-size: 28px;
+}
+
+/* --- Historial de validación --- */
+
+.sst-validacion-historial {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sst-validacion-entry {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.sst-validacion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.sst-validacion-user {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+
+.sst-validacion-fecha {
+    font-size: 11px;
+    color: #999;
+}
+
+.sst-validacion-comentario {
+    font-size: 12px;
+    color: #555;
+    line-height: 1.5;
+}
+
+/* --- Panel de validación (admin) --- */
+
+.sst-validacion-panel {
+    background: #f8fbff;
+    border-color: rgba(7, 79, 145, 0.12);
+}
+
+.sst-validacion-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sst-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.sst-form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+}
+
+.sst-form-label small {
+    font-weight: 400;
+    font-size: 11px;
+}
+
+.sst-form-select {
+    padding: 8px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fff;
+    color: #333;
+    transition: border-color 0.15s ease;
+}
+
+.sst-form-select:focus {
+    outline: none;
+    border-color: #074F91;
+}
+
+.sst-form-textarea {
+    padding: 10px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 70px;
+    transition: border-color 0.15s ease;
+}
+
+.sst-form-textarea:focus {
+    outline: none;
+    border-color: #074F91;
+}
+
+.sst-btn-validar {
+    align-self: flex-end;
+    padding: 10px 22px;
+    background: #074F91;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.sst-btn-validar:hover {
+    background: #063d6f;
+    transform: translateY(-1px);
+}
+
+.sst-btn-validar:active {
+    transform: translateY(0);
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 768px) {
+    .sst-info-grid,
+    .sst-info-grid--4col {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .sst-detalle-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .sst-evidencia-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .sst-info-grid,
+    .sst-info-grid--4col {
+        grid-template-columns: 1fr;
     }
 }

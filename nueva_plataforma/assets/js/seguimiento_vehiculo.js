@@ -355,42 +355,60 @@
         $('#sstHistorialTable').show();
         $('#sstHistorialEmpty').hide();
 
+        // Mapeo de gravedad — unificado para ambos tipos
         var gravedadLabels = {
-            '1': { label: 'Leve', color: '#1e7f4f' },
-            '2': { label: 'Moderado', color: '#b54708' },
-            '3': { label: 'Grave', color: '#b42318' },
-            '4': { label: 'Critico', color: '#7f1d1d' }
+            1: { label: 'Leve / Normal', color: '#1e7f4f' },
+            2: { label: 'Moderado / Media', color: '#b54708' },
+            3: { label: 'Grave / Alta', color: '#b42318' },
+            4: { label: 'Crítico', color: '#7f1d1d' }
         };
         var estadoBadge = {
-            'pendiente': '<span style="background-color:#fff4e5;color:#b54708;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">Pendiente</span>',
-            'revisado': '<span style="background-color:#e8f2ec;color:#1e7f4f;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">Revisado</span>'
+            'pendiente': '<span style="background-color:#fff4e5;color:#b54708;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">⏳ Pendiente</span>',
+            'revisado': '<span style="background-color:#e3f2fd;color:#0d47a1;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">✅ Revisado</span>',
+            'resuelto': '<span style="background-color:#e8f5e9;color:#1b5e20;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">✔️ Resuelto</span>'
         };
         var tipoBadge = {
             'accidente': '<span style="background-color:#fdecec;color:#b42318;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">🚨 Accidente</span>',
             'comparendo': '<span style="background-color:#fff4e5;color:#b54708;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">📋 Comparendo</span>'
         };
 
+        var baseUrl = (window.APP_BASE_URL || '');
         var tbody = '';
         for (var i = 0; i < reportes.length; i++) {
             var r = reportes[i];
-            var grav = gravedadLabels[r.gravedad] || { label: r.gravedad || '—', color: '#888' };
+            var gNum = parseInt(r.gravedad, 10);
+            var grav = gravedadLabels[gNum] || { label: (r.gravedad || '—'), color: '#888' };
             var respuestaBadge = (r.respuesta === 'si')
-                ? '<span style="color:#b42318;font-weight:700;">⚠️ Sí</span>'
-                : '<span style="color:#1e7f4f;">No</span>';
+                ? '<span style="color:#c62828;font-weight:700;">⚠️ Sí</span>'
+                : '<span style="color:#2e7d32;">✅ No</span>';
 
-            // Archivos
+            // Archivos — mostrar miniaturas para imágenes
             var archivosHtml = '—';
             if (r.archivos && r.archivos.length > 0) {
-                archivosHtml = '';
-                for (var a = 0; a < r.archivos.length; a++) {
+                archivosHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
+                for (var a = 0; a < Math.min(r.archivos.length, 4); a++) {
                     var arch = r.archivos[a];
-                    var icono = '📄';
-                    if (arch.doc_ruta && arch.doc_ruta.match(/\.(jpg|jpeg|png|gif|webp)$/i)) icono = '🖼️';
-                    if (arch.doc_ruta && arch.doc_ruta.match(/\.pdf$/i)) icono = '📎';
-                    archivosHtml += '<a href="' + (window.APP_BASE_URL || '') + '/' +
-                        escHtml(arch.doc_ruta) + '" target="_blank" title="' +
-                        escHtml(arch.doc_nombre || 'Archivo') + '" class="me-1">' + icono + '</a>';
+                    var ruta = arch.doc_ruta || '';
+                    var esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(ruta);
+                    var urlArchivo = baseUrl + '/' + ruta.replace(/^\/+/, '');
+                    if (esImagen) {
+                        archivosHtml += '<a href="' + escHtml(urlArchivo) + '" target="_blank" ' +
+                            'title="' + escHtml(arch.doc_nombre || 'Imagen') + '">' +
+                            '<img src="' + escHtml(urlArchivo) + '" ' +
+                            'style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #e0e0e0;" ' +
+                            'loading="lazy"></a>';
+                    } else {
+                        archivosHtml += '<a href="' + escHtml(urlArchivo) + '" target="_blank" ' +
+                            'title="' + escHtml(arch.doc_nombre || 'Archivo') + '" ' +
+                            'style="display:inline-flex;align-items:center;justify-content:center;' +
+                            'width:36px;height:36px;border-radius:6px;background:#f5f5f5;' +
+                            'text-decoration:none;font-size:16px;">📄</a>';
+                    }
                 }
+                if (r.archivos.length > 4) {
+                    archivosHtml += '<span style="font-size:10px;color:#999;align-self:center;">+' + (r.archivos.length - 4) + '</span>';
+                }
+                archivosHtml += '</div>';
             }
 
             tbody += '<tr>' +
@@ -398,14 +416,279 @@
                 '<td>' + escHtml(r.usu_nombre || '—') + '</td>' +
                 '<td><span style="font-family:monospace;font-size:11px;">' + escHtml(r.veh_placa || '—') + '</span></td>' +
                 '<td>' + (tipoBadge[r.tipo] || escHtml(r.tipo)) + '</td>' +
-                '<td>' + escHtml(r.tipo_evento === 'semanal' ? 'Semanal' : 'Momento') + '</td>' +
-                '<td class="text-center"><span style="color:' + grav.color + ';font-weight:600;">' + grav.label + '</span></td>' +
+                '<td>' + escHtml(r.tipo_evento === 'semanal' ? '📅 Semanal' : '⚡ Momento') + '</td>' +
+                '<td class="text-center"><span style="color:' + grav.color + ';font-weight:600;font-size:11px;">' + grav.label + '</span></td>' +
                 '<td class="text-center">' + respuestaBadge + '</td>' +
                 '<td class="text-center">' + (estadoBadge[r.estado] || escHtml(r.estado)) + '</td>' +
                 '<td class="text-center">' + archivosHtml + '</td>' +
+                '<td class="text-center">' +
+                    '<button type="button" class="btn btn-sm btn-outline-primary sst-ver-detalle" ' +
+                        'data-id="' + r.id + '" title="Ver detalle" ' +
+                        'style="padding:2px 8px;font-size:11px;">' +
+                        '<i class="fas fa-eye"></i> Ver' +
+                    '</button>' +
+                '</td>' +
                 '</tr>';
         }
         $('#sstHistorialBody').html(tbody);
+
+        // Bind click en botones "Ver"
+        $('#sstHistorialBody').find('.sst-ver-detalle').off('click').on('click', function () {
+            var idReporte = $(this).data('id');
+            cargarDetalleSST(idReporte);
+        });
+    }
+
+    /** Carga y muestra el popup de detalle de un reporte SST */
+    function cargarDetalleSST(id) {
+        var sstEndpoint = (window.APP_BASE_URL || '') + '/controller/ReporteConductorSSTController.php';
+
+        // Mostrar loading
+        Swal.fire({
+            title: 'Cargando detalle...',
+            html: '<div class="spinner-border text-primary" role="status"></div>',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            willOpen: function () {
+                Swal.showLoading();
+            }
+        });
+
+        $.get(sstEndpoint, { ajax: 'detalle_vista', id: id })
+            .done(function (resp) {
+                if (!resp.success) {
+                    Swal.fire({
+                        title: 'Error',
+                        text: resp.message || 'Error al cargar el detalle',
+                        icon: 'error'
+                    });
+                    return;
+                }
+
+                var d = resp.data;
+                var puedeValidar = resp.puede_validar;
+                var usuarioNombre = (resp.usuario_actual && resp.usuario_actual.nombre) || '';
+
+                var html = buildDetalleHTML(d, puedeValidar, usuarioNombre);
+
+                Swal.fire({
+                    title: 'Detalle del Reporte SST',
+                    html: html,
+                    width: '800px',
+                    showCloseButton: true,
+                    showConfirmButton: false,
+                    customClass: {
+                        popup: 'sst-detalle-swal'
+                    },
+                    didOpen: function () {
+                        $('#sstValidarBtn').on('click', function () {
+                            validarReporteSST(id);
+                        });
+                    }
+                });
+            })
+            .fail(function () {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error de conexión al cargar el detalle',
+                    icon: 'error'
+                });
+            });
+    }
+
+    /** Construye el HTML del detalle del reporte */
+    function buildDetalleHTML(d, puedeValidar, usuarioNombre) {
+        var estado = d.estado || 'pendiente';
+        var estadoClase = {
+            'pendiente': 'sst-estado--pendiente',
+            'revisado': 'sst-estado--revisado',
+            'resuelto': 'sst-estado--resuelto'
+        }[estado] || 'sst-estado--pendiente';
+        var estadoLabel = {
+            'pendiente': '⏳ Pendiente',
+            'revisado': '✅ Revisado',
+            'resuelto': '✔️ Resuelto'
+        }[estado] || 'Pendiente';
+
+        var gravLabels = {
+            1: { text: 'Leve / Normal', color: '#1e7f4f' },
+            2: { text: 'Moderado / Media', color: '#b54708' },
+            3: { text: 'Grave / Alta', color: '#b42318' },
+            4: { text: 'Crítico', color: '#7f1d1d' }
+        };
+        var gNum = parseInt(d.gravedad, 10);
+        var grav = gravLabels[gNum] || { text: d.gravedad || '—', color: '#888' };
+
+        var tipoBadge = d.tipo === 'accidente'
+            ? '<span class="sst-badge sst-badge--accidente">🚨 Accidente</span>'
+            : '<span class="sst-badge sst-badge--comparendo">📋 Comparendo</span>';
+
+        var respuestaHtml = (d.respuesta === 'si')
+            ? '<span style="color:#c62828;font-weight:700;">⚠️ Sí</span>'
+            : '<span style="color:#2e7d32;">✅ No</span>';
+
+        var baseUrl = (window.APP_BASE_URL || '');
+
+        // Archivos
+        var archivos = d.archivos || [];
+        var archivosHtml = '';
+        if (archivos.length === 0) {
+            archivosHtml = '<p class="text-muted small">Sin archivos adjuntos.</p>';
+        } else {
+            archivosHtml = '<div class="sst-evidencia-grid">';
+            for (var i = 0; i < archivos.length; i++) {
+                var a = archivos[i];
+                var ruta = a.doc_ruta || '';
+                var nombre = a.doc_nombre || 'Archivo';
+                var esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(ruta);
+                var esPDF = /\.pdf$/i.test(ruta);
+                var urlArchivo = baseUrl + '/' + ruta.replace(/^\/+/, '');
+                if (esImagen) {
+                    archivosHtml += '<div class="sst-evidencia-item">' +
+                        '<a href="' + escHtml(urlArchivo) + '" target="_blank" class="sst-evidencia-link" title="' + escHtml(nombre) + '">' +
+                        '<img src="' + escHtml(urlArchivo) + '" alt="' + escHtml(nombre) + '" class="sst-evidencia-thumb" loading="lazy">' +
+                        '</a></div>';
+                } else if (esPDF) {
+                    archivosHtml += '<div class="sst-evidencia-item">' +
+                        '<a href="' + escHtml(urlArchivo) + '" target="_blank" class="sst-evidencia-link sst-evidencia-link--pdf" title="' + escHtml(nombre) + '">' +
+                        '<div class="sst-evidencia-pdf-icon">📄</div><span class="sst-evidencia-pdf-label">PDF</span>' +
+                        '</a></div>';
+                } else {
+                    archivosHtml += '<div class="sst-evidencia-item">' +
+                        '<a href="' + escHtml(urlArchivo) + '" target="_blank" class="sst-evidencia-link sst-evidencia-link--generic" title="' + escHtml(nombre) + '">' +
+                        '<div class="sst-evidencia-generic-icon">📎</div>' +
+                        '</a></div>';
+                }
+            }
+            archivosHtml += '</div>';
+        }
+
+        // Historial de validación
+        var validacionHtml = '';
+        if (d.comentario_validador || d.validador_nombre) {
+            validacionHtml = '<div class="sst-detalle-section">' +
+                '<h4 class="sst-section-title"><i class="fas fa-history"></i> Historial de Validación</h4>' +
+                '<div class="sst-validacion-historial">' +
+                '<div class="sst-validacion-entry">' +
+                '<div class="sst-validacion-header">' +
+                '<span class="sst-validacion-user"><i class="fas fa-user-check"></i> ' + escHtml(d.validador_nombre || 'Sistema') + '</span>';
+            if (d.fecha_validacion) {
+                validacionHtml += '<span class="sst-validacion-fecha"><i class="far fa-clock"></i> ' + escHtml(d.fecha_validacion) + '</span>';
+            }
+            validacionHtml += '</div>';
+            if (d.comentario_validador && d.comentario_validador.trim()) {
+                validacionHtml += '<div class="sst-validacion-comentario">' + escHtml(d.comentario_validador).replace(/\n/g, '<br>') + '</div>';
+            }
+            validacionHtml += '</div></div></div>';
+        }
+
+        // Panel de validación
+        var panelValidacionHtml = '';
+        if (puedeValidar) {
+            var selPendiente = estado === 'pendiente' ? ' selected' : '';
+            var selRevisado = estado === 'revisado' ? ' selected' : '';
+            var selResuelto = estado === 'resuelto' ? ' selected' : '';
+            panelValidacionHtml = '<div class="sst-detalle-section sst-validacion-panel">' +
+                '<h4 class="sst-section-title"><i class="fas fa-check-double"></i> Validar Reporte</h4>' +
+                '<div class="sst-validacion-form">' +
+                '<div class="sst-form-group">' +
+                '<label class="sst-form-label">Cambiar estado a:</label>' +
+                '<select id="sstValidarEstado" class="sst-form-select">' +
+                '<option value="pendiente"' + selPendiente + '>⏳ Pendiente</option>' +
+                '<option value="revisado"' + selRevisado + '>✅ Revisado</option>' +
+                '<option value="resuelto"' + selResuelto + '>✔️ Resuelto</option>' +
+                '</select></div>' +
+                '<div class="sst-form-group">' +
+                '<label class="sst-form-label">Comentario de validación: ' +
+                '<small class="text-muted">(Tu nombre <strong>' + escHtml(usuarioNombre) + '</strong> se añadirá automáticamente)</small></label>' +
+                '<textarea id="sstValidarComentario" class="sst-form-textarea" rows="3" ' +
+                'placeholder="Describa el resultado de la revisión..."></textarea></div>' +
+                '<button type="button" id="sstValidarBtn" class="sst-btn-validar">' +
+                '<i class="fas fa-save"></i> Guardar Validación</button>' +
+                '</div></div>';
+        }
+
+        // Ensamblar HTML completo
+        return '<div class="sst-detalle-container">' +
+            '<div class="sst-detalle-header">' +
+            '<div class="sst-detalle-tipo">' + tipoBadge +
+            '<span class="sst-detalle-fecha"><i class="far fa-calendar-alt"></i> ' + formatFecha(d.fecha) + '</span></div>' +
+            '<div class="sst-detalle-estado"><span class="sst-estado ' + estadoClase + '">' + estadoLabel + '</span></div>' +
+            '</div>' +
+
+            '<div class="sst-detalle-section">' +
+            '<h4 class="sst-section-title"><i class="fas fa-user"></i> Conductor</h4>' +
+            '<div class="sst-info-grid">' +
+            '<div class="sst-info-item"><span class="sst-info-label">Nombre</span><span class="sst-info-value">' + escHtml(d.conductor_nombre || '—') + '</span></div>' +
+            '<div class="sst-info-item"><span class="sst-info-label">Cédula</span><span class="sst-info-value">' + escHtml(d.conductor_cedula || '—') + '</span></div>' +
+            '<div class="sst-info-item"><span class="sst-info-label">Vehículo</span><span class="sst-info-value sst-placa-badge">' + escHtml(d.veh_placa || '—') + '</span></div>' +
+            '</div></div>' +
+
+            '<div class="sst-detalle-section">' +
+            '<h4 class="sst-section-title"><i class="fas fa-clipboard-list"></i> Detalle del Reporte</h4>' +
+            '<div class="sst-info-grid sst-info-grid--4col">' +
+            '<div class="sst-info-item"><span class="sst-info-label">Tipo de Evento</span><span class="sst-info-value">' + (d.tipo_evento === 'semanal' ? '📅 Semanal' : '⚡ En el momento') + '</span></div>' +
+            '<div class="sst-info-item"><span class="sst-info-label">¿Ocurrió?</span><span class="sst-info-value">' + respuestaHtml + '</span></div>' +
+            '<div class="sst-info-item"><span class="sst-info-label">Gravedad</span><span class="sst-info-value"><span style="color:' + grav.color + ';font-weight:600;">' + grav.text + '</span></span></div>' +
+            '<div class="sst-info-item"><span class="sst-info-label">Ubicación GPS</span><span class="sst-info-value" style="font-family:monospace;font-size:12px;">' + escHtml(d.ubicacion || '—') + '</span></div>' +
+            '</div></div>' +
+
+            (d.observacion && d.observacion.trim() ?
+            '<div class="sst-detalle-section">' +
+            '<h4 class="sst-section-title"><i class="fas fa-comment-alt"></i> Observación del Conductor</h4>' +
+            '<div class="sst-observacion-box">' + escHtml(d.observacion).replace(/\n/g, '<br>') + '</div></div>' : '') +
+
+            '<div class="sst-detalle-section">' +
+            '<h4 class="sst-section-title"><i class="fas fa-paperclip"></i> Evidencia (' + archivos.length + ' archivo' + (archivos.length !== 1 ? 's' : '') + ')</h4>' +
+            archivosHtml + '</div>' +
+
+            validacionHtml +
+            panelValidacionHtml +
+            '</div>';
+    }
+
+    /** Envía la validación de un reporte SST */
+    function validarReporteSST(id) {
+        var sstEndpoint = (window.APP_BASE_URL || '') + '/controller/ReporteConductorSSTController.php';
+        var estado = $('#sstValidarEstado').val();
+        var comentario = $('#sstValidarComentario').val().trim();
+
+        if (!estado) {
+            Swal.fire({ title: 'Atención', text: 'Seleccione un estado', icon: 'warning' });
+            return;
+        }
+
+        var btn = $('#sstValidarBtn');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
+
+        $.post(sstEndpoint, {
+            accion: 'validar',
+            id: id,
+            estado: estado,
+            comentario: comentario
+        })
+        .done(function (resp) {
+            if (!resp.success) {
+                Swal.fire({ title: 'Error', text: resp.message || 'Error al validar', icon: 'error' });
+                btn.prop('disabled', false).html('<i class="fas fa-save"></i> Guardar Validación');
+                return;
+            }
+            Swal.fire({
+                title: 'Validación guardada',
+                text: 'El reporte ha sido actualizado correctamente.',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            setTimeout(function () {
+                Swal.close();
+                cargarHistorialSST();
+            }, 1500);
+        })
+        .fail(function () {
+            Swal.fire({ title: 'Error', text: 'Error de conexión al validar', icon: 'error' });
+            btn.prop('disabled', false).html('<i class="fas fa-save"></i> Guardar Validación');
+        });
     }
 
     /** Inicializa el popup de consulta SST despues de cargar el HTML */
@@ -1093,6 +1376,8 @@
     window.initConsultaSST = initConsultaSST;
     window.cargarResumenSemanal = cargarResumenSemanal;
     window.cargarHistorialSST = cargarHistorialSST;
+    window.cargarDetalleSST = cargarDetalleSST;
+    window.validarReporteSST = validarReporteSST;
     window.irAHistorialDesdeResumen = irAHistorialDesdeResumen;
 
     if (document.readyState === 'loading') {

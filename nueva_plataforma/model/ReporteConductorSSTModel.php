@@ -16,7 +16,8 @@ class ReporteConductorSSTModel
     // === CONSTANTES ===
     const TIPOS_VALIDOS = ['accidente', 'comparendo'];
     const TIPOS_EVENTO_VALIDOS = ['semanal', 'momento'];
-    const ESTADOS_VALIDOS = ['pendiente', 'revisado'];
+    const ESTADOS_VALIDOS = ['pendiente', 'revisado', 'resuelto'];
+    const ROLES_VALIDADOR = [1, 12];
     const TIPO_TO_VERSION = [
         'accidente'  => 1,
         'comparendo' => 2,
@@ -491,27 +492,34 @@ class ReporteConductorSSTModel
     // ==================== ACTUALIZACION ====================
 
     /**
-     * Cambia el estado de un reporte
+     * Cambia el estado de un reporte y registra quién validó
      *
-     * @param int $id ID del reporte
-     * @param string $estado Nuevo estado ('pendiente' o 'revisado')
-     * @return bool True si la actualizacion fue exitosa
+     * @param int    $id           ID del reporte
+     * @param string $estado       Nuevo estado ('pendiente', 'revisado', 'resuelto')
+     * @param int    $idValidador  ID del usuario que valida
+     * @param string $comentario   Comentario del validador (ya incluye prefijo de nombre)
+     * @return bool True si la actualización fue exitosa
      */
-    public function cambiarEstado($id, $estado)
+    public function cambiarEstado($id, $estado, $idValidador = null, $comentario = null)
     {
         if (!in_array($estado, self::ESTADOS_VALIDOS, true)) {
             error_log("ReporteConductorSSTModel: cambiarEstado - Estado invalido: $estado");
             return false;
         }
 
-        $sql = "UPDATE reporte_conductor_sst SET estado = ?, actualizado_en = NOW() WHERE id = ?";
+        $sql = "UPDATE reporte_conductor_sst
+                SET estado = ?,
+                    id_validador = ?,
+                    comentario_validador = ?,
+                    fecha_validacion = NOW()
+                WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         if (!$stmt) {
             error_log("ReporteConductorSSTModel: cambiarEstado - Error preparando SQL: " . $this->db->error);
             return false;
         }
 
-        $stmt->bind_param("si", $estado, $id);
+        $stmt->bind_param("sisi", $estado, $idValidador, $comentario, $id);
         $result = $stmt->execute();
 
         if (!$result) {
@@ -519,6 +527,35 @@ class ReporteConductorSSTModel
         }
 
         return $result;
+    }
+
+    /**
+     * Obtiene un reporte completo con datos de conductor, vehículo, validador y archivos
+     *
+     * @param int $id ID del reporte
+     * @return array|null Datos completos del reporte o null
+     */
+    public function obtenerReporteCompleto($id)
+    {
+        $sql = "SELECT rcs.*,
+                       u.usu_nombre AS conductor_nombre,
+                       u.usu_identificacion AS conductor_cedula,
+                       v.veh_placa,
+                       val.usu_nombre AS validador_nombre
+                FROM reporte_conductor_sst rcs
+                LEFT JOIN usuarios u ON u.idusuarios = rcs.id_usuario
+                LEFT JOIN vehiculos v ON v.idvehiculos = rcs.id_vehiculo
+                LEFT JOIN usuarios val ON val.idusuarios = rcs.id_validador
+                WHERE rcs.id = ?
+                LIMIT 1";
+
+        $reporte = $this->executeQuery($sql, "i", [$id]);
+
+        if ($reporte) {
+            $reporte['archivos'] = $this->obtenerArchivos($id);
+        }
+
+        return $reporte;
     }
 
     // ==================== GESTION DE ARCHIVOS ====================
