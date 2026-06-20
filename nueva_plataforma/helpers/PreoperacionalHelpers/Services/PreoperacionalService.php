@@ -1297,30 +1297,6 @@ class PreoperacionalService
                 }
             }
 
-            // Si el estado NO es OPTIMO y las observaciones están vacías, auto-generar
-            // una observación descriptiva a partir de las preguntas respondidas "NO" (valor '2').
-            // Esto garantiza que todo "CON NOVEDADES" tenga un contexto visible en el seguimiento.
-            if (in_array($estadoGeneralSeguimiento, ['CON_NOVEDADES', 'FUERA_DE_SERVICIO'])
-                && empty(trim($observacionSeguimiento ?? ''))) {
-                $itemsFallidos = [];
-                $codigosExcluir = ['ubicacion', 'firma_documento_id', 'inspeccion_documento_id',
-                                   'temperatura_documento_id'];
-                foreach ($datosEncuesta as $codigo => $valor) {
-                    if (in_array($codigo, $codigosExcluir)) continue;
-                    if ($valor == '2') {
-                        $itemsFallidos[] = $codigo;
-                    }
-                }
-                if (!empty($itemsFallidos)) {
-                    $textosPreguntas = $this->model->obtenerTextoPorCodigos($itemsFallidos);
-                    $descripciones = [];
-                    foreach ($itemsFallidos as $codigo) {
-                        $descripciones[] = $textosPreguntas[$codigo] ?? $codigo;
-                    }
-                    $observacionSeguimiento = 'Preoperacional — ítems con novedad: ' . implode('; ', $descripciones);
-                }
-            }
-
             $datosSeg = [
                 'tipo_evento' => 'PREOPERACIONAL',
                 'metadata_evento' => null,
