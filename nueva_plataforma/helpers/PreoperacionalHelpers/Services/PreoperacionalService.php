@@ -922,13 +922,25 @@ class PreoperacionalService
             ];
         } else {
             // El vehículo NO puede ser operado — registrar FUERA_DE_SERVICIO
+
+            // Obtener la firma del conductor desde el preoperacional vinculado
+            // para asociarla automáticamente a las entregas (final e inicial).
+            $firmaRutaDesdePreop = '';
+            if ($idPreopVinculado) {
+                $firmaDoc = $this->model->obtenerDocumentoFirma($idPreopVinculado);
+                if ($firmaDoc && !empty($firmaDoc['doc_ruta'])) {
+                    $firmaRutaDesdePreop = $firmaDoc['doc_ruta'];
+                }
+            }
+
             // Crear entrega FINAL (salida) para el vehículo actual
             $idEntregaFinal = null;
             if (!empty($fotos['salida_frente']) || !empty($fotos['salida_trasera'])) {
                 $idEntregaFinal = $this->crearEntregaVehiculoNovedad(
                     $idVehiculoActual, $idUsuario,
                     $fotos['salida_frente'], $fotos['salida_trasera'],
-                    $observaciones, 'final'
+                    $observaciones, 'final',
+                    $firmaRutaDesdePreop
                 );
             }
 
@@ -948,7 +960,8 @@ class PreoperacionalService
                     $idEntregaInicial = $this->crearEntregaVehiculoNovedad(
                         $idVehiculoNuevo, $idUsuario,
                         $fotos['entrada_frente'], $fotos['entrada_trasera'],
-                        $observaciones, 'inicial'
+                        $observaciones, 'inicial',
+                        $firmaRutaDesdePreop
                     );
                 }
             } else {
@@ -1721,7 +1734,7 @@ class PreoperacionalService
      * @param string $tipoEntrega 'final' o 'inicial'
      * @return int|null ID del registro insertado o null si falló
      */
-    private function crearEntregaVehiculoNovedad($idVehiculo, $idUsuario, $fotoFrente, $fotoTrasera, $observaciones, $tipoEntrega)
+    private function crearEntregaVehiculoNovedad($idVehiculo, $idUsuario, $fotoFrente, $fotoTrasera, $observaciones, $tipoEntrega, $firmaRuta = '')
     {
         $vehiculoModel = new VehiculosModel();
         $datosVehiculo = $vehiculoModel->obtenerVehiculoPorId($idVehiculo);
@@ -1753,7 +1766,7 @@ class PreoperacionalService
             'ent_img_trasera'       => $fotoTrasera,
             'ent_equipo_carretera'  => $equipoJson,
             'ent_observaciones'     => $observaciones,
-            'ent_firma'             => '' // Se llenará en validación
+            'ent_firma'             => $firmaRuta // Firma del conductor desde el preoperacional vinculado
         ];
 
         $resultado = $this->model->insertarEntregaVehiculo($datos);

@@ -424,7 +424,7 @@ class PreoperacionalNovedadHelper
             $html .= '<h5 class="entrega-section-label"><i class="fas fa-images"></i> EVIDENCIA FOTOGRÁFICA DE LA NOVEDAD</h5>';
             $html .= '<div class="row">';
             foreach ($fotosEvidencia as $ruta) {
-                $url = '../../' . ltrim(str_replace('\\', '/', $ruta), '/');
+                $url = '../' . ltrim(str_replace('\\', '/', $ruta), '/');
                 $html .= '<div class="col-md-4 col-sm-6 mb-3">';
                 $html .= '<a href="' . htmlspecialchars($url) . '" target="_blank">';
                 $html .= '<img src="' . htmlspecialchars($url) . '" alt="Foto evidencia" style="width:100%; max-height:200px; object-fit:cover; border-radius:8px; border:2px solid rgba(0,0,0,0.1);">';
@@ -527,7 +527,7 @@ class PreoperacionalNovedadHelper
             // Consistente con VehiculosModel::guardarImagen() y PreoperacionalService::procesarImagenEntrega()
             $rutaAbsoluta = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rutaRelativa);
             if (file_exists($rutaAbsoluta)) {
-                $url = '../../' . $rutaRelativa;
+                $url = '../' . $rutaRelativa;
                 $html .= '<a href="' . htmlspecialchars($url) . '" target="_blank" style="display:block;">';
                 $html .= '<img src="' . htmlspecialchars($url) . '" alt="' . htmlspecialchars($label) . '" ';
                 $html .= 'style="max-width:100%; max-height:200px; border-radius:8px; border:2px solid rgba(0,0,0,0.1);">';
