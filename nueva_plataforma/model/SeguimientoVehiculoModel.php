@@ -909,8 +909,10 @@ class SeguimientoVehiculoModel
             $sql = "SELECT sv.fecha_registro as fecha, 'Evento' as fuente, sv.kilometraje,
                            sv.tipo_evento as detalle,
                            sv.id_preoperacional,
+                           sv.id_vehiculo as idvehiculo,
                            sv.id_responsable as id_usuario,
-                           u.usu_nombre as usuario_nombre
+                           u.usu_nombre as usuario_nombre,
+                           DATE(sv.fecha_registro) as fecha_date
                     FROM seguimiento_vehiculo sv
                     LEFT JOIN usuarios u ON u.idusuarios = sv.id_responsable
                     WHERE sv.id_vehiculo = ? AND sv.kilometraje > 0"
@@ -938,6 +940,7 @@ class SeguimientoVehiculoModel
                            CAST(po.pre_kilrecorridos AS UNSIGNED) as kilometraje,
                            po.preestado as detalle,
                            po.idpreoperacinal as id_preoperacional,
+                           po.prevehiculo as idvehiculo,
                            po.preidusuario as id_usuario,
                            u2.usu_nombre as usuario_nombre,
                            DATE(po.prefechaingreso) as fecha_date
@@ -968,7 +971,10 @@ class SeguimientoVehiculoModel
         if ($consultarAceite) {
             $sql = "SELECT ace_fechacambio as fecha, 'Cambio Aceite' as fuente,
                            CAST(ace_kiloalcambio AS UNSIGNED) as kilometraje,
-                           '' as detalle
+                           ace_idvehiculo as idvehiculo,
+                           '' as detalle,
+                           CAST(NULL AS UNSIGNED) as id_preoperacional,
+                           CAST(NULL AS UNSIGNED) as id_usuario
                     FROM aceite
                     WHERE ace_idvehiculo = ?"
                     . ($desde && $hasta ? ' AND ace_fechacambio >= ? AND ace_fechacambio <= ?' : '')

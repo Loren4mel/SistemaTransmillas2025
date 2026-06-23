@@ -1770,3 +1770,89 @@
     opacity: 1;
 }
 
+/* ==================== MÚLTIPLES FOTOS EN NOVEDAD ==================== */
+
+.novedad-multi-photo .photo-item {
+    margin-bottom: 12px;
+    padding: 10px;
+    background: rgba(255,255,255,0.8);
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+.novedad-multi-photo .photo-preview img {
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.1);
+    max-width: 100%;
+    max-height: 120px;
+}
+
+/* ==================== OBSERVACIÓN EN PREGUNTAS DE VEHÍCULO ==================== */
+
+.obs-textarea {
+    width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    resize: vertical;
+    background: #fff;
+}
+
+.obs-textarea:focus {
+    border-color: #074F91;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(7,79,145,0.15);
+}
+
+.observation-row {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: rgba(7,79,145,0.04);
+    border-left: 3px solid #074F91;
+    border-radius: 6px;
+}
+
+.obs-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: #555;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.obs-text {
+    margin: 0;
+    font-size: 14px;
+    color: #333;
+    white-space: pre-wrap;
+}
+
+/* ==================== ALERTA DE VEHÍCULO ==================== */
+
+.photo-alert-vehiculo {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #856404;
+    margin-top: 6px;
+}
+
+/* ==================== GALERÍA DE FOTOS EN VALIDACIÓN ==================== */
+
+.novedad-photo-section .row .col-md-4 img {
+    transition: transform 0.2s ease;
+}
+
+.novedad-photo-section .row .col-md-4 img:hover {
+    transform: scale(1.03);
+}
+
+/* ==================== OBSERVACIÓN EN UPLOAD CONTAINER ==================== */
+
+.obs-upload-container {
+    margin-top: 8px;
+}
+

@@ -185,21 +185,24 @@ class PreoperacionalNovedadHelper
         // --- Foto de evidencia general (visible al seleccionar cualquier radio, o siempre en FUERA_DE_SERVICIO) ---
         $html .= '<div class="novedad-photo-section" id="novedadFotoGeneralGroup"' . ($expandirFormulario ? '' : ' style="display:none;"') . '>';
         $html .= '<h5 class="entrega-section-label">';
-        $html .= '<i class="fas fa-camera"></i> FOTO DE EVIDENCIA GENERAL';
+        $html .= '<i class="fas fa-camera"></i> FOTOS DE EVIDENCIA';
         $html .= '</h5>';
-        $html .= '<p class="entrega-section-desc">Capture una foto que evidencie el estado actual del vehículo.</p>';
-        $html .= '<div class="row">';
+        $html .= '<p class="entrega-section-desc">Capture una o más fotos que evidencien el estado actual del vehículo. La primera foto es obligatoria.</p>';
+        $html .= '<div class="novedad-multi-photo" id="novedadMultiPhotoContainer">';
+        $html .= '<div class="row photo-item">';
         $html .= '<div class="col-md-12">';
         $html .= '<div class="photo-upload-container">';
-        $html .= '<label class="photo-label" for="novedad_foto_evidencia">';
-        $html .= '<i class="fas fa-image"></i> Foto evidencia <span class="required-star">*</span>';
-        $html .= '</label>';
-        $html .= '<input type="file" name="novedad_foto_evidencia" id="novedad_foto_evidencia" ';
-        $html .= 'class="photo-input" accept="image/*" data-required-photo="true">';
-        $html .= '<small class="photo-hint">Foto general de la novedad del vehículo</small>';
+        $html .= '<label class="photo-label"><i class="fas fa-image"></i> Foto evidencia 1 <span class="required-star">*</span></label>';
+        $html .= '<input type="file" name="novedad_fotos[]" class="photo-input novedad-photo-input" accept="image/*" data-required-photo="true">';
+        $html .= '<div class="photo-preview" style="margin-top:6px;"></div>';
         $html .= '</div>';
         $html .= '</div>';
         $html .= '</div>';
+        $html .= '</div>';
+        $html .= '<button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarFotoNovedad" style="margin-top:8px;">';
+        $html .= '<i class="fas fa-plus"></i> Agregar otra foto';
+        $html .= '</button>';
+        $html .= '<small class="photo-hint d-block" style="margin-top:4px;">Fotos de evidencia de la novedad del vehículo</small>';
         $html .= '</div>';
 
         // --- Fotos de salida / entrega FINAL (visible con NO, o siempre en FUERA_DE_SERVICIO) ---
@@ -386,6 +389,20 @@ class PreoperacionalNovedadHelper
         $nombreValidador = htmlspecialchars($_SESSION['usuario_nombre'] ?? '');
         $nombreConductor = htmlspecialchars($entregaFinal['ent_userregistra'] ?? $entregaInicial['ent_userregistra'] ?? '');
 
+        // Cargar fotos de evidencia desde el seguimiento vehicular
+        $fotosEvidencia = [];
+        $seguimiento = $entregasPendientes['seguimiento'] ?? null;
+        if ($seguimiento && !empty($seguimiento['id_seguimiento'])) {
+            $fotosDocs = $this->service->obtenerDocumentosNovedadPorSeguimiento($seguimiento['id_seguimiento']);
+            if (!empty($fotosDocs)) {
+                foreach ($fotosDocs as $doc) {
+                    if (!empty($doc['doc_ruta'])) {
+                        $fotosEvidencia[] = $doc['doc_ruta'];
+                    }
+                }
+            }
+        }
+
         // --- Info pre-poblada compacta ---
         $html = '<div class="entrega-info-bar">';
         $html .= '<span><i class="fas fa-user"></i> <strong>Conductor:</strong> ' . $nombreConductor . '</span>';
@@ -398,6 +415,23 @@ class PreoperacionalNovedadHelper
         if ($obsNovedad) {
             $html .= '<div class="novedad-vehicle-info" style="margin-bottom:16px;">';
             $html .= '<p><strong>Motivo de la novedad:</strong> ' . $obsNovedad . '</p>';
+            $html .= '</div>';
+        }
+
+        // --- Galería de fotos de evidencia ---
+        if (!empty($fotosEvidencia)) {
+            $html .= '<div class="novedad-photo-section" style="margin-bottom:16px;">';
+            $html .= '<h5 class="entrega-section-label"><i class="fas fa-images"></i> EVIDENCIA FOTOGRÁFICA DE LA NOVEDAD</h5>';
+            $html .= '<div class="row">';
+            foreach ($fotosEvidencia as $ruta) {
+                $url = '../' . ltrim(str_replace('\\', '/', $ruta), '/');
+                $html .= '<div class="col-md-4 col-sm-6 mb-3">';
+                $html .= '<a href="' . htmlspecialchars($url) . '" target="_blank">';
+                $html .= '<img src="' . htmlspecialchars($url) . '" alt="Foto evidencia" style="width:100%; max-height:200px; object-fit:cover; border-radius:8px; border:2px solid rgba(0,0,0,0.1);">';
+                $html .= '</a>';
+                $html .= '</div>';
+            }
+            $html .= '</div>';
             $html .= '</div>';
         }
 
@@ -493,7 +527,7 @@ class PreoperacionalNovedadHelper
             // Consistente con VehiculosModel::guardarImagen() y PreoperacionalService::procesarImagenEntrega()
             $rutaAbsoluta = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rutaRelativa);
             if (file_exists($rutaAbsoluta)) {
-                $url = '../../' . $rutaRelativa;
+                $url = '../' . $rutaRelativa;
                 $html .= '<a href="' . htmlspecialchars($url) . '" target="_blank" style="display:block;">';
                 $html .= '<img src="' . htmlspecialchars($url) . '" alt="' . htmlspecialchars($label) . '" ';
                 $html .= 'style="max-width:100%; max-height:200px; border-radius:8px; border:2px solid rgba(0,0,0,0.1);">';

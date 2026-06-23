@@ -16,7 +16,8 @@ class ReporteConductorSSTModel
     // === CONSTANTES ===
     const TIPOS_VALIDOS = ['accidente', 'comparendo'];
     const TIPOS_EVENTO_VALIDOS = ['semanal', 'momento'];
-    const ESTADOS_VALIDOS = ['pendiente', 'revisado'];
+    const ESTADOS_VALIDOS = ['pendiente', 'revisado', 'resuelto'];
+    const ROLES_VALIDADOR = [1, 12];
     const TIPO_TO_VERSION = [
         'accidente'  => 1,
         'comparendo' => 2,
@@ -26,9 +27,41 @@ class ReporteConductorSSTModel
     ];
     const MAX_FILE_SIZE = 10485760; // 10 MB
 
-    // Niveles de gravedad válidos por tipo
-    const GRAVEDAD_ACCIDENTE  = [1, 2, 3, 4];
+    // Niveles de gravedad válidos por tipo (escala simplificada — conductor)
+    const GRAVEDAD_ACCIDENTE  = [1, 2];
     const GRAVEDAD_COMPARENDO = [1, 2, 3];
+
+    // Niveles de gravedad para validador (escala original completa)
+    const GRAVEDAD_VAL_ACCIDENTE  = [1, 2, 3, 4];
+    const GRAVEDAD_VAL_COMPARENDO = [1, 2, 3];
+
+    // Etiquetas de gravedad por tipo
+    const GRAVEDAD_LABELS = [
+        'accidente' => [
+            1 => ['etiqueta' => 'Leve',       'desc' => 'Daños materiales, ningún tipo de afectación a persona.'],
+            2 => ['etiqueta' => 'Moderado',    'desc' => 'Lesiones leves que no requieren hospitalización.'],
+            3 => ['etiqueta' => 'Grave',       'desc' => 'Lesiones que requieren atención médica u hospitalización.'],
+            4 => ['etiqueta' => 'Crítico',     'desc' => 'Víctimas fatales o lesiones permanentes graves.'],
+        ],
+        'comparendo' => [
+            1 => ['etiqueta' => 'Normal', 'desc' => 'Multa sin inmovilización del vehículo.'],
+            2 => ['etiqueta' => 'Media',  'desc' => 'Multa con inmovilización, sin afectación a la licencia de conducción.'],
+            3 => ['etiqueta' => 'Alta',   'desc' => 'Multa con inmovilización y/o afectación a la licencia de conducción.'],
+        ],
+    ];
+
+    // Etiquetas de gravedad simplificadas (conductor)
+    const GRAVEDAD_SIMPLE_LABELS = [
+        'accidente' => [
+            1 => ['etiqueta' => 'Baja', 'desc' => 'Daños materiales, ningún tipo de afectación a persona.'],
+            2 => ['etiqueta' => 'Alta', 'desc' => 'Hay afectación física a alguna persona derivada del accidente, sea de la índole que sea.'],
+        ],
+        'comparendo' => [
+            1 => ['etiqueta' => 'Normal', 'desc' => 'Multa sin inmovilización del vehículo.'],
+            2 => ['etiqueta' => 'Media',  'desc' => 'Multa con inmovilización, sin afectación a la licencia de conducción.'],
+            3 => ['etiqueta' => 'Alta',   'desc' => 'Multa con inmovilización y/o afectación a la licencia de conducción.'],
+        ],
+    ];
 
     /**
      * Constructor - Inicializa la conexion a base de datos
@@ -52,8 +85,9 @@ class ReporteConductorSSTModel
     {
         $stmt = $this->db->prepare($sql);
         if (!$stmt) {
-            error_log("ReporteConductorSSTModel: executeQuery - Error preparando SQL: " . $this->db->error);
-            return null;
+            $errorMsg = "ReporteConductorSSTModel: executeQuery - Error preparando SQL: " . $this->db->error;
+            error_log($errorMsg);
+            throw new \RuntimeException($errorMsg);
         }
         $stmt->bind_param($types, ...$params);
         $stmt->execute();
@@ -73,8 +107,9 @@ class ReporteConductorSSTModel
     {
         $stmt = $this->db->prepare($sql);
         if (!$stmt) {
-            error_log("ReporteConductorSSTModel: executeAll - Error preparando SQL: " . $this->db->error);
-            return [];
+            $errorMsg = "ReporteConductorSSTModel: executeAll - Error preparando SQL: " . $this->db->error;
+            error_log($errorMsg);
+            throw new \RuntimeException($errorMsg);
         }
         $stmt->bind_param($types, ...$params);
         $stmt->execute();
@@ -95,6 +130,26 @@ class ReporteConductorSSTModel
         if (!is_dir($dir)) {
             mkdir($dir, 0777, true);
         }
+    }
+
+    /**
+     * Verifica si un vehiculo existe en la base de datos
+     *
+     * @param int $idVehiculo ID del vehiculo
+     * @return bool True si existe
+     */
+    public function verificarVehiculoExiste($idVehiculo)
+    {
+        $sql = "SELECT COUNT(*) as total FROM vehiculos WHERE idvehiculos = ? LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param("i", $idVehiculo);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        return $row && $row['total'] > 0;
     }
 
     // ==================== CALCULO DE SEMANA ====================
@@ -265,7 +320,7 @@ class ReporteConductorSSTModel
         $gravedad = $datos['gravedad'] ?? null;
 
         $stmt->bind_param(
-            "iissssssi",
+            "iisssissi",
             $datos['id_usuario'],
             $idVehiculo,
             $datos['fecha'],
@@ -471,27 +526,36 @@ class ReporteConductorSSTModel
     // ==================== ACTUALIZACION ====================
 
     /**
-     * Cambia el estado de un reporte
+     * Cambia el estado de un reporte y registra quién validó
      *
-     * @param int $id ID del reporte
-     * @param string $estado Nuevo estado ('pendiente' o 'revisado')
-     * @return bool True si la actualizacion fue exitosa
+     * @param int    $id                  ID del reporte
+     * @param string $estado              Nuevo estado ('pendiente', 'revisado', 'resuelto')
+     * @param int    $idValidador         ID del usuario que valida
+     * @param string $comentario          Comentario del validador (ya incluye prefijo de nombre)
+     * @param int    $gravedadValidacion  Nivel de gravedad según validador (escala original: 1-4 acc, 1-3 comp)
+     * @return bool True si la actualización fue exitosa
      */
-    public function cambiarEstado($id, $estado)
+    public function cambiarEstado($id, $estado, $idValidador = null, $comentario = null, $gravedadValidacion = null)
     {
         if (!in_array($estado, self::ESTADOS_VALIDOS, true)) {
             error_log("ReporteConductorSSTModel: cambiarEstado - Estado invalido: $estado");
             return false;
         }
 
-        $sql = "UPDATE reporte_conductor_sst SET estado = ?, actualizado_en = NOW() WHERE id = ?";
+        $sql = "UPDATE reporte_conductor_sst
+                SET estado = ?,
+                    id_validador = ?,
+                    comentario_validador = ?,
+                    fecha_validacion = NOW(),
+                    gravedad_validacion = ?
+                WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         if (!$stmt) {
             error_log("ReporteConductorSSTModel: cambiarEstado - Error preparando SQL: " . $this->db->error);
             return false;
         }
 
-        $stmt->bind_param("si", $estado, $id);
+        $stmt->bind_param("sisii", $estado, $idValidador, $comentario, $gravedadValidacion, $id);
         $result = $stmt->execute();
 
         if (!$result) {
@@ -499,6 +563,35 @@ class ReporteConductorSSTModel
         }
 
         return $result;
+    }
+
+    /**
+     * Obtiene un reporte completo con datos de conductor, vehículo, validador y archivos
+     *
+     * @param int $id ID del reporte
+     * @return array|null Datos completos del reporte o null
+     */
+    public function obtenerReporteCompleto($id)
+    {
+        $sql = "SELECT rcs.*,
+                       u.usu_nombre AS conductor_nombre,
+                       u.usu_identificacion AS conductor_cedula,
+                       v.veh_placa,
+                       val.usu_nombre AS validador_nombre
+                FROM reporte_conductor_sst rcs
+                LEFT JOIN usuarios u ON u.idusuarios = rcs.id_usuario
+                LEFT JOIN vehiculos v ON v.idvehiculos = rcs.id_vehiculo
+                LEFT JOIN usuarios val ON val.idusuarios = rcs.id_validador
+                WHERE rcs.id = ?
+                LIMIT 1";
+
+        $reporte = $this->executeQuery($sql, "i", [$id]);
+
+        if ($reporte) {
+            $reporte['archivos'] = $this->obtenerArchivos($id);
+        }
+
+        return $reporte;
     }
 
     // ==================== GESTION DE ARCHIVOS ====================

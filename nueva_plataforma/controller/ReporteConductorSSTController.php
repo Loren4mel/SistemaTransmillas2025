@@ -105,6 +105,10 @@ function handleAjaxRequest($model)
                 verificarSemana($model);
                 break;
 
+            case 'validar':
+                validarReporte($model);
+                break;
+
             default:
                 ErrorHandler::sendJsonResponse([
                     'success' => false,
@@ -144,6 +148,10 @@ function handleAjaxGetRequest($model)
                 resumenSemanal($model);
                 break;
 
+            case 'detalle_vista':
+                detalleVista($model);
+                break;
+
             default:
                 ErrorHandler::sendJsonResponse([
                     'success' => false,
@@ -181,6 +189,15 @@ function guardar($model)
     // Obtener id_vehiculo del conductor para asociarlo al reporte
     $infoConductor = $model->obtenerInfoConductor($idUsuario);
     $idVehiculo = $infoConductor['usu_vehiculo'] ?? null;
+
+    // Validar que el vehiculo exista realmente (evitar FK constraint violation)
+    if ($idVehiculo !== null) {
+        $vehiculoExiste = $model->verificarVehiculoExiste($idVehiculo);
+        if (!$vehiculoExiste) {
+            $idVehiculo = null;
+            error_log("ReporteConductorSSTController: vehiculo $idVehiculo no existe, usando null");
+        }
+    }
 
     // --- 1. Validar ubicacion ---
     $ubicacion = $_POST['ubicacion'] ?? '';
@@ -242,8 +259,8 @@ function guardar($model)
             ], 400);
         }
 
-        // Si la respuesta es "si" (hubo incidente), validar que tenga observacion
-        if ($respuesta === '1' || $respuesta === 'si') {
+        // Si la respuesta es "si" (hubo incidente), validar todos los campos requeridos
+        if ($respuesta == 1 || $respuesta === 'si' || $respuesta === '1') {
             if (empty(trim($observacion))) {
                 ErrorHandler::sendJsonResponse([
                     'success' => false,
@@ -259,7 +276,7 @@ function guardar($model)
                     if (!in_array($gravedad, ReporteConductorSSTModel::GRAVEDAD_ACCIDENTE, true)) {
                         ErrorHandler::sendJsonResponse([
                             'success' => false,
-                            'message' => "La gravedad para $tipo debe ser un valor entre 1 y 4 (indice $index)"
+                            'message' => "La gravedad para $tipo debe ser 1 (Baja) o 2 (Alta) (indice $index)"
                         ], 400);
                     }
                 } elseif ($tipo === 'comparendo') {
@@ -276,15 +293,15 @@ function guardar($model)
                     'message' => "La gravedad es requerida cuando se reporta un $tipo (indice $index)"
                 ], 400);
             }
-        }
 
-        // Validar que existan archivos subidos para este tipo
-        $fileKey = 'archivos_' . $tipo;
-        if (!isset($_FILES[$fileKey]) || empty($_FILES[$fileKey]['name'][0])) {
-            ErrorHandler::sendJsonResponse([
-                'success' => false,
-                'message' => "Se requiere al menos un archivo de evidencia para '$tipo' (indice $index)"
-            ], 400);
+            // Validar minimo 4 archivos adjuntos
+            $fileKey = 'archivos_' . $tipo;
+            if (!isset($_FILES[$fileKey]) || !isset($_FILES[$fileKey]['name']) || count(array_filter($_FILES[$fileKey]['name'])) < 4) {
+                ErrorHandler::sendJsonResponse([
+                    'success' => false,
+                    'message' => "Se requieren minimo 4 archivos de evidencia para '$tipo' (indice $index)"
+                ], 400);
+            }
         }
     }
 
@@ -295,7 +312,7 @@ function guardar($model)
         $respuesta = $reporte['respuesta'];
         $observacion = $reporte['observacion'] ?? '';
         $gravedad = null;
-        if (($respuesta === '1' || $respuesta === 'si') && isset($reporte['gravedad'])) {
+        if (($respuesta == 1 || $respuesta === 'si' || $respuesta === '1') && isset($reporte['gravedad'])) {
             $gravedad = (int) $reporte['gravedad'];
         }
 
@@ -305,7 +322,7 @@ function guardar($model)
             'fecha'       => date('Y-m-d'),
             'tipo'        => $tipo,
             'tipo_evento' => $tipoEvento,
-            'respuesta'   => ($respuesta === '1' || $respuesta === 'si') ? 'si' : 'no',
+            'respuesta'   => ($respuesta == 1 || $respuesta === 'si' || $respuesta === '1') ? 1 : 0,
             'observacion' => $observacion,
             'ubicacion'   => $ubicacion,
             'gravedad'    => $gravedad,
@@ -537,6 +554,157 @@ function detalle($model)
     ErrorHandler::sendJsonResponse([
         'success' => true,
         'data'    => $reporte,
+    ]);
+}
+
+/**
+ * Obtiene el detalle completo de un reporte para la vista de revisión
+ *
+ * Endpoint para el popup de detalle desde Seguimiento Vehicular.
+ * Retorna todos los datos necesarios para mostrar el detalle y,
+ * si el usuario es admin, habilitar los controles de validación.
+ *
+ * Parámetros GET:
+ *   - id (int): ID del reporte
+ *
+ * @param ReporteConductorSSTModel $model Instancia del modelo
+ */
+function detalleVista($model)
+{
+    $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+    if ($id <= 0) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'ID de reporte inválido'
+        ], 400);
+    }
+
+    $reporte = $model->obtenerReporteCompleto($id);
+
+    if ($reporte === null) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Reporte no encontrado'
+        ], 404);
+    }
+
+    // Determinar si el usuario actual puede validar
+    $rolActual = (int) ($_SESSION['usuario_rol'] ?? 0);
+    $puedeValidar = in_array($rolActual, ReporteConductorSSTModel::ROLES_VALIDADOR, true);
+
+    ErrorHandler::sendJsonResponse([
+        'success'       => true,
+        'data'          => $reporte,
+        'puede_validar' => $puedeValidar,
+        'usuario_actual' => [
+            'id'     => (int) $_SESSION['usuario_id'],
+            'nombre' => $_SESSION['usuario_nombre'] ?? '',
+        ],
+    ]);
+}
+
+/**
+ * Valida un reporte SST — cambia estado, registra comentario del validador y gravedad de validación
+ *
+ * Solo accesible por roles administradores (1, 12).
+ * El comentario se guarda con prefijo automático: "NombreValidador - comentario"
+ * La gravedad de validación usa la escala original (1-4 accidente, 1-3 comparendo)
+ *
+ * Parámetros POST:
+ *   - id                   (int):    ID del reporte
+ *   - estado               (string): Nuevo estado ('pendiente', 'revisado', 'resuelto')
+ *   - comentario           (string): Comentario del validador (se prefija automáticamente)
+ *   - gravedad_validacion  (int):    Nivel de gravedad según validador (escala original)
+ *
+ * @param ReporteConductorSSTModel $model Instancia del modelo
+ */
+function validarReporte($model)
+{
+    $rolActual = (int) ($_SESSION['usuario_rol'] ?? 0);
+    if (!in_array($rolActual, ReporteConductorSSTModel::ROLES_VALIDADOR, true)) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Acceso denegado. Solo administradores pueden validar reportes.'
+        ], 403);
+    }
+
+    $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+    $estado = $_POST['estado'] ?? '';
+    $comentarioRaw = trim($_POST['comentario'] ?? '');
+    $gravedadValidacionRaw = $_POST['gravedad_validacion'] ?? null;
+
+    if ($id <= 0) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'ID de reporte inválido'
+        ], 400);
+    }
+
+    if (!in_array($estado, ReporteConductorSSTModel::ESTADOS_VALIDOS, true)) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Estado no válido. Use: ' . implode(', ', ReporteConductorSSTModel::ESTADOS_VALIDOS)
+        ], 400);
+    }
+
+    // Verificar que el reporte existe
+    $reporte = $model->obtenerReportePorId($id);
+    if ($reporte === null) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Reporte no encontrado'
+        ], 404);
+    }
+
+    // Validar gravedad_validacion si se envió (usa escala original: 1-4 acc, 1-3 comp)
+    $gravedadValidacion = null;
+    if ($gravedadValidacionRaw !== null && $gravedadValidacionRaw !== '') {
+        $gravedadValidacion = (int) $gravedadValidacionRaw;
+        $tipoReporte = $reporte['tipo'] ?? '';
+        if ($tipoReporte === 'accidente') {
+            if (!in_array($gravedadValidacion, ReporteConductorSSTModel::GRAVEDAD_VAL_ACCIDENTE, true)) {
+                ErrorHandler::sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Gravedad de validación inválida para accidente. Use: ' . implode(', ', ReporteConductorSSTModel::GRAVEDAD_VAL_ACCIDENTE)
+                ], 400);
+            }
+        } elseif ($tipoReporte === 'comparendo') {
+            if (!in_array($gravedadValidacion, ReporteConductorSSTModel::GRAVEDAD_VAL_COMPARENDO, true)) {
+                ErrorHandler::sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Gravedad de validación inválida para comparendo. Use: ' . implode(', ', ReporteConductorSSTModel::GRAVEDAD_VAL_COMPARENDO)
+                ], 400);
+            }
+        }
+    }
+
+    // Auto-prefijar comentario con nombre del validador (patrón preoperacional)
+    $nombreValidador = $_SESSION['usuario_nombre'] ?? 'Sistema';
+    $comentarioFinal = $nombreValidador;
+    if (!empty($comentarioRaw)) {
+        $comentarioFinal .= " - " . $comentarioRaw;
+    }
+
+    $idValidador = (int) $_SESSION['usuario_id'];
+
+    $ok = $model->cambiarEstado($id, $estado, $idValidador, $comentarioFinal, $gravedadValidacion);
+
+    if (!$ok) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Error al actualizar el reporte en la base de datos'
+        ], 500);
+    }
+
+    ErrorHandler::sendJsonResponse([
+        'success'              => true,
+        'message'              => 'Reporte validado correctamente',
+        'estado'               => $estado,
+        'comentario'           => $comentarioFinal,
+        'fecha_validacion'     => date('Y-m-d H:i:s'),
+        'validador_nombre'     => $nombreValidador,
+        'gravedad_validacion'  => $gravedadValidacion,
     ]);
 }
 

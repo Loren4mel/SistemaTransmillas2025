@@ -170,11 +170,9 @@ if ($esRegistroRelacional) {
                         <!-- Solo se muestra a conductores (CARRO) o vehículo propio (MOTO).
                              Roles administrativos y auxiliares de carga no deben ver este panel
                              aunque tengan un vehículo residual asignado en la BD. -->
-                        <?php $esRolVehicular = in_array($tipovehiculo, ['CARRO', 'MOTO']); ?>
+                        <?php $esRolVehicular = in_array($tipovehiculo, ['CARRO', 'MOTO']) && $esRolVehicularAutorizado; ?>
                         <?php if ($esRolVehicular && $tieneVehiculoAsignado): ?>
-                            <?php if (!$esSoloLectura): ?>
-                                <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles, $esValidacion) ?>
-                            <?php endif; ?>
+                            <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles, $esValidacion) ?>
 
                             <!-- Datos del vehículo + alertas de documentos (centralizado: visible cuando hay vehículo asignado) -->
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
@@ -378,8 +376,8 @@ if ($esRegistroRelacional) {
                             <!-- ==================== CONTENEDOR DE SECCIONES DE VEHÍCULO ==================== -->
                             <div id="vehiculoSectionsContainer">
 
-                            <!-- Datos del vehículo (solo conductores CARRO/MOTO) -->
-                            <?php if (in_array($tipovehiculo, ['CARRO', 'MOTO'])): ?>
+                            <!-- Datos del vehículo (solo conductores CARRO/MOTO con rol autorizado) -->
+                            <?php if (in_array($tipovehiculo, ['CARRO', 'MOTO']) && $esRolVehicularAutorizado): ?>
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
                                 <?= $alertasVehiculoHtml ?>
                             <?php endif; ?>

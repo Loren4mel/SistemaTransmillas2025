@@ -142,6 +142,7 @@ $semanaInput = date('Y-\WW', strtotime($semana['inicio']));
                                 <th class="text-center">Respuesta</th>
                                 <th class="text-center">Estado</th>
                                 <th class="text-center">Archivos</th>
+                                <th class="text-center">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="sstHistorialBody"></tbody>
