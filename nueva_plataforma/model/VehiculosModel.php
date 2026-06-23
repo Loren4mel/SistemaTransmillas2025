@@ -1,49 +1,6 @@
 <?php
 require_once "../config/database.php";
 
-/**
- * Modelo de Vehículos
- *
- * ============================================================================
- * JERARQUÍA DE COLUMNAS DE KILOMETRAJE Y CAMBIO DE ACEITE
- * ============================================================================
- *
- * COLUMNAS FUENTE DE VERDAD (se actualizan explícitamente):
- *   veh_kilactual               → Kilometraje actual del vehículo.
- *                                 Actualizado por: PreoperacionalModel::actualizarKilometrajeVehiculo()
- *
- *   veh_kmactual_cambioaceite   → Kilometraje al que se hizo el último cambio de aceite.
- *                                 Actualizado por: VehiculosModel::actualizarDatosAceite()
- *
- *   veh_calkmcambioaceite       → Intervalo límite entre cambios de aceite (ej. 5000 km).
- *                                 Configurado en: Crear/Editar Vehículo.
- *
- *   veh_fechamantenimiento      → Fecha del último cambio de aceite.
- *                                 Actualizado por: VehiculosModel::actualizarDatosAceite()
- *
- * ----------------------------------------------------------------------------
- * COLUMNAS CALCULADAS (derivables — NO USAR COMO FUENTE DE VERDAD):
- *
- *   veh_km_recorridos_aceite = veh_kilactual - veh_kmactual_cambioaceite
- *       → Km recorridos desde el último cambio de aceite.
- *       → Calculado en: VehiculosModel::calcularEstadoAceite()
- *       → También calculado en SQL como alias en obtenerVehiculos()
- *
- *   veh_km_restantes_aceite  = veh_calkmcambioaceite - (veh_kilactual - veh_kmactual_cambioaceite)
- *       → Km que faltan para el próximo cambio de aceite.
- *       → Si es ≤ 0, toca cambio de aceite.
- *
- *   veh_km_proximo_aceite    = veh_kmactual_cambioaceite + veh_calkmcambioaceite
- *       → Kilometraje exacto al que toca el próximo cambio.
- *
- * ----------------------------------------------------------------------------
- * COLUMNAS LEGACY (obsoletas, mantenidas por compatibilidad — NO USAR):
- *   veh_aceitekil               → [LEGACY] Mismo propósito que veh_calkmcambioaceite.
- *   veh_restankmaceite          → [LEGACY] Reemplazado por veh_km_recorridos_aceite (calculado).
- *   veh_faltaparacambioaceite   → [LEGACY] Reemplazado por veh_km_restantes_aceite (calculado).
- *   veh_kmalcambaceite          → [LEGACY] Reemplazado por veh_km_proximo_aceite (calculado).
- * ============================================================================
- */
 class VehiculosModel {
     private $dbname;
 
@@ -59,7 +16,7 @@ class VehiculosModel {
     v.`veh_observaciones`, v.`veh_calkmcambioaceite`, v.`veh_restankmaceite`,
     v.`veh_faltaparacambioaceite`, v.`veh_kmalcambaceite`,
     v.`veh_img_anverso`, v.`veh_img_reverso`, v.`veh_img_actual_frente`, v.`veh_img_actual_trasera`,
-    v.`veh_img_soat`, v.`veh_img_tecnomecanica`,
+    v.`veh_img_soat`, v.`veh_img_tecnomecanica`, v.`veh_equipo_carretera`,
      -- Columnas calculadas de aceite (fuente de verdad: veh_kilactual, veh_kmactual_cambioaceite, veh_calkmcambioaceite)
      (v.`veh_kilactual` - v.`veh_kmactual_cambioaceite`) AS veh_km_recorridos_aceite,
      (v.`veh_calkmcambioaceite` - (v.`veh_kilactual` - v.`veh_kmactual_cambioaceite`)) AS veh_km_restantes_aceite,
@@ -96,7 +53,24 @@ class VehiculosModel {
     }
 
     $result = $this->dbname->query($sql);
-    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    $vehiculos = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+
+    // Post-procesar: contar herramientas inactivas (existe = 'no') por vehículo
+    foreach ($vehiculos as &$v) {
+        $equipo = json_decode($v['veh_equipo_carretera'] ?: '[]', true);
+        $inactivas = 0;
+        if (is_array($equipo)) {
+            foreach ($equipo as $h) {
+                if (is_array($h) && ($h['existe'] ?? 'si') === 'no') {
+                    $inactivas++;
+                }
+            }
+        }
+        $v['herramientas_inactivas'] = $inactivas;
+    }
+    unset($v);
+
+    return $vehiculos;
 }
 
     public function obtenerVehiculosParaSelect($filtroEstado = '') {
@@ -416,8 +390,49 @@ public function obtenerOperadoresActivos() {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+/**
+ * Verifica si un vehículo está asignado a otros usuarios activos, excluyendo al conductor destino
+ * @param int $idVehiculo ID del vehículo
+ * @param int $excluirUsuarioId ID del usuario que recibirá el vehículo (se excluye de la búsqueda)
+ * @return array Lista de usuarios activos que tienen el vehículo asignado
+ */
+public function verificarUsuariosConVehiculo($idVehiculo, $excluirUsuarioId = 0) {
+    $idVehiculo = intval($idVehiculo);
+    $excluirUsuarioId = intval($excluirUsuarioId);
+
+    $sql = "SELECT idusuarios, usu_nombre, usu_identificacion
+            FROM usuarios
+            WHERE usu_vehiculo = ?
+              AND usu_estado = 1
+              AND idusuarios != ?
+            ORDER BY usu_nombre ASC";
+    $stmt = $this->dbname->prepare($sql);
+    $stmt->bind_param("ii", $idVehiculo, $excluirUsuarioId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $usuarios = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return $usuarios;
+}
+
 //Funcion para guardar entrega de vehículo con validación de usuario, hoja de vida y manejo de imágenes
 public function guardarEntregaVehiculo($datos) {
+
+    // VALIDACIÓN: Si es entrega inicial, verificar si el vehículo ya está asignado a otros usuarios activos
+    if ($datos['ent_tipoentrega'] === 'inicial' && !empty($datos['ent_vehiculo_id']) && empty($datos['ent_force_assign'])) {
+        $idVehiculoCheck  = intval($datos['ent_vehiculo_id']);
+        $idConductorCheck = intval($datos['ent_idusuario']);
+        $usuariosConflictos = $this->verificarUsuariosConVehiculo($idVehiculoCheck, $idConductorCheck);
+
+        if (count($usuariosConflictos) > 0) {
+            // No guardamos nada, retornamos la lista de usuarios para que el frontend decida
+            return [
+                'conflict'  => true,
+                'usuarios'  => $usuariosConflictos,
+                'mensaje'   => 'El vehículo seleccionado está asignado a otros conductores activos.'
+            ];
+        }
+    }
 
     $ent_img_frente  = $this->guardarImagen($_FILES['ent_img_frente'] ?? [],  "uploads/vehiculos");
     $ent_img_trasera = $this->guardarImagen($_FILES['ent_img_trasera'] ?? [], "uploads/vehiculos");
@@ -528,7 +543,7 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
     if (!$resultado) return ['error' => 'Execute falló: ' . $stmt->error];
     $stmt->close();
 
-    if ($datos['ent_tipoentrega'] === 'inicial' && !empty($datos['ent_vehiculo_id']) && !empty($datos['ent_idusuario'])) {
+if ($datos['ent_tipoentrega'] === 'inicial' && !empty($datos['ent_vehiculo_id']) && !empty($datos['ent_idusuario'])) {
     $idVehiculo  = intval($datos['ent_vehiculo_id']);
     $idConductor = intval($datos['ent_idusuario']);
 
@@ -542,6 +557,18 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
 
     $tipoVehiculo = $rowTipo['veh_tipo'] ?? '';
 
+    // PASO 1: Liberar el vehículo de cualquier OTRO usuario activo que lo tenga asignado
+    $sqlLiberar = "UPDATE usuarios 
+                   SET usu_vehiculo = 0, usu_tipoVehiculo = ''
+                   WHERE usu_vehiculo = ? 
+                     AND usu_estado = 1 
+                     AND idusuarios != ?";
+    $stmtLiberar = $this->dbname->prepare($sqlLiberar);
+    $stmtLiberar->bind_param("ii", $idVehiculo, $idConductor);
+    $stmtLiberar->execute();
+    $stmtLiberar->close();
+
+    // PASO 2: Asignar el vehículo al nuevo conductor que recibe la entrega
     $sqlUpd  = "UPDATE usuarios SET 
                     usu_vehiculo     = ?,
                     usu_tipoVehiculo = ?
@@ -550,6 +577,21 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
     $stmtUpd->bind_param("isi", $idVehiculo, $tipoVehiculo, $idConductor);
     $stmtUpd->execute();
     $stmtUpd->close();
+
+    // PASO 3: Verificación de integridad — confirmar que el vehículo quedó en un solo usuario activo
+    $sqlVerificar = "SELECT COUNT(*) AS total FROM usuarios 
+                     WHERE usu_vehiculo = ? AND usu_estado = 1";
+    $stmtVerificar = $this->dbname->prepare($sqlVerificar);
+    $stmtVerificar->bind_param("i", $idVehiculo);
+    $stmtVerificar->execute();
+    $rowVerificar = $stmtVerificar->get_result()->fetch_assoc();
+    $stmtVerificar->close();
+
+    if ((int)$rowVerificar['total'] > 1) {
+        error_log("⚠️ ALERTA: El vehículo ID {$idVehiculo} quedó asignado a más de un usuario activo tras la entrega inicial. Conductor actual: {$idConductor}");
+    }
+}
+
 }
 
     if (!empty($datos['ent_vehiculo_id']) && !empty($datos['ent_equipo_carretera'])) {
@@ -618,13 +660,15 @@ public function guardarComparendo($datos) {
 
    $sql  = "INSERT INTO comparendos
              (com_operador_id, com_vehiculo_id, com_estado, com_foto, com_fecha,
-             com_hojadevida_id, com_valor, com_numerocompa, com_titularcompa, com_foto_curso)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+             com_hojadevida_id, com_valor, com_numerocompa, com_titularcompa, com_foto_curso, com_observacion)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt = $this->dbname->prepare($sql);
     if (!$stmt) return ['error' => $this->dbname->error];
 
+    $observacion = isset($datos['com_observacion']) ? $datos['com_observacion'] : null;
+
     $stmt->bind_param(
-        "iisssissss",
+        "iisssisssss",
         $datos['com_operador_id'],
         $datos['com_vehiculo_id'],
         $datos['com_estado'],
@@ -634,7 +678,8 @@ public function guardarComparendo($datos) {
         $datos['com_valor'],
         $datos['com_numerocompa'],
         $datos['com_titularcompa'],
-        $com_foto_curso
+        $com_foto_curso,
+        $observacion
     );
 
     $ok = $stmt->execute();
@@ -697,6 +742,7 @@ public function actualizarComparendo($datos) {
     $valor = floatval($valor);
     $numero  = $this->dbname->real_escape_string($datos['com_numerocompa']);
     $titular = $this->dbname->real_escape_string($datos['com_titularcompa']);
+    $observacion = isset($datos['com_observacion']) ? $this->dbname->real_escape_string($datos['com_observacion']) : '';
 
     $sqlFotos = '';
     if ($com_foto)       $sqlFotos .= ", com_foto = '" . $this->dbname->real_escape_string($com_foto) . "'";
@@ -706,7 +752,8 @@ public function actualizarComparendo($datos) {
                 com_estado       = '$estado',
                 com_valor        = '$valor',
                 com_numerocompa  = '$numero',
-                com_titularcompa = '$titular'
+                com_titularcompa = '$titular',
+                com_observacion  = '$observacion'
                 {$sqlFotos}
             WHERE idcomparendos = $id";
 
@@ -960,9 +1007,26 @@ public function obtenerRevisionesPorVehiculo($idVehiculo) {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
-public function eliminarRevision($id) {
-    $id  = intval($id);
-    $sql = "DELETE FROM revision_comparendos WHERE idrevision = $id";
+public function confirmarRevision($id, $usuario) {
+    $id = intval($id);
+
+    // Verificar si ya está confirmada (evitar doble confirmación)
+    $check = "SELECT rev_confirmado FROM revision_comparendos WHERE idrevision = $id";
+    $result = $this->dbname->query($check);
+    if ($result && $row = $result->fetch_assoc()) {
+        if ($row['rev_confirmado'] == 1) {
+            return ['error' => 'Esta revisión ya fue confirmada anteriormente.'];
+        }
+    } else {
+        return ['error' => 'La revisión no existe.'];
+    }
+
+    $usuario = $this->dbname->real_escape_string($usuario);
+    $sql = "UPDATE revision_comparendos
+            SET rev_confirmado = 1,
+                rev_usuario_confirma = '$usuario',
+                rev_fecha_confirmacion = NOW()
+            WHERE idrevision = $id";
     return $this->dbname->query($sql) ? true : ['error' => $this->dbname->error];
 }
 

@@ -175,17 +175,14 @@ $(document).ready(function () {
             { data: 'veh_kilactual' },
             { data: 'veh_kmactual_cambioaceite' },
 
-            // Columna "Límite Km cambio aceite" — usa datos calculados desde el backend (SQL)
-            // Fuente: veh_km_recorridos_aceite, veh_km_restantes_aceite (calculados en obtenerVehiculos())
-            // Columnas fuente de verdad: veh_kilactual, veh_kmactual_cambioaceite, veh_calkmcambioaceite
             {
                 data: null,
                 render: function (data, type, row) {
                     // Usar valores pre-calculados por el backend en lugar de recalcular en frontend
                     const kmRecorridos = parseInt(row.veh_km_recorridos_aceite) || 0;
-                    const kmRestantes  = parseInt(row.veh_km_restantes_aceite) || 0;
-                    const limite       = parseInt(row.veh_calkmcambioaceite) || 0;
-                    const kmAlCambio   = parseInt(row.veh_kmactual_cambioaceite) || 0;
+                    const kmRestantes = parseInt(row.veh_km_restantes_aceite) || 0;
+                    const limite = parseInt(row.veh_calkmcambioaceite) || 0;
+                    const kmAlCambio = parseInt(row.veh_kmactual_cambioaceite) || 0;
 
                     if (!limite || !kmAlCambio) {
                         return '<span class="text-muted" style="font-size:12px;">Sin datos</span>';
@@ -270,8 +267,6 @@ $(document).ready(function () {
                     title="Ver imagen completa">`;
                 }
             },
-
-
 
             // Revisión de Comparendos
             {
@@ -412,11 +407,24 @@ $(document).ready(function () {
                 orderable: false,
                 searchable: false,
                 render: function (data, type, row) {
+                    const inactivas = parseInt(row.herramientas_inactivas ?? 0);
+                    let badge = '';
+                    if (inactivas > 0) {
+                        badge = `<span class="badge bg-danger"
+        style="position:absolute; top:-6px; right:-6px;
+               min-width:16px; height:16px; line-height:16px;
+               font-size:10px; padding:0 4px; border-radius:50%;
+               display:flex; align-items:center; justify-content:center;">
+        ${inactivas}
+    </span>`;
+                    }
                     return `
-                        <button class="btn btn-sm btn-outline-primary btn-editar-modal" 
-                                title="Editar" data-id="${row.idvehiculos}">
-                            <i class="fas fa-edit"></i>
-                        </button>`;
+    <button class="btn btn-sm btn-outline-primary btn-editar-modal"
+            style="position:relative; width:31px; height:31px; padding:0;
+                   display:inline-flex; align-items:center; justify-content:center;"
+            title="Editar${inactivas > 0 ? ' — ' + inactivas + ' herramienta(s) inactiva(s)' : ''}" data-id="${row.idvehiculos}">
+        <i class="fas fa-edit"></i>${badge}
+    </button>`;
                 }
             },
             {
@@ -443,9 +451,9 @@ $(document).ready(function () {
             // Alerta preventiva aceite por KM — usa datos calculados por el backend (SQL)
             // Fuente: veh_km_recorridos_aceite, veh_km_restantes_aceite (alias en obtenerVehiculos())
             const kmRecorridos = parseInt(data.veh_km_recorridos_aceite) || 0;
-            const kmRestantes  = parseInt(data.veh_km_restantes_aceite) || 0;
-            const limiteKm     = parseInt(data.veh_calkmcambioaceite) || 0;
-            const kmAlCambio   = parseInt(data.veh_kmactual_cambioaceite) || 0;
+            const kmRestantes = parseInt(data.veh_km_restantes_aceite) || 0;
+            const limiteKm = parseInt(data.veh_calkmcambioaceite) || 0;
+            const kmAlCambio = parseInt(data.veh_kmactual_cambioaceite) || 0;
 
             // Fila en amarillo si está a menos de 500km del cambio de aceite
             if (!parseInt(data.comparendos_pendientes) && limiteKm > 0 && kmAlCambio > 0 && kmRestantes <= 500) {
@@ -1248,6 +1256,75 @@ $('#formEntregaVehiculo').on('submit', function (e) {
             Swal.close();
             try {
                 const response = typeof res === 'object' ? res : JSON.parse(res);
+
+                // CASO: Conflicto de asignación — vehículo asignado a otros usuarios activos
+                if (response.conflict && response.usuarios && response.usuarios.length > 0) {
+                    let listaHtml = '<ul class="text-start mb-0" style="list-style:disc; padding-left:20px;">';
+                    response.usuarios.forEach(function (u) {
+                        listaHtml += '<li><strong>' + $('<span>').text(u.usu_nombre).html() + '</strong> ' +
+                                     '(Doc: ' + $('<span>').text(u.usu_identificacion).html() + ')</li>';
+                    });
+                    listaHtml += '</ul>';
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Vehículo asignado a otro(s) conductor(es)',
+                        html: '<div class="text-center mb-3">' +
+                              '<i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>' +
+                              '</div>' +
+                              '<p class="text-start">El vehículo seleccionado actualmente está asignado a los siguientes conductores activos:</p>' +
+                              listaHtml +
+                              '<hr>' +
+                              '<p class="text-start text-muted mb-0"><i class="fas fa-info-circle me-1"></i>' +
+                              'Primero debe registrar las entregas finales de estos conductores. Si continúa, la asignación se transferirá automáticamente al nuevo conductor.</p>',
+                        showCancelButton: true,
+                        confirmButtonText: 'Continuar',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Reenviar con force_assign para forzar la reasignación
+                            datos.append('ent_force_assign', '1');
+
+                            $.ajax({
+                                url: urlController,
+                                type: 'POST',
+                                data: datos,
+                                cache: false,
+                                contentType: false,
+                                processData: false,
+                                success: function (res2) {
+                                    Swal.close();
+                                    try {
+                                        const response2 = typeof res2 === 'object' ? res2 : JSON.parse(res2);
+                                        if (response2.success) {
+                                            Swal.fire({
+                                                icon: 'success',
+                                                title: '¡Entrega registrada!',
+                                                text: response2.mensaje,
+                                                timer: 2000,
+                                                showConfirmButton: false
+                                            });
+                                            $('#modalEntregaVehiculo').modal('hide');
+                                            document.getElementById('formEntregaVehiculo').reset();
+                                        } else {
+                                            Swal.fire('Error', response2.mensaje, 'error');
+                                        }
+                                    } catch (e) {
+                                        Swal.fire('Error', 'Error en la respuesta del servidor', 'error');
+                                    }
+                                },
+                                error: function () {
+                                    Swal.close();
+                                    Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+                                }
+                            });
+                        }
+                    });
+                    return;
+                }
+
                 if (response.success) {
                     Swal.fire({
                         icon: 'success',
@@ -1378,6 +1455,27 @@ document.getElementById('modalEntregaVehiculo').addEventListener('hidden.bs.moda
     $('#ent_video_preview').hide();
 });
 
+// COMPARENDOS - Al cambiar el titular, condicionar la obligatoriedad del operador
+$(document).on('change', '#com_titularcompa', function () {
+    const titular = $(this).val();
+    const $operador = $('#com_operador_id');
+    const $asterisco = $('#asterisco_operador_comparendo');
+
+    if (titular === 'Operador') {
+        $asterisco.show();
+        $operador.attr('required', 'required');
+    } else if (titular === 'Empresa') {
+        $asterisco.hide();
+        $operador.removeAttr('required');
+        $operador.val('');          // limpiar selección previa
+        $('#infoHojaVida').hide();  // ocultar info de hoja de vida
+    } else {
+        // Sin selección: restaurar asterisco por defecto
+        $asterisco.show();
+        $operador.removeAttr('required');
+    }
+});
+
 // COMPARENDOS - Al seleccionar operador mostrar info de hoja de vida
 $(document).on('change', '#com_operador_id', function () {
     const idOp = $(this).val();
@@ -1418,13 +1516,15 @@ $(document).on('click', '#btnGuardarComparendo', function () {
     const numero = $('#com_numerocompa').val().trim();
     const titular = $('#com_titularcompa').val();
 
-    if (!operador) { Swal.fire('Error', 'Debe seleccionar un operador', 'error'); return; }
+    if (!titular) { Swal.fire('Error', 'Debe seleccionar el titular del comparendo', 'error'); return; }
+    if (titular === 'Operador' && !operador) {
+        Swal.fire('Error', 'Debe seleccionar un operador (el comparendo está a nombre del operador)', 'error'); return;
+    }
     if (!vehiculo) { Swal.fire('Error', 'Debe seleccionar un vehículo', 'error'); return; }
     if (!estado) { Swal.fire('Error', 'Debe seleccionar el estado del comparendo', 'error'); return; }
     if (!fecha) { Swal.fire('Error', 'Debe ingresar la fecha del comparendo', 'error'); return; }
     if (!valor) { Swal.fire('Error', 'Debe ingresar el valor del comparendo', 'error'); return; }
     if (!numero) { Swal.fire('Error', 'Debe ingresar el número del comparendo', 'error'); return; }
-    if (!titular) { Swal.fire('Error', 'Debe seleccionar el titular del comparendo', 'error'); return; }
 
     const inputFoto = document.getElementById('com_foto');
     if (inputFoto && inputFoto.files.length > 0) {
@@ -1480,6 +1580,9 @@ $(document).on('click', '#btnGuardarComparendo', function () {
                     });
                     $('#modalAgregarComparendo').modal('hide');
                     document.getElementById('formComparendo').reset();
+                    $('#asterisco_operador_comparendo').show();
+                    $('#com_operador_id').removeAttr('required');
+                    $('#contador_obs').text(0);
                     $('#infoHojaVida').hide();
                     if ($.fn.DataTable.isDataTable('#tablaVehiculos')) {
                         $('#tablaVehiculos').DataTable().ajax.reload(null, false);
@@ -1506,7 +1609,7 @@ $(document).on('click', '.btn-ver-comparendos', function () {
     window._idVehiculoComparendos = idVehiculo;
 
     $('#tituloPlacaComparendo').text(placa);
-    $('#cuerpoTablaComparendos').html('<tr><td colspan="10" class="text-muted">Cargando...</td></tr>');
+    $('#cuerpoTablaComparendos').html('<tr><td colspan="11" class="text-muted">Cargando...</td></tr>');
     $('#modalVerComparendos').modal('show');
 
     $.ajax({
@@ -1545,6 +1648,7 @@ function recargarTablaComparendos(res) {
             data-titular="${c.com_titularcompa ?? ''}"
             data-foto="${c.com_foto ?? ''}"
             data-fotocurso="${c.com_foto_curso ?? ''}"
+            data-observacion="${c.com_observacion ?? ''}"
             title="Clic para editar comparendo">
             Pagado &nbsp;<i class="fas fa-pen" style="font-size:10px;opacity:0.85;"></i>
         </span>`
@@ -1557,6 +1661,7 @@ function recargarTablaComparendos(res) {
             data-titular="${c.com_titularcompa ?? ''}"
             data-foto="${c.com_foto ?? ''}"
             data-fotocurso="${c.com_foto_curso ?? ''}"
+            data-observacion="${c.com_observacion ?? ''}"
             title="Clic para editar comparendo">
             Pendiente &nbsp;<i class="fas fa-pen" style="font-size:10px;opacity:0.85;"></i>
         </span>`;
@@ -1597,12 +1702,13 @@ function recargarTablaComparendos(res) {
                     <td>${c.com_titularcompa ?? '—'}</td>
                     <td>${foto}</td>
                     <td>${fotoCurso}</td>
+                    <td>${c.com_observacion ? c.com_observacion.length > 50 ? c.com_observacion.substring(0, 50) + '...' : c.com_observacion : '<span class="text-muted">—</span>'}</td>
                 </tr>
             `);
         });
 
     } catch (e) {
-        $('#cuerpoTablaComparendos').html('<tr><td colspan="10" class="text-danger">Error al cargar los datos</td></tr>');
+        $('#cuerpoTablaComparendos').html('<tr><td colspan="11" class="text-danger">Error al cargar los datos</td></tr>');
     }
 }
 
@@ -1615,12 +1721,17 @@ $(document).on('click', '.btn-editar-comparendo', function () {
     const titular = $(this).data('titular');
     const foto = $(this).data('foto');
     const fotoCurso = $(this).data('fotocurso');
+    const observacion = $(this).data('observacion');
 
     $('#edit_com_id').val(id);
     $('#edit_com_estado').val(estado);
     $('#edit_com_valor').val(valor ? Number(valor).toLocaleString('es-CO') : '');
     $('#edit_com_numerocompa').val(numero);
     $('#edit_com_titularcompa').val(titular);
+    $('#edit_com_observacion').val(observacion || '');
+    // Actualizar contador de caracteres al cargar
+    const obsLen = (observacion || '').length;
+    $('#edit_contador_obs').text(obsLen);
 
 
     // Preview foto comparendo
@@ -1665,6 +1776,18 @@ $(document).on('click', '.btn-editar-comparendo', function () {
 
     const modalEditar = new bootstrap.Modal(document.getElementById('modalEditarComparendo'));
     modalEditar.show();
+});
+
+// CONTADOR DE CARACTERES PARA OBSERVACIÓN (CREAR)
+$(document).on('input', '#com_observacion', function () {
+    const len = $(this).val().length;
+    $('#contador_obs').text(len);
+});
+
+// CONTADOR DE CARACTERES PARA OBSERVACIÓN (EDITAR)
+$(document).on('input', '#edit_com_observacion', function () {
+    const len = $(this).val().length;
+    $('#edit_contador_obs').text(len);
 });
 
 // GUARDAR CAMBIOS DEL COMPARENDO 
@@ -1990,13 +2113,13 @@ $(document).on('click', '#tablaVehiculos tbody .btn-editar-aceite', function () 
     const $btn = $(this);
 
     // Datos del vehículo
-    const id         = $btn.data('id');
-    const fechaUlt   = $btn.data('fecha');
-    const kmActual   = parseInt($btn.data('kilactual')) || 0;
+    const id = $btn.data('id');
+    const fechaUlt = $btn.data('fecha');
+    const kmActual = parseInt($btn.data('kilactual')) || 0;
     const kmUltCambio = parseInt($btn.data('kmcambio')) || 0;
-    const intervalo  = parseInt($btn.data('limite')) || 0;
+    const intervalo = parseInt($btn.data('limite')) || 0;
     const recorridos = parseInt($btn.data('recorridos')) || 0;
-    const restantes  = parseInt($btn.data('restantes')) || 0;
+    const restantes = parseInt($btn.data('restantes')) || 0;
 
     // ID oculto
     document.getElementById('aceite_veh_id').value = id;
@@ -2907,23 +3030,23 @@ function renderEvidenciasRevision(evidencias) {
     return `
         <div class="d-flex flex-wrap justify-content-center gap-1">
             ${evidencias.map((ruta, idx) => {
-                const url = `${baseUrl}/${ruta}`;
-                const numero = idx + 1;
+        const url = `${baseUrl}/${ruta}`;
+        const numero = idx + 1;
 
-                if (ruta.toLowerCase().endsWith('.pdf')) {
-                    return `<a href="${url}" target="_blank"
+        if (ruta.toLowerCase().endsWith('.pdf')) {
+            return `<a href="${url}" target="_blank"
                               class="btn btn-sm btn-outline-danger"
                               title="Ver evidencia ${numero}">
                               <i class="fas fa-file-pdf"></i> ${numero}
                            </a>`;
-                }
+        }
 
-                return `<img src="${url}"
+        return `<img src="${url}"
                             style="height:48px;width:72px;object-fit:cover;
                                    border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
                             onclick="window.open('${url}','_blank')"
                             title="Ver evidencia ${numero}">`;
-            }).join('')}
+    }).join('')}
         </div>
     `;
 }
@@ -2934,8 +3057,17 @@ $(document).on('click', '.btn-ver-revisiones', function () {
     const placa = $(this).data('placa');
 
     $('#tituloPlacaRevision').text(placa);
+
+    // Mostrar/ocultar columna de acción según el rol
+    const colspan = (typeof usuarioRol !== 'undefined' && (usuarioRol == 1 || usuarioRol == 5)) ? 7 : 6;
+    if (typeof usuarioRol !== 'undefined' && (usuarioRol == 1 || usuarioRol == 5)) {
+        $('#thAccionRevision').show();
+    } else {
+        $('#thAccionRevision').hide();
+    }
+
     $('#cuerpoTablaRevisiones').html(
-        '<tr><td colspan="6" class="text-muted">Cargando...</td></tr>'
+        `<tr><td colspan="${colspan}" class="text-muted">Cargando...</td></tr>`
     );
     new bootstrap.Modal(document.getElementById('modalHistorialRevisiones')).show();
 
@@ -2951,79 +3083,111 @@ $(document).on('click', '.btn-ver-revisiones', function () {
 
                 if (!lista || lista.length === 0) {
                     $tbody.html(
-                        '<tr><td colspan="6" class="text-muted">Sin revisiones registradas</td></tr>'
+                        `<tr><td colspan="${colspan}" class="text-muted">Sin revisiones registradas</td></tr>`
                     );
                     return;
                 }
+
+                const esRolAutorizado = (typeof usuarioRol !== 'undefined' && (usuarioRol == 1 || usuarioRol == 5));
 
                 lista.forEach(function (r, i) {
                     const evidencias = normalizarEvidenciasRevision(r.rev_evidencia);
                     const evidencia = renderEvidenciasRevision(evidencias);
 
-                    $tbody.append(`
+                    // Determinar estado de confirmación
+                    const confirmado = (r.rev_confirmado == 1);
+                    let estadoHtml = '';
+                    let accionHtml = '';
+
+                    if (confirmado) {
+                        estadoHtml = `<span class="badge bg-success" title="Confirmado por ${r.rev_usuario_confirma || 'N/A'} el ${r.rev_fecha_confirmacion || 'N/A'}">
+                            <i class="fas fa-check-circle"></i> Confirmado
+                        </span>`;
+                    } else {
+                        estadoHtml = `<span class="badge bg-warning text-dark">
+                            <i class="fas fa-clock"></i> Pendiente
+                        </span>`;
+                    }
+
+                    if (esRolAutorizado) {
+                        if (confirmado) {
+                            accionHtml = `<small class="text-muted">${r.rev_usuario_confirma || ''}<br>${r.rev_fecha_confirmacion || ''}</small>`;
+                        } else {
+                            accionHtml = `<button class="btn btn-sm btn-success btn-confirmar-revision"
+                                       title="Confirmar revisión"
+                                       data-id="${r.idrevision}">
+                                    <i class="fas fa-check"></i> Confirmar
+                                </button>`;
+                        }
+                    }
+
+                    let filaHtml = `
                         <tr>
                             <td>${i + 1}</td>
                             <td>${r.rev_fecha_consulta}</td>
                             <td>${evidencia}</td>
                             <td>${r.rev_usuario}</td>
                             <td>${r.rev_fecha_creacion}</td>
-                            <td>
-                                <button class="btn btn-sm btn-danger btn-eliminar-revision"
-                                       title="Eliminar revisión"
-                                       data-id="${r.idrevision}">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `);
+                            <td>${estadoHtml}</td>`;
+
+                    if (esRolAutorizado) {
+                        filaHtml += `<td>${accionHtml}</td>`;
+                    }
+
+                    filaHtml += `</tr>`;
+                    $tbody.append(filaHtml);
                 });
 
             } catch (e) {
                 $('#cuerpoTablaRevisiones').html(
-                    '<tr><td colspan="6" class="text-danger">Error al cargar los datos</td></tr>'
+                    `<tr><td colspan="${colspan}" class="text-danger">Error al cargar los datos</td></tr>`
                 );
             }
         },
         error: function () {
             $('#cuerpoTablaRevisiones').html(
-                '<tr><td colspan="6" class="text-danger">Error de conexión</td></tr>'
+                `<tr><td colspan="${colspan}" class="text-danger">Error de conexión</td></tr>`
             );
         }
     });
 });
 
-// ELIMINAR REVISIÓN DE COMPARENDO
-$(document).on('click', '.btn-eliminar-revision', function () {
+// CONFIRMAR REVISIÓN DE COMPARENDO (solo rol 1)
+$(document).on('click', '.btn-confirmar-revision', function () {
     const id = $(this).data('id');
-    const $fila = $(this).closest('tr');
-    const $vehiculo = $('#tituloPlacaRevision').text();
+    const $btn = $(this);
 
     Swal.fire({
-        title: '¿Eliminar revisión?',
-        text: 'Esta acción no se puede deshacer',
-        icon: 'warning',
+        title: '¿Confirmar revisión?',
+        text: 'Se marcará esta revisión como verificada.',
+        icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
+        confirmButtonText: 'Sí, confirmar',
         cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#d33'
+        confirmButtonColor: '#198754'
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
                 url: urlController,
                 type: 'POST',
-                data: { eliminar_revision: true, id: id },
+                data: { confirmar_revision: true, id: id },
                 success: function (res) {
                     try {
                         const r = typeof res === 'object' ? res : JSON.parse(res);
                         if (r.success) {
-                            $fila.fadeOut(300, function () { $(this).remove(); });
                             Swal.fire({
                                 icon: 'success',
-                                title: '¡Eliminado!',
+                                title: '¡Confirmado!',
                                 text: r.mensaje,
                                 timer: 1500,
                                 showConfirmButton: false
                             });
+                            // Reemplazar inline: badge de estado y dato de quién confirmó
+                            const $tdEstado = $btn.closest('td').prev('td');
+                            $tdEstado.html(`<span class="badge bg-success" title="Confirmado por ${usuarioNombre || 'N/A'}">
+                                <i class="fas fa-check-circle"></i> Confirmado
+                            </span>`);
+                            $btn.replaceWith(`<small class="text-muted">${usuarioNombre || ''}<br><small>Ahora</small></small>`);
                         } else {
                             Swal.fire('Error', r.mensaje, 'error');
                         }
