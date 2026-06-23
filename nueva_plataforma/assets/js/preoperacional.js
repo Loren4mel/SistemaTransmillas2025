@@ -441,6 +441,65 @@
             return false;
         }
 
+        // También validar fotos de preguntas vehiculares
+        return validarFotosVehiculo();
+    }
+
+    /**
+     * Valida que las preguntas de vehículo respondidas con NO tengan foto asociada.
+     * La foto es obligatoria para cualquier NO en sección vehículo.
+     */
+    function validarFotosVehiculo() {
+        var errores = [];
+        var preguntasVehiculo = [
+            'inspec_1', 'luces_1', 'cabina_1', 'cabina_2',
+            'seguridad_1', 'seguridad_2', 'seguridad_3', 'seguridad_4', 'seguridad_5',
+            'seguridad_6', 'seguridad_7', 'seguridad_8', 'seguridad_9', 'seguridad_10',
+            'indicador_1', 'indicador_2', 'indicador_3', 'indicador_4',
+            'llanta_1', 'llanta_2'
+        ];
+
+        for (var i = 0; i < preguntasVehiculo.length; i++) {
+            var codigo = preguntasVehiculo[i];
+            var checkboxNo = document.querySelector('.checkbox-binary[data-name="' + codigo + '"][value="2"]');
+            if (!checkboxNo || !checkboxNo.checked) continue;
+
+            var photoRow = document.getElementById(codigo + '_photo_row');
+            if (photoRow && photoRow.style.display !== 'none') {
+                var fileInput = document.getElementById(codigo + '_foto');
+                if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                    // En modo validación, verificar si ya existe foto guardada
+                    var fotoGuardada = photoRow.querySelector('img');
+                    if (!fotoGuardada) {
+                        var questionRow = document.getElementById(codigo + '_row');
+                        var questionText = codigo;
+                        if (questionRow) {
+                            var questionTextElem = questionRow.querySelector('.question-text');
+                            if (questionTextElem) {
+                                questionText = questionTextElem.textContent.trim();
+                            }
+                        }
+                        errores.push('Debe subir una fotografía para: "' + questionText + '"');
+                    }
+                }
+            }
+        }
+
+        if (errores.length > 0) {
+            var errorHtml = '<strong>Debe subir fotografías para los siguientes problemas reportados:</strong><br><br>';
+            for (var k = 0; k < errores.length; k++) {
+                errorHtml += '• ' + errores[k] + '<br>';
+            }
+
+            swalAlert({
+                title: 'Fotos requeridas',
+                html: errorHtml,
+                icon: 'warning',
+                confirmButtonText: 'Aceptar'
+            });
+            return false;
+        }
+
         return true;
     }
 
@@ -1387,17 +1446,114 @@
     }
 
     /**
+     * Inicializa el sistema de múltiples fotos en novedad vehicular.
+     * Permite agregar campos de foto dinámicamente con preview.
+     */
+    function initNovedadMultiPhoto() {
+        var container = document.getElementById('novedadMultiPhotoContainer');
+        if (!container) return;
+
+        // Delegación de eventos para el botón de agregar
+        var btnAgregar = document.getElementById('btnAgregarFotoNovedad');
+        if (!btnAgregar) return;
+
+        btnAgregar.addEventListener('click', function() {
+            var items = container.querySelectorAll('.photo-item');
+            var nuevoIndex = items.length + 1;
+            var template = items[0].cloneNode(true);
+
+            // Limpiar el input y preview
+            var input = template.querySelector('.novedad-photo-input');
+            if (input) {
+                input.value = '';
+                input.removeAttribute('data-required-photo');
+            }
+            var preview = template.querySelector('.photo-preview');
+            if (preview) preview.innerHTML = '';
+
+            // Actualizar label
+            var label = template.querySelector('.photo-label');
+            if (label) {
+                var labelText = label.innerHTML.replace(/\d+/, nuevoIndex);
+                label.innerHTML = labelText;
+            }
+
+            // Agregar botón de eliminar
+            var deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'btn btn-sm btn-outline-danger mt-1';
+            deleteBtn.innerHTML = '<i class="fas fa-times"></i> Quitar foto';
+            deleteBtn.addEventListener('click', function() {
+                template.remove();
+                // Renumerar labels
+                var remaining = container.querySelectorAll('.photo-item');
+                remaining.forEach(function(item, idx) {
+                    var lbl = item.querySelector('.photo-label');
+                    if (lbl) {
+                        lbl.innerHTML = lbl.innerHTML.replace(/\d+/, idx + 1);
+                    }
+                });
+            });
+            template.querySelector('.photo-upload-container').appendChild(deleteBtn);
+
+            container.appendChild(template);
+        });
+
+        // Preview de imagen al seleccionar archivo (delegado)
+        container.addEventListener('change', function(e) {
+            if (e.target.classList.contains('novedad-photo-input')) {
+                var preview = e.target.closest('.photo-item').querySelector('.photo-preview');
+                if (preview && e.target.files && e.target.files[0]) {
+                    preview.innerHTML = '';
+                    var img = document.createElement('img');
+                    img.src = URL.createObjectURL(e.target.files[0]);
+                    img.style.maxWidth = '100%';
+                    img.style.maxHeight = '120px';
+                    img.style.borderRadius = '6px';
+                    img.style.border = '1px solid rgba(0,0,0,0.1)';
+                    preview.appendChild(img);
+                }
+            }
+        });
+
+        // Preview para el primer input también
+        var firstInput = container.querySelector('.novedad-photo-input');
+        if (firstInput) {
+            firstInput.addEventListener('change', function(e) {
+                var preview = e.target.closest('.photo-item').querySelector('.photo-preview');
+                if (preview && e.target.files && e.target.files[0]) {
+                    preview.innerHTML = '';
+                    var img = document.createElement('img');
+                    img.src = URL.createObjectURL(e.target.files[0]);
+                    img.style.maxWidth = '100%';
+                    img.style.maxHeight = '120px';
+                    img.style.borderRadius = '6px';
+                    img.style.border = '1px solid rgba(0,0,0,0.1)';
+                    preview.appendChild(img);
+                }
+            });
+        }
+    }
+
+    /**
      * Envía el reporte de novedad al servidor desde el formulario inline
      */
     function guardarNovedad(idVehiculo, datos) {
         var seleccion = document.querySelector('input[name="puede_operar"]:checked');
         if (!seleccion) return;
 
-        // --- VALIDACIÓN DE FOTOS ---
-        // 1. Foto general SIEMPRE requerida
-        var fotoEvidencia = document.getElementById('novedad_foto_evidencia');
-        if (!fotoEvidencia || !fotoEvidencia.files || fotoEvidencia.files.length === 0) {
-            swalAlert({ title: 'Foto requerida', text: 'Debe subir la foto de evidencia general.', icon: 'warning', confirmButtonText: 'Aceptar' });
+        // --- VALIDACIÓN DE FOTOS MÚLTIPLES ---
+        // Al menos una foto de evidencia requerida
+        var fotosEvidencia = document.querySelectorAll('.novedad-photo-input');
+        var tieneFoto = false;
+        for (var fi = 0; fi < fotosEvidencia.length; fi++) {
+            if (fotosEvidencia[fi].files && fotosEvidencia[fi].files.length > 0) {
+                tieneFoto = true;
+                break;
+            }
+        }
+        if (!tieneFoto) {
+            swalAlert({ title: 'Foto requerida', text: 'Debe subir al menos una foto de evidencia general.', icon: 'warning', confirmButtonText: 'Aceptar' });
             var panel = document.getElementById('novedadPanel');
             if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
@@ -1447,9 +1603,12 @@
         formData.append('idvehiculo_nuevo', datos.idvehiculo_nuevo);
         formData.append('id_usuario', document.getElementById('user') ? document.getElementById('user').value : '');
 
-        // Append foto general
-        if (fotoEvidencia && fotoEvidencia.files.length > 0) {
-            formData.append('novedad_foto_evidencia', fotoEvidencia.files[0]);
+        // Append fotos múltiples de evidencia
+        var todosLosInputsFoto = document.querySelectorAll('.novedad-photo-input');
+        for (var fi = 0; fi < todosLosInputsFoto.length; fi++) {
+            if (todosLosInputsFoto[fi].files && todosLosInputsFoto[fi].files.length > 0) {
+                formData.append('novedad_fotos[]', todosLosInputsFoto[fi].files[0]);
+            }
         }
 
         // Append fotos de salida (si existen)
@@ -2001,6 +2160,7 @@
             cargarDatosPrecarga();
             verificarEstadoVehiculo();
             initBotonAsignarVehiculo();
+            initNovedadMultiPhoto();
 
             var esLegado = !document.getElementById('ubicacion_container');
 

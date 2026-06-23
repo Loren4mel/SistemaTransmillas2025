@@ -38,6 +38,19 @@ class PreoperacionalModel
     }
 
     /**
+     * Obtiene el rol de un usuario por ID.
+     *
+     * @param int $idUsuario
+     * @return int|null Rol del usuario o null si no existe
+     */
+    public function obtenerRolUsuario($idUsuario)
+    {
+        $sql = "SELECT roles_idroles FROM usuarios WHERE idusuarios = ? LIMIT 1";
+        $row = $this->executeQuery($sql, "i", [$idUsuario]);
+        return $row ? (int) ($row['roles_idroles'] ?? 0) : null;
+    }
+
+    /**
      * Obtiene los datos del vehículo y usuario.
      * Si $idVehiculo es null, devuelve el primer vehículo asignado al usuario.
      * 
@@ -47,24 +60,29 @@ class PreoperacionalModel
      */
     public function obtenerDatosVehiculoYUsuario($idUsuario, $idVehiculo = null)
     {
+        // Si se especifica un idVehiculo positivo explícitamente, buscarlo directamente
+        // sin exigir que el usuario actual lo tenga asignado (importante para
+        // el modo vista de preoperacionales históricos).
+        if (!empty($idVehiculo) && $idVehiculo > 0) {
+            $sql = "SELECT v.idvehiculos, v.veh_tipo, v.veh_placa, v.veh_marca, v.veh_modelo, v.veh_kilactual,
+                           v.veh_fechaseguro, v.veh_fechategnomecanica,
+                           u.usu_nombre, u.usu_identificacion, u.usu_licencia, u.usu_fechalicencia
+                    FROM vehiculos v
+                    LEFT JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos AND u.idusuarios = ?
+                    WHERE v.idvehiculos = ?
+                    LIMIT 1";
+            return $this->executeQuery($sql, "ii", [$idUsuario, $idVehiculo]);
+        }
+
         $sql = "SELECT v.idvehiculos, v.veh_tipo, v.veh_placa, v.veh_marca, v.veh_modelo, v.veh_kilactual,
                        v.veh_fechaseguro, v.veh_fechategnomecanica,
                        u.usu_nombre, u.usu_identificacion, u.usu_licencia, u.usu_fechalicencia
                 FROM vehiculos v
                 INNER JOIN usuarios u ON u.usu_vehiculo = v.idvehiculos
-                WHERE u.idusuarios = ?";
-        $params = [$idUsuario];
-        $types = "i";
+                WHERE u.idusuarios = ?
+                LIMIT 1";
 
-        if ($idVehiculo !== null) {
-            $sql .= " AND v.idvehiculos = ?";
-            $params[] = $idVehiculo;
-            $types .= "i";
-        }
-
-        $sql .= " LIMIT 1";
-
-        return $this->executeQuery($sql, $types, $params);
+        return $this->executeQuery($sql, "i", [$idUsuario]);
     }
 
     /**
@@ -442,6 +460,39 @@ class PreoperacionalModel
     }
 
     /**
+     * Guarda una imagen desde una ruta absoluta ya existente en el sistema de archivos.
+     * Similar a guardarImagenDesdeRuta pero sin verificar is_uploaded_file ni copiar,
+     * porque la imagen ya fue movida a su ubicación final por procesarImagenEntrega.
+     *
+     * @param string $rutaAbsoluta Ruta absoluta al archivo
+     * @param string $nombreOriginal Nombre original
+     * @param int $idPreoperacional ID del registro
+     * @param int $version Versión del documento
+     * @return int|false ID del documento insertado
+     */
+    public function guardarImagenDesdeRutaSimple($rutaAbsoluta, $nombreOriginal, $idPreoperacional, $version)
+    {
+        if (!file_exists($rutaAbsoluta)) {
+            error_log("PreoperacionalModel: guardarImagenDesdeRutaSimple - Archivo no existe: " . $rutaAbsoluta);
+            return false;
+        }
+
+        $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version)
+                VALUES (NOW(), ?, ?, 'pre-operacional', ?, ?)";
+
+        $stmt = $this->db->prepare($sql);
+        $result = $stmt->bind_param("ssii", $nombreOriginal, $rutaAbsoluta, $idPreoperacional, $version)
+               && $stmt->execute();
+
+        if ($result) {
+            return $this->db->insert_id;
+        }
+
+        error_log("PreoperacionalModel: guardarImagenDesdeRutaSimple - Error SQL: " . $this->db->error);
+        return false;
+    }
+
+    /**
      * Actualiza la imagen de kilometraje de un registro
      * 
      * @param int $idPreoperacional ID del registro
@@ -602,6 +653,60 @@ class PreoperacionalModel
         return $map;
     }
 
+    /**
+     * Obtiene el texto legible de preguntas dado un conjunto de códigos internos.
+     * Usado para generar observaciones automáticas desde las respuestas del preoperacional.
+     *
+     * @param array $codigos Lista de códigos internos (ej: ['inspec_1', 'seguridad_3'])
+     * @return array [codigo_interno => texto_pregunta]
+     */
+    public function obtenerTextoPorCodigos(array $codigos): array
+    {
+        if (empty($codigos)) return [];
+        $placeholders = implode(',', array_fill(0, count($codigos), '?'));
+        $sql = "SELECT codigo_interno, texto_pregunta
+                FROM preop_preguntas
+                WHERE codigo_interno IN ($placeholders)
+                GROUP BY codigo_interno";
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("obtenerTextoPorCodigos prepare error: " . $this->db->error);
+            return [];
+        }
+        $types = str_repeat('s', count($codigos));
+        $stmt->bind_param($types, ...$codigos);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $map = [];
+        while ($row = $result->fetch_assoc()) {
+            $map[$row['codigo_interno']] = $row['texto_pregunta'];
+        }
+        return $map;
+    }
+
+    /**
+     * Obtiene el conjunto de códigos internos de preguntas del vehículo
+     * (tipo_destinatario = 'VEHICULO' en la plantilla). Se usa para filtrar
+     * hallazgos y excluir preguntas de aptitud del conductor (USUARIO).
+     *
+     * @return array [codigo_interno => true]
+     */
+    public function obtenerCodigosVehiculo(): array
+    {
+        $sql = "SELECT DISTINCT p.codigo_interno
+                FROM preop_preguntas p
+                INNER JOIN preop_secciones s ON p.id_seccion = s.id_seccion
+                INNER JOIN preop_versiones v ON s.id_version = v.id_version
+                INNER JOIN preop_plantillas pl ON v.id_plantilla = pl.id_plantilla
+                WHERE pl.tipo_destinatario = 'VEHICULO'";
+        $result = $this->db->query($sql);
+        $codigos = [];
+        while ($row = $result->fetch_assoc()) {
+            $codigos[$row['codigo_interno']] = true;
+        }
+        return $codigos;
+    }
+
     // ==================== ESQUEMA RELACIONAL: RESPUESTAS ====================
 
     /**
@@ -622,7 +727,7 @@ class PreoperacionalModel
         $types = '';
 
         foreach ($respuestas as $r) {
-            $values[] = "(?, ?, ?, ?)";
+            $values[] = "(?, ?, ?, ?, ?)";
             $params[] = $r['id_preoperacional'];
             $types .= 'i';
             $params[] = $r['id_pregunta'];
@@ -631,9 +736,11 @@ class PreoperacionalModel
             $types .= 's';
             $params[] = $r['ruta_foto'] ?? null;
             $types .= 's';
+            $params[] = $r['observacion'] ?? null;
+            $types .= 's';
         }
 
-        $sql = "INSERT INTO preop_respuestas (id_preoperacional, id_pregunta, respuesta_dada, ruta_foto)
+        $sql = "INSERT INTO preop_respuestas (id_preoperacional, id_pregunta, respuesta_dada, ruta_foto, observacion_especifica)
                 VALUES " . implode(', ', $values);
 
         $stmt = $this->db->prepare($sql);
@@ -656,7 +763,7 @@ class PreoperacionalModel
      */
     public function obtenerTodasRespuestas($idPreoperacional)
     {
-        $sql = "SELECT p.codigo_interno, r.respuesta_dada, r.ruta_foto
+        $sql = "SELECT p.codigo_interno, r.respuesta_dada, r.ruta_foto, r.observacion_especifica
                 FROM preop_respuestas r
                 INNER JOIN preop_preguntas p ON r.id_pregunta = p.id_pregunta
                 WHERE r.id_preoperacional = ?";
@@ -671,6 +778,9 @@ class PreoperacionalModel
             $respuestas[$row['codigo_interno']] = $row['respuesta_dada'];
             if (!empty($row['ruta_foto'])) {
                 $respuestas[$row['codigo_interno'] . '_foto'] = $row['ruta_foto'];
+            }
+            if (!empty($row['observacion_especifica'])) {
+                $respuestas[$row['codigo_interno'] . '_obs'] = $row['observacion_especifica'];
             }
         }
         return $respuestas;
@@ -696,14 +806,43 @@ class PreoperacionalModel
         $stmt->execute();
         $result = $stmt->get_result();
 
-        $docs = [];
+        $docs = ['novedad_foto_ids' => []];
         while ($row = $result->fetch_assoc()) {
             switch ((int) $row['doc_version']) {
                 case 2: $docs['temperatura_documento_id'] = (int) $row['iddocumentos']; break;
                 case 3: $docs['inspeccion_documento_id']  = (int) $row['iddocumentos']; break;
                 case 4: $docs['firma_documento_id']       = (int) $row['iddocumentos']; break;
+                case 5: $docs['novedad_foto_ids'][] = (int) $row['iddocumentos']; break;
                 // otros tipos de documento no se mapean automáticamente
             }
+        }
+        return $docs;
+    }
+
+    /**
+     * Obtiene los documentos de novedad (doc_version=5) asociados a un seguimiento vehiculo.
+     * Recorre: seguimiento_vehiculo -> pre-operacional -> documentos
+     *
+     * @param int $idSeguimiento ID del registro en seguimiento_vehiculo
+     * @return array Lista de documentos asociados
+     */
+    public function obtenerDocumentosNovedadPorSeguimiento($idSeguimiento)
+    {
+        $sql = "SELECT d.*
+                FROM documentos d
+                INNER JOIN `pre-operacional` p ON d.doc_idviene = p.idpreoperacinal AND d.doc_tabla = 'pre-operacional'
+                INNER JOIN seguimiento_vehiculo sv ON sv.id_preoperacional = p.idpreoperacinal
+                WHERE sv.id_seguimiento_vehiculo = ?
+                  AND d.doc_version = 5";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idSeguimiento);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $docs = [];
+        while ($row = $result->fetch_assoc()) {
+            $docs[] = $row;
         }
         return $docs;
     }

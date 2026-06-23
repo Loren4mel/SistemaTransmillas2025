@@ -186,12 +186,9 @@
                             $guiasObservacion = [
                                 'accidente' => [
                                     'Descripción detallada del siniestro',
-                                    'Hubo afectación a personas: ¿Quiénes?',
-                                    'Hubo afectación al medio ambiente: ¿Cuáles?',
-                                    'Hubo afectación a la imagen corporativa: ¿Cuál?',
-                                    'Daños y consecuencias (material y humana)',
-                                    'Consecutivo del informe policial',
-                                    'Nombre del organismo de tránsito que elaboró el informe policial',
+                                    'Tipos de afectaciones que hubo (materiales y/o personales)',
+                                    'En caso de acuerdo: informe del acuerdo al que se llegó, y una EVIDENCIA FÍSICA del mismo en los adjuntos',
+                                    'En caso de que se haya involucrado ente policial: informe y añada todo lo relativo a esto',
                                 ],
                                 'comparendo' => [
                                     'Descripción detallada del comparendo',
@@ -205,10 +202,8 @@
                             // Información de niveles de gravedad
                             $gravedadInfo = [
                                 'accidente' => [
-                                    ['nivel' => 1, 'etiqueta' => 'Leve',    'desc' => 'Primeros auxilios, afectación de costos menor a $1.000.000, quejas o reclamos.'],
-                                    ['nivel' => 2, 'etiqueta' => 'Moderado', 'desc' => 'Incapacidad hasta 30 días, afectación entre $1.000.000 y $10.000.000, investigaciones y sanciones bajas.'],
-                                    ['nivel' => 3, 'etiqueta' => 'Grave',    'desc' => 'Incapacidad > 30 días, afectación entre $10.000.000 y $100.000.000, investigaciones y sanciones medias.'],
-                                    ['nivel' => 4, 'etiqueta' => 'Crítico',  'desc' => 'Muerte, afectación > $100.000.000, investigaciones y sanciones críticas.'],
+                                    ['nivel' => 1, 'etiqueta' => 'Baja', 'desc' => 'Daños materiales, ningún tipo de afectación a persona.'],
+                                    ['nivel' => 2, 'etiqueta' => 'Alta', 'desc' => 'Hay afectación física a alguna persona derivada del accidente, sea de la índole que sea.'],
                                 ],
                                 'comparendo' => [
                                     ['nivel' => 1, 'etiqueta' => 'Normal', 'desc' => 'Multa sin inmovilización del vehículo.'],
@@ -325,7 +320,7 @@
                                             <!-- Recordatorio de subir evidencia -->
                                             <div class="rcsst-evidence-reminder" style="margin-top: 12px;">
                                                 <i class="fas fa-exclamation-triangle me-1"></i>
-                                                <strong>Importante:</strong> Suba evidencia del incidente (fotos, documentos, comparendos). Esto es obligatorio.
+                                                <strong>Importante:</strong> Debe adjuntar mínimo 4 evidencias del incidente (fotos, documentos). Todos los archivos son obligatorios.
                                             </div>
 
                                             <!-- Subida de archivos -->
@@ -339,7 +334,7 @@
                                                      style="border: 2px dashed rgba(7,79,145,0.4); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; background: rgba(7,79,145,0.03); transition: all 0.2s ease; margin-bottom: 10px;">
                                                     <div style="font-size: 28px;">📸</div>
                                                     <div style="font-size: 13px; color: #074F91; font-weight: 600;">Haga clic para tomar foto o seleccionar archivo</div>
-                                                    <div style="font-size: 11px; color: #888; margin-top: 2px;">JPG, PNG, PDF — máx. 10 MB por archivo</div>
+                                                    <div style="font-size: 11px; color: #888; margin-top: 2px;">JPG, PNG, PDF — máx. 10 MB por archivo — mínimo 4 archivos requeridos</div>
                                                 </div>
                                                 <input type="file" id="rcsst_input_<?= $tipo; ?>"
                                                        class="rcsst-upload-input"
