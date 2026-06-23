@@ -180,9 +180,9 @@ $(document).ready(function () {
                 render: function (data, type, row) {
                     // Usar valores pre-calculados por el backend en lugar de recalcular en frontend
                     const kmRecorridos = parseInt(row.veh_km_recorridos_aceite) || 0;
-                    const kmRestantes  = parseInt(row.veh_km_restantes_aceite) || 0;
-                    const limite       = parseInt(row.veh_calkmcambioaceite) || 0;
-                    const kmAlCambio   = parseInt(row.veh_kmactual_cambioaceite) || 0;
+                    const kmRestantes = parseInt(row.veh_km_restantes_aceite) || 0;
+                    const limite = parseInt(row.veh_calkmcambioaceite) || 0;
+                    const kmAlCambio = parseInt(row.veh_kmactual_cambioaceite) || 0;
 
                     if (!limite || !kmAlCambio) {
                         return '<span class="text-muted" style="font-size:12px;">Sin datos</span>';
@@ -267,7 +267,7 @@ $(document).ready(function () {
                     title="Ver imagen completa">`;
                 }
             },
-            
+
             // Revisión de Comparendos
             {
                 data: null,
@@ -410,13 +410,21 @@ $(document).ready(function () {
                     const inactivas = parseInt(row.herramientas_inactivas ?? 0);
                     let badge = '';
                     if (inactivas > 0) {
-                        badge = `<span class="badge bg-danger" style="position:relative;top:-8px;right:-2px;font-size:11px;">${inactivas}</span>`;
+                        badge = `<span class="badge bg-danger"
+        style="position:absolute; top:-6px; right:-6px;
+               min-width:16px; height:16px; line-height:16px;
+               font-size:10px; padding:0 4px; border-radius:50%;
+               display:flex; align-items:center; justify-content:center;">
+        ${inactivas}
+    </span>`;
                     }
                     return `
-                        <button class="btn btn-sm btn-outline-primary btn-editar-modal"
-                                title="Editar${inactivas > 0 ? ' — ' + inactivas + ' herramienta(s) inactiva(s)' : ''}" data-id="${row.idvehiculos}">
-                            <i class="fas fa-edit"></i>${badge}
-                        </button>`;
+    <button class="btn btn-sm btn-outline-primary btn-editar-modal"
+            style="position:relative; width:31px; height:31px; padding:0;
+                   display:inline-flex; align-items:center; justify-content:center;"
+            title="Editar${inactivas > 0 ? ' — ' + inactivas + ' herramienta(s) inactiva(s)' : ''}" data-id="${row.idvehiculos}">
+        <i class="fas fa-edit"></i>${badge}
+    </button>`;
                 }
             },
             {
@@ -443,9 +451,9 @@ $(document).ready(function () {
             // Alerta preventiva aceite por KM — usa datos calculados por el backend (SQL)
             // Fuente: veh_km_recorridos_aceite, veh_km_restantes_aceite (alias en obtenerVehiculos())
             const kmRecorridos = parseInt(data.veh_km_recorridos_aceite) || 0;
-            const kmRestantes  = parseInt(data.veh_km_restantes_aceite) || 0;
-            const limiteKm     = parseInt(data.veh_calkmcambioaceite) || 0;
-            const kmAlCambio   = parseInt(data.veh_kmactual_cambioaceite) || 0;
+            const kmRestantes = parseInt(data.veh_km_restantes_aceite) || 0;
+            const limiteKm = parseInt(data.veh_calkmcambioaceite) || 0;
+            const kmAlCambio = parseInt(data.veh_kmactual_cambioaceite) || 0;
 
             // Fila en amarillo si está a menos de 500km del cambio de aceite
             if (!parseInt(data.comparendos_pendientes) && limiteKm > 0 && kmAlCambio > 0 && kmRestantes <= 500) {
@@ -1248,6 +1256,75 @@ $('#formEntregaVehiculo').on('submit', function (e) {
             Swal.close();
             try {
                 const response = typeof res === 'object' ? res : JSON.parse(res);
+
+                // CASO: Conflicto de asignación — vehículo asignado a otros usuarios activos
+                if (response.conflict && response.usuarios && response.usuarios.length > 0) {
+                    let listaHtml = '<ul class="text-start mb-0" style="list-style:disc; padding-left:20px;">';
+                    response.usuarios.forEach(function (u) {
+                        listaHtml += '<li><strong>' + $('<span>').text(u.usu_nombre).html() + '</strong> ' +
+                                     '(Doc: ' + $('<span>').text(u.usu_identificacion).html() + ')</li>';
+                    });
+                    listaHtml += '</ul>';
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Vehículo asignado a otro(s) conductor(es)',
+                        html: '<div class="text-center mb-3">' +
+                              '<i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>' +
+                              '</div>' +
+                              '<p class="text-start">El vehículo seleccionado actualmente está asignado a los siguientes conductores activos:</p>' +
+                              listaHtml +
+                              '<hr>' +
+                              '<p class="text-start text-muted mb-0"><i class="fas fa-info-circle me-1"></i>' +
+                              'Primero debe registrar las entregas finales de estos conductores. Si continúa, la asignación se transferirá automáticamente al nuevo conductor.</p>',
+                        showCancelButton: true,
+                        confirmButtonText: 'Continuar',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Reenviar con force_assign para forzar la reasignación
+                            datos.append('ent_force_assign', '1');
+
+                            $.ajax({
+                                url: urlController,
+                                type: 'POST',
+                                data: datos,
+                                cache: false,
+                                contentType: false,
+                                processData: false,
+                                success: function (res2) {
+                                    Swal.close();
+                                    try {
+                                        const response2 = typeof res2 === 'object' ? res2 : JSON.parse(res2);
+                                        if (response2.success) {
+                                            Swal.fire({
+                                                icon: 'success',
+                                                title: '¡Entrega registrada!',
+                                                text: response2.mensaje,
+                                                timer: 2000,
+                                                showConfirmButton: false
+                                            });
+                                            $('#modalEntregaVehiculo').modal('hide');
+                                            document.getElementById('formEntregaVehiculo').reset();
+                                        } else {
+                                            Swal.fire('Error', response2.mensaje, 'error');
+                                        }
+                                    } catch (e) {
+                                        Swal.fire('Error', 'Error en la respuesta del servidor', 'error');
+                                    }
+                                },
+                                error: function () {
+                                    Swal.close();
+                                    Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+                                }
+                            });
+                        }
+                    });
+                    return;
+                }
+
                 if (response.success) {
                     Swal.fire({
                         icon: 'success',
@@ -2036,13 +2113,13 @@ $(document).on('click', '#tablaVehiculos tbody .btn-editar-aceite', function () 
     const $btn = $(this);
 
     // Datos del vehículo
-    const id         = $btn.data('id');
-    const fechaUlt   = $btn.data('fecha');
-    const kmActual   = parseInt($btn.data('kilactual')) || 0;
+    const id = $btn.data('id');
+    const fechaUlt = $btn.data('fecha');
+    const kmActual = parseInt($btn.data('kilactual')) || 0;
     const kmUltCambio = parseInt($btn.data('kmcambio')) || 0;
-    const intervalo  = parseInt($btn.data('limite')) || 0;
+    const intervalo = parseInt($btn.data('limite')) || 0;
     const recorridos = parseInt($btn.data('recorridos')) || 0;
-    const restantes  = parseInt($btn.data('restantes')) || 0;
+    const restantes = parseInt($btn.data('restantes')) || 0;
 
     // ID oculto
     document.getElementById('aceite_veh_id').value = id;
@@ -2953,23 +3030,23 @@ function renderEvidenciasRevision(evidencias) {
     return `
         <div class="d-flex flex-wrap justify-content-center gap-1">
             ${evidencias.map((ruta, idx) => {
-                const url = `${baseUrl}/${ruta}`;
-                const numero = idx + 1;
+        const url = `${baseUrl}/${ruta}`;
+        const numero = idx + 1;
 
-                if (ruta.toLowerCase().endsWith('.pdf')) {
-                    return `<a href="${url}" target="_blank"
+        if (ruta.toLowerCase().endsWith('.pdf')) {
+            return `<a href="${url}" target="_blank"
                               class="btn btn-sm btn-outline-danger"
                               title="Ver evidencia ${numero}">
                               <i class="fas fa-file-pdf"></i> ${numero}
                            </a>`;
-                }
+        }
 
-                return `<img src="${url}"
+        return `<img src="${url}"
                             style="height:48px;width:72px;object-fit:cover;
                                    border-radius:4px;border:1px solid #dee2e6;cursor:pointer;"
                             onclick="window.open('${url}','_blank')"
                             title="Ver evidencia ${numero}">`;
-            }).join('')}
+    }).join('')}
         </div>
     `;
 }

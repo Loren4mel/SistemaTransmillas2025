@@ -94,12 +94,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_entrega'])) {
         'ent_vehiculo_id'      => $idVehiculo,
         'ent_firma_base64'     => $_POST['ent_firma_base64'] ?? '',
         'ent_video_url' => $_POST['ent_video_url'] ?? '',
+        'ent_force_assign' => $_POST['ent_force_assign'] ?? '',
     ];
 
     $resultado = $modelo->guardarEntregaVehiculo($datos);
+
+    // Si hay conflicto de asignación de vehículo, retornar datos de usuarios conflictivos
+    if (is_array($resultado) && isset($resultado['conflict'])) {
+        echo json_encode($resultado);
+        exit;
+    }
+
     echo json_encode($resultado === true
         ? ['success' => true,  'mensaje' => 'Entrega registrada correctamente']
-        : ['success' => false, 'mensaje' => $resultado['error']]
+        : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al registrar la entrega']
     );
     exit;
 }

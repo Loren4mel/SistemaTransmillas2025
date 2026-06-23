@@ -1413,7 +1413,7 @@
 
             <div class="modal-header mi-header text-white">
                 <h5 class="modal-title">
-                    <i class="fas fa-oil-can me-2"></i> Estado y Cambio de Aceite
+                    Estado y Cambio de Aceite
                 </h5>
                 <button type="button" class="btn-close btn-close-white"
                         data-bs-dismiss="modal"></button>
@@ -1505,7 +1505,7 @@
                         data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary"
                         id="btnGuardarAceite">
-                    <i class="fas fa-save me-1"></i> Registrar Cambio de Aceite
+                         Registrar Cambio de Aceite
                 </button>
             </div>
 

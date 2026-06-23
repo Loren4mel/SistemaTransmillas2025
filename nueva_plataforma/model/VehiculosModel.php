@@ -390,8 +390,49 @@ public function obtenerOperadoresActivos() {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+/**
+ * Verifica si un vehículo está asignado a otros usuarios activos, excluyendo al conductor destino
+ * @param int $idVehiculo ID del vehículo
+ * @param int $excluirUsuarioId ID del usuario que recibirá el vehículo (se excluye de la búsqueda)
+ * @return array Lista de usuarios activos que tienen el vehículo asignado
+ */
+public function verificarUsuariosConVehiculo($idVehiculo, $excluirUsuarioId = 0) {
+    $idVehiculo = intval($idVehiculo);
+    $excluirUsuarioId = intval($excluirUsuarioId);
+
+    $sql = "SELECT idusuarios, usu_nombre, usu_identificacion
+            FROM usuarios
+            WHERE usu_vehiculo = ?
+              AND usu_estado = 1
+              AND idusuarios != ?
+            ORDER BY usu_nombre ASC";
+    $stmt = $this->dbname->prepare($sql);
+    $stmt->bind_param("ii", $idVehiculo, $excluirUsuarioId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $usuarios = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return $usuarios;
+}
+
 //Funcion para guardar entrega de vehículo con validación de usuario, hoja de vida y manejo de imágenes
 public function guardarEntregaVehiculo($datos) {
+
+    // VALIDACIÓN: Si es entrega inicial, verificar si el vehículo ya está asignado a otros usuarios activos
+    if ($datos['ent_tipoentrega'] === 'inicial' && !empty($datos['ent_vehiculo_id']) && empty($datos['ent_force_assign'])) {
+        $idVehiculoCheck  = intval($datos['ent_vehiculo_id']);
+        $idConductorCheck = intval($datos['ent_idusuario']);
+        $usuariosConflictos = $this->verificarUsuariosConVehiculo($idVehiculoCheck, $idConductorCheck);
+
+        if (count($usuariosConflictos) > 0) {
+            // No guardamos nada, retornamos la lista de usuarios para que el frontend decida
+            return [
+                'conflict'  => true,
+                'usuarios'  => $usuariosConflictos,
+                'mensaje'   => 'El vehículo seleccionado está asignado a otros conductores activos.'
+            ];
+        }
+    }
 
     $ent_img_frente  = $this->guardarImagen($_FILES['ent_img_frente'] ?? [],  "uploads/vehiculos");
     $ent_img_trasera = $this->guardarImagen($_FILES['ent_img_trasera'] ?? [], "uploads/vehiculos");
@@ -502,7 +543,7 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
     if (!$resultado) return ['error' => 'Execute falló: ' . $stmt->error];
     $stmt->close();
 
-    if ($datos['ent_tipoentrega'] === 'inicial' && !empty($datos['ent_vehiculo_id']) && !empty($datos['ent_idusuario'])) {
+if ($datos['ent_tipoentrega'] === 'inicial' && !empty($datos['ent_vehiculo_id']) && !empty($datos['ent_idusuario'])) {
     $idVehiculo  = intval($datos['ent_vehiculo_id']);
     $idConductor = intval($datos['ent_idusuario']);
 
@@ -516,6 +557,18 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
 
     $tipoVehiculo = $rowTipo['veh_tipo'] ?? '';
 
+    // PASO 1: Liberar el vehículo de cualquier OTRO usuario activo que lo tenga asignado
+    $sqlLiberar = "UPDATE usuarios 
+                   SET usu_vehiculo = 0, usu_tipoVehiculo = ''
+                   WHERE usu_vehiculo = ? 
+                     AND usu_estado = 1 
+                     AND idusuarios != ?";
+    $stmtLiberar = $this->dbname->prepare($sqlLiberar);
+    $stmtLiberar->bind_param("ii", $idVehiculo, $idConductor);
+    $stmtLiberar->execute();
+    $stmtLiberar->close();
+
+    // PASO 2: Asignar el vehículo al nuevo conductor que recibe la entrega
     $sqlUpd  = "UPDATE usuarios SET 
                     usu_vehiculo     = ?,
                     usu_tipoVehiculo = ?
@@ -524,6 +577,21 @@ $datos['ent_equipo_carretera'] = json_encode($equipo, JSON_UNESCAPED_UNICODE);
     $stmtUpd->bind_param("isi", $idVehiculo, $tipoVehiculo, $idConductor);
     $stmtUpd->execute();
     $stmtUpd->close();
+
+    // PASO 3: Verificación de integridad — confirmar que el vehículo quedó en un solo usuario activo
+    $sqlVerificar = "SELECT COUNT(*) AS total FROM usuarios 
+                     WHERE usu_vehiculo = ? AND usu_estado = 1";
+    $stmtVerificar = $this->dbname->prepare($sqlVerificar);
+    $stmtVerificar->bind_param("i", $idVehiculo);
+    $stmtVerificar->execute();
+    $rowVerificar = $stmtVerificar->get_result()->fetch_assoc();
+    $stmtVerificar->close();
+
+    if ((int)$rowVerificar['total'] > 1) {
+        error_log("⚠️ ALERTA: El vehículo ID {$idVehiculo} quedó asignado a más de un usuario activo tras la entrega inicial. Conductor actual: {$idConductor}");
+    }
+}
+
 }
 
     if (!empty($datos['ent_vehiculo_id']) && !empty($datos['ent_equipo_carretera'])) {
