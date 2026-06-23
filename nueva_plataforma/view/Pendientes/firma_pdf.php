@@ -104,6 +104,11 @@
     $modoFirmaPendiente = ($pendiente['pen_modo_firma'] ?? 'individual') === 'multiple' ? 'multiple' : 'individual';
     $documentoParaFirma = $pendiente['documento_para_firma'] ?? ($pendiente['pen_documento'] ?? '');
     $firmasRegistradas = (int) ($pendiente['firmas_registradas'] ?? 0);
+    $firmaAccion = $firmaAccion ?? 'guardar_firma_pendiente';
+    $firmaIdCampo = $firmaIdCampo ?? 'pendiente_usuario_id';
+    $firmaIdValor = (int) ($firmaIdValor ?? $pendienteUsuarioId ?? 0);
+    $firmaPostUrl = $firmaPostUrl ?? 'PendienteFirmaController.php';
+    $firmaPostMessageId = $firmaPostMessageId ?? 'pendienteUsuarioId';
     $textoEstado = !empty($pendiente['pu_firma_ruta'])
       ? ($modoFirmaPendiente === 'multiple' ? 'Tu firma ya esta registrada' : 'PDF firmado')
       : 'Pendiente por firmar';
@@ -240,8 +245,8 @@
       }
 
       const formData = new FormData();
-      formData.append('accion', 'guardar_firma_pendiente');
-      formData.append('pendiente_usuario_id', '<?= (int) $pendienteUsuarioId ?>');
+      formData.append('accion', '<?= htmlspecialchars($firmaAccion, ENT_QUOTES, 'UTF-8') ?>');
+      formData.append('<?= htmlspecialchars($firmaIdCampo, ENT_QUOTES, 'UTF-8') ?>', '<?= (int) $firmaIdValor ?>');
       formData.append('firma', canvas.toDataURL('image/png'));
 
       try {
@@ -249,7 +254,7 @@
         btnGuardarFirma.disabled = true;
         btnGuardarFirma.textContent = 'Guardando...';
 
-        const respuesta = await fetch('PendienteFirmaController.php', {
+        const respuesta = await fetch('<?= htmlspecialchars($firmaPostUrl, ENT_QUOTES, 'UTF-8') ?>', {
           method: 'POST',
           body: formData
         });
@@ -281,7 +286,7 @@
           if (window.opener && !window.opener.closed) {
             window.opener.postMessage({
               tipo: 'pendiente_pdf_firmado',
-              pendienteUsuarioId: <?= (int) $pendienteUsuarioId ?>,
+              <?= htmlspecialchars($firmaPostMessageId, ENT_QUOTES, 'UTF-8') ?>: <?= (int) $firmaIdValor ?>,
               modoFirma: data.modo_firma || 'individual',
               firmasRegistradas: data.firmas_registradas || 0,
               autoConfirmado: data.auto_confirmado === true

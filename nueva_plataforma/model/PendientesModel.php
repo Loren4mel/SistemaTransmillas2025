@@ -73,10 +73,12 @@ class PendientesModel
                 pri_fecha_inicio,
                 pri_fecha_fin,
                 pri_semestre,
-                pri_docprima
+                pri_docprima,
+                pri_firma_ruta,
+                pri_pdf_firmado_ruta
             FROM primas
             WHERE pri_idusu = ?
-              AND (pri_confirmaUsus = '' OR pri_confirmaUsus = 'no' OR pri_confirmaUsus IS NULL)
+              AND pri_confirmaUsus = 'no'
               AND pri_docprima IS NOT NULL
               AND pri_docprima <> ''
             ORDER BY pri_fecha_inicio DESC";
@@ -87,9 +89,11 @@ class PendientesModel
         $resultPrimas = $stmtPrimas->get_result();
 
         while ($row = $resultPrimas->fetch_assoc()) {
+            $firmadoPrima = trim((string) ($row['pri_firma_ruta'] ?? '')) !== '';
             $pendientes[] = [
                 'registro' => 'prima',
                 'id' => (int) $row['idprimas'],
+                'prima_id' => (int) $row['idprimas'],
                 'fecha_inicio' => $row['pri_fecha_inicio'],
                 'fecha_fin' => $row['pri_fecha_fin'],
                 'tipo' => 'prima',
@@ -97,7 +101,11 @@ class PendientesModel
                 'documento' => $row['pri_docprima'],
                 'observacion' => '',
                 'documento_abierto' => 1,
-                'puede_confirmar' => 1,
+                'requiere_firma' => 1,
+                'firmado' => $firmadoPrima ? 1 : 0,
+                'firma_ruta' => $row['pri_firma_ruta'] ?? '',
+                'pdf_firmado_ruta' => $row['pri_pdf_firmado_ruta'] ?? '',
+                'puede_confirmar' => $firmadoPrima ? 1 : 0,
                 'detalle' => 'Pendiente de prima',
             ];
         }
@@ -257,6 +265,7 @@ class PendientesModel
                     pc.pen_link_documento,
                     pc.pen_modo_firma,
                     pc.pen_fijo,
+                    pc.pen_fecha_inicio_contrato_desde,
                     pc.pen_fecha_creacion,
                     pc.pen_estado,
                     u.usu_nombre AS creador_nombre
@@ -286,6 +295,7 @@ class PendientesModel
                 'formulario_id' => 0,
                 'modo_firma' => $this->normalizarModoFirma((string) ($row['pen_modo_firma'] ?? 'individual')),
                 'fijo' => (int) ($row['pen_fijo'] ?? 0),
+                'fecha_inicio_contrato_desde' => $row['pen_fecha_inicio_contrato_desde'] ?? '',
                 'fecha_creacion' => $row['pen_fecha_creacion'],
                 'creador_nombre' => $row['creador_nombre'] ?? 'Sin nombre',
                 'estado' => (int) $row['pen_estado'],
@@ -490,6 +500,8 @@ class PendientesModel
         $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
         $modoFirma = $this->normalizarModoFirma((string) ($data['modo_firma'] ?? 'individual'));
         $fijo = isset($data['fijo']) && (string) $data['fijo'] === '1' ? 1 : 0;
+        $fechaInicioContratoDesde = $this->normalizarFechaInicioContratoDesde($data['fecha_inicio_contrato_desde'] ?? '');
+        $fechaInicioContratoDesdeDb = $fechaInicioContratoDesde !== '' ? $fechaInicioContratoDesde : null;
         $usuariosEspecificosIds = $this->normalizarUsuariosEspecificos($data['usuarios_especificos_ids'] ?? ($data['usuario_especifico_id'] ?? []));
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
@@ -540,12 +552,13 @@ class PendientesModel
                     pen_documento = ?,
                     pen_link_documento = ?,
                     pen_modo_firma = ?,
-                    pen_fijo = ?
+                    pen_fijo = ?,
+                    pen_fecha_inicio_contrato_desde = ?
                 WHERE id = ?
                   AND pen_creado_por = ?";
 
             $stmtPendiente = $this->db->prepare($sqlPendiente);
-            $stmtPendiente->bind_param("sssssiii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $fijo, $pendienteId, $creadorId);
+            $stmtPendiente->bind_param("sssssisii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $fijo, $fechaInicioContratoDesdeDb, $pendienteId, $creadorId);
             $stmtPendiente->execute();
             $stmtPendiente->close();
 
@@ -568,19 +581,14 @@ class PendientesModel
             $stmtDeleteTipos->execute();
             $stmtDeleteTipos->close();
 
-            $stmtDesactivarUsuarios = $this->db->prepare("UPDATE pendientes_creados_usuarios
-                SET pu_estado = 0
-                WHERE pendiente_id = ?");
-            $stmtDesactivarUsuarios->bind_param("i", $pendienteId);
-            $stmtDesactivarUsuarios->execute();
-            $stmtDesactivarUsuarios->close();
-
             if ($modoAsignacion === 'usuario') {
+                $this->desactivarUsuariosNoSeleccionados($pendienteId, $usuariosEspecificosIds);
                 $this->insertarUsuariosPendiente($pendienteId, $usuariosEspecificos);
                 $usuariosAsignados = $usuariosEspecificos;
             } else {
                 $this->guardarTiposContratoPendiente($pendienteId, $tiposContrato);
-                $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato);
+                $this->desactivarUsuariosFueraDeRolesYContrato($pendienteId, $roles, $tiposContrato);
+                $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato, $fechaInicioContratoDesde);
                 $this->insertarUsuariosPendiente($pendienteId, $usuariosAsignados);
             }
 
@@ -656,6 +664,8 @@ class PendientesModel
         $modoAsignacion = ($data['modo_asignacion'] ?? 'filtros') === 'usuario' ? 'usuario' : 'filtros';
         $modoFirma = $this->normalizarModoFirma((string) ($data['modo_firma'] ?? 'individual'));
         $fijo = isset($data['fijo']) && (string) $data['fijo'] === '1' ? 1 : 0;
+        $fechaInicioContratoDesde = $this->normalizarFechaInicioContratoDesde($data['fecha_inicio_contrato_desde'] ?? '');
+        $fechaInicioContratoDesdeDb = $fechaInicioContratoDesde !== '' ? $fechaInicioContratoDesde : null;
         $usuariosEspecificosIds = $this->normalizarUsuariosEspecificos($data['usuarios_especificos_ids'] ?? ($data['usuario_especifico_id'] ?? []));
         $roles = $data['roles'] ?? [];
         $tiposContrato = $this->normalizarTiposContrato($data['tipos_contrato'] ?? []);
@@ -671,6 +681,7 @@ class PendientesModel
             'modo_asignacion' => $modoAsignacion,
             'modo_firma' => $modoFirma,
             'fijo' => $fijo,
+            'fecha_inicio_contrato_desde' => $fechaInicioContratoDesde,
             'usuarios_especificos_ids' => $usuariosEspecificosIds,
             'file_error' => $file['error'] ?? null,
             'file_name' => $file['name'] ?? null,
@@ -731,14 +742,14 @@ class PendientesModel
 
         try {
             $sqlPendiente = "INSERT INTO pendientes_creados
-                (pen_titulo, pen_descripcion, pen_documento, pen_link_documento, pen_modo_firma, pen_fijo, pen_creado_por, pen_fecha_creacion, pen_estado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 1)";
+                (pen_titulo, pen_descripcion, pen_documento, pen_link_documento, pen_modo_firma, pen_fijo, pen_fecha_inicio_contrato_desde, pen_creado_por, pen_fecha_creacion, pen_estado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1)";
 
             $stmtPendiente = $this->db->prepare($sqlPendiente);
             if (!$stmtPendiente) {
                 throw new Exception('Error preparando INSERT pendientes_creados: ' . $this->db->error);
             }
-            $stmtPendiente->bind_param("sssssii", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $fijo, $creadorId);
+            $stmtPendiente->bind_param("sssssisi", $titulo, $descripcion, $rutaDocumentoPrincipal, $rutaDocumentoSecundarioLink, $modoFirma, $fijo, $fechaInicioContratoDesdeDb, $creadorId);
             $stmtPendiente->execute();
             $pendienteId = (int) $stmtPendiente->insert_id;
             $stmtPendiente->close();
@@ -759,7 +770,7 @@ class PendientesModel
                 $usuariosAsignados = $usuariosEspecificos;
             } else {
                 $this->guardarTiposContratoPendiente($pendienteId, $tiposContrato);
-                $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato);
+                $usuariosAsignados = $this->obtenerUsuariosPorRolesYContrato($roles, $tiposContrato, $fechaInicioContratoDesde);
             }
             $this->insertarUsuariosPendiente($pendienteId, $usuariosAsignados);
 
@@ -968,6 +979,103 @@ class PendientesModel
         ];
     }
 
+    public function obtenerPrimaParaFirma(int $primaId, int $idUsuario): ?array
+    {
+        $sql = "SELECT
+                    idprimas,
+                    pri_idusu,
+                    pri_fecha_inicio,
+                    pri_fecha_fin,
+                    pri_semestre,
+                    pri_docprima,
+                    pri_firma_ruta,
+                    pri_pdf_firmado_ruta
+                FROM primas
+                WHERE idprimas = ?
+                  AND pri_idusu = ?
+                  AND pri_confirmaUsus = 'no'
+                  AND pri_docprima IS NOT NULL
+                  AND pri_docprima <> ''
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("ii", $primaId, $idUsuario);
+        $stmt->execute();
+        $prima = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$prima) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $prima['idprimas'],
+            'usuario_id' => (int) $prima['pri_idusu'],
+            'pu_documento_abierto' => 1,
+            'pu_firma_ruta' => $prima['pri_firma_ruta'] ?? '',
+            'pu_pdf_firmado_ruta' => $prima['pri_pdf_firmado_ruta'] ?? '',
+            'pri_fecha_inicio' => $prima['pri_fecha_inicio'] ?? '',
+            'pri_fecha_fin' => $prima['pri_fecha_fin'] ?? '',
+            'pri_semestre' => $prima['pri_semestre'] ?? '',
+            'pendiente_id' => (int) $prima['idprimas'],
+            'pen_titulo' => 'Liquidacion de prima',
+            'pen_descripcion' => 'Revisa el desprendible de prima y firma para confirmar su aceptacion.',
+            'pen_documento' => $prima['pri_docprima'],
+            'pen_link_documento' => '',
+            'pen_modo_firma' => 'individual',
+            'documento_archivo' => $prima['pri_docprima'],
+            'documento_link' => '',
+            'requiere_firma' => 1,
+            'documento_para_firma' => $prima['pri_pdf_firmado_ruta'] ?: $prima['pri_docprima'],
+            'firmas_registradas' => trim((string) ($prima['pri_firma_ruta'] ?? '')) !== '' ? 1 : 0,
+        ];
+    }
+
+    public function guardarFirmaPrima(int $primaId, int $idUsuario, string $firmaBase64): array
+    {
+        $prima = $this->obtenerPrimaParaFirma($primaId, $idUsuario);
+        if ($prima === null) {
+            return ['success' => false, 'message' => 'La prima no existe para este usuario.'];
+        }
+
+        $rutaFirma = $this->guardarImagenFirmaPendiente($primaId, $firmaBase64);
+        if ($rutaFirma === null) {
+            return ['success' => false, 'message' => 'No fue posible guardar la firma de la prima.'];
+        }
+
+        $rutaPdfFirmado = $this->generarPdfFirmadoPrima($prima, $rutaFirma, $idUsuario);
+        if ($rutaPdfFirmado === null) {
+            return ['success' => false, 'message' => 'La firma fue capturada, pero no fue posible generar el PDF firmado.'];
+        }
+
+        $sql = "UPDATE primas
+                SET pri_firma_ruta = ?,
+                    pri_fecha_firma = NOW(),
+                    pri_pdf_firmado_ruta = ?,
+                    pri_fecha_pdf_firmado = NOW(),
+                    pri_confirmaUsus = 'Si',
+                    pri_fechaconfirmausu = NOW(),
+                    pri_docprima = ?
+                WHERE idprimas = ?
+                  AND pri_idusu = ?";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("sssii", $rutaFirma, $rutaPdfFirmado, $rutaPdfFirmado, $primaId, $idUsuario);
+        $stmt->execute();
+        $ok = $stmt->affected_rows > 0;
+        $stmt->close();
+
+        return [
+            'success' => $ok,
+            'message' => $ok ? 'Firma de prima guardada correctamente.' : 'No fue posible actualizar la prima firmada.',
+            'firma_ruta' => $rutaFirma,
+            'pdf_firmado_ruta' => $rutaPdfFirmado,
+            'modo_firma' => 'individual',
+            'firmas_registradas' => 1,
+            'auto_confirmado' => true,
+        ];
+    }
+
     public function confirmarPendientePersonalizado(int $pendienteUsuarioId, int $idUsuario, string $confirmacion, string $observacion): array
     {
         $sqlFirmaRutaValida = $this->columnaExiste('pendientes_creados_usuarios', 'pu_firma_ruta')
@@ -1145,6 +1253,7 @@ class PendientesModel
             pen_link_documento VARCHAR(255) NULL,
             pen_modo_firma VARCHAR(20) NOT NULL DEFAULT 'individual',
             pen_fijo TINYINT(1) NOT NULL DEFAULT 0,
+            pen_fecha_inicio_contrato_desde DATE NULL,
             pen_creado_por INT NOT NULL,
             pen_fecha_creacion DATETIME NOT NULL,
             pen_estado TINYINT(1) NOT NULL DEFAULT 1
@@ -1199,6 +1308,11 @@ class PendientesModel
             "ALTER TABLE pendientes_creados ADD COLUMN pen_fijo TINYINT(1) NOT NULL DEFAULT 0 AFTER pen_modo_firma"
         );
         $this->agregarColumnaSiNoExiste(
+            'pendientes_creados',
+            'pen_fecha_inicio_contrato_desde',
+            "ALTER TABLE pendientes_creados ADD COLUMN pen_fecha_inicio_contrato_desde DATE NULL AFTER pen_fijo"
+        );
+        $this->agregarColumnaSiNoExiste(
             'pendientes_creados_usuarios',
             'pu_estado',
             "ALTER TABLE pendientes_creados_usuarios ADD COLUMN pu_estado TINYINT(1) NOT NULL DEFAULT 1 AFTER rol_id"
@@ -1223,9 +1337,29 @@ class PendientesModel
             'pu_fecha_pdf_firmado',
             "ALTER TABLE pendientes_creados_usuarios ADD COLUMN pu_fecha_pdf_firmado DATETIME NULL AFTER pu_pdf_firmado_ruta"
         );
+        $this->agregarColumnaSiNoExiste(
+            'primas',
+            'pri_firma_ruta',
+            "ALTER TABLE primas ADD COLUMN pri_firma_ruta VARCHAR(255) NULL AFTER pri_img_compro"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'primas',
+            'pri_fecha_firma',
+            "ALTER TABLE primas ADD COLUMN pri_fecha_firma DATETIME NULL AFTER pri_firma_ruta"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'primas',
+            'pri_pdf_firmado_ruta',
+            "ALTER TABLE primas ADD COLUMN pri_pdf_firmado_ruta VARCHAR(255) NULL AFTER pri_fecha_firma"
+        );
+        $this->agregarColumnaSiNoExiste(
+            'primas',
+            'pri_fecha_pdf_firmado',
+            "ALTER TABLE primas ADD COLUMN pri_fecha_pdf_firmado DATETIME NULL AFTER pri_pdf_firmado_ruta"
+        );
     }
 
-    private function obtenerUsuariosPorRolesYContrato(array $roles, array $tiposContrato): array
+    private function obtenerUsuariosPorRolesYContrato(array $roles, array $tiposContrato, string $fechaInicioContratoDesde = ''): array
     {
         $marcadoresRoles = implode(',', array_fill(0, count($roles), '?'));
         $marcadoresContrato = implode(',', array_fill(0, count($tiposContrato), '?'));
@@ -1237,8 +1371,19 @@ class PendientesModel
                   AND roles_idroles IN ($marcadoresRoles)
                   AND usu_tipocontrato IN ($marcadoresContrato)";
 
-        $stmt = $this->db->prepare($sql);
         $parametros = array_merge($roles, $tiposContrato);
+        if ($fechaInicioContratoDesde !== '') {
+            $sql .= " AND EXISTS (
+                    SELECT 1
+                    FROM hojadevida h
+                    WHERE h.hoj_cedula = usuarios.usu_identificacion
+                      AND h.hoj_fechaingreso >= ?
+                )";
+            $tipos .= 's';
+            $parametros[] = $fechaInicioContratoDesde;
+        }
+
+        $stmt = $this->db->prepare($sql);
         $stmt->bind_param($tipos, ...$parametros);
         $stmt->execute();
         $resultado = $stmt->get_result();
@@ -1345,13 +1490,24 @@ class PendientesModel
                   AND pc.pen_estado = 1
                   AND pc.pen_fijo = 1
                   AND (ptc.tipo_contrato IS NULL OR ptc.tipo_contrato = ?)
+                  AND (
+                      pc.pen_fecha_inicio_contrato_desde IS NULL
+                      OR pc.pen_fecha_inicio_contrato_desde = '0000-00-00'
+                      OR EXISTS (
+                          SELECT 1
+                          FROM hojadevida h
+                          INNER JOIN usuarios u_fecha ON u_fecha.usu_identificacion = h.hoj_cedula
+                          WHERE u_fecha.idusuarios = ?
+                            AND h.hoj_fechaingreso >= pc.pen_fecha_inicio_contrato_desde
+                      )
+                  )
                   AND pu.id IS NULL
                 ON DUPLICATE KEY UPDATE
                     rol_id = VALUES(rol_id),
                     pu_estado = 1";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("iiiis", $idUsuario, $rolUsuario, $idUsuario, $rolUsuario, $tipoContratoUsuario);
+        $stmt->bind_param("iiiisi", $idUsuario, $rolUsuario, $idUsuario, $rolUsuario, $tipoContratoUsuario, $idUsuario);
         $stmt->execute();
         $asignados = max(0, (int) $stmt->affected_rows);
         $stmt->close();
@@ -1361,7 +1517,7 @@ class PendientesModel
 
     private function obtenerPendientePorId(int $pendienteId, int $creadorId): ?array
     {
-        $sql = "SELECT id, pen_documento, pen_link_documento, pen_fijo
+        $sql = "SELECT id, pen_documento, pen_link_documento, pen_fijo, pen_fecha_inicio_contrato_desde
                 FROM pendientes_creados
                 WHERE id = ?
                   AND pen_creado_por = ?
@@ -1395,6 +1551,53 @@ class PendientesModel
 
         $stmt = $this->db->prepare($sql);
         $parametros = array_merge([$pendienteId], $roles);
+        $stmt->bind_param($tipos, ...$parametros);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    private function desactivarUsuariosNoSeleccionados(int $pendienteId, array $usuariosIds): void
+    {
+        if (empty($usuariosIds)) {
+            return;
+        }
+
+        $marcadores = implode(',', array_fill(0, count($usuariosIds), '?'));
+        $tipos = 'i' . str_repeat('i', count($usuariosIds));
+
+        $sql = "UPDATE pendientes_creados_usuarios
+                SET pu_estado = 0
+                WHERE pendiente_id = ?
+                  AND usuario_id NOT IN ($marcadores)";
+
+        $stmt = $this->db->prepare($sql);
+        $parametros = array_merge([$pendienteId], $usuariosIds);
+        $stmt->bind_param($tipos, ...$parametros);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    private function desactivarUsuariosFueraDeRolesYContrato(int $pendienteId, array $roles, array $tiposContrato): void
+    {
+        if (empty($roles) || empty($tiposContrato)) {
+            return;
+        }
+
+        $marcadoresRoles = implode(',', array_fill(0, count($roles), '?'));
+        $marcadoresContrato = implode(',', array_fill(0, count($tiposContrato), '?'));
+        $tipos = 'i' . str_repeat('i', count($roles)) . str_repeat('s', count($tiposContrato));
+
+        $sql = "UPDATE pendientes_creados_usuarios pu
+                INNER JOIN usuarios u ON u.idusuarios = pu.usuario_id
+                SET pu.pu_estado = 0
+                WHERE pu.pendiente_id = ?
+                  AND (
+                      u.roles_idroles NOT IN ($marcadoresRoles)
+                      OR u.usu_tipocontrato NOT IN ($marcadoresContrato)
+                  )";
+
+        $stmt = $this->db->prepare($sql);
+        $parametros = array_merge([$pendienteId], $roles, $tiposContrato);
         $stmt->bind_param($tipos, ...$parametros);
         $stmt->execute();
         $stmt->close();
@@ -1440,6 +1643,22 @@ class PendientesModel
         return array_values(array_filter($tiposContrato, static function ($tipo) use ($permitidos) {
             return in_array($tipo, $permitidos, true);
         }));
+    }
+
+    private function normalizarFechaInicioContratoDesde($fecha): string
+    {
+        $fecha = trim((string) $fecha);
+        if ($fecha === '') {
+            return '';
+        }
+
+        $dt = DateTime::createFromFormat('Y-m-d', $fecha);
+        $errores = DateTime::getLastErrors();
+        if (!$dt || ($errores !== false && ($errores['warning_count'] > 0 || $errores['error_count'] > 0))) {
+            return '';
+        }
+
+        return $dt->format('Y-m-d');
     }
 
     private function normalizarUsuariosEspecificos($usuariosIds): array
@@ -1703,6 +1922,156 @@ class PendientesModel
             'individual',
             'pendiente_firmado_' . $pendienteUsuarioId
         );
+    }
+
+    private function generarPdfFirmadoPrima(array $prima, string $rutaFirmaRelativa, int $idUsuario): ?string
+    {
+        $this->cargarLibreriasPdf();
+
+        try {
+            $usuario = $this->obtenerUsuarioPorId($idUsuario);
+            $nombreUsuario = trim((string) ($usuario['usu_nombre'] ?? ('Usuario ' . $idUsuario)));
+            $rutaFirma = $this->obtenerRutaAbsolutaDesdeRelativa($rutaFirmaRelativa);
+            if ($rutaFirma === null || !is_file($rutaFirma)) {
+                return null;
+            }
+
+            $documento = (string) ($prima['pen_documento'] ?? '');
+            $query = (string) (parse_url($documento, PHP_URL_QUERY) ?? '');
+            parse_str($query, $paramsDocumento);
+
+            $cedula = (string) ($paramsDocumento['cedula'] ?? '');
+            $nombre = (string) ($paramsDocumento['nombre'] ?? $nombreUsuario);
+            $cargo = (string) ($paramsDocumento['cargo'] ?? '');
+            $fechaInicio = (string) ($paramsDocumento['fechaini'] ?? ($prima['pri_fecha_inicio'] ?? ''));
+            $fechaFin = (string) ($paramsDocumento['fechafin'] ?? ($prima['pri_fecha_fin'] ?? ''));
+            $diasTrabajados = (string) ($paramsDocumento['diastrabajados'] ?? '0');
+            $totalDevengado = (float) ($paramsDocumento['totaldeveng'] ?? 0);
+            $sede = (string) ($paramsDocumento['sede'] ?? '');
+            $transporte = (float) ($paramsDocumento['transporte'] ?? 0);
+            $sueldoBasico = (float) ($paramsDocumento['sueldobasico'] ?? 0);
+            $semestre = ((string) ($paramsDocumento['semestre'] ?? ($prima['pri_semestre'] ?? 'Primera'))) === 'Segunda' ? '2' : '1';
+
+            $pdf = new \setasign\Fpdi\Fpdi();
+            $pdf->AddPage('P', 'A4');
+            $pdf->SetAutoPageBreak(true, 18);
+            $pdf->SetMargins(10, 10, 10);
+
+            $logo = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'logoDesprendible.jpg';
+
+            $pdf->SetLineWidth(0.5);
+            $pdf->SetDrawColor(0, 0, 0);
+            $pdf->Rect(10, 10, 190, 68, 'D');
+            $pdf->SetFont('Arial', 'B', 25);
+            $pdf->SetY(15);
+            $pdf->Cell(150, 10, utf8_decode('LIQUIDACION DE PRIMA'), 0, 1, 'C');
+
+            if (is_file($logo)) {
+                $pdf->Image($logo, 165, 12, 30);
+            }
+
+            $pdf->SetY(30);
+            $pdf->SetX(20);
+            $pdf->SetDrawColor(255, 255, 255);
+            $pdf->SetFont('Arial', 'B', 10);
+            $lineas = [
+                'CEDULA:  ' . $cedula,
+                'NOMBRE:  ' . $nombre,
+                'CARGO:  ' . $cargo,
+                'SEMESTRE:  ' . $semestre,
+                'FECHA INICIAL:  ' . $fechaInicio . '    FECHA CORTE:  ' . $fechaFin,
+            ];
+            foreach ($lineas as $linea) {
+                $pdf->SetX(20);
+                $pdf->Cell(165, 7, utf8_decode($linea), 1);
+                $pdf->Ln();
+            }
+            $pdf->SetX(20);
+            $pdf->Cell(100, 7, utf8_decode('No DAVIVIENDA'), 1);
+            $pdf->Cell(65, 7, utf8_decode($sede), 1);
+
+            $tablaY = 86;
+            $pdf->SetY($tablaY);
+            $pdf->SetX(10);
+            $pdf->SetDrawColor(0, 0, 0);
+            $pdf->SetLineWidth(0.35);
+            $pdf->SetFont('Arial', 'B', 9);
+            $pdf->Cell(95, 8, utf8_decode('CALCULO PRIMA'), 1, 0, 'C');
+            $pdf->Cell(95, 8, utf8_decode('BASE PARA EL CALCULO'), 1, 1, 'C');
+
+            $pdf->SetFont('Arial', 'B', 10);
+            $pdf->SetX(10);
+            $pdf->Cell(60, 7, utf8_decode('Concepto'), 1);
+            $pdf->Cell(35, 7, utf8_decode('Valor'), 1);
+            $pdf->Cell(55, 7, utf8_decode('Concepto'), 1);
+            $pdf->Cell(40, 7, utf8_decode('Valor'), 1);
+            $pdf->Ln();
+
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->SetX(10);
+            $pdf->Cell(60, 7, utf8_decode('Dias trabajados'), 1);
+            $pdf->Cell(35, 7, utf8_decode($diasTrabajados), 1);
+            $pdf->Cell(55, 7, utf8_decode('Sueldo basico'), 1);
+            $pdf->Cell(40, 7, number_format($sueldoBasico, 0, ',', '.'), 1);
+            $pdf->Ln();
+
+            $pdf->SetX(10);
+            $pdf->Cell(60, 7, '', 1);
+            $pdf->Cell(35, 7, '', 1);
+            $pdf->Cell(55, 7, utf8_decode('Subsidio transporte'), 1);
+            $pdf->Cell(40, 7, number_format($transporte, 0, ',', '.'), 1);
+            $pdf->Ln();
+
+            $pdf->SetX(10);
+            $pdf->Cell(60, 10, utf8_decode('TOTAL PRIMA'), 1);
+            $pdf->Cell(35, 10, number_format($totalDevengado, 0, ',', '.'), 1);
+            $pdf->Cell(55, 10, '', 1);
+            $pdf->Cell(40, 10, '', 1);
+            $pdf->Ln();
+
+            $pdf->SetX(10);
+            $pdf->Cell(120, 10, utf8_decode('TOTAL'), 1);
+            $pdf->Cell(70, 10, utf8_decode('VALOR A PAGAR:  ' . number_format($totalDevengado, 0, ',', '.')), 1);
+            $pdf->Ln();
+            $pdf->SetX(10);
+            $pdf->Cell(190, 10, utf8_decode('VALOR EN LETRAS:  ' . $this->valorPrimaEnLetras($totalDevengado)), 1);
+            $pdf->Ln();
+            $pdf->SetX(10);
+            $pdf->Cell(190, 10, utf8_decode('FECHA DE FIRMA:  ' . date('Y-m-d H:i:s')), 1);
+            $pdf->Ln(16);
+
+            $pdf->SetFont('Arial', 'B', 12);
+            $pdf->Cell(0, 8, utf8_decode('Firma capturada'), 0, 1);
+            $pdf->Ln(4);
+            $pdf->Image($rutaFirma, 28, $pdf->GetY(), 150, 55, 'PNG');
+            $pdf->Ln(60);
+            $pdf->SetFont('Arial', '', 9);
+            $pdf->MultiCell(0, 6, utf8_decode('RECIBI A SATISFACCION Y ACEPTO EN TODAS SUS PARTES ESTE PAGO. Firmado dentro del sistema por ' . $nombreUsuario . '.'));
+
+            $nombreArchivo = 'prima_firmada_' . (int) ($prima['id'] ?? 0) . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.pdf';
+            $destino = $this->uploadPdfFirmadoDir . DIRECTORY_SEPARATOR . $nombreArchivo;
+            $pdf->Output('F', $destino);
+
+            if (!is_file($destino)) {
+                return null;
+            }
+
+            return $this->uploadPdfFirmadoUrlBase . $nombreArchivo;
+        } catch (\Throwable $e) {
+            $this->log('generarPdfFirmadoPrima error', ['error' => $e->getMessage(), 'prima' => $prima['id'] ?? null]);
+            return null;
+        }
+    }
+
+    private function valorPrimaEnLetras(float $valor): string
+    {
+        if (class_exists('NumberFormatter')) {
+            $formatter = new \NumberFormatter('es_CO', \NumberFormatter::SPELLOUT);
+            $texto = (string) $formatter->format((int) round($valor));
+            return strtoupper(trim($texto)) . ' PESOS';
+        }
+
+        return number_format($valor, 0, ',', '.') . ' PESOS';
     }
 
     private function generarPdfFirmadoPendienteMultiple(int $pendienteId): ?string
