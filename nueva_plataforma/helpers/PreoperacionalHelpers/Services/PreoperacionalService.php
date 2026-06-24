@@ -241,17 +241,21 @@ class PreoperacionalService
         return $this->model->obtenerRolUsuario($idUsuario);
     }
 
-    /**
-     * Busca las entregas de vehículo pendientes de validación para un conductor.
-     * Retorna el último par FINAL/INICIAL vinculado a un REVISION_SST.
-     *
-     * @param int $idUsuario ID del conductor
-     * @return array ['final' => entrega|null, 'inicial' => entrega|null, 'seguimiento' => array|null]
-     */
-    public function obtenerEntregasPendientesPorUsuario($idUsuario)
-    {
-        return $this->model->obtenerEntregasPendientesPorUsuario($idUsuario);
-    }
+    // ==================== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ====================
+    // NO ELIMINAR: Este método se re-activará cuando el módulo entrega_vehiculo esté completo.
+    //
+    ///**
+    // * Busca las entregas de vehículo pendientes de validación para un conductor.
+    // * Retorna el último par FINAL/INICIAL vinculado a un REVISION_SST.
+    // *
+    // * @param int $idUsuario ID del conductor
+    // * @return array ['final' => entrega|null, 'inicial' => entrega|null, 'seguimiento' => array|null]
+    // */
+    //public function obtenerEntregasPendientesPorUsuario($idUsuario)
+    //{
+    //    return $this->model->obtenerEntregasPendientesPorUsuario($idUsuario);
+    //}
+    // ==================== FIN DESHABILITADO ====================
 
     /**
      * Obtiene el documento de firma asociado a un preoperacional
@@ -923,27 +927,27 @@ class PreoperacionalService
         } else {
             // El vehículo NO puede ser operado — registrar FUERA_DE_SERVICIO
 
-            // Obtener la firma del conductor desde el preoperacional vinculado
-            // para asociarla automáticamente a las entregas (final e inicial).
-            $firmaRutaDesdePreop = '';
-            if ($idPreopVinculado) {
-                $firmaDoc = $this->model->obtenerDocumentoFirma($idPreopVinculado);
-                if ($firmaDoc && !empty($firmaDoc['doc_ruta'])) {
-                    $firmaRutaDesdePreop = $firmaDoc['doc_ruta'];
-                }
-            }
+            // ========== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ==========
+            // NO ELIMINAR: Este bloque crea registros en entregavehiculo (final e inicial)
+            // para la trazabilidad cuando un conductor reporta una novedad.
+            // Se re-activará cuando entrega_vehiculo esté completo.
+            //
+            // // Obtener la firma del conductor...
+            // $firmaRutaDesdePreop = '';
+            // if ($idPreopVinculado) { ... }
+            //
+            // $idEntregaFinal = null;
+            // if (!empty($fotos['salida_frente']) || !empty($fotos['salida_trasera'])) {
+            //     $idEntregaFinal = $this->crearEntregaVehiculoNovedad(...);
+            // }
+            //
+            // $idEntregaInicial = null;
+            // if (!empty($fotos['entrada_frente']) || !empty($fotos['entrada_trasera'])) {
+            //     $idEntregaInicial = $this->crearEntregaVehiculoNovedad(...);
+            // }
+            // ========== FIN DESHABILITADO ==========
 
-            // Crear entrega FINAL (salida) para el vehículo actual
             $idEntregaFinal = null;
-            if (!empty($fotos['salida_frente']) || !empty($fotos['salida_trasera'])) {
-                $idEntregaFinal = $this->crearEntregaVehiculoNovedad(
-                    $idVehiculoActual, $idUsuario,
-                    $fotos['salida_frente'], $fotos['salida_trasera'],
-                    $observaciones, 'final',
-                    $firmaRutaDesdePreop
-                );
-            }
-
             $idEntregaInicial = null;
             $idVehiculoFinal = $idVehiculoActual;
             $cambioVehiculo = false;
@@ -954,16 +958,6 @@ class PreoperacionalService
                 $this->model->asignarVehiculoAUsuario($idVehiculoNuevo, $idUsuario);
                 $idVehiculoFinal = $idVehiculoNuevo;
                 $cambioVehiculo = true;
-
-                // Crear entrega INICIAL (entrada) para el vehículo nuevo
-                if (!empty($fotos['entrada_frente']) || !empty($fotos['entrada_trasera'])) {
-                    $idEntregaInicial = $this->crearEntregaVehiculoNovedad(
-                        $idVehiculoNuevo, $idUsuario,
-                        $fotos['entrada_frente'], $fotos['entrada_trasera'],
-                        $observaciones, 'inicial',
-                        $firmaRutaDesdePreop
-                    );
-                }
             } else {
                 // No seleccionó vehículo — desasignar el actual
                 $this->model->desasignarVehiculoDeUsuario($idUsuario);
@@ -987,8 +981,8 @@ class PreoperacionalService
                 'estado_general' => 'FUERA_DE_SERVICIO',
                 'foto_evidencia' => $fotoEvidencia,
                 'observaciones' => $observaciones,
-                'entrega_final_usuario' => $idEntregaFinal,
-                'entrega_inicial_usuario' => $idEntregaInicial
+                'entrega_final_usuario' => null, // DESHABILITADO: era $idEntregaFinal
+                'entrega_inicial_usuario' => null // DESHABILITADO: era $idEntregaInicial
             ]);
 
             // Guardar fotos múltiples de evidencia en documentos
@@ -1226,32 +1220,17 @@ class PreoperacionalService
             $this->model->actualizarSeguimientoVehiculoEstado($idPre, $nuevoEstado);
         }
 
-        // === ENTREGA DE VEHÍCULO: Procesar fotos y crear registros de entrega ===
-        $fotosProcesadas = $this->procesarFotosEntrega($files);
-        $tieneFotos = !empty($fotosProcesadas['final_frente']) || !empty($fotosProcesadas['final_trasera'])
-                      || !empty($fotosProcesadas['inicial_frente']) || !empty($fotosProcesadas['inicial_trasera']);
-
-        if ($tieneFotos && $idVehiculo > 0) {
-            // Obtener firma del conductor desde documentos
-            $firmaRuta = '';
-            $firmaDoc = $this->model->obtenerDocumentoFirma($idPre);
-            if ($firmaDoc && !empty($firmaDoc['doc_ruta'])) {
-                $firmaRuta = $firmaDoc['doc_ruta'];
-            }
-
-            $resultadoEntrega = $this->crearEntregasVehiculoEnValidacion(
-                $idPre,
-                $idVehiculo,
-                $_SESSION['usuario_id'] ?? 0,
-                $fotosProcesadas,
-                $descValidada,
-                $firmaRuta
-            );
-
-            if (!$resultadoEntrega['success']) {
-                error_log("PreoperacionalService: Error en entregas - " . $resultadoEntrega['message']);
-            }
-        }
+        // === ENTREGA DE VEHÍCULO: DESHABILITADO (desarrollo activo) ===
+        // NO ELIMINAR: Este bloque procesa las fotos de entrega y crea registros en
+        // entregavehiculo durante la validación del preoperacional.
+        //
+        // $fotosProcesadas = $this->procesarFotosEntrega($files);
+        // $tieneFotos = !empty($fotosProcesadas['final_frente']) || ...
+        //
+        // if ($tieneFotos && $idVehiculo > 0) {
+        //     $resultadoEntrega = $this->crearEntregasVehiculoEnValidacion(...);
+        // }
+        // ========== FIN DESHABILITADO ==========
 
         $resultado = ['success' => true, 'message' => 'Preoperacional actualizado correctamente'];
         if ($warningKilometraje !== null) {
@@ -1501,169 +1480,23 @@ class PreoperacionalService
         return $resultado;
     }
 
-    /**
-     * Crea los dos registros de entrega de vehículo al validar un preoperacional:
-     * 1. ENTREGA FINAL (conductor → empresa)
-     * 2. ENTREGA INICIAL (empresa → conductor)
-     *
-     * Se requieren 4 fotos: 2 para cada registro.
-     *
-     * @param int $idPreoperacional ID del registro preoperacional
-     * @param int $idVehiculo ID del vehículo
-     * @param int $idUsuario ID del conductor
-     * @param array $fotos Array con las 4 rutas de fotos procesadas:
-     *                      ['final_frente', 'final_trasera', 'inicial_frente', 'inicial_trasera']
-     * @param string $observaciones Observaciones de la validación
-     * @param string $firmaRuta Ruta de la firma del conductor (del preoperacional)
-     * @return array Resultado de la operación
-     */
-    public function crearEntregasVehiculoEnValidacion($idPreoperacional, $idVehiculo, $idUsuario, $fotos, $observaciones = '', $firmaRuta = '')
-    {
-        // Obtener datos del vehículo para el texto descriptivo
-        $vehiculoModel = new VehiculosModel();
-        $datosVehiculo = $vehiculoModel->obtenerVehiculoPorId($idVehiculo);
-        if (!$datosVehiculo) {
-            return ['success' => false, 'message' => 'Vehículo no encontrado.'];
-        }
-
-        $entVehiculo = trim($datosVehiculo['veh_placa'] . ' ' . $datosVehiculo['veh_marca'] . ' ' . $datosVehiculo['veh_modelo']);
-        $nombreValidador = $_SESSION['usuario_nombre'] ?? 'Sistema';
-        $fechaHoy = date('Y-m-d');
-
-        // Resolver idhojadevida desde la cédula del conductor
-        $idHojaDeVida = $this->resolverHojaDeVida($idUsuario);
-
-        // Obtener equipo de carretera del vehículo
-        $equipoCarretera = $vehiculoModel->obtenerEquipoVehiculo($idVehiculo);
-        $equipoJson = !empty($equipoCarretera) ? json_encode($equipoCarretera) : '[]';
-
-        // Buscar el último seguimiento_vehiculo para ver si ya hay entregas vinculadas
-        $seguimientoExistente = $this->model->obtenerUltimoSeguimientoPorVehiculo($idVehiculo);
-
-        $errores = [];
-        $idNuevoFinal = null;
-        $idNuevoInicial = null;
-
-        // 1. ENTREGA FINAL (conductor → empresa)
-        $idEntregaFinalExistente = $seguimientoExistente['entrega_final_usuario'] ?? null;
-
-        if ($idEntregaFinalExistente) {
-            // UPDATE: el registro ya existe (creado desde la novedad), completar con datos de validación
-            $datosUpdate = [
-                'ent_firma' => $firmaRuta,
-                'ent_observaciones' => $observaciones ?: ($seguimientoExistente['observaciones'] ?? ''),
-            ];
-            // Solo actualizar fotos si se enviaron nuevas
-            if (!empty($fotos['final_frente'])) {
-                $datosUpdate['ent_img_frente'] = $fotos['final_frente'];
-            }
-            if (!empty($fotos['final_trasera'])) {
-                $datosUpdate['ent_img_trasera'] = $fotos['final_trasera'];
-            }
-            if (!empty($equipoJson)) {
-                $datosUpdate['ent_equipo_carretera'] = $equipoJson;
-            }
-            $this->model->actualizarEntregaVehiculo($idEntregaFinalExistente, $datosUpdate);
-        } else {
-            // INSERT: crear nuevo registro de entrega
-            $datosFinal = [
-                'ent_fechaentrega' => $fechaHoy,
-                'ent_vehiculo' => $entVehiculo,
-                'ent_idvehiculo' => $idVehiculo,
-                'ent_userregistra' => $nombreValidador,
-                'ent_idusuario' => $idUsuario,
-                'ent_idusuarioencargado' => $_SESSION['usuario_id'] ?? null,
-                'ent_tipoentrega' => 'final',
-                'ent_fecharegistra' => $fechaHoy,
-                'ent_idhojadevida' => $idHojaDeVida,
-                'ent_sede' => '',
-                'ent_img_frente' => $fotos['final_frente'] ?? '',
-                'ent_img_trasera' => $fotos['final_trasera'] ?? '',
-                'ent_equipo_carretera' => $equipoJson,
-                'ent_observaciones' => $observaciones,
-                'ent_firma' => $firmaRuta,
-                'ent_firma_base64' => '' // Ya procesada
-            ];
-
-            $resultadoFinal = $this->model->insertarEntregaVehiculo($datosFinal);
-            if (is_array($resultadoFinal) && isset($resultadoFinal['error'])) {
-                $errores[] = 'Entrega FINAL: ' . $resultadoFinal['error'];
-            } else {
-                $idNuevoFinal = $resultadoFinal;
-            }
-        }
-
-        // 2. ENTREGA INICIAL (empresa → conductor)
-        $idEntregaInicialExistente = $seguimientoExistente['entrega_inicial_usuario'] ?? null;
-
-        if ($idEntregaInicialExistente) {
-            // UPDATE: el registro ya existe
-            $datosUpdateInicial = [
-                'ent_firma' => $firmaRuta,
-                'ent_observaciones' => $observaciones ?: ($seguimientoExistente['observaciones'] ?? ''),
-            ];
-            if (!empty($fotos['inicial_frente'])) {
-                $datosUpdateInicial['ent_img_frente'] = $fotos['inicial_frente'];
-            }
-            if (!empty($fotos['inicial_trasera'])) {
-                $datosUpdateInicial['ent_img_trasera'] = $fotos['inicial_trasera'];
-            }
-            if (!empty($equipoJson)) {
-                $datosUpdateInicial['ent_equipo_carretera'] = $equipoJson;
-            }
-            $this->model->actualizarEntregaVehiculo($idEntregaInicialExistente, $datosUpdateInicial);
-        } else {
-            // INSERT: crear nuevo registro
-            $datosInicial = [
-                'ent_fechaentrega' => $fechaHoy,
-                'ent_vehiculo' => $entVehiculo,
-                'ent_idvehiculo' => $idVehiculo,
-                'ent_userregistra' => $nombreValidador,
-                'ent_idusuario' => $idUsuario,
-                'ent_idusuarioencargado' => $_SESSION['usuario_id'] ?? null,
-                'ent_tipoentrega' => 'inicial',
-                'ent_fecharegistra' => $fechaHoy,
-                'ent_idhojadevida' => $idHojaDeVida,
-                'ent_sede' => '',
-                'ent_img_frente' => $fotos['inicial_frente'] ?? '',
-                'ent_img_trasera' => $fotos['inicial_trasera'] ?? '',
-                'ent_equipo_carretera' => $equipoJson,
-                'ent_observaciones' => $observaciones,
-                'ent_firma' => $firmaRuta,
-                'ent_firma_base64' => '' // Ya procesada
-            ];
-
-            $resultadoInicial = $this->model->insertarEntregaVehiculo($datosInicial);
-            if (is_array($resultadoInicial) && isset($resultadoInicial['error'])) {
-                $errores[] = 'Entrega INICIAL: ' . $resultadoInicial['error'];
-            } else {
-                $idNuevoInicial = $resultadoInicial;
-            }
-        }
-
-        // Si se crearon nuevos registros Y hay un seguimiento existente, actualizar los FKs
-        if (($idNuevoFinal || $idNuevoInicial) && $seguimientoExistente && isset($seguimientoExistente['id_seguimiento_vehiculo'])) {
-            $camposUpdate = [];
-            if ($idNuevoFinal) {
-                $camposUpdate[] = 'entrega_final_usuario = ' . (int)$idNuevoFinal;
-            }
-            if ($idNuevoInicial) {
-                $camposUpdate[] = 'entrega_inicial_usuario = ' . (int)$idNuevoInicial;
-            }
-            if (!empty($camposUpdate)) {
-                $db = (new Database())->connect();
-                $sql = "UPDATE seguimiento_vehiculo SET " . implode(', ', $camposUpdate)
-                     . " WHERE id_seguimiento_vehiculo = " . (int)$seguimientoExistente['id_seguimiento_vehiculo'];
-                $db->query($sql);
-            }
-        }
-
-        if (!empty($errores)) {
-            return ['success' => false, 'message' => implode(' | ', $errores)];
-        }
-
-        return ['success' => true, 'message' => 'Entregas de vehículo registradas correctamente.'];
-    }
+    // ==================== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ====================
+    // NO ELIMINAR: Este método crea los registros de entrega FINAL e INICIAL en la tabla
+    // entregavehiculo durante la validación del preoperacional. Se re-activarÃ¡ cuando
+    // el mÃ³dulo entrega_vehiculo estÃ© completo.
+    //
+    // CÃ³digo original preservado:
+    //
+    // public function crearEntregasVehiculoEnValidacion($idPreoperacional, $idVehiculo, $idUsuario, $fotos, $observaciones = '', $firmaRuta = '')
+    // {
+    //     $vehiculoModel = new VehiculosModel();
+    //     $datosVehiculo = $vehiculoModel->obtenerVehiculoPorId($idVehiculo);
+    //     ...
+    //     // 1. ENTREGA FINAL (conductor â empresa)
+    //     // 2. ENTREGA INICIAL (empresa â conductor)
+    //     ...
+    //     return ['success' => true, 'message' => 'Entregas de vehículo registradas correctamente.'];
+    // }
 
     /**
      * Procesa las fotos del reporte de novedad vehicular.
@@ -1721,96 +1554,19 @@ class PreoperacionalService
         return $resultado;
     }
 
-    /**
-     * Crea un registro de entrega de vehículo para el flujo de novedad.
-     * Similar a crearEntregasVehiculoEnValidacion pero para UN solo registro
-     * y sin firma (se completará en la validación posterior).
-     *
-     * @param int $idVehiculo ID del vehículo
-     * @param int $idUsuario ID del conductor/usuario
-     * @param string $fotoFrente Ruta de la foto frontal
-     * @param string $fotoTrasera Ruta de la foto trasera
-     * @param string $observaciones Observaciones de la entrega
-     * @param string $tipoEntrega 'final' o 'inicial'
-     * @return int|null ID del registro insertado o null si falló
-     */
-    private function crearEntregaVehiculoNovedad($idVehiculo, $idUsuario, $fotoFrente, $fotoTrasera, $observaciones, $tipoEntrega, $firmaRuta = '')
-    {
-        $vehiculoModel = new VehiculosModel();
-        $datosVehiculo = $vehiculoModel->obtenerVehiculoPorId($idVehiculo);
-        if (!$datosVehiculo) {
-            error_log("PreoperacionalService: Vehiculo $idVehiculo no encontrado para entrega novedad.");
-            return null;
-        }
+    // ==================== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ====================
+    // NO ELIMINAR: Estos métodos crean registros individuales en entregavehiculo y
+    // procesan las fotos de entrega. Se re-activarán cuando el módulo esté completo.
+    //
+    // private function crearEntregaVehiculoNovedad(...)
+    // {
+    //     ...
 
-        $entVehiculo = trim($datosVehiculo['veh_placa'] . ' ' . $datosVehiculo['veh_marca'] . ' ' . $datosVehiculo['veh_modelo']);
-        $nombreValidador = $_SESSION['usuario_nombre'] ?? 'Sistema';
-        $fechaHoy = date('Y-m-d');
-
-        $idHojaDeVida = $this->resolverHojaDeVida($idUsuario);
-        $equipoCarretera = $vehiculoModel->obtenerEquipoVehiculo($idVehiculo);
-        $equipoJson = !empty($equipoCarretera) ? json_encode($equipoCarretera) : '[]';
-
-        $datos = [
-            'ent_fechaentrega'      => $fechaHoy,
-            'ent_vehiculo'          => $entVehiculo,
-            'ent_idvehiculo'        => $idVehiculo,
-            'ent_userregistra'      => $nombreValidador,
-            'ent_idusuario'         => $idUsuario,
-            'ent_idusuarioencargado'=> $_SESSION['usuario_id'] ?? null,
-            'ent_tipoentrega'       => $tipoEntrega,
-            'ent_fecharegistra'     => $fechaHoy,
-            'ent_idhojadevida'      => $idHojaDeVida,
-            'ent_sede'              => '',
-            'ent_img_frente'        => $fotoFrente,
-            'ent_img_trasera'       => $fotoTrasera,
-            'ent_equipo_carretera'  => $equipoJson,
-            'ent_observaciones'     => $observaciones,
-            'ent_firma'             => $firmaRuta // Firma del conductor desde el preoperacional vinculado
-        ];
-
-        $resultado = $this->model->insertarEntregaVehiculo($datos);
-        if (is_array($resultado) && isset($resultado['error'])) {
-            error_log("PreoperacionalService: Error en entrega novedad ($tipoEntrega) - " . $resultado['error']);
-            return null;
-        }
-
-        return $resultado; // Es el insert_id
-    }
-
-    /**
-     * Procesa las 4 fotos de entrega del formulario de validación.
-     *
-     * @param array $files Array $_FILES
-     * @return array Rutas guardadas ['final_frente', 'final_trasera', 'inicial_frente', 'inicial_trasera']
-     */
-    private function procesarFotosEntrega($files)
-    {
-        $resultado = [
-            'final_frente' => '',
-            'final_trasera' => '',
-            'inicial_frente' => '',
-            'inicial_trasera' => ''
-        ];
-
-        $mapeo = [
-            'entrega_final_frente' => 'final_frente',
-            'entrega_final_trasera' => 'final_trasera',
-            'entrega_inicial_frente' => 'inicial_frente',
-            'entrega_inicial_trasera' => 'inicial_trasera'
-        ];
-
-        foreach ($mapeo as $fileKey => $destKey) {
-            if (isset($files[$fileKey]) && $files[$fileKey]['error'] === UPLOAD_ERR_OK) {
-                $ruta = $this->procesarImagenEntrega($files[$fileKey], $fileKey);
-                if ($ruta) {
-                    $resultado[$destKey] = $ruta;
-                }
-            }
-        }
-
-        return $resultado;
-    }
+    // private function procesarFotosEntrega($files)
+    // {
+    //     ...
+    // }
+    // ==================== FIN DESHABILITADO ====================
 
     /**
      * Resuelve el ID de la hoja de vida activa de un usuario a partir de su cédula.

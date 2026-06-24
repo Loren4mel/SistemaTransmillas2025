@@ -469,14 +469,20 @@ function loadView($service)
     // ==================== FIN DE SECCIONES POR ROL ====================
 
     // ==================== ENTREGAS PENDIENTES (VALIDACIÓN) ====================
+    // ATENCIÓN: El bloque de entregas de vehículo está DESHABILITADO temporalmente
+    // para el flujo preoperacional. Está en DESARROLLO ACTIVO y se re-activará
+    // cuando la funcionalidad esté completa.
+    // NO ELIMINAR - código preservado para continuación del desarrollo.
+    //
     // Cuando el conductor reportó una novedad y cambió de vehículo, las entregas
     // (FINAL del vehículo antiguo + INICIAL del nuevo) están vinculadas al
     // REVISION_SST, no al vehículo actual. Las buscamos por el usuario conductor.
     $entregasPendientes = ['final' => null, 'inicial' => null, 'seguimiento' => null];
-    if ($esValidacion) {
-        $idConductorParaEntregas = $registroExistente['preidusuario'] ?? $iduser;
-        $entregasPendientes = $service->obtenerEntregasPendientesPorUsuario($idConductorParaEntregas);
-    }
+    // DESHABILITADO - Desarrollo activo entrega_vehiculo
+    // if ($esValidacion) {
+    //     $idConductorParaEntregas = $registroExistente['preidusuario'] ?? $iduser;
+    //     $entregasPendientes = $service->obtenerEntregasPendientesPorUsuario($idConductorParaEntregas);
+    // }
 
     // Limpiar buffer y cargar la vista
     // Calcular ruta base de la aplicación desde el servidor

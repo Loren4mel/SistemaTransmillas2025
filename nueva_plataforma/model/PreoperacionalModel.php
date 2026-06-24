@@ -1075,185 +1075,34 @@ class PreoperacionalModel
         return $stmt->execute();
     }
 
-    /**
-     * Busca las entregas de vehículo pendientes de validación para un usuario
-     * (conductor). Busca el último REVISION_SST que tenga entregas vinculadas
-     * para cualquier vehículo que haya usado este conductor.
-     *
-     * @param int $idUsuario ID del conductor
-     * @return array ['final' => entrega|null, 'inicial' => entrega|null, 'seguimiento' => array|null]
-     */
-    public function obtenerEntregasPendientesPorUsuario($idUsuario)
-    {
-        // Buscar el último REVISION_SST que tenga entregas vinculadas y
-        // cuyo conductor sea este usuario.
-        $sql = "SELECT sv.*
-                FROM seguimiento_vehiculo sv
-                WHERE sv.id_conductor = ?
-                  AND sv.tipo_evento = 'REVISION_SST'
-                  AND (sv.entrega_final_usuario IS NOT NULL OR sv.entrega_inicial_usuario IS NOT NULL)
-                ORDER BY sv.fecha_registro DESC
-                LIMIT 1";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("i", $idUsuario);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $seguimiento = $result->fetch_assoc();
-
-        if (!$seguimiento) {
-            return ['final' => null, 'inicial' => null, 'seguimiento' => null];
-        }
-
-        $entregaFinal = null;
-        $entregaInicial = null;
-
-        if (!empty($seguimiento['entrega_final_usuario'])) {
-            $entregaFinal = $this->obtenerEntregaVehiculoPorId((int) $seguimiento['entrega_final_usuario']);
-        }
-        if (!empty($seguimiento['entrega_inicial_usuario'])) {
-            $entregaInicial = $this->obtenerEntregaVehiculoPorId((int) $seguimiento['entrega_inicial_usuario']);
-        }
-
-        return [
-            'final' => $entregaFinal,
-            'inicial' => $entregaInicial,
-            'seguimiento' => $seguimiento
-        ];
-    }
-
-    /**
-     * Desasigna el vehículo de un usuario (pone usu_vehiculo a NULL)
-     *
-     * @param int $idUsuario ID del usuario
-     * @return bool True si se actualizó correctamente
-     */
-    public function desasignarVehiculoDeUsuario($idUsuario)
-    {
-        $sql = "UPDATE usuarios SET usu_vehiculo = NULL WHERE idusuarios = ?";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("i", $idUsuario);
-        return $stmt->execute();
-    }
-
-    // ==================== ENTREGA DE VEHÍCULO ====================
-
-    /**
-     * Inserta un registro en entregavehiculo con imágenes ya procesadas.
-     * Versión simplificada de VehiculosModel::guardarEntregaVehiculo() que no
-     * depende de $_FILES (las rutas de imágenes ya vienen procesadas).
-     *
-     * @param array $datos Datos de la entrega (con rutas de imagen ya guardadas)
-     * @return int|array ID del registro insertado o array con error
-     */
-    public function insertarEntregaVehiculo($datos)
-    {
-        $sql = "INSERT INTO entregavehiculo (
-                    ent_fechaentrega, ent_vehiculo, ent_idvehiculo, ent_userregistra, ent_idusuario,
-                    ent_idusuarioencargado, ent_tipoentrega, ent_fecharegistra, ent_idhojadevida, ent_sede,
-                    ent_img_frente, ent_img_trasera, ent_equipo_carretera,
-                    ent_observaciones, ent_firma
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        $stmt = $this->db->prepare($sql);
-        if (!$stmt) {
-            return ['error' => 'Prepare falló: ' . $this->db->error];
-        }
-
-        $stmt->bind_param(
-            "ssisiisssisssss",
-            $datos['ent_fechaentrega'],
-            $datos['ent_vehiculo'],
-            $datos['ent_idvehiculo'],
-            $datos['ent_userregistra'],
-            $datos['ent_idusuario'],
-            $datos['ent_idusuarioencargado'],
-            $datos['ent_tipoentrega'],
-            $datos['ent_fecharegistra'],
-            $datos['ent_idhojadevida'],
-            $datos['ent_sede'],
-            $datos['ent_img_frente'],
-            $datos['ent_img_trasera'],
-            $datos['ent_equipo_carretera'],
-            $datos['ent_observaciones'],
-            $datos['ent_firma']
-        );
-
-        $resultado = $stmt->execute();
-        if (!$resultado) {
-            return ['error' => 'Execute falló: ' . $stmt->error];
-        }
-
-        $idInsertado = $this->db->insert_id;
-        $stmt->close();
-        return $idInsertado;
-    }
-
-    /**
-     * Obtiene un registro de entrega de vehículo por su ID
-     *
-     * @param int $id ID del registro en entregavehiculo
-     * @return array|null Registro como array asociativo o null
-     */
-    public function obtenerEntregaVehiculoPorId($id)
-    {
-        $sql = "SELECT * FROM entregavehiculo WHERE identregavehiculo = ? LIMIT 1";
-        return $this->executeQuery($sql, "i", [$id]);
-    }
-
-    /**
-     * Actualiza un registro existente en entregavehiculo.
-     * Solo actualiza los campos que se proveen en $datos.
-     *
-     * @param int $id ID del registro en entregavehiculo
-     * @param array $datos Campos a actualizar (ent_firma, ent_observaciones,
-     *                     ent_img_frente, ent_img_trasera, ent_equipo_carretera,
-     *                     ent_idvehiculo, ent_idusuarioencargado)
-     * @return bool True si se actualizó correctamente
-     */
-    public function actualizarEntregaVehiculo($id, $datos)
-    {
-        $permitidos = [
-            'ent_firma'               => 's',
-            'ent_observaciones'       => 's',
-            'ent_img_frente'          => 's',
-            'ent_img_trasera'         => 's',
-            'ent_equipo_carretera'    => 's',
-            'ent_idvehiculo'          => 'i',
-            'ent_idusuarioencargado'  => 'i',
-        ];
-
-        $sets = [];
-        $params = [];
-        $types = '';
-
-        foreach ($permitidos as $columna => $tipo) {
-            if (array_key_exists($columna, $datos)) {
-                $sets[] = "$columna = ?";
-                $params[] = $datos[$columna];
-                $types .= $tipo;
-            }
-        }
-
-        if (empty($sets)) {
-            return false;
-        }
-
-        $types .= 'i';
-        $params[] = $id;
-
-        $sql = "UPDATE entregavehiculo SET " . implode(', ', $sets) . " WHERE identregavehiculo = ?";
-        $stmt = $this->db->prepare($sql);
-        if (!$stmt) {
-            return false;
-        }
-
-        $stmt->bind_param($types, ...$params);
-        $resultado = $stmt->execute();
-        $stmt->close();
-        return $resultado;
-    }
-
-    // ==================== MÉTODOS PRIVADOS ====================
+    // ==================== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ====================
+    // NO ELIMINAR: Los 4 métodos siguientes (obtenerEntregasPendientesPorUsuario,
+    // insertarEntregaVehiculo, obtenerEntregaVehiculoPorId, actualizarEntregaVehiculo)
+    // pertenecen al módulo entrega_vehiculo que está en DESARROLLO ACTIVO.
+    // Se re-activarán cuando la funcionalidad esté completa.
+    //
+    // public function obtenerEntregasPendientesPorUsuario($idUsuario)
+    // {
+    //     ...
+    //     return ['final' => null, 'inicial' => null, 'seguimiento' => null];
+    // }
+    //
+    // public function insertarEntregaVehiculo($datos)
+    // {
+    //     ... (INSERT INTO entregavehiculo ...)
+    // }
+    //
+    // public function obtenerEntregaVehiculoPorId($id)
+    // {
+    //     $sql = "SELECT * FROM entregavehiculo WHERE identregavehiculo = ? LIMIT 1";
+    //     return $this->executeQuery($sql, "i", [$id]);
+    // }
+    //
+    // public function actualizarEntregaVehiculo($id, $datos)
+    // {
+    //     ... (UPDATE entregavehiculo SET ...)
+    // }
+    // ==================== FIN DESHABILITADO ====================
 
     /**
      * Ejecuta una consulta con parámetros y devuelve un resultado
