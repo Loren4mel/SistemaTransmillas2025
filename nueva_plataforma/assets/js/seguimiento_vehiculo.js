@@ -367,8 +367,8 @@
         };
         var estadoBadge = {
             'pendiente': '<span style="background-color:#fff4e5;color:#b54708;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">⏳ Pendiente</span>',
-            'revisado': '<span style="background-color:#e3f2fd;color:#0d47a1;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">✅ Revisado</span>',
-            'resuelto': '<span style="background-color:#e8f5e9;color:#1b5e20;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">✔️ Resuelto</span>'
+            'en_proceso': '<span style="background-color:#e3f2fd;color:#0d47a1;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">🔄 En proceso</span>',
+            'finalizado': '<span style="background-color:#e8f5e9;color:#1b5e20;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">✅ Finalizado</span>'
         };
         var tipoBadge = {
             'accidente': '<span style="background-color:#fdecec;color:#b42318;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">🚨 Accidente</span>',
@@ -516,13 +516,13 @@
         var estado = d.estado || 'pendiente';
         var estadoClase = {
             'pendiente': 'sst-estado--pendiente',
-            'revisado': 'sst-estado--revisado',
-            'resuelto': 'sst-estado--resuelto'
+            'en_proceso': 'sst-estado--en_proceso',
+            'finalizado': 'sst-estado--finalizado'
         }[estado] || 'sst-estado--pendiente';
         var estadoLabel = {
             'pendiente': '⏳ Pendiente',
-            'revisado': '✅ Revisado',
-            'resuelto': '✔️ Resuelto'
+            'en_proceso': '🔄 En proceso',
+            'finalizado': '✅ Finalizado'
         }[estado] || 'Pendiente';
 
         // Labels de gravedad diferenciados por tipo (escala conductor)
@@ -607,31 +607,40 @@
             archivosHtml += '</div>';
         }
 
-        // Historial de validación
-        var validacionHtml = '';
-        if (d.comentario_validador || d.validador_nombre) {
-            validacionHtml = '<div class="sst-detalle-section">' +
-                '<h4 class="sst-section-title"><i class="fas fa-history"></i> Historial de Validación</h4>' +
-                '<div class="sst-validacion-historial">' +
-                '<div class="sst-validacion-entry">' +
-                '<div class="sst-validacion-header">' +
-                '<span class="sst-validacion-user"><i class="fas fa-user-check"></i> ' + escHtml(d.validador_nombre || 'Sistema') + '</span>';
-            if (d.fecha_validacion) {
-                validacionHtml += '<span class="sst-validacion-fecha"><i class="far fa-clock"></i> ' + escHtml(d.fecha_validacion) + '</span>';
+        // Historial de seguimiento
+        var seguimientoHtml = '';
+        var seguimientoEstadoBadge = {
+            'pendiente': '<span style="background-color:#fff4e5;color:#b54708;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">⏳ Pendiente</span>',
+            'en_proceso': '<span style="background-color:#e3f2fd;color:#0d47a1;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">🔄 En proceso</span>',
+            'finalizado': '<span style="background-color:#e8f5e9;color:#1b5e20;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">✅ Finalizado</span>'
+        };
+        if (d.seguimiento && d.seguimiento.length > 0) {
+            seguimientoHtml = '<div class="sst-detalle-section">' +
+                '<h4 class="sst-section-title"><i class="fas fa-history"></i> Historial de Seguimiento</h4>' +
+                '<div class="sst-validacion-historial">';
+            for (var s = 0; s < d.seguimiento.length; s++) {
+                seguimientoHtml += '<div class="sst-validacion-entry">' +
+                    '<div class="sst-validacion-header">' +
+                    '<span class="sst-validacion-user"><i class="fas fa-user-check"></i> ' + escHtml(d.seguimiento[s].validador_nombre || 'Sistema') + '</span>';
+                if (d.seguimiento[s].creado_en) {
+                    seguimientoHtml += '<span class="sst-validacion-fecha"><i class="far fa-clock"></i> ' + escHtml(d.seguimiento[s].creado_en) + '</span>';
+                }
+                seguimientoHtml += '</div>' +
+                    '<div class="sst-validacion-estado">' + (seguimientoEstadoBadge[d.seguimiento[s].estado_nuevo] || escHtml(d.seguimiento[s].estado_nuevo)) + '</div>';
+                if (d.seguimiento[s].comentario && d.seguimiento[s].comentario.trim()) {
+                    seguimientoHtml += '<div class="sst-validacion-comentario">' + escHtml(d.seguimiento[s].comentario).replace(/\n/g, '<br>') + '</div>';
+                }
+                seguimientoHtml += '</div>';
             }
-            validacionHtml += '</div>';
-            if (d.comentario_validador && d.comentario_validador.trim()) {
-                validacionHtml += '<div class="sst-validacion-comentario">' + escHtml(d.comentario_validador).replace(/\n/g, '<br>') + '</div>';
-            }
-            validacionHtml += '</div></div></div>';
+            seguimientoHtml += '</div></div>';
         }
 
         // Panel de validación
         var panelValidacionHtml = '';
         if (puedeValidar) {
             var selPendiente = estado === 'pendiente' ? ' selected' : '';
-            var selRevisado = estado === 'revisado' ? ' selected' : '';
-            var selResuelto = estado === 'resuelto' ? ' selected' : '';
+            var selEnProceso = estado === 'en_proceso' ? ' selected' : '';
+            var selFinalizado = estado === 'finalizado' ? ' selected' : '';
 
             // Construir opciones de gravedad según tipo (escala original para validador)
             var gravActual = (d.gravedad_validacion !== null && d.gravedad_validacion !== undefined && d.gravedad_validacion !== '')
@@ -663,8 +672,8 @@
                 '<label class="sst-form-label">Cambiar estado a:</label>' +
                 '<select id="sstValidarEstado" class="sst-form-select">' +
                 '<option value="pendiente"' + selPendiente + '>⏳ Pendiente</option>' +
-                '<option value="revisado"' + selRevisado + '>✅ Revisado</option>' +
-                '<option value="resuelto"' + selResuelto + '>✔️ Resuelto</option>' +
+                '<option value="en_proceso"' + selEnProceso + '>🔄 En proceso</option>' +
+                '<option value="finalizado"' + selFinalizado + '>✅ Finalizado</option>' +
                 '</select></div>' +
                 '<div class="sst-form-group">' +
                 '<label class="sst-form-label">Nivel de gravedad (según validador): ' +
@@ -720,7 +729,7 @@
             '<h4 class="sst-section-title"><i class="fas fa-paperclip"></i> Evidencia (' + archivos.length + ' archivo' + (archivos.length !== 1 ? 's' : '') + ')</h4>' +
             archivosHtml + '</div>' +
 
-            validacionHtml +
+            seguimientoHtml +
             panelValidacionHtml +
             '</div>';
     }

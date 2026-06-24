@@ -76,6 +76,12 @@ function loadView($model)
         $tiposAMostrar = ReporteConductorSSTModel::TIPOS_VALIDOS;
     }
 
+    // Cargar preguntas personalizables (categorias y campos) para cada tipo
+    $preguntasPorTipo = [];
+    foreach ($tiposAMostrar as $tipo) {
+        $preguntasPorTipo[$tipo] = $model->obtenerCategoriasYCampos($tipo);
+    }
+
     // Verificar si debe mostrarse el formulario semanal
     $mostrarFormularioSemanal = ($modo === 'semanal') ? $model->debeMostrarFormularioSemanal($idUsuario) : false;
 
@@ -388,7 +394,20 @@ function guardar($model)
         }
     }
 
-    // --- 8. Respuesta exitosa ---
+    // --- 8. Procesar respuestas personalizables ---
+    $respuestasRaw = $_POST['respuestas'] ?? '[]';
+    $respuestasData = json_decode($respuestasRaw, true);
+    if (is_array($respuestasData) && !empty($respuestasData)) {
+        foreach ($idsInsertados as $index => $idReporte) {
+            $tipo = $reportes[$index]['tipo'] ?? '';
+            $respuestasTipo = $respuestasData[$tipo] ?? [];
+            if (!empty($respuestasTipo)) {
+                $model->guardarRespuestas($idReporte, $respuestasTipo);
+            }
+        }
+    }
+
+    // --- 9. Respuesta exitosa ---
     ErrorHandler::sendJsonResponse([
         'success'           => true,
         'message'           => 'Reportes guardados exitosamente',
@@ -589,6 +608,21 @@ function detalleVista($model)
         ], 404);
     }
 
+    // Incluir historial de seguimiento, respuestas personalizables y archivos
+    $reporte['seguimiento'] = $model->obtenerSeguimiento($id);
+    $reporte['respuestas'] = $model->obtenerRespuestas($id);
+    $reporte['archivos'] = $model->obtenerArchivos($id);
+
+    // Derivar campos del validador desde el ultimo registro de seguimiento
+    if (!empty($reporte['seguimiento'])) {
+        $ultimoSeguimiento = $reporte['seguimiento'][count($reporte['seguimiento']) - 1];
+        $reporte['estado'] = $ultimoSeguimiento['estado_nuevo'];
+        $reporte['validador_nombre'] = $ultimoSeguimiento['validador_nombre'];
+        $reporte['comentario_validador'] = $ultimoSeguimiento['comentario'];
+        $reporte['gravedad_validacion'] = $ultimoSeguimiento['gravedad_validacion'];
+        $reporte['fecha_validacion'] = $ultimoSeguimiento['creado_en'];
+    }
+
     // Determinar si el usuario actual puede validar
     $rolActual = (int) ($_SESSION['usuario_rol'] ?? 0);
     $puedeValidar = in_array($rolActual, ReporteConductorSSTModel::ROLES_VALIDADOR, true);
@@ -613,7 +647,7 @@ function detalleVista($model)
  *
  * Parámetros POST:
  *   - id                   (int):    ID del reporte
- *   - estado               (string): Nuevo estado ('pendiente', 'revisado', 'resuelto')
+ *   - estado               (string): Nuevo estado ('pendiente', 'en_proceso', 'finalizado')
  *   - comentario           (string): Comentario del validador (se prefija automáticamente)
  *   - gravedad_validacion  (int):    Nivel de gravedad según validador (escala original)
  *

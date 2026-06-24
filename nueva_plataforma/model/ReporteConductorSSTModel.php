@@ -11,12 +11,12 @@ require_once __DIR__ . "/../config/database.php";
 class ReporteConductorSSTModel
 {
     private $db;
-    private const UPLOAD_DIR = __DIR__ . "/../uploads/reporte_conductor_sst/";
+    private const UPLOAD_DIR = __DIR__ . "/../uploads/sst_reporte_conductor/";
 
     // === CONSTANTES ===
     const TIPOS_VALIDOS = ['accidente', 'comparendo'];
     const TIPOS_EVENTO_VALIDOS = ['semanal', 'momento'];
-    const ESTADOS_VALIDOS = ['pendiente', 'revisado', 'resuelto'];
+    const ESTADOS_VALIDOS = ['pendiente', 'en_proceso', 'finalizado'];
     const ROLES_VALIDADOR = [1, 12];
     const TIPO_TO_VERSION = [
         'accidente'  => 1,
@@ -205,7 +205,7 @@ class ReporteConductorSSTModel
      */
     public function obtenerUltimoReporteSemanal($idUsuario)
     {
-        $sql = "SELECT * FROM reporte_conductor_sst
+        $sql = "SELECT * FROM sst_reporte_conductor
                 WHERE id_usuario = ? AND tipo_evento = 'semanal'
                 ORDER BY creado_en DESC
                 LIMIT 1";
@@ -225,7 +225,7 @@ class ReporteConductorSSTModel
             error_log("ReporteConductorSSTModel: obtenerUltimoReporte - Tipo invalido: $tipo");
             return null;
         }
-        $sql = "SELECT * FROM reporte_conductor_sst
+        $sql = "SELECT * FROM sst_reporte_conductor
                 WHERE id_usuario = ? AND tipo = ?
                 ORDER BY creado_en DESC
                 LIMIT 1";
@@ -304,7 +304,7 @@ class ReporteConductorSSTModel
             return false;
         }
 
-        $sql = "INSERT INTO reporte_conductor_sst
+        $sql = "INSERT INTO sst_reporte_conductor
                 (id_usuario, id_vehiculo, fecha, tipo, tipo_evento, respuesta, observacion, ubicacion, gravedad)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -388,10 +388,18 @@ class ReporteConductorSSTModel
      */
     public function obtenerReportes($filtros)
     {
-        $sql = "SELECT rcs.*, u.usu_nombre, v.veh_placa
-                FROM reporte_conductor_sst rcs
+        $sql = "SELECT rcs.*, u.usu_nombre, v.veh_placa,
+                       sg.gravedad_validacion, sg.comentario AS comentario_validacion,
+                       sg.creado_en AS fecha_validacion, val.usu_nombre AS validador_nombre
+                FROM sst_reporte_conductor rcs
                 LEFT JOIN usuarios u ON u.idusuarios = rcs.id_usuario
                 LEFT JOIN vehiculos v ON v.idvehiculos = rcs.id_vehiculo
+                LEFT JOIN sst_seguimiento sg ON sg.id_seguimiento = (
+                    SELECT sg2.id_seguimiento FROM sst_seguimiento sg2
+                    WHERE sg2.id_reporte = rcs.id
+                    ORDER BY sg2.creado_en DESC LIMIT 1
+                )
+                LEFT JOIN usuarios val ON val.idusuarios = sg.id_validador
                 WHERE 1=1";
         $types = '';
         $params = [];
@@ -482,7 +490,7 @@ class ReporteConductorSSTModel
                            AND rcs.fecha BETWEEN ? AND ? THEN 1 ELSE 0 END) as comparendo_completado
                 FROM usuarios u
                 INNER JOIN vehiculos v ON u.usu_vehiculo = v.idvehiculos
-                LEFT JOIN reporte_conductor_sst rcs ON rcs.id_usuario = u.idusuarios
+                LEFT JOIN sst_reporte_conductor rcs ON rcs.id_usuario = u.idusuarios
                     AND rcs.tipo_evento = 'semanal'
                     AND rcs.fecha BETWEEN ? AND ?
                 WHERE u.usu_estado = 1 AND u.usu_filtro = 1";
@@ -519,50 +527,75 @@ class ReporteConductorSSTModel
      */
     public function obtenerReportePorId($id)
     {
-        $sql = "SELECT * FROM reporte_conductor_sst WHERE id = ? LIMIT 1";
+        $sql = "SELECT * FROM sst_reporte_conductor WHERE id = ? LIMIT 1";
         return $this->executeQuery($sql, "i", [$id]);
     }
 
     // ==================== ACTUALIZACION ====================
 
     /**
-     * Cambia el estado de un reporte y registra quién validó
+     * Cambia el estado de un reporte y registra el seguimiento en sst_seguimiento
      *
-     * @param int    $id                  ID del reporte
-     * @param string $estado              Nuevo estado ('pendiente', 'revisado', 'resuelto')
-     * @param int    $idValidador         ID del usuario que valida
-     * @param string $comentario          Comentario del validador (ya incluye prefijo de nombre)
-     * @param int    $gravedadValidacion  Nivel de gravedad según validador (escala original: 1-4 acc, 1-3 comp)
-     * @return bool True si la actualización fue exitosa
+     * Realiza una transaccion: inserta en sst_seguimiento y actualiza
+     * sst_reporte_conductor en una sola operacion atomica.
+     *
+     * @param int         $id                 ID del reporte
+     * @param string      $estadoNuevo        Nuevo estado ('pendiente', 'en_proceso', 'finalizado')
+     * @param int|null    $idValidador        ID del usuario que valida (opcional)
+     * @param string|null $comentario         Comentario del validador (opcional)
+     * @param int|null    $gravedadValidacion Nivel de gravedad segun validador (opcional)
+     * @return bool True si la operacion fue exitosa
      */
-    public function cambiarEstado($id, $estado, $idValidador = null, $comentario = null, $gravedadValidacion = null)
+    public function cambiarEstado($id, $estadoNuevo, $idValidador = null, $comentario = null, $gravedadValidacion = null)
     {
-        if (!in_array($estado, self::ESTADOS_VALIDOS, true)) {
-            error_log("ReporteConductorSSTModel: cambiarEstado - Estado invalido: $estado");
+        if (!in_array($estadoNuevo, self::ESTADOS_VALIDOS, true)) {
+            error_log("ReporteConductorSSTModel: cambiarEstado - Estado invalido: $estadoNuevo");
             return false;
         }
 
-        $sql = "UPDATE reporte_conductor_sst
-                SET estado = ?,
-                    id_validador = ?,
-                    comentario_validador = ?,
-                    fecha_validacion = NOW(),
-                    gravedad_validacion = ?
-                WHERE id = ?";
-        $stmt = $this->db->prepare($sql);
-        if (!$stmt) {
-            error_log("ReporteConductorSSTModel: cambiarEstado - Error preparando SQL: " . $this->db->error);
+        $this->db->begin_transaction();
+        try {
+            // Obtener estado actual del reporte
+            $sqlActual = "SELECT estado FROM sst_reporte_conductor WHERE id = ? LIMIT 1";
+            $actual = $this->executeQuery($sqlActual, "i", [$id]);
+            if (!$actual) {
+                throw new \RuntimeException("Reporte no encontrado: $id");
+            }
+            $estadoAnterior = $actual['estado'];
+
+            // Insertar registro en sst_seguimiento
+            $sqlSeguimiento = "INSERT INTO sst_seguimiento
+                               (id_reporte, id_validador, estado_anterior, estado_nuevo, gravedad_validacion, comentario)
+                               VALUES (?, ?, ?, ?, ?, ?)";
+            $stmtSeg = $this->db->prepare($sqlSeguimiento);
+            if (!$stmtSeg) {
+                throw new \RuntimeException("Error preparando INSERT sst_seguimiento: " . $this->db->error);
+            }
+            $stmtSeg->bind_param("iisiss", $id, $idValidador, $estadoAnterior, $estadoNuevo, $gravedadValidacion, $comentario);
+            if (!$stmtSeg->execute()) {
+                throw new \RuntimeException("Error insertando en sst_seguimiento: " . $stmtSeg->error);
+            }
+            $stmtSeg->close();
+
+            // Actualizar el reporte en sst_reporte_conductor
+            $sqlUpdate = "UPDATE sst_reporte_conductor SET estado = ? WHERE id = ?";
+            $stmtUpd = $this->db->prepare($sqlUpdate);
+            if (!$stmtUpd) {
+                throw new \RuntimeException("Error preparando UPDATE sst_reporte_conductor: " . $this->db->error);
+            }
+            $stmtUpd->bind_param("si", $estadoNuevo, $id);
+            if (!$stmtUpd->execute()) {
+                throw new \RuntimeException("Error actualizando sst_reporte_conductor: " . $stmtUpd->error);
+            }
+            $stmtUpd->close();
+
+            $this->db->commit();
+            return true;
+        } catch (\RuntimeException $e) {
+            $this->db->rollback();
+            error_log("ReporteConductorSSTModel: cambiarEstado - Error: " . $e->getMessage());
             return false;
         }
-
-        $stmt->bind_param("sisii", $estado, $idValidador, $comentario, $gravedadValidacion, $id);
-        $result = $stmt->execute();
-
-        if (!$result) {
-            error_log("ReporteConductorSSTModel: cambiarEstado - Error ejecutando: " . $stmt->error);
-        }
-
-        return $result;
     }
 
     /**
@@ -576,12 +609,10 @@ class ReporteConductorSSTModel
         $sql = "SELECT rcs.*,
                        u.usu_nombre AS conductor_nombre,
                        u.usu_identificacion AS conductor_cedula,
-                       v.veh_placa,
-                       val.usu_nombre AS validador_nombre
-                FROM reporte_conductor_sst rcs
+                       v.veh_placa
+                FROM sst_reporte_conductor rcs
                 LEFT JOIN usuarios u ON u.idusuarios = rcs.id_usuario
                 LEFT JOIN vehiculos v ON v.idvehiculos = rcs.id_vehiculo
-                LEFT JOIN usuarios val ON val.idusuarios = rcs.id_validador
                 WHERE rcs.id = ?
                 LIMIT 1";
 
@@ -592,6 +623,200 @@ class ReporteConductorSSTModel
         }
 
         return $reporte;
+    }
+
+    // ==================== SEGUIMIENTO ====================
+
+    /**
+     * Obtiene el historial de seguimiento de cambios de estado de un reporte
+     *
+     * @param int $idReporte ID del reporte
+     * @return array Lista de registros de seguimiento ordenados cronologicamente
+     */
+    public function obtenerSeguimiento($idReporte)
+    {
+        $sql = "SELECT sg.*, u.usu_nombre AS validador_nombre
+                FROM sst_seguimiento sg
+                LEFT JOIN usuarios u ON u.idusuarios = sg.id_validador
+                WHERE sg.id_reporte = ?
+                ORDER BY sg.creado_en ASC";
+        return $this->executeAll($sql, "i", [$idReporte]);
+    }
+
+    // ==================== PREGUNTAS PERSONALIZABLES ====================
+
+    /**
+     * Obtiene categorias y campos para un tipo de reporte, agrupados por categoria
+     *
+     * @param string $tipo Tipo de reporte ('accidente' o 'comparendo')
+     * @return array Lista de categorias con sus campos internos
+     */
+    public function obtenerCategoriasYCampos($tipo)
+    {
+        $sql = "SELECT c.id_categoria, c.nombre AS categoria_nombre,
+                       c.descripcion AS categoria_descripcion,
+                       cm.id_campo, cm.codigo, cm.etiqueta, cm.tipo_respuesta,
+                       cm.requerido, cm.orden, cm.placeholder, cm.ayuda,
+                       cm.id_campo_padre, cm.valor_padre
+                FROM sst_categorias c
+                INNER JOIN sst_campos cm ON cm.id_categoria = c.id_categoria
+                WHERE c.tipo = ? AND c.estado = 1 AND cm.estado = 1
+                ORDER BY c.orden, cm.orden";
+        $rows = $this->executeAll($sql, "s", [$tipo]);
+
+        $categorias = [];
+        foreach ($rows as $row) {
+            $catId = $row['id_categoria'];
+            if (!isset($categorias[$catId])) {
+                $categorias[$catId] = [
+                    'id_categoria' => $catId,
+                    'nombre'       => $row['categoria_nombre'],
+                    'descripcion'  => $row['categoria_descripcion'],
+                    'campos'       => [],
+                ];
+            }
+            $categorias[$catId]['campos'][] = [
+                'id_campo'       => $row['id_campo'],
+                'codigo'         => $row['codigo'],
+                'etiqueta'       => $row['etiqueta'],
+                'tipo_respuesta' => $row['tipo_respuesta'],
+                'requerido'      => $row['requerido'],
+                'orden'          => $row['orden'],
+                'placeholder'    => $row['placeholder'],
+                'ayuda'          => $row['ayuda'],
+                'id_campo_padre' => $row['id_campo_padre'],
+                'valor_padre'    => $row['valor_padre'],
+            ];
+        }
+
+        return array_values($categorias);
+    }
+
+    /**
+     * Guarda las respuestas de un reporte en sst_respuestas
+     *
+     * Inserta o actualiza (ON DUPLICATE KEY UPDATE) cada respuesta
+     * usando la unique key (id_reporte, id_campo).
+     *
+     * @param int   $idReporte  ID del reporte
+     * @param array $respuestas Array asociativo [id_campo => valor]
+     * @return bool True si todas las respuestas se guardaron correctamente
+     */
+    public function guardarRespuestas($idReporte, $respuestas)
+    {
+        if (empty($respuestas)) {
+            return true;
+        }
+
+        // Mapear codigos de campos a IDs numericos
+        $camposMap = $this->mapearCodigosACampos();
+        if (empty($camposMap)) {
+            error_log("ReporteConductorSSTModel: guardarRespuestas - No se pudieron mapear los codigos de campos");
+            return false;
+        }
+
+        $this->db->begin_transaction();
+        try {
+            $sql = "INSERT INTO sst_respuestas (id_reporte, id_campo, valor)
+                    VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE valor = VALUES(valor)";
+            $stmt = $this->db->prepare($sql);
+            if (!$stmt) {
+                throw new \RuntimeException("Error preparando INSERT sst_respuestas: " . $this->db->error);
+            }
+
+            foreach ($respuestas as $codigo => $valor) {
+                if (!isset($camposMap[$codigo])) {
+                    continue;
+                }
+                $idCampo = $camposMap[$codigo];
+                $stmt->bind_param("iis", $idReporte, $idCampo, $valor);
+                if (!$stmt->execute()) {
+                    throw new \RuntimeException("Error insertando respuesta (campo $codigo): " . $stmt->error);
+                }
+            }
+
+            $stmt->close();
+            $this->db->commit();
+            return true;
+        } catch (\RuntimeException $e) {
+            $this->db->rollback();
+            error_log("ReporteConductorSSTModel: guardarRespuestas - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Obtiene las respuestas de un reporte, agrupadas por categoria
+     *
+     * @param int $idReporte ID del reporte
+     * @return array Lista de categorias con sus respuestas
+     */
+    public function obtenerRespuestas($idReporte)
+    {
+        $sql = "SELECT r.id_respuesta, r.id_campo, r.valor,
+                       cm.codigo, cm.etiqueta, cm.tipo_respuesta,
+                       c.id_categoria, c.nombre AS categoria_nombre
+                FROM sst_respuestas r
+                INNER JOIN sst_campos cm ON cm.id_campo = r.id_campo
+                INNER JOIN sst_categorias c ON c.id_categoria = cm.id_categoria
+                WHERE r.id_reporte = ?
+                ORDER BY c.orden, cm.orden";
+        $rows = $this->executeAll($sql, "i", [$idReporte]);
+
+        $categorias = [];
+        foreach ($rows as $row) {
+            $catId = $row['id_categoria'];
+            if (!isset($categorias[$catId])) {
+                $categorias[$catId] = [
+                    'id_categoria' => $catId,
+                    'nombre'       => $row['categoria_nombre'],
+                    'respuestas'   => [],
+                ];
+            }
+            $categorias[$catId]['respuestas'][] = [
+                'id_respuesta'  => $row['id_respuesta'],
+                'id_campo'      => $row['id_campo'],
+                'codigo'        => $row['codigo'],
+                'etiqueta'      => $row['etiqueta'],
+                'tipo_respuesta' => $row['tipo_respuesta'],
+                'valor'         => $row['valor'],
+            ];
+        }
+
+        return array_values($categorias);
+    }
+
+    /**
+     * Mapea los codigos de campo a su id_campo
+     *
+     * Util para convertir un array con keys por codigo
+     * a un array con keys por id_campo antes de guardar.
+     *
+     * @param string|null $tipo Filtrar por tipo ('accidente' o 'comparendo'), null = todos
+     * @return array Array asociativo [codigo => id_campo]
+     */
+    public function mapearCodigosACampos($tipo = null)
+    {
+        $sql = "SELECT cm.codigo, cm.id_campo
+                FROM sst_campos cm
+                INNER JOIN sst_categorias c ON c.id_categoria = cm.id_categoria
+                WHERE cm.estado = 1";
+        $types = '';
+        $params = [];
+
+        if ($tipo !== null) {
+            $sql .= " AND c.tipo = ?";
+            $types = 's';
+            $params[] = $tipo;
+        }
+
+        $rows = $this->executeAll($sql, $types, $params);
+        $mapa = [];
+        foreach ($rows as $row) {
+            $mapa[$row['codigo']] = (int) $row['id_campo'];
+        }
+        return $mapa;
     }
 
     // ==================== GESTION DE ARCHIVOS ====================
@@ -605,7 +830,7 @@ class ReporteConductorSSTModel
     public function obtenerArchivos($idReporte)
     {
         $sql = "SELECT * FROM documentos
-                WHERE doc_tabla = 'reporte_conductor_sst' AND doc_idviene = ?
+                WHERE doc_tabla = 'sst_reporte_conductor' AND doc_idviene = ?
                 ORDER BY doc_fecha DESC";
         return $this->executeAll($sql, "i", [$idReporte]);
     }
@@ -651,7 +876,7 @@ class ReporteConductorSSTModel
 
         if (move_uploaded_file($file['tmp_name'], $ruta)) {
             $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version)
-                    VALUES (NOW(), ?, ?, 'reporte_conductor_sst', ?, ?)";
+                    VALUES (NOW(), ?, ?, 'sst_reporte_conductor', ?, ?)";
 
             $stmt = $this->db->prepare($sql);
             if (!$stmt) {
@@ -685,7 +910,7 @@ class ReporteConductorSSTModel
     {
         // Obtener la ruta del archivo antes de eliminar
         $sql = "SELECT doc_ruta FROM documentos
-                WHERE iddocumentos = ? AND doc_tabla = 'reporte_conductor_sst'
+                WHERE iddocumentos = ? AND doc_tabla = 'sst_reporte_conductor'
                 LIMIT 1";
         $row = $this->executeQuery($sql, "i", [$idDocumento]);
 
@@ -704,7 +929,7 @@ class ReporteConductorSSTModel
         }
 
         // Eliminar registro de la base de datos
-        $sqlDelete = "DELETE FROM documentos WHERE iddocumentos = ? AND doc_tabla = 'reporte_conductor_sst'";
+        $sqlDelete = "DELETE FROM documentos WHERE iddocumentos = ? AND doc_tabla = 'sst_reporte_conductor'";
         $stmt = $this->db->prepare($sqlDelete);
         if (!$stmt) {
             error_log("ReporteConductorSSTModel: eliminarArchivo - Error preparando SQL: " . $this->db->error);

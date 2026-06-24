@@ -521,6 +521,30 @@
                     return false;
                 }
 
+                // Validar campos personalizables requeridos
+                var panelCampos = document.getElementById('rcsst_panel_' + tipo);
+                if (panelCampos) {
+                    var requiredCampos = panelCampos.querySelectorAll('.rcsst-campo[data-requerido="1"]');
+                    for (var c = 0; c < requiredCampos.length; c++) {
+                        if (requiredCampos[c].style.display === 'none') continue;
+                        var inp = requiredCampos[c].querySelector('input:not([type="hidden"]):not([type="radio"]), textarea');
+                        var radioChecked = requiredCampos[c].querySelector('input[type="radio"]:checked');
+                        if (inp && !inp.value.trim()) {
+                            var labelEl = requiredCampos[c].querySelector('.form-label');
+                            var nombreCampo = labelEl ? labelEl.textContent.trim() : '(campo)';
+                            swalAlert({ title: 'Campo requerido', text: 'Complete "' + nombreCampo + '" en ' + labelTipo + '.', icon: 'error', confirmButtonText: 'Aceptar' });
+                            return false;
+                        }
+                        if (!inp && !radioChecked) {
+                            var radios = requiredCampos[c].querySelectorAll('input[type="radio"]');
+                            if (radios.length > 0) {
+                                swalAlert({ title: 'Campo requerido', text: 'Seleccione una opción en ' + labelTipo + '.', icon: 'error', confirmButtonText: 'Aceptar' });
+                                return false;
+                            }
+                        }
+                    }
+                }
+
                 // Validar observación no vacía
                 var obsTextarea = document.getElementById('rcsst_obs_' + tipo);
                 if (!obsTextarea || !obsTextarea.value.trim()) {
@@ -599,9 +623,38 @@
             reportes.push(reporteItem);
         }
 
+        // Colectar respuestas dinámicas de campos personalizables
+        var respuestasData = {};
+        for (var t = 0; t < TIPOS.length; t++) {
+            var tipo = TIPOS[t];
+            var respuestasTipo = {};
+            var container = document.getElementById('rcsst_panel_' + tipo);
+            if (!container) continue;
+            var campos = container.querySelectorAll('.rcsst-campo');
+            for (var c = 0; c < campos.length; c++) {
+                var campo = campos[c];
+                var codigoCampo = campo.getAttribute('data-codigo');
+                var input = campo.querySelector('input:not([type="hidden"]), textarea');
+                if (!input) continue;
+                if (input.type === 'radio') {
+                    if (input.checked) {
+                        respuestasTipo[codigoCampo] = input.value;
+                    }
+                } else {
+                    var val = input.value.trim();
+                    if (val) {
+                        respuestasTipo[codigoCampo] = val;
+                    }
+                }
+            }
+            if (Object.keys(respuestasTipo).length > 0) {
+                respuestasData[tipo] = respuestasTipo;
+            }
+        }
         // Construir FormData
         var formData = new FormData();
         formData.append('reportes', JSON.stringify(reportes));
+        formData.append('respuestas', JSON.stringify(respuestasData));
         formData.append('ubicacion', ubicacionCoords.lat.toFixed(6) + ',' + ubicacionCoords.lng.toFixed(6));
 
         var tipoEventoInput = document.getElementById('rcsst_tipo_evento');
@@ -687,7 +740,33 @@
     }
 
     // --------------------------------------------------------------------
-    // 12. init — Punto de entrada al cargar el DOM
+    // 12. initCondicional() — Visibilidad condicional de campos
+    //     Cuando un radio SI_NO cambia, muestra/oculta los campos hijos
+    //     que dependen de el (data-padre = data-id-campo del padre)
+    // --------------------------------------------------------------------
+    function initCondicional() {
+        var siNoRadios = document.querySelectorAll('.rcsst-campo input[type="radio"]');
+        for (var i = 0; i < siNoRadios.length; i++) {
+            siNoRadios[i].addEventListener('change', function () {
+                var campo = this.closest('.rcsst-campo');
+                if (!campo) return;
+                var padreId = campo.getAttribute('data-id-campo');
+                // Find all children campos that depend on this padre
+                var hijos = document.querySelectorAll('.rcsst-campo[data-padre="' + padreId + '"]');
+                for (var h = 0; h < hijos.length; h++) {
+                    var valorNecesario = hijos[h].getAttribute('data-valor-padre');
+                    if (this.value === valorNecesario) {
+                        hijos[h].style.display = '';
+                    } else {
+                        hijos[h].style.display = 'none';
+                    }
+                }
+            });
+        }
+    }
+
+    // --------------------------------------------------------------------
+    // 13. init — Punto de entrada al cargar el DOM
     // --------------------------------------------------------------------
     function init() {
         try {
@@ -695,6 +774,7 @@
             initRadios();
             initGravedad();
             initFileUploads();
+            initCondicional();
 
             var btnSubmit = document.getElementById('rcsst_btn_submit');
             if (btnSubmit) {
