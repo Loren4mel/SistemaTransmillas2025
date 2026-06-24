@@ -784,12 +784,28 @@
                 <form id="formComparendo" enctype="multipart/form-data">
                     <div class="row">
 
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-12 mb-3">
                             <label class="form-label fw-bold text-secondary">
-                                Operador (Recibido por) <span class="text-danger">*</span>
+                                Titular Comparendo <span class="text-danger">*</span>
+                            </label>
+                            <select name="com_titularcompa" id="com_titularcompa"
+                                    class="form-control" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Operador">Operador</option>
+                                <option value="Empresa">Empresa</option>
+                            </select>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Si el comparendo queda a nombre de la empresa, no es obligatorio seleccionar un operador.
+                            </small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary" id="label_operador_comparendo">
+                                Operador (Recibido por) <span class="text-danger" id="asterisco_operador_comparendo">*</span>
                             </label>
                             <select name="com_operador_id" id="com_operador_id"
-                                    class="form-control" required>
+                                    class="form-control">
                                 <option value="">Seleccionar...</option>
                                 <?php foreach ($operadoresActivos as $op): ?>
                                 <option value="<?= $op['idusuarios'] ?>">
@@ -806,7 +822,7 @@
                             <select name="com_vehiculo_id" id="com_vehiculo_id"
                                     class="form-control" required>
                                 <option value="">Seleccionar...</option>
-                                <?php foreach ($Vehiculos as $v): 
+                                <?php foreach ($Vehiculos as $v):
                                      if ($v['veh_estado'] != 1) continue;
                                      if ($v['veh_propiedad'] !== 'empresa') continue;
                                 ?>
@@ -856,18 +872,6 @@
                             </small>
                         </div>
 
-                        <div class="col-md-12 mb-3">
-                            <label class="form-label fw-bold text-secondary">
-                                Titular Comparendo <span class="text-danger">*</span>
-                            </label>
-                            <select name="com_titularcompa" id="com_titularcompa"
-                                    class="form-control" required>
-                                <option value="">Seleccionar...</option>
-                                <option value="Operador">Operador</option>
-                                <option value="Empresa">Empresa</option>
-                            </select>
-                        </div>
-
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold text-secondary">
@@ -884,6 +888,18 @@
                             </label>
                             <input type="file" name="com_foto_curso" id="com_foto_curso"
                                    class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                Observación
+                            </label>
+                            <textarea name="com_observacion" id="com_observacion"
+                                      class="form-control" rows="3" maxlength="500"
+                                      placeholder="Comentarios o aclaraciones relacionadas con el comparendo..."></textarea>
+                            <small class="text-muted">
+                                <span id="contador_obs">0</span>/500 caracteres
+                            </small>
                         </div>
 
                         <div class="col-md-12 mb-2">
@@ -997,8 +1013,9 @@
                                 <th>Fecha Consulta</th>
                                 <th>Evidencia</th>
                                 <th>Usuario</th>
-                                <th>Fecha Registro</th>   
-                                <th>Eliminar</th>                             
+                                <th>Fecha Registro</th>
+                                <th>Estado</th>
+                                <th id="thAccionRevision" style="display:none;">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="cuerpoTablaRevisiones">
@@ -1043,6 +1060,7 @@
                                 <th>Titular Comparendo</th>
                                 <th>Foto Comparendo</th>
                                 <th>Foto Curso</th>
+                                <th>Observación</th>
                             </tr>
                         </thead>
                         <tbody id="cuerpoTablaComparendos">
@@ -1131,6 +1149,18 @@
                             <div id="preview_edit_com_foto_curso" class="mb-2"></div>
                             <input type="file" name="com_foto_curso" id="edit_com_foto_curso"
                                    class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold text-secondary">
+                                📝 Observación
+                            </label>
+                            <textarea name="com_observacion" id="edit_com_observacion"
+                                      class="form-control" rows="3" maxlength="500"
+                                      placeholder="Comentarios o aclaraciones relacionadas con el comparendo..."></textarea>
+                            <small class="text-muted">
+                                <span id="edit_contador_obs">0</span>/500 caracteres
+                            </small>
                         </div>
 
                     </div>
@@ -1383,7 +1413,7 @@
 
             <div class="modal-header mi-header text-white">
                 <h5 class="modal-title">
-                    <i class="fas fa-oil-can me-2"></i> Estado y Cambio de Aceite
+                    Estado y Cambio de Aceite
                 </h5>
                 <button type="button" class="btn-close btn-close-white"
                         data-bs-dismiss="modal"></button>
@@ -1475,7 +1505,7 @@
                         data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary"
                         id="btnGuardarAceite">
-                    <i class="fas fa-save me-1"></i> Registrar Cambio de Aceite
+                         Registrar Cambio de Aceite
                 </button>
             </div>
 
@@ -1585,6 +1615,11 @@
 <!-- DataTables -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<!-- Variables globales para JS -->
+<script>
+    const usuarioRol = <?= (int)($_SESSION['usuario_rol'] ?? 0) ?>;
+    const usuarioNombre = '<?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Sin sesión', ENT_QUOTES) ?>';
+</script>
 <script src="<?= $baseUrl ?>/assets/js/vehiculos.js?v=<?= filemtime(__DIR__ . '/../../assets/js/vehiculos.js') ?>"></script>
 </body>
 </html>

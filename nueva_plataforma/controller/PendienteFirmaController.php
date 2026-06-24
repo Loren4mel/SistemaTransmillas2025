@@ -47,7 +47,7 @@ try {
         header('Content-Type: application/json; charset=utf-8');
 
         $accion = $_POST['accion'] ?? '';
-        if ($accion !== 'guardar_firma_pendiente') {
+        if (!in_array($accion, ['guardar_firma_pendiente', 'guardar_firma_prima'], true)) {
             pendienteFirmaLog('Accion POST invalida', ['accion' => $accion]);
             http_response_code(422);
             echo json_encode([
@@ -57,8 +57,34 @@ try {
             exit;
         }
 
-        $pendienteUsuarioId = (int) ($_POST['pendiente_usuario_id'] ?? 0);
         $firma = trim((string) ($_POST['firma'] ?? ''));
+        if ($accion === 'guardar_firma_prima') {
+            $primaId = (int) ($_POST['prima_id'] ?? 0);
+            pendienteFirmaLog('POST guardar_firma_prima', [
+                'primaId' => $primaId,
+                'firma_length' => strlen($firma),
+            ]);
+
+            if ($primaId <= 0 || $firma === '') {
+                http_response_code(422);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Faltan datos para guardar la firma de prima.',
+                ]);
+                exit;
+            }
+
+            $resultado = $modelo->guardarFirmaPrima($primaId, $idUsuario, $firma);
+            pendienteFirmaLog('Resultado guardar_firma_prima', $resultado);
+            if (!$resultado['success']) {
+                http_response_code(422);
+            }
+
+            echo json_encode($resultado);
+            exit;
+        }
+
+        $pendienteUsuarioId = (int) ($_POST['pendiente_usuario_id'] ?? 0);
         pendienteFirmaLog('POST guardar_firma_pendiente', [
             'pendienteUsuarioId' => $pendienteUsuarioId,
             'firma_length' => strlen($firma),
@@ -80,6 +106,29 @@ try {
         }
 
         echo json_encode($resultado);
+        exit;
+    }
+
+    $primaId = (int) ($_GET['prima_id'] ?? 0);
+    if ($primaId > 0) {
+        pendienteFirmaLog('GET vista firma prima', ['primaId' => $primaId]);
+        $pendiente = $modelo->obtenerPrimaParaFirma($primaId, $idUsuario);
+
+        if ($pendiente === null) {
+            pendienteFirmaLog('Prima no encontrada para firma');
+            http_response_code(404);
+            echo "La prima solicitada no existe.";
+            exit;
+        }
+
+        $pendienteUsuarioId = 0;
+        $firmaAccion = 'guardar_firma_prima';
+        $firmaIdCampo = 'prima_id';
+        $firmaIdValor = $primaId;
+        $firmaPostUrl = 'PendienteFirmaController.php';
+        $firmaPostMessageId = 'primaId';
+        pendienteFirmaLog('Incluyendo vista firma_pdf para prima');
+        include __DIR__ . "/../view/Pendientes/firma_pdf.php";
         exit;
     }
 

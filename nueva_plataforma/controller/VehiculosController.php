@@ -3,6 +3,13 @@
 session_name("projecst2344fsdfd");
 session_start();
 
+// === SOLO PARA PRUEBAS LOCALES — BORRAR DESPUÉS ===
+if (!isset($_SESSION['usuario_rol'])) {
+    $_SESSION['usuario_rol'] = 1; // simula rol 1 (admin)
+    $_SESSION['usuario_nombre'] = $_SESSION['usuario_nombre'] ?? 'Tester Admin';
+}
+// === FIN BLOQUE DE PRUEBA ===
+
 require_once "../model/VehiculosModel.php";
 
 $modelo = new VehiculosModel();
@@ -87,12 +94,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_entrega'])) {
         'ent_vehiculo_id'      => $idVehiculo,
         'ent_firma_base64'     => $_POST['ent_firma_base64'] ?? '',
         'ent_video_url' => $_POST['ent_video_url'] ?? '',
+        'ent_force_assign' => $_POST['ent_force_assign'] ?? '',
     ];
 
     $resultado = $modelo->guardarEntregaVehiculo($datos);
+
+    // Si hay conflicto de asignación de vehículo, retornar datos de usuarios conflictivos
+    if (is_array($resultado) && isset($resultado['conflict'])) {
+        echo json_encode($resultado);
+        exit;
+    }
+
     echo json_encode($resultado === true
         ? ['success' => true,  'mensaje' => 'Entrega registrada correctamente']
-        : ['success' => false, 'mensaje' => $resultado['error']]
+        : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al registrar la entrega']
     );
     exit;
 }
@@ -115,8 +130,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_comparendo'])
         'com_valor' => str_replace(['.', ','], ['', '.'], $_POST['com_valor']),
         'com_numerocompa' => $_POST['com_numerocompa'],
         'com_titularcompa'=> $_POST['com_titularcompa'],
+        'com_observacion' => $_POST['com_observacion'] ?? null,
     ];
-    
+
     $resultado = $modelo->guardarComparendo($datos);
     if (ob_get_length()) ob_clean();
     echo json_encode($resultado === true
@@ -134,6 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comparendo
         'com_valor' => str_replace(['.', ','], ['', '.'], $_POST['com_valor']),
         'com_numerocompa' => $_POST['com_numerocompa'],
         'com_titularcompa' => $_POST['com_titularcompa'],
+        'com_observacion' => $_POST['com_observacion'] ?? null,
     ];
     $resultado = $modelo->actualizarComparendo($datos);
     if (ob_get_length()) ob_clean();
@@ -251,13 +268,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_revisiones'])
     exit;
 }
 
-// ELIMINAR REVISIÓN
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_revision'])) {
-    $resultado = $modelo->eliminarRevision($_POST['id']);
+// CONFIRMAR REVISIÓN DE COMPARENDO (solo rol 1)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirmar_revision'])) {
+    // Validar que solo el rol 1 pueda confirmar
+    if (!in_array(($_SESSION['usuario_rol'] ?? 0), [1, 5])) {
+        if (ob_get_length()) ob_clean();
+        echo json_encode(['success' => false, 'mensaje' => 'No tiene permisos para confirmar revisiones.']);
+        exit;
+    }
+    $resultado = $modelo->confirmarRevision($_POST['id'], $_SESSION['usuario_nombre'] ?? 'Sin sesión');
     if (ob_get_length()) ob_clean();
     echo json_encode($resultado === true
-        ? ['success' => true,  'mensaje' => 'Revisión eliminada correctamente']
-        : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al eliminar']
+        ? ['success' => true,  'mensaje' => 'Revisión confirmada correctamente']
+        : ['success' => false, 'mensaje' => $resultado['error'] ?? 'Error al confirmar']
     );
     exit;
 }

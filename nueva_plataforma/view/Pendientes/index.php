@@ -589,6 +589,7 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 4, 12], 
                     data-fecha-inicio="<?= htmlspecialchars($pendiente['fecha_inicio']) ?>"
                     data-tipo="<?= htmlspecialchars($pendiente['tipo']) ?>"
                     data-pendiente-usuario-id="<?= (int) ($pendiente['pendiente_usuario_id'] ?? 0) ?>"
+                    data-prima-id="<?= (int) ($pendiente['prima_id'] ?? 0) ?>"
                     data-puede-confirmar="<?= (int) ($pendiente['puede_confirmar'] ?? 1) ?>"
                     data-requiere-firma="<?= (int) ($pendiente['requiere_firma'] ?? 0) ?>"
                     data-firmado="<?= (int) ($pendiente['firmado'] ?? 0) ?>"
@@ -598,12 +599,32 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 4, 12], 
                     <td>
                       <div><?= htmlspecialchars($pendiente['concepto']) ?></div>
                       <div class="meta-pendiente"><?= htmlspecialchars($pendiente['detalle'] ?? ucfirst($pendiente['registro'])) ?></div>
-                      <?php if (($pendiente['registro'] ?? '') === 'personalizado' && (int) ($pendiente['requiere_firma'] ?? 0) === 1): ?>
+                      <?php if (in_array(($pendiente['registro'] ?? ''), ['personalizado', 'prima'], true) && (int) ($pendiente['requiere_firma'] ?? 0) === 1): ?>
                         <div class="meta-pendiente">Firma <?= htmlspecialchars(($pendiente['modo_firma'] ?? 'individual') === 'multiple' ? 'multiple' : 'individual') ?></div>
                       <?php endif; ?>
                     </td>
                     <td>
-                      <?php if (($pendiente['registro'] ?? '') === 'personalizado'): ?>
+                      <?php if (($pendiente['registro'] ?? '') === 'prima'): ?>
+                        <div class="document-actions vertical">
+                          <button
+                            type="button"
+                            class="document-chip sign abrir-prima-firmable"
+                            data-prima-id="<?= (int) ($pendiente['prima_id'] ?? 0) ?>"
+                          >
+                            <i class="bi bi-pen"></i> Revisar y firmar PDF
+                          </button>
+                          <?php if (!empty($pendiente['pdf_firmado_ruta'])): ?>
+                            <a
+                              class="document-chip file"
+                              href="<?= htmlspecialchars($pendiente['pdf_firmado_ruta']) ?>"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <i class="bi bi-file-earmark-check"></i> Ver PDF firmado
+                            </a>
+                          <?php endif; ?>
+                        </div>
+                      <?php elseif (($pendiente['registro'] ?? '') === 'personalizado'): ?>
                         <?php if ((int) ($pendiente['requiere_firma'] ?? 0) === 1): ?>
                           <div class="document-actions vertical">
                             <button
@@ -1757,18 +1778,28 @@ $puedeVerSeguimientoPendientes = in_array((int) ($rolUsuario ?? 0), [1, 4, 12], 
       window.open(url, 'pendiente_firma_' + pendienteUsuarioId, 'width=1280,height=860,scrollbars=yes,resizable=yes');
     });
 
+    $(document).on('click', '.abrir-prima-firmable', function () {
+      const primaId = $(this).data('prima-id');
+      const url = 'PendienteFirmaController.php?prima_id=' + encodeURIComponent(primaId);
+      window.open(url, 'prima_firma_' + primaId, 'width=1280,height=860,scrollbars=yes,resizable=yes');
+    });
+
     window.addEventListener('message', function (event) {
       if (!event.data || event.data.tipo !== 'pendiente_pdf_firmado') {
         return;
       }
 
-      const pendienteUsuarioId = parseInt(event.data.pendienteUsuarioId, 10);
-      if (!pendienteUsuarioId) {
+      const pendienteUsuarioId = parseInt(event.data.pendienteUsuarioId || 0, 10);
+      const primaId = parseInt(event.data.primaId || 0, 10);
+      if (!pendienteUsuarioId && !primaId) {
         return;
       }
 
       const $fila = $('#tablaPendientes tbody tr').filter(function () {
-        return parseInt($(this).data('pendiente-usuario-id'), 10) === pendienteUsuarioId;
+        if (pendienteUsuarioId) {
+          return parseInt($(this).data('pendiente-usuario-id'), 10) === pendienteUsuarioId;
+        }
+        return parseInt($(this).data('prima-id'), 10) === primaId;
       }).first();
 
       if ($fila.length === 0) {
