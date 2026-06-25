@@ -217,6 +217,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_tecnomecan
     exit;
 }
 
+// ACTUALIZAR EXTINTOR
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_extintor'])) {
+    $resultado = $modelo->actualizarExtintor($_POST);
+    echo json_encode([
+        'success' => $resultado,
+        'mensaje' => $resultado ? 'Recarga de extintor actualizada correctamente' : 'Error al actualizar'
+    ]);
+    exit;
+}
+
 // OBTENER VEHÍCULOS PARA SELECTS (recargar dropdowns sin reload)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_vehiculos_select'])) {
     $vehiculos = $modelo->obtenerVehiculosParaSelect('1');

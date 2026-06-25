@@ -16,7 +16,7 @@ class VehiculosModel {
     v.`veh_observaciones`, v.`veh_calkmcambioaceite`, v.`veh_restankmaceite`,
     v.`veh_faltaparacambioaceite`, v.`veh_kmalcambaceite`,
     v.`veh_img_anverso`, v.`veh_img_reverso`, v.`veh_img_actual_frente`, v.`veh_img_actual_trasera`,
-    v.`veh_img_soat`, v.`veh_img_tecnomecanica`, v.`veh_equipo_carretera`,
+    v.`veh_img_soat`, v.`veh_img_tecnomecanica`, v.`veh_fechaextintor`, v.`veh_img_extintor`, v.`veh_checklist_extintor`, v.`veh_equipo_carretera`,
      -- Columnas calculadas de aceite (fuente de verdad: veh_kilactual, veh_kmactual_cambioaceite, veh_calkmcambioaceite)
      (v.`veh_kilactual` - v.`veh_kmactual_cambioaceite`) AS veh_km_recorridos_aceite,
      (v.`veh_calkmcambioaceite` - (v.`veh_kilactual` - v.`veh_kmactual_cambioaceite`)) AS veh_km_restantes_aceite,
@@ -888,6 +888,28 @@ public function actualizarTecnomecanica($datos) {
     $sql = "UPDATE vehiculos SET veh_fechategnomecanica = '$fecha' $sqlImg WHERE idvehiculos = $id";
     return $this->dbname->query($sql) ? true : false;
 
+}
+
+public function actualizarExtintor($datos) {
+    $id    = intval($datos['id']);
+    $fecha = $this->dbname->real_escape_string($datos['veh_fechaextintor']);
+    $checklist = $this->dbname->real_escape_string($datos['veh_checklist_extintor'] ?? '[]');
+
+    $veh_img_extintor = '';
+    if (isset($_FILES['veh_img_extintor']) && is_uploaded_file($_FILES['veh_img_extintor']['tmp_name'])) {
+        $veh_img_extintor = $this->guardarImagen($_FILES['veh_img_extintor'], 'uploads/vehiculos');
+    }
+
+    $sqlImg = $veh_img_extintor
+        ? ", veh_img_extintor = '" . $this->dbname->real_escape_string($veh_img_extintor) . "'"
+        : '';
+
+    $sql = "UPDATE vehiculos SET
+                veh_fechaextintor = '$fecha',
+                veh_checklist_extintor = '$checklist'
+                $sqlImg
+            WHERE idvehiculos = $id";
+    return $this->dbname->query($sql) ? true : false;
 }
 
 public function actualizarEntrega($datos) {

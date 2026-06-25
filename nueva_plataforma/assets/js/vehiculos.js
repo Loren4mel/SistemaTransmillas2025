@@ -1,5 +1,3 @@
-//const urlController = '/SistemaTransmillas2025/nueva_plataforma/controller/VehiculosController.php';
-
 // DESPUÉS — detecta automáticamente el entorno
 const plataformaPath = '/nueva_plataforma';
 const plataformaIndex = window.location.pathname.indexOf(plataformaPath);
@@ -38,6 +36,43 @@ function generarBadgeDias(dias) {
     } else {
         color = '#27ae60'; // verde — más de 30 días
         texto = `Faltan ${dias} días`;
+    }
+
+    return `<span style="background:${color}; color:#fff;
+        font-size:11px; font-weight:bold; padding:3px 7px; border-radius:5px;
+        display:inline-block; white-space:nowrap; margin-top:3px;">
+        ${texto}
+    </span>`;
+}
+
+function generarBadgeExtintor(fechaStr) {
+    if (!fechaStr || fechaStr === '0000-00-00') return '';
+    // Añadir 1 año a la fecha de recarga para saber cuándo vence
+    const partes = fechaStr.split('-');
+    if (partes.length !== 3) return '';
+    const fechaRecarga = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+    if (isNaN(fechaRecarga.getTime())) return '';
+    const fechaVence = new Date(fechaRecarga);
+    fechaVence.setFullYear(fechaVence.getFullYear() + 1);
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const diff = fechaVence - hoy;
+    const dias = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+    let color, texto;
+    if (dias < 0) {
+        color = '#c0392b';
+        texto = `Recarga vencida hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}`;
+    } else if (dias === 0) {
+        color = '#c0392b';
+        texto = 'Vence hoy';
+    } else if (dias <= 30) {
+        color = '#c0392b';
+        texto = `Faltan ${dias} día${dias !== 1 ? 's' : ''} para recarga`;
+    } else {
+        color = '#27ae60';
+        texto = `Faltan ${dias} días para recarga`;
     }
 
     return `<span style="background:${color}; color:#fff;
@@ -146,6 +181,24 @@ $(document).ready(function () {
             data-fecha="${data ?? ''}"
             data-imgtecno="${row.veh_img_tecnomecanica ?? ''}">
             ${data ?? 'Sin fecha'} <i class="fas fa-pen" style="font-size:10px; opacity:0.6;"></i>
+        </button>
+        ${badge}`;
+                }
+            },
+
+            {
+                data: 'veh_fechaextintor',
+                render: function (data, type, row) {
+                    const badge = generarBadgeExtintor(data);
+                    return `<button type="button"
+            class="btn btn-sm btn-link btn-editar-extintor p-0"
+            style="text-decoration:none; color:#1a3a5c; font-weight:600;"
+            title="Clic para actualizar recarga de extintor"
+            data-id="${row.idvehiculos}"
+            data-fecha="${data ?? ''}"
+            data-imgext="${row.veh_img_extintor ?? ''}"
+            data-checklist="${(row.veh_checklist_extintor ?? '[]').replace(/"/g, '&quot;')}">
+            🧯 ${data ?? 'Sin fecha'} <i class="fas fa-pen" style="font-size:10px; opacity:0.6;"></i>
         </button>
         ${badge}`;
                 }
@@ -1262,7 +1315,7 @@ $('#formEntregaVehiculo').on('submit', function (e) {
                     let listaHtml = '<ul class="text-start mb-0" style="list-style:disc; padding-left:20px;">';
                     response.usuarios.forEach(function (u) {
                         listaHtml += '<li><strong>' + $('<span>').text(u.usu_nombre).html() + '</strong> ' +
-                                     '(Doc: ' + $('<span>').text(u.usu_identificacion).html() + ')</li>';
+                            '(Doc: ' + $('<span>').text(u.usu_identificacion).html() + ')</li>';
                     });
                     listaHtml += '</ul>';
 
@@ -1270,13 +1323,13 @@ $('#formEntregaVehiculo').on('submit', function (e) {
                         icon: 'warning',
                         title: 'Vehículo asignado a otro(s) conductor(es)',
                         html: '<div class="text-center mb-3">' +
-                              '<i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>' +
-                              '</div>' +
-                              '<p class="text-start">El vehículo seleccionado actualmente está asignado a los siguientes conductores activos:</p>' +
-                              listaHtml +
-                              '<hr>' +
-                              '<p class="text-start text-muted mb-0"><i class="fas fa-info-circle me-1"></i>' +
-                              'Primero debe registrar las entregas finales de estos conductores. Si continúa, la asignación se transferirá automáticamente al nuevo conductor.</p>',
+                            '<i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>' +
+                            '</div>' +
+                            '<p class="text-start">El vehículo seleccionado actualmente está asignado a los siguientes conductores activos:</p>' +
+                            listaHtml +
+                            '<hr>' +
+                            '<p class="text-start text-muted mb-0"><i class="fas fa-info-circle me-1"></i>' +
+                            'Primero debe registrar las entregas finales de estos conductores. Si continúa, la asignación se transferirá automáticamente al nuevo conductor.</p>',
                         showCancelButton: true,
                         confirmButtonText: 'Continuar',
                         cancelButtonText: 'Cancelar',
@@ -2390,6 +2443,120 @@ $(document).on('click', '#btnGuardarTecnomecanica', function () {
                 if (r.success) {
                     Swal.fire({ icon: 'success', title: '¡Actualizado!', text: r.mensaje, timer: 2000, showConfirmButton: false });
                     bootstrap.Modal.getInstance(document.getElementById('modalEditarTecnomecanica')).hide();
+                    $('#tablaVehiculos').DataTable().ajax.reload(null, false);
+                } else {
+                    Swal.fire('Error', r.mensaje, 'error');
+                }
+            } catch (e) {
+                Swal.fire('Error', 'Error en la respuesta del servidor', 'error');
+            }
+        },
+        error: function () {
+            Swal.close();
+            Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+        }
+    });
+});
+
+// Modal editar Extintor
+$(document).on('click', '#tablaVehiculos tbody .btn-editar-extintor', function () {
+    document.getElementById('extintor_veh_id').value = $(this).data('id');
+    document.getElementById('extintor_veh_fechaextintor').value = $(this).data('fecha');
+
+    // Preview imagen actual
+    const imgExt = $(this).data('imgext');
+    const $preview = $('#preview_extintor_modal');
+    if (imgExt) {
+        const url = `${baseUrl}/` + imgExt;
+        const esPdf = imgExt.toLowerCase().endsWith('.pdf');
+        $preview.html(esPdf
+            ? `<a href="${url}" target="_blank" class="btn btn-sm btn-outline-danger mb-1">
+                   <i class="fas fa-file-pdf"></i> Ver PDF
+               </a>
+               <small class="text-muted d-block">Sube uno nuevo para reemplazar</small>`
+            : `<a href="${url}" target="_blank">
+                   <img src="${url}" style="max-height:60px; border-radius:4px;
+                   border:1px solid #dee2e6; margin-bottom:4px;">
+               </a>
+               <small class="text-muted d-block">
+                   <a href="${url}" target="_blank">🔍 Ver imagen actual</a> — Sube una nueva para reemplazar
+               </small>`
+        );
+    } else {
+        $preview.html('<small class="text-muted">Sin imagen</small>');
+    }
+
+    // Precargar checklist
+    try {
+        const rawData = $(this).data('checklist');
+        const checklistData = typeof rawData === 'string' ? JSON.parse(rawData) : (rawData || {});
+        const items = Array.isArray(checklistData.items) ? checklistData.items : [];
+        $('#formEditarExtintor .checklist-item').prop('checked', false);
+        items.forEach(function (val) {
+            $('#formEditarExtintor .checklist-item[value="' + val + '"]').prop('checked', true);
+        });
+        $('#extintor_observaciones').val(checklistData.observaciones || '');
+    } catch (e) {
+        $('#formEditarExtintor .checklist-item').prop('checked', false);
+        $('#extintor_observaciones').val('');
+    }
+
+    new bootstrap.Modal(document.getElementById('modalEditarExtintor')).show();
+});
+
+// Guardar Extintor
+$(document).on('click', '#btnGuardarExtintor', function () {
+    const id = $('#extintor_veh_id').val();
+    const fecha = $('#extintor_veh_fechaextintor').val();
+
+    if (!fecha) { Swal.fire('Error', 'Ingrese la fecha de recarga del extintor', 'error'); return; }
+
+    const inputFoto = $('#formEditarExtintor input[name="veh_img_extintor"]')[0];
+    if (inputFoto && inputFoto.files.length > 0) {
+        const archivo = inputFoto.files[0];
+        if (!/(\.jpg|\.jpeg|\.png|\.pdf)$/i.test(archivo.name)) {
+            Swal.fire('Error', 'El archivo debe ser JPG, PNG o PDF', 'error'); return;
+        }
+        if (archivo.size > 5 * 1024 * 1024) {
+            Swal.fire('Error', 'La foto es muy pesada (máx 5MB)', 'error'); return;
+        }
+    }
+
+    // Armar JSON del checklist
+    const checklistItems = [];
+    $('#formEditarExtintor .checklist-item:checked').each(function () {
+        checklistItems.push($(this).val());
+    });
+    const checklistData = {
+        items: checklistItems,
+        observaciones: $('#extintor_observaciones').val() || ''
+    };
+
+    const datos = new FormData();
+    datos.append('actualizar_extintor', true);
+    datos.append('id', id);
+    datos.append('veh_fechaextintor', fecha);
+    datos.append('veh_checklist_extintor', JSON.stringify(checklistData));
+    if (inputFoto && inputFoto.files.length > 0) {
+        datos.append('veh_img_extintor', inputFoto.files[0]);
+    }
+
+    Swal.fire({ title: 'Guardando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    $.ajax({
+        url: urlController,
+        type: 'POST',
+        data: datos,
+        cache: false,
+        contentType: false,
+        processData: false,
+        success: function (res) {
+            Swal.close();
+            try {
+                const r = typeof res === 'object' ? res : JSON.parse(res);
+                if (r.success) {
+                    Swal.fire({ icon: 'success', title: '¡Actualizado!', text: r.mensaje, timer: 2000, showConfirmButton: false });
+                    bootstrap.Modal.getInstance(document.getElementById('modalEditarExtintor')).hide();
                     $('#tablaVehiculos').DataTable().ajax.reload(null, false);
                 } else {
                     Swal.fire('Error', r.mensaje, 'error');
