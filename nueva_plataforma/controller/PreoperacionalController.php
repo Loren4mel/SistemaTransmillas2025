@@ -203,11 +203,13 @@ function loadView($service)
 
     // Determinar el modo de operación
     $esCovid = ($param4 == 'covid19');
-    $esValidacion = ($preoperacional == 'validarpreoperacional' || $param5 == 'valida');
+    $esValidacion = ($preoperacional == 'validarpreoperacional' || $param5 == 'valida' || $param5 == 'vista');
+    $esSoloLectura = ($param5 == 'vista');
 
     // Validación de preoperacional: solo administradores (roles 1, 12) pueden
     // acceder a la página de validación, alineado con el sistema legacy.
-    if ($esValidacion) {
+    // Modo vista (solo-lectura): cualquier usuario autenticado puede ver.
+    if ($esValidacion && !$esSoloLectura) {
         $rol = $_SESSION['usuario_rol'] ?? 0;
         if (!in_array($rol, [1, 12])) {
             http_response_code(403);
@@ -267,6 +269,43 @@ function loadView($service)
             } elseif (!empty($registroExistente['preestado'])) {
                 $param4 = 'ingresado';
             }
+        }
+
+        // Derivar iduser desde el registro original cuando no viene en la URL.
+        // Esto es esencial cuando se accede desde seguimientoVehiculo (historial de estado)
+        // donde el enlace solo incluye idpre sin iduser, y el fallback a $_SESSION
+        // apuntaría al admin que no tiene vehículo asignado.
+        if ($registroExistente && empty($_GET['iduser']) && !empty($registroExistente['preidusuario'])) {
+            $iduser = (int) $registroExistente['preidusuario'];
+        }
+
+        // Derivar idvehiculo desde el registro original cuando no viene en la URL.
+        if ($registroExistente && empty($_GET['idvehiculo']) && !empty($registroExistente['prevehiculo'])) {
+            $idvehiculo = (int) $registroExistente['prevehiculo'];
+        }
+
+        // Re-consultar datos del vehículo con iduser e idvehiculo corregidos.
+        // Necesario cuando se accede desde seguimientoVehiculo sin estos parámetros
+        // y fueron derivados del registro original en los bloques anteriores.
+        if ($registroExistente && (empty($_GET['iduser']) || empty($_GET['idvehiculo']))) {
+            $datosVehiculo = $service->obtenerDatosVehiculoYUsuario($iduser, $idvehiculo);
+            if ($datosVehiculo === null) {
+                $datosVehiculo = [];
+            }
+
+            // Recalcular tipovehiculo desde los datos recién consultados
+            $tipovehiculo = strtoupper($datosVehiculo['veh_tipo'] ?? '');
+            if (empty($tipovehiculo)) {
+                $tipovehiculo = strtoupper($service->obtenerTipoVehiculoUsuario($iduser) ?? '');
+            }
+
+            // Recalcular estado de documentos del vehículo
+            $estadoDocumentos = !empty($datosVehiculo)
+                ? $service->getEstadoDocumentosVehiculo($datosVehiculo)
+                : ['alertas' => [], 'expired' => false, 'max_severity' => 0, 'bloquear' => false];
+            $alertasVehiculoHtml = $service->generarHtmlAlertasVehiculo($estadoDocumentos);
+            $alertaSeveridadVehiculo = $estadoDocumentos['max_severity'] ?? 0;
+            $mostrarAlertaVencidos = $estadoDocumentos['expired'] && !$esValidacion;
         }
     }
 
@@ -385,23 +424,37 @@ function loadView($service)
     // Determinar qué secciones mostrar basadas en el rol y tipo de vehículo
     require_once __DIR__ . '/../helpers/PreoperacionalHelpers/Views/PreoperacionalNuevaEncuestaViewHelper.php';
 
-    // Determinar si es conductor (CARRO)
-    $esConductor = PreoperacionalNuevaEncuestaViewHelper::esConductor($tipovehiculo);
+    // En modo validación/vista, las secciones se determinan a partir del registro
+    // ORIGINAL (el conductor que llenó el preop), no del rol de quien está viendo.
+    if ($esValidacion && $registroExistente && !empty($registroExistente['preidusuario'])) {
+        $rolParaSecciones = $service->obtenerRolUsuario((int) $registroExistente['preidusuario']) ?? 0;
+        $tipoVehiculoParaSecciones = strtoupper($registroExistente['pretipovehiculo'] ?? '');
+        // En validación/vista, el vehículo SIEMPRE estuvo asignado al momento del registro
+        $tieneVehiculoParaSecciones = !empty($tipoVehiculoParaSecciones);
+    } else {
+        $rolParaSecciones = $nivel_acceso;
+        $tipoVehiculoParaSecciones = $tipovehiculo;
+        $tieneVehiculoParaSecciones = $tieneVehiculoAsignado;
+    }
+
+    // Verificar si el rol del usuario ORIGINAL está autorizado para operaciones vehiculares
+    $esRolVehicularAutorizado = PreoperacionalNuevaEncuestaViewHelper::esRolVehicularAutorizado($rolParaSecciones);
+
+    // Determinar si es conductor (CARRO) — solo si el rol está autorizado
+    $esConductor = $esRolVehicularAutorizado && PreoperacionalNuevaEncuestaViewHelper::esConductor($tipoVehiculoParaSecciones);
 
     // NUEVO FORMATO: Solo secciones basadas en rol (SIN COVID, SIN FATIGA)
     // Cuando es conductor o vehículo propio, NO se muestran preguntas administrativas
-    $esVehiculoPropio = PreoperacionalNuevaEncuestaViewHelper::tieneVehiculoPropio($tipovehiculo);
+    $esVehiculoPropio = $esRolVehicularAutorizado && PreoperacionalNuevaEncuestaViewHelper::tieneVehiculoPropio($tipoVehiculoParaSecciones);
     $mostrarSecciones = [
-        'administrativo' => !$esConductor && !$esVehiculoPropio && PreoperacionalNuevaEncuestaViewHelper::esPersonalAdministrativo($nivel_acceso),
+        'administrativo' => !$esConductor && !$esVehiculoPropio && PreoperacionalNuevaEncuestaViewHelper::esPersonalAdministrativo($rolParaSecciones),
         'conductor' => $esConductor,
         'vehiculo_propio' => $esVehiculoPropio,
-        'auxiliar_carga' => PreoperacionalNuevaEncuestaViewHelper::esAuxiliarCarga($nivel_acceso),
+        'auxiliar_carga' => PreoperacionalNuevaEncuestaViewHelper::esAuxiliarCarga($rolParaSecciones),
         // Las secciones de inspección del vehículo solo se muestran si el
-        // usuario tiene un vehículo asignado. Después de reportar una novedad
-        // y quedar sin vehículo, el tipo de vehículo del perfil puede seguir
-        // siendo CARRO/MOTO, pero no hay qué inspeccionar.
-        'preoperacional_vehiculo' => ($tipovehiculo === 'CARRO') && $tieneVehiculoAsignado,
-        'preoperacional_moto' => ($tipovehiculo === 'MOTO') && $tieneVehiculoAsignado
+        // usuario ORIGINAL tenía un vehículo asignado al momento del registro.
+        'preoperacional_vehiculo' => ($tipoVehiculoParaSecciones === 'CARRO') && $tieneVehiculoParaSecciones && $esRolVehicularAutorizado,
+        'preoperacional_moto' => ($tipoVehiculoParaSecciones === 'MOTO') && $tieneVehiculoParaSecciones && $esRolVehicularAutorizado
     ];
 
     // Fallback: si ningún cuestionario de rol aplica, usar preguntas administrativas por defecto

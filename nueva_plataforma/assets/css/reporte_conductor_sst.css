@@ -1,0 +1,871 @@
+/**
+ * Reporte Conductor SST — Estilos complementarios
+ *
+ * Los estilos base de tarjetas, botones, radio buttons, textarea,
+ * contenedor de ubicación y layout general están en preoperacional.css.
+ * Este archivo solo contiene lo específico del módulo.
+ */
+
+/* ==================== PANEL INFORMATIVO DEL CONDUCTOR ==================== */
+
+.rcsst-conductor-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.rcsst-conductor-item {
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rcsst-conductor-label {
+    font-size: 11px;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rcsst-conductor-value {
+    font-size: 14px;
+    color: #222;
+    font-weight: 600;
+}
+
+.rcsst-placa {
+    background: rgba(46, 125, 50, 0.1);
+    color: #2E7D32;
+    padding: 2px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    font-family: monospace;
+    font-size: 15px;
+    letter-spacing: 1px;
+}
+
+/* ==================== RADIO TOGGLE ACTIVO ==================== */
+
+.radio-label.rcsst-active {
+    background: rgba(7, 79, 145, 0.08) !important;
+    border-color: rgba(7, 79, 145, 0.55) !important;
+    color: #074F91 !important;
+}
+
+/* ==================== PANEL CONDICIONAL (SÍ) ==================== */
+
+.rcsst-panel-si.rcsst-visible {
+    display: block !important;
+}
+
+.rcsst-sin-novedad.rcsst-visible {
+    display: block !important;
+}
+
+/* ==================== SELECTOR DE GRAVEDAD ==================== */
+
+.rcsst-gravedad-section {
+    margin-top: 12px;
+    padding: 12px;
+    background: #fafafa;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.rcsst-gravedad-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.rcsst-gravedad-radios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.rcsst-gravedad-radio {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 12px;
+    background: #fff;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.rcsst-gravedad-radio:hover {
+    border-color: #bdbdbd;
+    background: #f5f5f5;
+}
+
+.rcsst-gravedad-radio input[type="radio"] {
+    display: none;
+}
+
+.rcsst-gravedad-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    color: #666;
+    font-weight: 700;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.rcsst-gravedad-tag {
+    font-weight: 600;
+    color: #555;
+}
+
+/* Estados activos por tipo */
+.rcsst-gravedad-radio--accidente.rcsst-gravedad-active {
+    border-color: #c62828;
+    background: rgba(198, 40, 40, 0.06);
+}
+.rcsst-gravedad-radio--accidente.rcsst-gravedad-active .rcsst-gravedad-num {
+    background: #c62828;
+    color: #fff;
+}
+.rcsst-gravedad-radio--accidente.rcsst-gravedad-active .rcsst-gravedad-tag {
+    color: #c62828;
+}
+
+.rcsst-gravedad-radio--comparendo.rcsst-gravedad-active {
+    border-color: #c88010;
+    background: rgba(200, 128, 16, 0.06);
+}
+.rcsst-gravedad-radio--comparendo.rcsst-gravedad-active .rcsst-gravedad-num {
+    background: #c88010;
+    color: #fff;
+}
+.rcsst-gravedad-radio--comparendo.rcsst-gravedad-active .rcsst-gravedad-tag {
+    color: #c88010;
+}
+
+/* ==================== ETIQUETA INFORMATIVA (siempre visible) ==================== */
+
+.rcsst-info-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #555;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 10px;
+    margin-bottom: 6px;
+}
+
+.rcsst-guia-label {
+    color: #e65100;
+    margin-bottom: 8px;
+}
+
+/* ==================== TABLA INFORMATIVA DE GRAVEDAD ==================== */
+
+.rcsst-info-table-wrapper {
+    overflow-x: auto;
+}
+
+.rcsst-info-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.rcsst-info-table thead th {
+    background: #f5f5f5;
+    color: #555;
+    font-weight: 600;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rcsst-info-table tbody td {
+    padding: 8px 10px;
+    border-top: 1px solid #f0f0f0;
+    color: #444;
+    vertical-align: top;
+}
+
+.rcsst-info-num {
+    font-weight: 700;
+    text-align: center;
+}
+
+.rcsst-info-tag {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.rcsst-info-desc {
+    line-height: 1.4;
+}
+
+/* Filas coloreadas según gravedad */
+.rcsst-info-row--Leve td,
+.rcsst-info-row--Normal td {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+.rcsst-info-row--Moderado td,
+.rcsst-info-row--Media td {
+    background: #fff8e1;
+    color: #e65100;
+}
+.rcsst-info-row--Grave td,
+.rcsst-info-row--Alta td {
+    background: #ffebee;
+    color: #c62828;
+}
+.rcsst-info-row--Crítico td {
+    background: #fce4ec;
+    color: #880e4f;
+    font-weight: 600;
+}
+
+/* ==================== GUÍA DE OBSERVACIÓN ==================== */
+
+.rcsst-guia-obs {
+    margin-top: 8px;
+}
+
+.rcsst-guia-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0 0;
+    font-size: 11px;
+}
+
+.rcsst-guia-list li {
+    padding: 6px 10px;
+    border-left: 3px solid #ff9800;
+    background: #fff3e0;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 4px;
+    color: #555;
+    line-height: 1.4;
+}
+
+.rcsst-guia-list li i {
+    color: #ff9800;
+}
+
+/* ==================== RECORDATORIO DE EVIDENCIA ==================== */
+
+.rcsst-evidence-reminder {
+    padding: 8px 12px;
+    background: #fff3e0;
+    border: 1px solid rgba(255, 152, 0, 0.2);
+    border-radius: 8px;
+    font-size: 11px;
+    color: #e65100;
+    line-height: 1.4;
+}
+
+.rcsst-evidence-reminder i {
+    color: #ff9800;
+}
+
+.rcsst-evidence-reminder strong {
+    color: #bf360c;
+}
+
+/* ==================== DROPZONE HOVER ESTADO ==================== */
+
+.rcsst-upload-dropzone:hover,
+.rcsst-upload-dropzone.rcsst-dragover {
+    border-color: #074F91 !important;
+    background: rgba(7, 79, 145, 0.08) !important;
+}
+
+/* ==================== GRID DE VISTA PREVIA DE ARCHIVOS ==================== */
+
+.rcsst-preview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+/* ==================== FILA DE ARCHIVO (estilo lista) ==================== */
+
+.rcsst-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    padding: 8px 10px;
+    transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rcsst-file-row:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* --- Icono / miniatura pequeña --- */
+
+.rcsst-file-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    background: #f5f5f5;
+    color: #666;
+    overflow: hidden;
+}
+
+.rcsst-file-icon--pdf {
+    background: #fce4ec;
+    color: #c62828;
+}
+
+.rcsst-file-icon--generic {
+    background: #e3f2fd;
+    color: #1565C0;
+}
+
+.rcsst-file-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* --- Nombre del archivo --- */
+
+.rcsst-file-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: #333;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+/* --- Tamaño del archivo --- */
+
+.rcsst-file-size {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: #999;
+    min-width: 40px;
+    text-align: right;
+}
+
+/* --- Botón eliminar (rojo claro, a la derecha) --- */
+
+.rcsst-file-remove-btn {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #ffcdd2;
+    color: #c62828;
+    border: 1px solid rgba(198, 40, 40, 0.15);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.rcsst-file-remove-btn:hover {
+    background: #ef9a9a;
+    transform: scale(1.05);
+}
+
+.rcsst-file-remove-btn:active {
+    transform: scale(0.95);
+}
+
+/* ==================== UPLOAD INPUT OCULTO ==================== */
+
+.rcsst-upload-input {
+    display: none;
+}
+
+/* ==================== MEDIA QUERIES ==================== */
+
+@media (max-width: 768px) {
+    .rcsst-conductor-grid {
+        gap: 10px;
+    }
+
+    .rcsst-conductor-item {
+        min-width: 100px;
+    }
+
+    .rcsst-conductor-value {
+        font-size: 13px;
+    }
+
+    .rcsst-placa {
+        font-size: 13px;
+    }
+
+    .rcsst-gravedad-radios {
+        gap: 4px;
+    }
+
+    .rcsst-gravedad-radio {
+        padding: 5px 10px;
+        font-size: 11px;
+        border-radius: 8px;
+    }
+
+    .rcsst-gravedad-num {
+        width: 20px;
+        height: 20px;
+        font-size: 11px;
+    }
+
+    .rcsst-file-row {
+        padding: 6px 8px;
+        gap: 8px;
+    }
+
+    .rcsst-file-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 17px;
+    }
+
+    .rcsst-file-name {
+        font-size: 11px;
+    }
+
+    .rcsst-file-size {
+        font-size: 9px;
+    }
+
+    .rcsst-file-remove-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+
+    .rcsst-info-table {
+        font-size: 10px;
+    }
+
+    .rcsst-info-table thead th,
+    .rcsst-info-table tbody td {
+        padding: 6px 8px;
+    }
+
+    .rcsst-guia-list li {
+        font-size: 10px;
+        padding: 5px 8px;
+    }
+}
+
+/* ==================== POPUP DETALLE SST ==================== */
+
+.sst-detalle-container {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+/* --- Cabecera --- */
+
+.sst-detalle-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.sst-detalle-tipo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sst-detalle-fecha {
+    font-size: 13px;
+    color: #888;
+}
+
+.sst-badge {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+}
+
+.sst-badge--accidente {
+    background: #fdecec;
+    color: #b42318;
+    border: 1px solid rgba(180, 35, 24, 0.15);
+}
+
+.sst-badge--comparendo {
+    background: #fff4e5;
+    color: #b54708;
+    border: 1px solid rgba(181, 71, 8, 0.15);
+}
+
+/* --- Estado --- */
+
+.sst-estado {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.3px;
+}
+
+.sst-estado--pendiente {
+    background: #fff4e5;
+    color: #b54708;
+    border: 1px solid rgba(181, 71, 8, 0.15);
+}
+
+.sst-estado--revisado {
+    background: #e3f2fd;
+    color: #0d47a1;
+    border: 1px solid rgba(13, 71, 161, 0.15);
+}
+
+.sst-estado--resuelto {
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid rgba(27, 94, 32, 0.15);
+}
+
+/* --- Secciones --- */
+
+.sst-detalle-section {
+    margin-bottom: 18px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 12px;
+}
+
+.sst-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #444;
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.sst-section-title i {
+    color: #074F91;
+    font-size: 14px;
+}
+
+/* --- Grid de información --- */
+
+.sst-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.sst-info-grid--4col {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.sst-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.sst-info-label {
+    font-size: 10px;
+    color: #999;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.sst-info-value {
+    font-size: 13px;
+    color: #333;
+    font-weight: 600;
+}
+
+.sst-placa-badge {
+    display: inline-block;
+    background: rgba(46, 125, 50, 0.08);
+    color: #2E7D32;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+
+/* --- Observación --- */
+
+.sst-observacion-box {
+    background: #fafafa;
+    border-left: 4px solid #ff9800;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #444;
+    line-height: 1.6;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* --- Grid de evidencia --- */
+
+.sst-evidencia-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+}
+
+.sst-evidencia-item {
+    aspect-ratio: 1;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sst-evidencia-item:hover {
+    transform: scale(1.03);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sst-evidencia-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    text-decoration: none;
+    background: #fafafa;
+}
+
+.sst-evidencia-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.sst-evidencia-link--pdf {
+    flex-direction: column;
+    gap: 4px;
+    background: #fce4ec;
+}
+
+.sst-evidencia-pdf-icon {
+    font-size: 28px;
+}
+
+.sst-evidencia-pdf-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #c62828;
+    text-transform: uppercase;
+}
+
+.sst-evidencia-link--generic {
+    background: #e3f2fd;
+}
+
+.sst-evidencia-generic-icon {
+    font-size: 28px;
+}
+
+/* --- Historial de validación --- */
+
+.sst-validacion-historial {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sst-validacion-entry {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.sst-validacion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.sst-validacion-user {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+
+.sst-validacion-fecha {
+    font-size: 11px;
+    color: #999;
+}
+
+.sst-validacion-comentario {
+    font-size: 12px;
+    color: #555;
+    line-height: 1.5;
+}
+
+/* --- Panel de validación (admin) --- */
+
+.sst-validacion-panel {
+    background: #f8fbff;
+    border-color: rgba(7, 79, 145, 0.12);
+}
+
+.sst-validacion-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sst-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.sst-form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+}
+
+.sst-form-label small {
+    font-weight: 400;
+    font-size: 11px;
+}
+
+.sst-form-select {
+    padding: 8px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fff;
+    color: #333;
+    transition: border-color 0.15s ease;
+}
+
+.sst-form-select:focus {
+    outline: none;
+    border-color: #074F91;
+}
+
+.sst-form-textarea {
+    padding: 10px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 70px;
+    transition: border-color 0.15s ease;
+}
+
+.sst-form-textarea:focus {
+    outline: none;
+    border-color: #074F91;
+}
+
+.sst-btn-validar {
+    align-self: flex-end;
+    padding: 10px 22px;
+    background: #074F91;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.sst-btn-validar:hover {
+    background: #063d6f;
+    transform: translateY(-1px);
+}
+
+.sst-btn-validar:active {
+    transform: translateY(0);
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 768px) {
+    .sst-info-grid,
+    .sst-info-grid--4col {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .sst-detalle-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .sst-evidencia-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .sst-info-grid,
+    .sst-info-grid--4col {
+        grid-template-columns: 1fr;
+    }
+}

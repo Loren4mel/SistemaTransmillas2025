@@ -125,7 +125,9 @@ if ($esRegistroRelacional) {
                     <h3 class="mb-0">
                         <i class="fas fa-clipboard-list me-2"></i>
                         <?php
-                        if ($esCovid && !$usarNuevoFormato) {
+                        if ($esSoloLectura) {
+                            echo 'Visualización de Preoperacional';
+                        } elseif ($esCovid && !$usarNuevoFormato) {
                             echo 'Test COVID-19';
                         } elseif ($usarNuevoFormato && !($mostrarSecciones['preoperacional_vehiculo'] || $mostrarSecciones['preoperacional_moto'])) {
                             echo 'Preoperacional Transmillas';
@@ -168,7 +170,7 @@ if ($esRegistroRelacional) {
                         <!-- Solo se muestra a conductores (CARRO) o vehículo propio (MOTO).
                              Roles administrativos y auxiliares de carga no deben ver este panel
                              aunque tengan un vehículo residual asignado en la BD. -->
-                        <?php $esRolVehicular = in_array($tipovehiculo, ['CARRO', 'MOTO']); ?>
+                        <?php $esRolVehicular = in_array($tipovehiculo, ['CARRO', 'MOTO']) && $esRolVehicularAutorizado; ?>
                         <?php if ($esRolVehicular && $tieneVehiculoAsignado): ?>
                             <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles, $esValidacion) ?>
 
@@ -176,7 +178,9 @@ if ($esRegistroRelacional) {
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
                             <?= $alertasVehiculoHtml ?>
                         <?php elseif ($esRolVehicular && !$tieneVehiculoAsignado): ?>
-                            <?= $novedadHelper->renderNoVehiclePanel($vehiculosDisponibles) ?>
+                            <?php if (!$esSoloLectura): ?>
+                                <?= $novedadHelper->renderNoVehiclePanel($vehiculosDisponibles) ?>
+                            <?php endif; ?>
                         <?php endif; ?>
 
                         <!-- ==================== CONTENEDOR DE TARJETAS ==================== -->
@@ -372,8 +376,8 @@ if ($esRegistroRelacional) {
                             <!-- ==================== CONTENEDOR DE SECCIONES DE VEHÍCULO ==================== -->
                             <div id="vehiculoSectionsContainer">
 
-                            <!-- Datos del vehículo (solo conductores CARRO/MOTO) -->
-                            <?php if (in_array($tipovehiculo, ['CARRO', 'MOTO'])): ?>
+                            <!-- Datos del vehículo (solo conductores CARRO/MOTO con rol autorizado) -->
+                            <?php if (in_array($tipovehiculo, ['CARRO', 'MOTO']) && $esRolVehicularAutorizado): ?>
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
                                 <?= $alertasVehiculoHtml ?>
                             <?php endif; ?>
@@ -487,12 +491,14 @@ if ($esRegistroRelacional) {
                             <?= $novedadHelper->renderSeccionEntregaValidacion($entregasPendientes) ?>
                         <?php endif; ?>
 
+                        <?php if (!$esSoloLectura): ?>
                         <!-- Botón guardar -->
                         <div class="mt-4">
                             <button type="submit" class="btn btn-guardar" id="btnGuardar">
                                 <i class="fas fa-save me-2"></i> Guardar
                             </button>
                         </div>
+                        <?php endif; ?>
                     </form>
                 </div><!-- /card-body -->
             </div><!-- /main-form-card -->
@@ -502,6 +508,7 @@ if ($esRegistroRelacional) {
     <!-- Variables PHP a JavaScript -->
     <script>
         var ES_VALIDACION = <?= json_encode($esValidacion) ?>;
+        var ES_SOLO_LECTURA = <?= json_encode($esSoloLectura ?? false) ?>;
         var MOSTRAR_SECCION_VEHICULO = <?= json_encode(($mostrarSecciones['preoperacional_vehiculo'] ?? false) || ($mostrarSecciones['preoperacional_moto'] ?? false)) ?>;
         var TIENE_NOVEDAD_VEHICULAR = <?= json_encode($novedadVehiculo['tieneNovedad'] ?? false) ?>;
         var ESTADO_GENERAL_VEHICULO = <?= json_encode($novedadVehiculo['estado_general'] ?? 'OPTIMO') ?>;

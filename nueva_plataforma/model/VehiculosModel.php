@@ -592,8 +592,6 @@ if ($datos['ent_tipoentrega'] === 'inicial' && !empty($datos['ent_vehiculo_id'])
     }
 }
 
-}
-
     if (!empty($datos['ent_vehiculo_id']) && !empty($datos['ent_equipo_carretera'])) {
         $idVehiculo     = intval($datos['ent_vehiculo_id']);
         $equipoEscapado = $this->dbname->real_escape_string($datos['ent_equipo_carretera']);

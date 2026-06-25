@@ -152,6 +152,126 @@ include("footer.php");
 
 
 <script>
+function escaparHtmlNomina(valor) {
+	return String(valor || '').replace(/[&<>"']/g, function (caracter) {
+		return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[caracter];
+	});
+}
+
+function archivoComparendoNomina(ruta) {
+	if (!ruta) {
+		return '<span class="text-muted">Sin archivo</span>';
+	}
+
+	var rutaSegura = escaparHtmlNomina(ruta);
+	var url = 'nueva_plataforma/' + rutaSegura;
+	return '<a href="' + url + '" target="_blank">Ver</a>';
+}
+
+function crearModalComparendosNomina() {
+	if (document.getElementById('modalComparendosNomina')) {
+		return;
+	}
+
+	var modal = document.createElement('div');
+	modal.id = 'modalComparendosNomina';
+	modal.style.cssText = 'display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:999999;background:rgba(0,0,0,.45);padding:24px;overflow:auto;';
+	modal.onclick = function (event) {
+		if (event.target === modal) {
+			cerrarComparendosNomina();
+		}
+	};
+
+	var dialog = document.createElement('div');
+	dialog.style.cssText = 'width:min(1100px,96vw);margin:40px auto;background:#fff;border-radius:6px;box-shadow:0 12px 35px rgba(0,0,0,.25);';
+	dialog.onclick = function (event) {
+		event.stopPropagation();
+	};
+
+	dialog.innerHTML = ''
+		+ '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #ddd;">'
+		+ '<h4 id="modalComparendosNominaTitulo" style="margin:0;">Comparendos</h4>'
+		+ '<button type="button" onclick="cerrarComparendosNomina()" aria-label="Cerrar" style="border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;">&times;</button>'
+		+ '</div>'
+		+ '<div style="padding:16px;overflow-x:auto;">'
+		+ '<table class="table table-bordered table-hover">'
+		+ '<thead><tr>'
+		+ '<th>#</th><th>Fecha</th><th>Estado</th><th>Valor</th><th>Numero</th><th>Titular</th><th>Vehiculo</th><th>Foto</th><th>Curso</th>'
+		+ '</tr></thead>'
+		+ '<tbody id="tablaComparendosNomina"><tr><td colspan="9" class="text-center">Cargando...</td></tr></tbody>'
+		+ '</table>'
+		+ '</div>'
+		+ '<div style="display:flex;justify-content:flex-end;padding:12px 16px;border-top:1px solid #ddd;">'
+		+ '<button type="button" class="btn btn-default" onclick="cerrarComparendosNomina()">Cerrar</button>'
+		+ '</div>';
+
+	modal.appendChild(dialog);
+	document.body.appendChild(modal);
+}
+
+function cerrarComparendosNomina(event) {
+	var modal = document.getElementById('modalComparendosNomina');
+	if (modal) {
+		modal.style.display = 'none';
+	}
+}
+
+function verComparendosNomina(idHojaVida, idUsuario, nombreTrabajador) {
+	crearModalComparendosNomina();
+	var cuerpo = document.getElementById('tablaComparendosNomina');
+	document.getElementById('modalComparendosNominaTitulo').innerHTML = 'Comparendos - ' + escaparHtmlNomina(nombreTrabajador);
+	cuerpo.innerHTML = '<tr><td colspan="9" class="text-center">Cargando...</td></tr>';
+	document.getElementById('modalComparendosNomina').style.display = 'block';
+
+	jQuery.ajax({
+		url: 'ajax_comparendos_nomina.php',
+		type: 'GET',
+		data: { id_hoja_vida: idHojaVida, id_usuario: idUsuario },
+		success: function (respuesta) {
+			var lista = respuesta;
+			if (typeof respuesta === 'string') {
+				try {
+					lista = JSON.parse(respuesta);
+				} catch (error) {
+					cuerpo.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Respuesta no valida al cargar comparendos</td></tr>';
+					return;
+				}
+			}
+
+			if (!lista || lista.length === 0) {
+				cuerpo.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Sin comparendos registrados</td></tr>';
+				return;
+			}
+
+			var filas = '';
+			lista.forEach(function (comparendo, indice) {
+				var vehiculo = [comparendo.veh_placa, comparendo.veh_marca, comparendo.veh_modelo].filter(Boolean).join(' ');
+				var valor = comparendo.com_valor ? '$' + Number(comparendo.com_valor).toLocaleString('es-CO') : '';
+				var estado = escaparHtmlNomina(comparendo.com_estado);
+				var estadoHtml = String(comparendo.com_estado || '').toLowerCase() === 'pendiente'
+					? '<span style="display:inline-block;padding:3px 8px;border-radius:999px;background:#c62828;color:#fff;font-weight:bold;">Pendiente</span>'
+					: estado;
+
+				filas += '<tr>'
+					+ '<td>' + (indice + 1) + '</td>'
+					+ '<td>' + escaparHtmlNomina(comparendo.com_fecha) + '</td>'
+					+ '<td>' + estadoHtml + '</td>'
+					+ '<td>' + valor + '</td>'
+					+ '<td>' + escaparHtmlNomina(comparendo.com_numerocompa) + '</td>'
+					+ '<td>' + escaparHtmlNomina(comparendo.com_titularcompa) + '</td>'
+					+ '<td>' + escaparHtmlNomina(vehiculo) + '</td>'
+					+ '<td>' + archivoComparendoNomina(comparendo.com_foto) + '</td>'
+					+ '<td>' + archivoComparendoNomina(comparendo.com_foto_curso) + '</td>'
+					+ '</tr>';
+			});
+
+			cuerpo.innerHTML = filas;
+		},
+		error: function () {
+			cuerpo.innerHTML = '<tr><td colspan="9" class="text-center text-danger">No se pudieron cargar los comparendos</td></tr>';
+		}
+	});
+}
 
 
 function confirmarPago(idusuario,fechaactual,fechafinal,confirmarPago,confirma,tipo){

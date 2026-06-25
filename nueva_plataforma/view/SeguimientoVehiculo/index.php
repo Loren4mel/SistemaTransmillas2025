@@ -92,6 +92,25 @@
             font-weight: 600;
         }
 
+        /* === Badge vehículo duplicado (múltiples conductores) === */
+        .badge-duplicado {
+            background-color: #fff0e0 !important;
+            color: #92400e !important;
+            border: 1px solid #f6c87a;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-weight: 600;
+            font-size: 12px;
+            display: inline-block;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: filter 0.2s ease, transform 0.2s ease;
+        }
+        .badge-duplicado:hover {
+            filter: brightness(0.92);
+            transform: scale(1.05);
+        }
+
         /* Celda de estado general clickeable */
         #tablaVehiculos td:nth-child(5) {
             cursor: pointer;
@@ -99,6 +118,17 @@
         }
         #tablaVehiculos td:nth-child(5):hover {
             filter: brightness(0.93);
+        }
+        /* Celda de placa clickeable para consulta SST */
+        #tablaVehiculos td:nth-child(2) {
+            cursor: pointer;
+            transition: filter 0.2s ease;
+            color: #0c4582;
+            font-weight: 600;
+        }
+        #tablaVehiculos td:nth-child(2):hover {
+            filter: brightness(0.90);
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -113,7 +143,12 @@
                 <h3 class="mb-0">
                     <i class="fas fa-truck me-2"></i> Seguimiento de Vehículos
                 </h3>
-                <div></div>
+                <div>
+                    <button type="button" class="btn btn-lg" onclick="abrirConsultaSST()"
+                            style="background-color: #2E86C1; color: white;">
+                        <i class="fas fa-clipboard-check"></i> Consulta SST
+                    </button>
+                </div>
             </div>
 
             <div class="card-body">

@@ -100,6 +100,49 @@ function obtenerCondicionDomingos($campoFecha, $fechaInicio, $fechaFin){
 	return empty($condiciones) ? '0=1' : implode(' OR ', $condiciones);
 }
 
+function obtenerResumenComparendosNomina($DB, $idHojaVida, $idUsuario){
+	$idHojaVida = (int)$idHojaVida;
+	$idUsuario = (int)$idUsuario;
+	$condiciones = [];
+	if ($idHojaVida > 0) {
+		$condiciones[] = "com_hojadevida_id = '$idHojaVida'";
+	}
+	if ($idUsuario > 0) {
+		$condiciones[] = "com_operador_id = '$idUsuario'";
+	}
+	if (empty($condiciones)) {
+		return ['total' => 0, 'pendientes' => 0];
+	}
+	$sql = "SELECT
+				COUNT(*) AS total,
+				SUM(CASE WHEN LOWER(com_estado) = 'pendiente' THEN 1 ELSE 0 END) AS pendientes
+			FROM comparendos
+			WHERE ".implode(' OR ', $condiciones);
+	$DB->Execute($sql);
+	$rw = mysqli_fetch_assoc($DB->Consulta_ID);
+	return [
+		'total' => (int)($rw['total'] ?? 0),
+		'pendientes' => (int)($rw['pendientes'] ?? 0),
+	];
+}
+
+function pintarCeldaComparendosNomina($DB, $idHojaVida, $idUsuario, $nombreTrabajador){
+	$resumen = obtenerResumenComparendosNomina($DB, $idHojaVida, $idUsuario);
+	$total = $resumen['total'];
+	$pendientes = $resumen['pendientes'];
+	$nombreJs = json_encode($nombreTrabajador, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG);
+
+	if ($total <= 0) {
+		return "<td class='text-center'>0</td>";
+	}
+
+	if ($pendientes > 0) {
+		return "<td class='text-center'><a href='javascript:void(0)' onclick='verComparendosNomina($idHojaVida, $idUsuario, $nombreJs)' title='Ver comparendos pendientes' style='display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 8px;border-radius:999px;background:#c62828;color:#fff;font-weight:bold;text-decoration:none;box-shadow:0 1px 4px rgba(0,0,0,.25);'>$pendientes</a></td>";
+	}
+
+	return "<td class='text-center'><a id='link' href='javascript:void(0)' onclick='verComparendosNomina($idHojaVida, $idUsuario, $nombreJs)' title='Ver comparendos'>$pendientes</a></td>";
+}
+
 // echo$fechacompleta=date('Y-m-d');
 // echo$mes=date('m');
 if($param34!=''){ $fechaactual=$param34; }
@@ -199,6 +242,7 @@ if($param37=="Prestacion de Servicios"){
 	$FB->titulo_azul1("Tipo Contrato",1,0,0);
 	$FB->titulo_azul1("Cedula",1,0,0);
 	$FB->titulo_azul1("Cargo",1,0,0);
+	$FB->titulo_azul1("Comp. Pendientes",1,0,0);
 	$FB->titulo_azul1("Salario por dia",1,0,0);
 	// $FB->titulo_azul1("Auxilio",1,0,0);
 
@@ -562,8 +606,9 @@ if ($rw1[14]==1 and $rw1[15]=="si" and $diassitrabajo >=5 ) {
 			$totalQuincena=($valordediastrabajados+$valorTotalHora+$valorRecogidas+$totalOtrosDias)-($TotalPagoQuincena+$descuentoReteGarantia);
 
 			//Cargo
-			echo "<td>".$cargosaldo[1]."</td>
-			<td>".$cargosaldo[2]."</td>";//Salario por dia
+			echo "<td>".$cargosaldo[1]."</td>";
+			echo pintarCeldaComparendosNomina($DB1, $id_p, $idusuario, $nombreCompleto);
+			echo "<td>".$cargosaldo[2]."</td>";//Salario por dia
 			echo "<td colspan='1' width='0' align='center' ><a id='link'  onclick='pop_dis16($idusuario,\"Resumen_Quincena\",\"$fechas\")';  title='Ingreso de Usuario' >$diassitrabajo Dias </td>"; //Dias Trabajados
 
 			echo "<td>".$valordediastrabajados."</td>";//Valor dias trabajados
@@ -843,6 +888,7 @@ echo "<td colspan='0' width='0' align='center'>Trabajador <br>Todo<input type='c
 $FB->titulo_azul1("Tipo Contrato",1,0,0);
 $FB->titulo_azul1("Cedula",1,0,0);
 $FB->titulo_azul1("Cargo",1,0,0);
+$FB->titulo_azul1("Comp. Pendientes",1,0,0);
 $FB->titulo_azul1("Salario por mes",1,0,0);
 $FB->titulo_azul1("Auxilio",1,0,0);
 
@@ -1614,6 +1660,7 @@ ORDER BY hoj_nombre ASC";
 
 					$sueldo_formateado = number_format($cargosaldo[2], 0, ',', '.');
 					$tabla.="<td>".$cargosaldo[1]." </td>";//Nombre del cargo
+					$tabla.=pintarCeldaComparendosNomina($DB1, $id_p, $idusuario, $rw1[1]." ".$rw1[2]);
 
 					$tabla.="<td>$".$sueldo_formateado."</td>";//Salario basico por mes
 					$tabla.="<td>$".$cargosaldo[3]."</td>";//Auxilio por mes

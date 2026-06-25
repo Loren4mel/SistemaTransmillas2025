@@ -216,6 +216,39 @@ if (isset($_GET['accion'])) {
                 $tipo = $_GET['tipo'] ?? 'Todos';
                 $ultimaObs = $modelo->getUltimaObservacionNoPreop($idVehiculo);
                 $eventos = $modelo->getHistorialEstado($idVehiculo, $desde, $hasta, $tipo);
+
+                // Enriquecer eventos PREOPERACIONAL con hallazgos (respuestas negativas
+                // solo de preguntas del vehículo, excluyendo aptitud del conductor)
+                require_once __DIR__ . '/../model/PreoperacionalModel.php';
+                $preopModel = new PreoperacionalModel();
+                $codigosVehiculo = $preopModel->obtenerCodigosVehiculo();
+                foreach ($eventos as &$evento) {
+                    $evento['hallazgos'] = '';
+                    if (($evento['tipo_evento'] ?? '') === 'PREOPERACIONAL'
+                        && !empty($evento['id_preoperacional'])) {
+                        $idPreop = (int) $evento['id_preoperacional'];
+                        $todasRespuestas = $preopModel->obtenerTodasRespuestas($idPreop);
+                        $codigosNegativos = [];
+                        foreach ($todasRespuestas as $codigo => $valor) {
+                            if ((string) $valor !== '2') continue;
+                            if (!isset($codigosVehiculo[$codigo])) continue;
+                            $codigosNegativos[] = $codigo;
+                        }
+                        if (!empty($codigosNegativos)) {
+                            $textos = $preopModel->obtenerTextoPorCodigos($codigosNegativos);
+                            $items = [];
+                            foreach ($codigosNegativos as $codigo) {
+                                $texto = $textos[$codigo] ?? $codigo;
+                                $items[] = '<li>' . htmlspecialchars($texto)
+                                    . ': <span style="color:#dc3545;font-weight:700;">NO</span></li>';
+                            }
+                            $evento['hallazgos'] = '<ul style="margin:0;padding-left:18px;font-size:11px;">'
+                                . implode('', $items) . '</ul>';
+                        }
+                    }
+                }
+                unset($evento);
+
                 sendJsonResponse([
                     'ultima_obs' => $ultimaObs,
                     'eventos' => $eventos,
@@ -267,7 +300,13 @@ if (isset($_GET['accion'])) {
 
                     case 'historial_kilometraje':
                         $vehiculo = $modelo->getVehiculoById($idVehiculo);
-                        $historial = $modelo->getHistorialKilometraje($idVehiculo);
+                        // Usar el mismo default de 30 días que tienen los inputs de fecha en el popup,
+                        // para que la tabla pre-renderizada coincida con el filtro inicial del JS.
+                        $historial = $modelo->getHistorialKilometraje(
+                            $idVehiculo,
+                            date('Y-m-d', strtotime('-30 days')),
+                            date('Y-m-d')
+                        );
                         if (!$vehiculo) {
                             echo "<div class='alert alert-danger'>Vehículo no encontrado.</div>";
                             exit;
@@ -308,8 +347,60 @@ if (isset($_GET['accion'])) {
                         $hastaDefecto = date('Y-m-d');
                         $ultimaObs = $modelo->getUltimaObservacionNoPreop($idVehiculo);
                         $eventos = $modelo->getHistorialEstado($idVehiculo, $desdeDefecto, $hastaDefecto, 'Todos');
+
+                        // Enriquecer eventos PREOPERACIONAL con hallazgos (respuestas negativas
+                        // solo de preguntas del vehículo, excluyendo aptitud del conductor)
+                        require_once __DIR__ . '/../model/PreoperacionalModel.php';
+                        $preopModel = new PreoperacionalModel();
+                        $prefijosVehiculo = ['inspec_', 'luces_', 'cabina_', 'seguridad_',
+                                             'indicador_', 'moto_llanta_', 'moto_trans_'];
+                        foreach ($eventos as &$evento) {
+                            $evento['hallazgos'] = '';
+                            if (($evento['tipo_evento'] ?? '') === 'PREOPERACIONAL'
+                                && !empty($evento['id_preoperacional'])) {
+                                $idPreop = (int) $evento['id_preoperacional'];
+                                $todasRespuestas = $preopModel->obtenerTodasRespuestas($idPreop);
+                                $codigosNegativos = [];
+                                foreach ($todasRespuestas as $codigo => $valor) {
+                                    if ((string) $valor !== '2') continue;
+                                    foreach ($prefijosVehiculo as $prefijo) {
+                                        if (strpos($codigo, $prefijo) === 0) {
+                                            $codigosNegativos[] = $codigo;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (!empty($codigosNegativos)) {
+                                    $textos = $preopModel->obtenerTextoPorCodigos($codigosNegativos);
+                                    $items = [];
+                                    foreach ($codigosNegativos as $codigo) {
+                                        $texto = $textos[$codigo] ?? $codigo;
+                                        $items[] = '<li>' . htmlspecialchars($texto)
+                                            . ': <span style="color:#dc3545;font-weight:700;">NO</span></li>';
+                                    }
+                                    $evento['hallazgos'] = '<ul style="margin:0;padding-left:18px;font-size:11px;">'
+                                        . implode('', $items) . '</ul>';
+                                }
+                            }
+                        }
+                        unset($evento);
+
                         ob_clean();
                         include "../view/SeguimientoVehiculo/popups/historial_estado.php";
+                        exit;
+
+                    case 'consulta_sst':
+                        $vehiculo = $idVehiculo > 0 ? $modelo->getVehiculoById($idVehiculo) : null;
+                        // Calcular semana actual
+                        $hoy = date('Y-m-d');
+                        $diaSemana = (int) date('N', strtotime($hoy));
+                        $lunes = date('Y-m-d', strtotime('-' . ($diaSemana - 1) . ' days', strtotime($hoy)));
+                        $domingo = date('Y-m-d', strtotime('+' . (7 - $diaSemana) . ' days', strtotime($hoy)));
+                        $semana = ['inicio' => $lunes, 'fin' => $domingo];
+                        // Obtener lista de conductores activos para el filtro
+                        $conductores = $modelo->getConductores();
+                        ob_clean();
+                        include "../view/SeguimientoVehiculo/popups/consulta_sst.php";
                         exit;
                 }
                 break;
