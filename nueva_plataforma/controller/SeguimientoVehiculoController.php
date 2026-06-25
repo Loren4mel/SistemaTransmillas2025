@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion'])) {
                 $data = [
                     'tipo_evento' => $_POST['tipo_evento'] ?? 'OTRO',
                     'id_vehiculo' => intval($_POST['id_vehiculo'] ?? 0),
-                    'id_conductor' => intval($_POST['id_conductor'] ?? 0),
+                    'id_conductor' => (!empty($_POST['id_conductor'])) ? intval($_POST['id_conductor']) : null,
                     'id_responsable' => $_SESSION['usuario_id'],
                     'estado_general' => $_POST['estado_general'] ?? 'OPTIMO',
                     'kilometraje' => intval($_POST['kilometraje'] ?? 0),
