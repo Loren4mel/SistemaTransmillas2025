@@ -65,7 +65,12 @@ $horasSeleccionada = $horasSeleccionada ?? '';
 
     <div class="row mb-3">
         <div class="col-md-6">
-            <label for="zona" class="form-label">Zona de trabajo <small class="text-muted zona-no-requerida" style="display:none;">(no requerida)</small></label>
+            <label for="zona" class="form-label">Zona de trabajo
+                <?php if (!empty($ultimaZona)): ?>
+                    <small class="text-muted d-block" style="font-weight:normal; font-size:0.8em;">Última zona: <?= htmlspecialchars($ultimaZona['zon_nombre']) ?></small>
+                <?php endif; ?>
+                <small class="text-muted zona-no-requerida" style="display:none;">(no requerida)</small>
+            </label>
             <select name="zona" id="ing_zona" class="form-select">
                 <option value="">Seleccione</option>
                 <?php foreach ($zonas as $z): ?>

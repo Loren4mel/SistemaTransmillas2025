@@ -1739,6 +1739,29 @@ class SeguimientoUsuarioModel
     }
 
     /**
+     * Obtiene la última zona registrada para un usuario en ingresos anteriores,
+     * ordenando por fecha de ingreso más reciente.
+     *
+     * @param int $idUsuario ID del usuario
+     * @return array|null Arreglo con 'idzonatrabajo' y 'zon_nombre', o null si no tiene ingresos previos
+     */
+    public function getUltimaZonaByUsuario(int $idUsuario): ?array
+    {
+        $sql = "SELECT z.idzonatrabajo, z.zon_nombre
+                FROM seguimiento_user s
+                INNER JOIN zonatrabajo z ON z.idzonatrabajo = s.seg_idzona
+                WHERE s.seg_idusuario = ?
+                  AND s.seg_idzona IS NOT NULL
+                  AND s.seg_idzona > 0
+                ORDER BY s.seg_fechaingreso DESC
+                LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idUsuario);
+        $stmt->execute();
+        return $stmt->get_result()->fetch_assoc() ?: null;
+    }
+
+    /**
      * Obtiene un operario por ID.
      *
      * @param int $id

@@ -469,6 +469,7 @@ if (isset($_GET['accion'])) {
                         $sedeInfo = $modelo->getSedeById($sedeUsuario);
                         $sedeNombre = $sedeInfo['sed_nombre'] ?? '';
                         $zonas = $modelo->getZonasPorSede($sedeUsuario);
+                        $ultimaZona = $modelo->getUltimaZonaByUsuario($idUsuario);
 
                         ob_clean();
                         include "../view/SeguimientoUsuario/popups/ingreso.php";
