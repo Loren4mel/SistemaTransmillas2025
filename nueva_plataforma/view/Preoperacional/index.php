@@ -252,7 +252,7 @@ if ($esRegistroRelacional) {
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($valoresEncuesta, $esValidacion) ?>
 
                                 <!-- Kilometraje -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura) ?>
 
                                 <!-- Observaciones -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
@@ -270,7 +270,7 @@ if ($esRegistroRelacional) {
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($valoresEncuesta, $esValidacion) ?>
 
                                 <!-- Kilometraje -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura) ?>
 
                                 <!-- Observaciones -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
@@ -407,7 +407,7 @@ if ($esRegistroRelacional) {
 
                             <!-- Kilometraje (solo si hay vehículo asignado de tipo CARRO o MOTO) -->
                             <?php if ($mostrarVehiculo && ($tipovehiculo == 'CARRO' || $tipovehiculo == 'MOTO')): ?>
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura) ?>
                             <?php endif; ?>
 
                             <!-- Observaciones -->

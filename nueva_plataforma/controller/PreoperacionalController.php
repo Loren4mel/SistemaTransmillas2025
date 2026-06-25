@@ -338,6 +338,28 @@ function loadView($service)
         }
     }
 
+    // Cross-reference: si pre_kilrecorridos está vacío o es 0, rescatar el valor real
+    // desde seguimiento_vehiculo (que preserva el kilometraje original del conductor).
+    // Durante la validación, el input disabled no envía datos y pre_kilrecorridos se
+    // sobrescribe a 0; el valor real permanece en seguimiento_vehiculo.kilometraje.
+    if ($registroExistente && empty($registroExistente['pre_kilrecorridos'])) {
+        $db = (new Database())->connect();
+        $sqlKm = "SELECT kilometraje, img_kilometraje FROM seguimiento_vehiculo
+                  WHERE id_preoperacional = ? AND tipo_evento = 'PREOPERACIONAL' LIMIT 1";
+        $stmt = $db->prepare($sqlKm);
+        $stmt->bind_param("i", $registroExistente['idpreoperacinal']);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($row = $result->fetch_assoc()) {
+            if (!empty($row['kilometraje'])) {
+                $registroExistente['pre_kilrecorridos'] = $row['kilometraje'];
+            }
+            if (!empty($row['img_kilometraje']) && empty($registroExistente['pre_img_kilo'])) {
+                $registroExistente['pre_img_kilo'] = $row['img_kilometraje'];
+            }
+        }
+    }
+
     // Re-evaluar esCovid: param4 pudo ser auto-detectado del registro
     $esCovid = ($param4 == 'covid19');
 
