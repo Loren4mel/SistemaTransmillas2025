@@ -493,6 +493,112 @@ class PreoperacionalModel
     }
 
     /**
+     * Guarda un documento en cualquier tabla destino.
+     * Versión genérica de guardarImagen para usar con doc_tabla variable.
+     *
+     * @param array  $file       Archivo de $_FILES (tmp_name, name)
+     * @param int    $idViene    ID del registro asociado
+     * @param int    $version    Versión/tipo de documento (ej: 10 = selección diaria)
+     * @param string $tabla      Nombre de la tabla destino (ej: 'seguimiento_vehiculo')
+     * @return int|false ID del documento insertado o false
+     */
+    public function guardarDocumentoGenerico($file, $idViene, $version, $tabla = 'pre-operacional')
+    {
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            error_log("PreoperacionalModel: guardarDocumentoGenerico - tmp_name inválido");
+            return false;
+        }
+
+        $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $file['name'];
+        $rutaBase = $this->getUploadPath();
+        $ruta = $rutaBase . $nombreArchivo;
+
+        if (!is_dir($rutaBase)) {
+            mkdir($rutaBase, 0777, true);
+        }
+
+        if (!move_uploaded_file($file['tmp_name'], $ruta)) {
+            error_log("PreoperacionalModel: guardarDocumentoGenerico - Error al mover archivo");
+            return false;
+        }
+
+        $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version)
+                VALUES (NOW(), ?, ?, ?, ?, ?)";
+
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("PreoperacionalModel: guardarDocumentoGenerico - Error SQL: " . $this->db->error);
+            return false;
+        }
+
+        $stmt->bind_param("sssii", $file['name'], $ruta, $tabla, $idViene, $version);
+        return $stmt->execute() ? $this->db->insert_id : false;
+    }
+
+    /**
+     * Busca una asignación diaria de vehículo para un usuario en una fecha específica.
+     * Retorna el registro de seguimiento_vehiculo con tipo_evento = 'ASIGNACION_VEHICULO'.
+     *
+     * @param int    $idUsuario ID del usuario (conductor)
+     * @param string $fecha     Fecha en formato Y-m-d
+     * @return array|null Registro de seguimiento_vehiculo o null
+     */
+    public function obtenerAsignacionDiaria($idUsuario, $fecha)
+    {
+        $sql = "SELECT * FROM seguimiento_vehiculo
+                WHERE tipo_evento = 'ASIGNACION_VEHICULO'
+                  AND id_conductor = ?
+                  AND DATE(fecha_registro) = ?
+                ORDER BY fecha_registro DESC
+                LIMIT 1";
+        return $this->executeQuery($sql, "is", [$idUsuario, $fecha]);
+    }
+
+    /**
+     * Obtiene el ID del vehículo permanentemente asignado al usuario (usu_vehiculo).
+     *
+     * @param int $idUsuario ID del usuario
+     * @return int|null ID del vehículo o null si no tiene asignado
+     */
+    public function obtenerVehiculoPermanenteUsuario($idUsuario)
+    {
+        $sql = "SELECT usu_vehiculo FROM usuarios WHERE idusuarios = ? LIMIT 1";
+        $row = $this->executeQuery($sql, "i", [$idUsuario]);
+        if ($row && !empty($row['usu_vehiculo']) && (int) $row['usu_vehiculo'] > 0) {
+            return (int) $row['usu_vehiculo'];
+        }
+        return null;
+    }
+
+    /**
+     * Obtiene las fotos asociadas a una selección diaria de vehículo.
+     * Busca en documentos con doc_tabla='seguimiento_vehiculo' y doc_version=10.
+     *
+     * @param int $idSeguimiento ID del registro en seguimiento_vehiculo
+     * @return array Lista de documentos [['iddocumentos', 'doc_nombre', 'doc_ruta'], ...]
+     */
+    public function obtenerFotosSeleccionVehiculo($idSeguimiento)
+    {
+        $sql = "SELECT iddocumentos, doc_nombre, doc_ruta
+                FROM documentos
+                WHERE doc_tabla = 'seguimiento_vehiculo'
+                  AND doc_idviene = ?
+                  AND doc_version = 10
+                ORDER BY iddocumentos ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idSeguimiento);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $fotos = [];
+        while ($row = $result->fetch_assoc()) {
+            $fotos[] = $row;
+        }
+        return $fotos;
+    }
+
+    /**
      * Actualiza la imagen de kilometraje de un registro
      * 
      * @param int $idPreoperacional ID del registro
@@ -1075,34 +1181,8 @@ class PreoperacionalModel
         return $stmt->execute();
     }
 
-    // ==================== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ====================
-    // NO ELIMINAR: Los 4 métodos siguientes (obtenerEntregasPendientesPorUsuario,
-    // insertarEntregaVehiculo, obtenerEntregaVehiculoPorId, actualizarEntregaVehiculo)
-    // pertenecen al módulo entrega_vehiculo que está en DESARROLLO ACTIVO.
-    // Se re-activarán cuando la funcionalidad esté completa.
-    //
-    // public function obtenerEntregasPendientesPorUsuario($idUsuario)
-    // {
-    //     ...
-    //     return ['final' => null, 'inicial' => null, 'seguimiento' => null];
-    // }
-    //
-    // public function insertarEntregaVehiculo($datos)
-    // {
-    //     ... (INSERT INTO entregavehiculo ...)
-    // }
-    //
-    // public function obtenerEntregaVehiculoPorId($id)
-    // {
-    //     $sql = "SELECT * FROM entregavehiculo WHERE identregavehiculo = ? LIMIT 1";
-    //     return $this->executeQuery($sql, "i", [$id]);
-    // }
-    //
-    // public function actualizarEntregaVehiculo($id, $datos)
-    // {
-    //     ... (UPDATE entregavehiculo SET ...)
-    // }
-    // ==================== FIN DESHABILITADO ====================
+    // [ELIMINADO] obtenerEntregasPendientesPorUsuario(), insertarEntregaVehiculo(),
+    // obtenerEntregaVehiculoPorId(), actualizarEntregaVehiculo() — reemplazado por selección diaria
 
     /**
      * Ejecuta una consulta con parámetros y devuelve un resultado

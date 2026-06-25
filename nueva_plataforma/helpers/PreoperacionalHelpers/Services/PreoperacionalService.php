@@ -241,21 +241,7 @@ class PreoperacionalService
         return $this->model->obtenerRolUsuario($idUsuario);
     }
 
-    // ==================== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ====================
-    // NO ELIMINAR: Este método se re-activará cuando el módulo entrega_vehiculo esté completo.
-    //
-    ///**
-    // * Busca las entregas de vehículo pendientes de validación para un conductor.
-    // * Retorna el último par FINAL/INICIAL vinculado a un REVISION_SST.
-    // *
-    // * @param int $idUsuario ID del conductor
-    // * @return array ['final' => entrega|null, 'inicial' => entrega|null, 'seguimiento' => array|null]
-    // */
-    //public function obtenerEntregasPendientesPorUsuario($idUsuario)
-    //{
-    //    return $this->model->obtenerEntregasPendientesPorUsuario($idUsuario);
-    //}
-    // ==================== FIN DESHABILITADO ====================
+    // [ELIMINADO] obtenerEntregasPendientesPorUsuario() — se eliminó la integración con entregavehiculo
 
     /**
      * Obtiene el documento de firma asociado a un preoperacional
@@ -760,7 +746,7 @@ class PreoperacionalService
         // Verificamos directamente contra la tabla vehiculos. No usamos
         // obtenerDatosVehiculoYUsuario() porque hace JOIN con usuarios.usu_vehiculo
         // y para un vehículo aún no asignado no devolvería fila.
-        require_once __DIR__ . '/../../../model/VehiculosModel.php';
+        // NOTA: VehiculosModel ya está cargado vía require_once global (línea 10)
         $vehiculoModel = new VehiculosModel();
         $infoVehiculo = $vehiculoModel->obtenerVehiculoPorId($idVehiculo);
 
@@ -811,6 +797,175 @@ class PreoperacionalService
             'message' => 'Vehículo asignado correctamente.',
             'redirect' => true
         ];
+    }
+
+    /**
+     * Procesa la selección diaria de un vehículo distinto al permanente.
+     * Crea un registro en seguimiento_vehiculo (tipo ASIGNACION_VEHICULO)
+     * y guarda las fotos del estado del vehículo en documentos.
+     *
+     * VALIDACIONES:
+     * 1. El vehículo debe ser de la empresa (veh_propiedad = 'empresa')
+     * 2. El vehículo debe estar activo (veh_estado = 1)
+     * 3. No debe tener PREOPERACIONAL hoy de otro conductor
+     * 4. El vehículo no debe estar FUERA_DE_SERVICIO
+     *
+     * @param int   $idUsuario  ID del usuario que selecciona
+     * @param int   $idVehiculo ID del vehículo seleccionado
+     * @param array $files      Array $_FILES con fotos del vehículo
+     * @return array Resultado de la operación
+     */
+    public function procesarSeleccionVehiculoDiario($idUsuario, $idVehiculo, $files)
+    {
+        if ($idVehiculo <= 0 || $idUsuario <= 0) {
+            return ['success' => false, 'message' => 'Vehículo o usuario no válido.'];
+        }
+
+        // SEGURIDAD: verificar que el rol del usuario esté autorizado
+        $rol = $_SESSION['usuario_rol'] ?? 0;
+        if (!PreoperacionalNuevaEncuestaViewHelper::esRolVehicularAutorizado($rol)) {
+            return ['success' => false, 'message' => 'No tiene permisos para seleccionar vehículos.'];
+        }
+
+        // VALIDACIÓN 1: El vehículo debe ser de la empresa
+        // NOTA: VehiculosModel ya está cargado vía require_once global (línea 10)
+        $vehiculoModel = new VehiculosModel();
+        $infoVehiculo = $vehiculoModel->obtenerVehiculoPorId($idVehiculo);
+        if (!$infoVehiculo) {
+            return ['success' => false, 'message' => 'El vehículo seleccionado no existe.'];
+        }
+        $propiedad = $infoVehiculo['veh_propiedad'] ?? '';
+        if ($propiedad !== 'empresa') {
+            return ['success' => false, 'message' => 'No se pueden seleccionar vehículos personales.'];
+        }
+        if ((int) ($infoVehiculo['veh_estado'] ?? 0) !== 1) {
+            return ['success' => false, 'message' => 'El vehículo seleccionado no está activo.'];
+        }
+
+        // VALIDACIÓN 2: No debe tener PREOPERACIONAL hoy de otro conductor
+        try {
+            $this->verificarDisponibilidadDiaria($idVehiculo, $idUsuario);
+        } catch (\RuntimeException $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+
+        // VALIDACIÓN 3: El vehículo debe estar disponible
+        $disponibles = $this->model->obtenerVehiculosDisponibles($idUsuario);
+        $encontrado = false;
+        foreach ($disponibles as $v) {
+            if ((int) $v['idvehiculos'] === $idVehiculo) {
+                $encontrado = true;
+                break;
+            }
+        }
+        if (!$encontrado) {
+            return ['success' => false, 'message' => 'El vehículo seleccionado no está disponible.'];
+        }
+
+        // Obtener vehículo permanente para metadata
+        $vehiculoPermanente = $this->model->obtenerVehiculoPermanenteUsuario($idUsuario) ?: 0;
+
+        // Crear seguimiento_vehiculo tipo ASIGNACION_VEHICULO
+        $idSeg = $this->guardarSeguimientoVehiculo([
+            'tipo_evento' => 'ASIGNACION_VEHICULO',
+            'metadata_evento' => [
+                'origen' => 'seleccion_diaria',
+                'vehiculo_permanente' => $vehiculoPermanente
+            ],
+            'id_preoperacional' => null,
+            'id_seguimiento_user' => null,
+            'id_vehiculo' => $idVehiculo,
+            'id_conductor' => $idUsuario,
+            'id_responsable' => $idUsuario,
+            'kilometraje' => 0,
+            'ubicacion' => null,
+            'estado_general' => 'OPTIMO',
+            'foto_evidencia' => null,
+            'observaciones' => 'Selección diaria de vehículo',
+            'entrega_final_usuario' => null,
+            'entrega_inicial_usuario' => null
+        ]);
+
+        if (!$idSeg) {
+            return ['success' => false, 'message' => 'Error al registrar la selección del vehículo.'];
+        }
+
+        // Guardar fotos del estado del vehículo en documentos
+        $camposFoto = [
+            'diaria_frente'       => 'foto_frente',
+            'diaria_trasera'      => 'foto_trasera',
+            'diaria_lateral_izq'  => 'foto_lateral_izq',
+            'diaria_lateral_der'  => 'foto_lateral_der',
+        ];
+
+        $fotosGuardadas = 0;
+        foreach ($camposFoto as $fileKey => $tipo) {
+            if (isset($files[$fileKey]) && $files[$fileKey]['error'] === UPLOAD_ERR_OK) {
+                $docId = $this->model->guardarDocumentoGenerico(
+                    $files[$fileKey],
+                    $idSeg,
+                    10,
+                    'seguimiento_vehiculo'
+                );
+                if ($docId) {
+                    $fotosGuardadas++;
+                }
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Vehículo seleccionado para hoy correctamente.',
+            'idvehiculo' => $idVehiculo,
+            'id_seguimiento' => $idSeg,
+            'fotos_guardadas' => $fotosGuardadas
+        ];
+    }
+
+    /**
+     * Resuelve qué vehículo debe usar el usuario HOY.
+     *
+     * Prioridad:
+     * 1. Si existe ASIGNACION_VEHICULO para hoy → usar ese
+     * 2. Si no, verificar si usu_vehiculo puede ser usado:
+     *    a. ¿Está FUERA_DE_SERVICIO? → null (sin vehículo)
+     *    b. ¿Tiene PREOPERACIONAL hoy de OTRO conductor? → null
+     *    c. Si pasa ambas → usar usu_vehiculo
+     * 3. Si usu_vehiculo no está definido → null
+     *
+     * @param int    $idUsuario ID del usuario
+     * @param string $fecha     Fecha en formato Y-m-d
+     * @return int|null ID del vehículo a usar, o null si no aplica
+     */
+    public function obtenerVehiculoParaUsuarioHoy($idUsuario, $fecha)
+    {
+        // PRIORIDAD 1: ¿Hay una asignación diaria ya registrada?
+        $asignacionDiaria = $this->model->obtenerAsignacionDiaria($idUsuario, $fecha);
+        if ($asignacionDiaria && !empty($asignacionDiaria['id_vehiculo'])) {
+            return (int) $asignacionDiaria['id_vehiculo'];
+        }
+
+        // PRIORIDAD 2: Verificar el vehículo permanente
+        $idVehiculoPerm = $this->model->obtenerVehiculoPermanenteUsuario($idUsuario);
+        if ($idVehiculoPerm === null || $idVehiculoPerm <= 0) {
+            return null;
+        }
+
+        // REGLA A: ¿Está FUERA_DE_SERVICIO?
+        $estado = $this->obtenerEstadoVehiculo($idVehiculoPerm);
+        if (($estado['estado_general'] ?? '') === 'FUERA_DE_SERVICIO') {
+            return null;
+        }
+
+        // REGLA B: ¿Tiene PREOPERACIONAL hoy de OTRO conductor?
+        try {
+            $this->verificarDisponibilidadDiaria($idVehiculoPerm, $idUsuario);
+        } catch (\RuntimeException $e) {
+            return null;
+        }
+
+        // Pasa todas las reglas → usar vehículo permanente
+        return $idVehiculoPerm;
     }
 
     /**
@@ -927,40 +1082,48 @@ class PreoperacionalService
         } else {
             // El vehículo NO puede ser operado — registrar FUERA_DE_SERVICIO
 
-            // ========== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ==========
-            // NO ELIMINAR: Este bloque crea registros en entregavehiculo (final e inicial)
-            // para la trazabilidad cuando un conductor reporta una novedad.
-            // Se re-activará cuando entrega_vehiculo esté completo.
-            //
-            // // Obtener la firma del conductor...
-            // $firmaRutaDesdePreop = '';
-            // if ($idPreopVinculado) { ... }
-            //
-            // $idEntregaFinal = null;
-            // if (!empty($fotos['salida_frente']) || !empty($fotos['salida_trasera'])) {
-            //     $idEntregaFinal = $this->crearEntregaVehiculoNovedad(...);
-            // }
-            //
-            // $idEntregaInicial = null;
-            // if (!empty($fotos['entrada_frente']) || !empty($fotos['entrada_trasera'])) {
-            //     $idEntregaInicial = $this->crearEntregaVehiculoNovedad(...);
-            // }
-            // ========== FIN DESHABILITADO ==========
+            // [ELIMINADO] Bloque entregavehiculo (trazabilidad final/inicial)
+            // La selección diaria reemplaza la asignación permanente.
 
-            $idEntregaFinal = null;
-            $idEntregaInicial = null;
             $idVehiculoFinal = $idVehiculoActual;
             $cambioVehiculo = false;
 
             if ($idVehiculoNuevo > 0) {
-                // Liberar el vehículo de cualquier conductor anterior, luego asignarlo
-                $this->model->liberarVehiculoDeCualquierUsuario($idVehiculoNuevo);
-                $this->model->asignarVehiculoAUsuario($idVehiculoNuevo, $idUsuario);
-                $idVehiculoFinal = $idVehiculoNuevo;
-                $cambioVehiculo = true;
+                // Selección diaria — no se toca usu_vehiculo
+                $disponibles = $this->model->obtenerVehiculosDisponibles($idUsuario);
+                $encontrado = false;
+                foreach ($disponibles as $v) {
+                    if ((int) $v['idvehiculos'] === $idVehiculoNuevo) {
+                        $encontrado = true;
+                        break;
+                    }
+                }
+                if ($encontrado) {
+                    $this->guardarSeguimientoVehiculo([
+                        'tipo_evento' => 'ASIGNACION_VEHICULO',
+                        'metadata_evento' => [
+                            'origen' => 'reporte_novedad',
+                            'vehiculo_permanente' => $this->model->obtenerVehiculoPermanenteUsuario($idUsuario) ?: 0
+                        ],
+                        'id_preoperacional' => $idPreopVinculado,
+                        'id_seguimiento_user' => null,
+                        'id_vehiculo' => $idVehiculoNuevo,
+                        'id_conductor' => $idUsuario,
+                        'id_responsable' => $_SESSION['usuario_id'] ?? $idUsuario,
+                        'kilometraje' => 0,
+                        'ubicacion' => null,
+                        'estado_general' => 'OPTIMO',
+                        'foto_evidencia' => null,
+                        'observaciones' => 'Vehículo asignado tras reporte de novedad: ' . $observaciones,
+                        'entrega_final_usuario' => null,
+                        'entrega_inicial_usuario' => null
+                    ]);
+                    $idVehiculoFinal = $idVehiculoNuevo;
+                    $cambioVehiculo = true;
+                } else {
+                    $idVehiculoFinal = 0;
+                }
             } else {
-                // No seleccionó vehículo — desasignar el actual
-                $this->model->desasignarVehiculoDeUsuario($idUsuario);
                 $idVehiculoFinal = 0;
             }
 
@@ -981,8 +1144,8 @@ class PreoperacionalService
                 'estado_general' => 'FUERA_DE_SERVICIO',
                 'foto_evidencia' => $fotoEvidencia,
                 'observaciones' => $observaciones,
-                'entrega_final_usuario' => null, // DESHABILITADO: era $idEntregaFinal
-                'entrega_inicial_usuario' => null // DESHABILITADO: era $idEntregaInicial
+                'entrega_final_usuario' => null,
+                'entrega_inicial_usuario' => null
             ]);
 
             // Guardar fotos múltiples de evidencia en documentos
@@ -1480,23 +1643,7 @@ class PreoperacionalService
         return $resultado;
     }
 
-    // ==================== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ====================
-    // NO ELIMINAR: Este método crea los registros de entrega FINAL e INICIAL en la tabla
-    // entregavehiculo durante la validación del preoperacional. Se re-activarÃ¡ cuando
-    // el mÃ³dulo entrega_vehiculo estÃ© completo.
-    //
-    // CÃ³digo original preservado:
-    //
-    // public function crearEntregasVehiculoEnValidacion($idPreoperacional, $idVehiculo, $idUsuario, $fotos, $observaciones = '', $firmaRuta = '')
-    // {
-    //     $vehiculoModel = new VehiculosModel();
-    //     $datosVehiculo = $vehiculoModel->obtenerVehiculoPorId($idVehiculo);
-    //     ...
-    //     // 1. ENTREGA FINAL (conductor â empresa)
-    //     // 2. ENTREGA INICIAL (empresa â conductor)
-    //     ...
-    //     return ['success' => true, 'message' => 'Entregas de vehículo registradas correctamente.'];
-    // }
+    // [ELIMINADO] crearEntregasVehiculoEnValidacion() — reemplazado por selección diaria
 
     /**
      * Procesa las fotos del reporte de novedad vehicular.
@@ -1554,19 +1701,7 @@ class PreoperacionalService
         return $resultado;
     }
 
-    // ==================== DESHABILITADO - ENTREGA VEHÍCULO (desarrollo activo) ====================
-    // NO ELIMINAR: Estos métodos crean registros individuales en entregavehiculo y
-    // procesan las fotos de entrega. Se re-activarán cuando el módulo esté completo.
-    //
-    // private function crearEntregaVehiculoNovedad(...)
-    // {
-    //     ...
-
-    // private function procesarFotosEntrega($files)
-    // {
-    //     ...
-    // }
-    // ==================== FIN DESHABILITADO ====================
+    // [ELIMINADO] crearEntregaVehiculoNovedad(), procesarFotosEntrega() -- reemplazado por seleccion diaria
 
     /**
      * Resuelve el ID de la hoja de vida activa de un usuario a partir de su cédula.

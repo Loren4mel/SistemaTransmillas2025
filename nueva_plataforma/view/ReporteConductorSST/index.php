@@ -162,10 +162,22 @@
                             </div>
 
                             <!-- ===== TARJETAS DE PREGUNTAS (una por tipo) - dinámicas ===== -->
+                            <?php
+                            $coloresPorTipo = [
+                                'accidente' => ['borde' => '#E05050', 'header' => 'linear-gradient(135deg, #E05050, #C03030)'],
+                                'comparendo' => ['borde' => '#E8A020', 'header' => 'linear-gradient(135deg, #E8A020, #C88010)'],
+                            ];
+                            $iconosPorTipo = [
+                                'accidente' => 'fa-car-crash',
+                                'comparendo' => 'fa-ticket-alt',
+                            ];
+                            ?>
                             <?php foreach ($tiposAMostrar as $tipo): ?>
-                                <div class="preop-card rcsst-question-card" style="border-left: 4px solid #E05050;">
-                                    <div class="preop-card-header" style="background: linear-gradient(135deg, #E05050, #C03030);">
-                                        <i class="fas fa-clipboard-list"></i>
+                                <?php $color = $coloresPorTipo[$tipo] ?? $coloresPorTipo['accidente']; ?>
+                                <?php $icono = $iconosPorTipo[$tipo] ?? 'fa-clipboard-list'; ?>
+                                <div class="preop-card rcsst-question-card" style="border-left: 4px solid <?= $color['borde'] ?>;">
+                                    <div class="preop-card-header" style="background: <?= $color['header'] ?>;">
+                                        <i class="fas <?= $icono ?>"></i>
                                         <?= htmlspecialchars(ucfirst($tipo)) ?>
                                     </div>
                                     <div class="preop-card-body">
@@ -243,7 +255,11 @@
 
                                                         <?php foreach ($categoria['campos'] as $campo): ?>
                                                             <?php
-                                                            $hiddenStyle = $campo['id_campo_padre'] ? 'style="display:none;"' : '';
+                                                            // Si tiene padre, ocultar solo si necesita "si" (default es "no")
+                                                            $hiddenStyle = '';
+                                                            if ($campo['id_campo_padre']) {
+                                                                $hiddenStyle = ($campo['valor_padre'] === 'si') ? 'style="display:none;"' : '';
+                                                            }
                                                             ?>
                                                             <div class="rcsst-campo mb-2"
                                                                  data-codigo="<?= htmlspecialchars($campo['codigo']) ?>"
@@ -306,12 +322,31 @@
                                                 <?php endforeach; ?>
                                             <?php endif; ?>
 
+                                            <!-- Guía de observación -->
+                                            <div class="rcsst-guia-obs" style="margin-top: 12px;">
+                                                <div class="rcsst-info-label rcsst-guia-label">
+                                                    <i class="fas fa-lightbulb me-1"></i> ¿Qué debo incluir en la descripción?
+                                                </div>
+                                                <ul class="rcsst-guia-list">
+                                                    <li><i class="fas fa-check-circle me-1"></i> Descripción detallada de lo sucedido</li>
+                                                    <li><i class="fas fa-check-circle me-1"></i> Daños materiales y/o personales (si aplica)</li>
+                                                    <li><i class="fas fa-check-circle me-1"></i> Entidad que intervino (Policía, aseguradora, etc.)</li>
+                                                    <li><i class="fas fa-check-circle me-1"></i> Acuerdos a los que se llegó (si aplica)</li>
+                                                </ul>
+                                            </div>
+
                                             <!-- Observaciones generales -->
                                             <div style="margin-top: 14px;">
                                                 <label class="fw-bold mb-2" style="font-size: 13px; color: #E07000;" for="rcsst_obs_<?= $tipo; ?>">
                                                     <i class="fas fa-pen me-1"></i> Observaciones generales
                                                 </label>
                                                 <textarea id="rcsst_obs_<?= $tipo; ?>" class="form-textarea" rows="4"></textarea>
+                                            </div>
+
+                                            <!-- Recordatorio de evidencia -->
+                                            <div class="rcsst-evidence-reminder" style="margin-top: 12px;">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                <strong>Importante:</strong> Debe adjuntar mínimo 4 evidencias del incidente (fotos, documentos). Todos los archivos son obligatorios.
                                             </div>
 
                                             <!-- Subida de archivos -->

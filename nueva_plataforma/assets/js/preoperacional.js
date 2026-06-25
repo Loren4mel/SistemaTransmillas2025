@@ -1062,7 +1062,6 @@
         // Deshabilitar inputs de archivo (excepto los de entrega de vehículo en validación)
         var fileInputs = document.querySelectorAll('input[type="file"]');
         for (var k = 0; k < fileInputs.length; k++) {
-            if (fileInputs[k].id.indexOf('entrega_') === 0) continue;
             fileInputs[k].disabled = true;
         }
     }
@@ -1559,41 +1558,6 @@
             return;
         }
 
-        // 2. Si NO: fotos de salida requeridas
-        if (seleccion.value === 'no') {
-            var faltaSalida = [];
-            var sf = document.getElementById('novedad_salida_frente');
-            var st = document.getElementById('novedad_salida_trasera');
-            if (!sf || !sf.files || sf.files.length === 0) faltaSalida.push('Foto FRENTE - Salida');
-            if (!st || !st.files || st.files.length === 0) faltaSalida.push('Foto TRASERA - Salida');
-            if (faltaSalida.length > 0) {
-                var html = '<strong>Debe subir las siguientes fotos de salida:</strong><br><br>';
-                for (var k = 0; k < faltaSalida.length; k++) { html += '• ' + faltaSalida[k] + '<br>'; }
-                swalAlert({ title: 'Fotos de salida requeridas', html: html, icon: 'warning', confirmButtonText: 'Aceptar' });
-                var salidaGrp = document.getElementById('novedadSalidaPhotosGroup');
-                if (salidaGrp) salidaGrp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                return;
-            }
-
-            // 3. Si vehículo nuevo seleccionado: fotos de entrada requeridas
-            var idVehiculoNuevo = datos.idvehiculo_nuevo || '';
-            if (idVehiculoNuevo) {
-                var faltaEntrada = [];
-                var ef = document.getElementById('novedad_entrada_frente');
-                var et = document.getElementById('novedad_entrada_trasera');
-                if (!ef || !ef.files || ef.files.length === 0) faltaEntrada.push('Foto FRENTE - Entrada');
-                if (!et || !et.files || et.files.length === 0) faltaEntrada.push('Foto TRASERA - Entrada');
-                if (faltaEntrada.length > 0) {
-                    var htmlE = '<strong>Debe subir las siguientes fotos de entrada:</strong><br><br>';
-                    for (var j = 0; j < faltaEntrada.length; j++) { htmlE += '• ' + faltaEntrada[j] + '<br>'; }
-                    swalAlert({ title: 'Fotos de entrada requeridas', html: htmlE, icon: 'warning', confirmButtonText: 'Aceptar' });
-                    var entradaGrp = document.getElementById('novedadEntradaPhotosGroup');
-                    if (entradaGrp) entradaGrp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                }
-            }
-        }
-
         // --- BUILD FORMDATA ---
         var formData = new FormData();
         formData.append('accion', 'reportar_novedad');
@@ -1608,24 +1572,6 @@
         for (var fi = 0; fi < todosLosInputsFoto.length; fi++) {
             if (todosLosInputsFoto[fi].files && todosLosInputsFoto[fi].files.length > 0) {
                 formData.append('novedad_fotos[]', todosLosInputsFoto[fi].files[0]);
-            }
-        }
-
-        // Append fotos de salida (si existen)
-        var salidaFiles = ['novedad_salida_frente', 'novedad_salida_trasera'];
-        for (var i = 0; i < salidaFiles.length; i++) {
-            var input = document.getElementById(salidaFiles[i]);
-            if (input && input.files.length > 0) {
-                formData.append(salidaFiles[i], input.files[0]);
-            }
-        }
-
-        // Append fotos de entrada (si existen)
-        var entradaFiles = ['novedad_entrada_frente', 'novedad_entrada_trasera'];
-        for (var m = 0; m < entradaFiles.length; m++) {
-            var inputE = document.getElementById(entradaFiles[m]);
-            if (inputE && inputE.files.length > 0) {
-                formData.append(entradaFiles[m], inputE.files[0]);
             }
         }
 
@@ -1682,44 +1628,6 @@
     /**
      * Valida que se hayan subido las 4 fotos de entrega en modo validación
      */
-    function validarFotosEntrega() {
-        if (typeof ES_VALIDACION === 'undefined' || !ES_VALIDACION) return true;
-
-        // Buscar cualquier sección de entrega (no solo .entrega-validacion-card)
-        var entregaSection = document.querySelector('.entrega-photo-section');
-        if (!entregaSection) return true;
-
-        var fotosRequeridas = [
-            { id: 'entrega_final_frente', name: 'Foto FRENTE - Entrega Final' },
-            { id: 'entrega_final_trasera', name: 'Foto TRASERA - Entrega Final' },
-            { id: 'entrega_inicial_frente', name: 'Foto FRENTE - Entrega Inicial' },
-            { id: 'entrega_inicial_trasera', name: 'Foto TRASERA - Entrega Inicial' }
-        ];
-
-        var faltantes = [];
-        for (var i = 0; i < fotosRequeridas.length; i++) {
-            // Si existe un hidden indicando que la foto ya fue subida, no requerirla
-            var existente = document.querySelector('input[name="' + fotosRequeridas[i].id + '_existente"]');
-            if (existente && existente.value === '1') continue;
-
-            var input = document.getElementById(fotosRequeridas[i].id);
-            if (!input || !input.files || input.files.length === 0) {
-                faltantes.push(fotosRequeridas[i].name);
-            }
-        }
-
-        if (faltantes.length > 0) {
-            var errorHtml = '<strong>Debe subir las siguientes fotos:</strong><br><br>';
-            for (var k = 0; k < faltantes.length; k++) {
-                errorHtml += '• ' + faltantes[k] + '<br>';
-            }
-            swalAlert({ title: 'Fotos de entrega requeridas', html: errorHtml, icon: 'warning', confirmButtonText: 'Aceptar' });
-            entregaSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return false;
-        }
-        return true;
-    }
-
     /**
      * Maneja el envío del formulario
      */
@@ -1809,11 +1717,6 @@
 
                 // Validar ubicación GPS (obligatorio)
                 if (!validarUbicacion()) {
-                    return;
-                }
-            } else {
-                // Modo validación: validar las fotos de entrega
-                if (!validarFotosEntrega()) {
                     return;
                 }
             }
@@ -2149,6 +2052,28 @@
 
 
     /**
+     * Inicializa el botón de "Seleccionar otro vehículo para hoy".
+     * Permite al usuario cambiar de vehículo voluntariamente,
+     * sin reportar fallas ni modificar usu_vehiculo.
+     */
+    function initBotonSeleccionDiaria() {
+        var btn = document.getElementById('btnSeleccionarVehiculoDiario');
+        if (!btn) return;
+
+        btn.addEventListener('click', function() {
+            var panel = document.getElementById('novedadPanel');
+            var idVehiculoActual = panel ? panel.getAttribute('data-idvehiculo') : '0';
+
+            // Mostrar el panel de selección de vehículo diario
+            var selectContainer = document.getElementById('vehiculoDiarioSelectContainer');
+            if (selectContainer) {
+                selectContainer.style.display = '';
+                selectContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    }
+
+    /**
      * Inicialización cuando el DOM está listo
      */
     function init() {
@@ -2161,6 +2086,7 @@
             verificarEstadoVehiculo();
             initBotonAsignarVehiculo();
             initNovedadMultiPhoto();
+            initBotonSeleccionDiaria();
 
             var esLegado = !document.getElementById('ubicacion_container');
 

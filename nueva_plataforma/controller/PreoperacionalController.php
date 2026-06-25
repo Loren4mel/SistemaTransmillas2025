@@ -85,6 +85,10 @@ function handleAjaxRequest($service)
                 $response = handleAsignarVehiculoInicial($service);
                 break;
 
+            case 'seleccionar_vehiculo_diario':
+                $response = handleSeleccionarVehiculoDiario($service);
+                break;
+
             default:
                 $response['message'] = "Acción '$accion' no reconocida";
                 break;
@@ -189,6 +193,24 @@ function handleAsignarVehiculoInicial($service)
 }
 
 /**
+ * Procesa la selección diaria de un vehículo distinto al permanente.
+ * El usuario sube fotos del estado del vehículo y se registra en
+ * seguimiento_vehiculo como ASIGNACION_VEHICULO.
+ * usu_vehiculo NO se modifica.
+ */
+function handleSeleccionarVehiculoDiario($service)
+{
+    $idVehiculo = (int) ($_POST['idvehiculo'] ?? 0);
+    $idUsuario = (int) ($_POST['id_usuario'] ?? $_SESSION['usuario_id'] ?? 0);
+
+    if ($idVehiculo <= 0) {
+        return ['success' => false, 'message' => 'Debe seleccionar un vehículo.'];
+    }
+
+    return $service->procesarSeleccionVehiculoDiario($idUsuario, $idVehiculo, $_FILES);
+}
+
+/**
  * Carga la vista principal del preoperacional
  */
 function loadView($service)
@@ -200,7 +222,6 @@ function loadView($service)
     $fecha = $_GET['fecha'] ?? date('Y-m-d');
     $preoperacional = $_GET['preoperacional'] ?? '';
     $idvehiculo = isset($_GET['idvehiculo']) ? (int) $_GET['idvehiculo'] : null;
-
     // Determinar el modo de operación
     $esCovid = ($param4 == 'covid19');
     $esValidacion = ($preoperacional == 'validarpreoperacional' || $param5 == 'valida' || $param5 == 'vista');
@@ -216,6 +237,14 @@ function loadView($service)
             echo "<h2>Acceso denegado</h2><p>Solo administradores pueden validar registros preoperacionales.</p>";
             exit;
         }
+    }
+
+    // Resolver vehículo para hoy (solo fuera de validación/vista):
+    // 1. Si hay ASIGNACION_VEHICULO para hoy → usar ese
+    // 2. Si usu_vehiculo está disponible → usar ese
+    // 3. Si no → null (sin vehículo)
+    if (!isset($_GET['idvehiculo']) && !$esValidacion && !$esSoloLectura) {
+        $idvehiculo = $service->obtenerVehiculoParaUsuarioHoy($iduser, $fecha);
     }
 
     // Obtener datos del vehículo y usuario
@@ -468,21 +497,10 @@ function loadView($service)
 
     // ==================== FIN DE SECCIONES POR ROL ====================
 
-    // ==================== ENTREGAS PENDIENTES (VALIDACIÓN) ====================
-    // ATENCIÓN: El bloque de entregas de vehículo está DESHABILITADO temporalmente
-    // para el flujo preoperacional. Está en DESARROLLO ACTIVO y se re-activará
-    // cuando la funcionalidad esté completa.
-    // NO ELIMINAR - código preservado para continuación del desarrollo.
-    //
-    // Cuando el conductor reportó una novedad y cambió de vehículo, las entregas
-    // (FINAL del vehículo antiguo + INICIAL del nuevo) están vinculadas al
-    // REVISION_SST, no al vehículo actual. Las buscamos por el usuario conductor.
+    // ==================== SELECCIÓN DIARIA DE VEHÍCULO ====================
+    // [ELIMINADO] entregavehiculo: la selección del vehículo del día se resuelve
+    // al inicio de loadView() vía obtenerVehiculoParaUsuarioHoy().
     $entregasPendientes = ['final' => null, 'inicial' => null, 'seguimiento' => null];
-    // DESHABILITADO - Desarrollo activo entrega_vehiculo
-    // if ($esValidacion) {
-    //     $idConductorParaEntregas = $registroExistente['preidusuario'] ?? $iduser;
-    //     $entregasPendientes = $service->obtenerEntregasPendientesPorUsuario($idConductorParaEntregas);
-    // }
 
     // Limpiar buffer y cargar la vista
     // Calcular ruta base de la aplicación desde el servidor

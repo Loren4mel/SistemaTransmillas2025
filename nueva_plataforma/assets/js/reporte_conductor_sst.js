@@ -763,9 +763,17 @@
                 }
             });
         }
+
+        // Inicializar visibilidad segun estado inicial de los radios
+        for (var k = 0; k < siNoRadios.length; k++) {
+            if (siNoRadios[k].checked) {
+                var evt = new Event('change');
+                siNoRadios[k].dispatchEvent(evt);
+            }
+        }
     }
 
-    // --------------------------------------------------------------------
+
     // 13. init — Punto de entrada al cargar el DOM
     // --------------------------------------------------------------------
     function init() {

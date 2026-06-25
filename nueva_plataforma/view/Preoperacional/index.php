@@ -174,6 +174,15 @@ if ($esRegistroRelacional) {
                         <?php if ($esRolVehicular && $tieneVehiculoAsignado): ?>
                             <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles, $esValidacion) ?>
 
+                            <!-- Botón de selección voluntaria de vehículo (solo fuera de validación/vista) -->
+                            <?php if (!$esValidacion && !$esSoloLectura): ?>
+                            <div style="text-align:center; margin: 12px 0;">
+                                <button type="button" class="btn btn-outline-primary" id="btnSeleccionarVehiculoDiario">
+                                    <i class="fas fa-exchange-alt"></i> Seleccionar otro vehículo para hoy
+                                </button>
+                            </div>
+                            <?php endif; ?>
+
                             <!-- Datos del vehículo + alertas de documentos (centralizado: visible cuando hay vehículo asignado) -->
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
                             <?= $alertasVehiculoHtml ?>
@@ -484,12 +493,7 @@ if ($esRegistroRelacional) {
                         <?php endif; ?>
 
                         <!-- ==================== SECCIÓN DE ENTREGA DE VEHÍCULO ==================== -->
-                        <!-- Solo se muestra en validación cuando existen entregas pendientes
-                             (FINAL del vehículo antiguo + INICIAL del nuevo) vinculadas a una
-                             REVISION_SST reportada por el conductor. -->
-                        <?php if ($esValidacion && !empty($entregasPendientes['seguimiento'])): ?>
-                            <?= $novedadHelper->renderSeccionEntregaValidacion($entregasPendientes) ?>
-                        <?php endif; ?>
+                        <!-- [ELIMINADO] Sección de entrega vehicular en validación. Selección diaria vía ASIGNACION_VEHICULO. -->
 
                         <?php if (!$esSoloLectura): ?>
                         <!-- Botón guardar -->
