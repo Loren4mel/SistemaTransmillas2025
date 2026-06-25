@@ -258,8 +258,8 @@ if ($esRegistroRelacional) {
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
 
                                 <?php if ($esValidacion): ?>
-                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente) ?>
-                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente) ?>
+                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente, $esSoloLectura) ?>
+                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente, $esSoloLectura) ?>
                                 <?php endif; ?>
                             <?php endif; ?>
 
@@ -276,8 +276,8 @@ if ($esRegistroRelacional) {
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
 
                                 <?php if ($esValidacion): ?>
-                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente) ?>
-                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente) ?>
+                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente, $esSoloLectura) ?>
+                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente, $esSoloLectura) ?>
                                 <?php endif; ?>
                             <?php endif; ?>
 
@@ -327,13 +327,20 @@ if ($esRegistroRelacional) {
                             <!-- FIRMA -->
                             <?php if ($esValidacion && !empty($firmaDataUri)): ?>
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderFirmaRegistradaCard($firmaDataUri) ?>
+                            <?php elseif ($esSoloLectura): ?>
+                                <div class="preop-card signature-card">
+                                    <div class="preop-card-header"><i class="fas fa-pen"></i> FIRMA DEL RESPONSABLE</div>
+                                    <div class="preop-card-body">
+                                        <p style="margin:0;color:#999;"><i class="fas fa-minus-circle"></i> Sin firma registrada</p>
+                                    </div>
+                                </div>
                             <?php else: ?>
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderSeccionFirma() ?>
                             <?php endif; ?>
 
                             <!-- VALIDACIÓN -->
                             <?php if ($esValidacion): ?>
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderValidacionCard($registroExistente, true) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderValidacionCard($registroExistente, true, $esSoloLectura) ?>
                             <?php endif; ?>
 
                         <?php else: ?>
@@ -419,7 +426,7 @@ if ($esRegistroRelacional) {
                             <?php endif; ?>
 
                             <!-- Implementos de trabajo -->
-                            <?php if ($mostrarImplementos && ($nivel_acceso == 3 || $param5 == 'valida')): ?>
+                            <?php if ($mostrarImplementos && ($nivel_acceso == 3 || $esValidacion)): ?>
                                 <?= PreoperacionalEncuestaLegadoViewHelper::renderImplementosCards($valoresEncuesta, $registroExistente['pre_limpiomaleta'] ?? null) ?>
                             <?php endif; ?>
 
@@ -467,7 +474,7 @@ if ($esRegistroRelacional) {
 
                             <!-- Validación (legado) -->
                             <?php if ($esValidacion): ?>
-                                <?= PreoperacionalEncuestaLegadoViewHelper::renderValidacionLegadoCard($registroExistente) ?>
+                                <?= PreoperacionalEncuestaLegadoViewHelper::renderValidacionLegadoCard($registroExistente, $esSoloLectura) ?>
                             <?php endif; ?>
 
                         <?php endif; ?>
@@ -483,6 +490,10 @@ if ($esRegistroRelacional) {
                                 <div class="ubicacion-coords-text">
                                     <i class="fas fa-map-marker-alt"></i>
                                     <strong>Coordenadas registradas:</strong> <?= htmlspecialchars($ubicacionGuardada) ?>
+                                </div>
+                            <?php elseif ($esSoloLectura): ?>
+                                <div class="ubicacion-status ubicacion-sin-datos">
+                                    <i class="fas fa-map-marker-alt"></i> Sin ubicación registrada
                                 </div>
                             <?php else: ?>
                                 <div class="ubicacion-status ubicacion-cargando">

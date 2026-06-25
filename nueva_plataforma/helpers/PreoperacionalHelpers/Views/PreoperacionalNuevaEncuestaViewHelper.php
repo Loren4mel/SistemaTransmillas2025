@@ -554,25 +554,35 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Genera tarjeta de acción correctiva (solo validación)
      */
-    public static function renderAccionCorrectivaCard($registroExistente)
+    public static function renderAccionCorrectivaCard($registroExistente, $readonly = false)
     {
         $html = '<div class="preop-card observations-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-tools"></i> ACCIÓN CORRECTIVA</div>';
         $html .= '<div class="preop-card-body">';
-        $html .= '<textarea name="accion_correctiva" id="accion_correctiva" class="form-textarea" placeholder="Describa la acción correctiva...">' . htmlspecialchars($registroExistente['pre_correctiva'] ?? '') . '</textarea>';
+        $valor = htmlspecialchars($registroExistente['pre_correctiva'] ?? '');
+        if ($readonly) {
+            $html .= '<p style="margin:0; white-space:pre-wrap;">' . ($valor ?: '<span style="color:#999;">—</span>') . '</p>';
+        } else {
+            $html .= '<textarea name="accion_correctiva" id="accion_correctiva" class="form-textarea" placeholder="Describa la acción correctiva...">' . $valor . '</textarea>';
+        }
         $html .= '</div></div>';
         return $html;
     }
 
     /**
-     * Genera tarjeta de responsable (solo validación)
+     * Genera tarjeta de responsable (solo validación/vista)
      */
-    public static function renderResponsableCard($registroExistente)
+    public static function renderResponsableCard($registroExistente, $readonly = false)
     {
         $html = '<div class="preop-card observations-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-user-check"></i> RESPONSABLE</div>';
         $html .= '<div class="preop-card-body">';
-        $html .= '<input name="responsable" id="responsable" value="' . htmlspecialchars($registroExistente['pre_responsable'] ?? '') . '" class="form-input" placeholder="Nombre del responsable">';
+        $valor = htmlspecialchars($registroExistente['pre_responsable'] ?? '');
+        if ($readonly) {
+            $html .= '<p style="margin:0;">' . ($valor ?: '<span style="color:#999;">—</span>') . '</p>';
+        } else {
+            $html .= '<input name="responsable" id="responsable" value="' . $valor . '" class="form-input" placeholder="Nombre del responsable">';
+        }
         $html .= '</div></div>';
         return $html;
     }
@@ -641,9 +651,9 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     /**
-     * Tarjeta de validación (solo modo validación)
+     * Tarjeta de validación (solo modo validación/vista)
      */
-    public static function renderValidacionCard($registroExistente, $esNuevoFormato = true)
+    public static function renderValidacionCard($registroExistente, $esNuevoFormato = true, $readonly = false)
     {
         $html = '<div class="preop-card validation-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-clipboard-check"></i> VALIDA PREOPERACIONAL</div>';
@@ -651,13 +661,23 @@ class PreoperacionalNuevaEncuestaViewHelper
 
         $html .= '<div style="margin-bottom:12px;">';
         $html .= '<label style="font-weight:600;font-size:14px;color:#555;display:block;margin-bottom:4px;">Descripción de la validación:</label>';
-        $html .= '<textarea name="desc_validacion" id="desc_validacion" class="form-textarea" placeholder="Describa la validación...">' . htmlspecialchars($registroExistente['pre_descvalidada'] ?? '') . '</textarea>';
+        $descValor = htmlspecialchars($registroExistente['pre_descvalidada'] ?? '');
+        if ($readonly) {
+            $html .= '<p style="margin:0; white-space:pre-wrap;">' . ($descValor ?: '<span style="color:#999;">—</span>') . '</p>';
+        } else {
+            $html .= '<textarea name="desc_validacion" id="desc_validacion" class="form-textarea" placeholder="Describa la validación...">' . $descValor . '</textarea>';
+        }
         $html .= '</div>';
 
         if ($esNuevoFormato) {
             $html .= '<div>';
             $html .= '<label style="font-weight:600;font-size:14px;color:#555;display:block;margin-bottom:4px;">Observaciones adicionales:</label>';
-            $html .= '<textarea name="observaciones_validacion" id="observaciones_validacion" class="form-textarea" placeholder="Observaciones para la validación del preoperacional"></textarea>';
+            $obsValor = htmlspecialchars($registroExistente['pre_observacionvalida'] ?? '');
+            if ($readonly) {
+                $html .= '<p style="margin:0; white-space:pre-wrap;">' . ($obsValor ?: '<span style="color:#999;">—</span>') . '</p>';
+            } else {
+                $html .= '<textarea name="observaciones_validacion" id="observaciones_validacion" class="form-textarea" placeholder="Observaciones para la validación del preoperacional">' . $obsValor . '</textarea>';
+            }
             $html .= '</div>';
         }
 

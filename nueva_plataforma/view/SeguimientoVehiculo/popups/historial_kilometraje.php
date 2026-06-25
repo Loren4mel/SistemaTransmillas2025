@@ -101,7 +101,7 @@ $hastaDefecto = date('Y-m-d');
                         $tieneVer = $preopId && $userId;
                         $verUrl = '';
                         if ($tieneVer) {
-                            $verUrl = 'PreoperacionalController.php?preoperacional=validarpreoperacional'
+                            $verUrl = $appBasePath . '/controller/PreoperacionalController.php?preoperacional=validarpreoperacional'
                                 . '&idpre=' . (int)$preopId
                                 . '&iduser=' . (int)$userId
                                 . '&fecha=' . urlencode($fechaDate)
