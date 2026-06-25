@@ -494,6 +494,22 @@
     // 10. validarFormulario()
     // --------------------------------------------------------------------
     function validarFormulario() {
+        // 0. Validar firma
+        var firmaInput = document.getElementById('firma_sst');
+        var canvas = document.getElementById('signatureCanvasSST');
+        if (canvas && canvas.getAttribute('data-has-signature') === 'true') {
+            firmaInput.value = canvas.toDataURL('image/png');
+        }
+        if (!firmaInput || !firmaInput.value.trim()) {
+            swalAlert({
+                title: 'Firma requerida',
+                text: 'Debe firmar en el canvas antes de enviar el reporte.',
+                icon: 'warning',
+                confirmButtonText: 'Entendido'
+            });
+            return false;
+        }
+
         // 1. Validar ubicación
         if (!validarUbicacion()) {
             return false;
@@ -774,7 +790,113 @@
     }
 
 
-    // 13. init — Punto de entrada al cargar el DOM
+    // --------------------------------------------------------------------
+    // 13. initSignatureCanvasSST() — Canvas de firma a trazo
+    // --------------------------------------------------------------------
+    function initSignatureCanvasSST() {
+        var canvas = document.getElementById('signatureCanvasSST');
+        if (!canvas) {
+            return;
+        }
+
+        var ctx = canvas.getContext('2d');
+        if (!ctx) {
+            return;
+        }
+
+        var isDrawing = false;
+        var lastX = 0;
+        var lastY = 0;
+        var hasSignature = false;
+
+        ctx.strokeStyle = '#1a3a5c';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        function getCoordinates(e) {
+            var rect = canvas.getBoundingClientRect();
+            var scaleX = canvas.width / rect.width;
+            var scaleY = canvas.height / rect.height;
+            if (e.touches) {
+                return {
+                    x: (e.touches[0].clientX - rect.left) * scaleX,
+                    y: (e.touches[0].clientY - rect.top) * scaleY
+                };
+            }
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function startDrawing(e) {
+            e.preventDefault();
+            isDrawing = true;
+            hasSignature = true;
+            canvas.setAttribute('data-has-signature', 'true');
+            var coords = getCoordinates(e);
+            lastX = coords.x;
+            lastY = coords.y;
+        }
+
+        function draw(e) {
+            e.preventDefault();
+            if (!isDrawing) return;
+            var coords = getCoordinates(e);
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(coords.x, coords.y);
+            ctx.stroke();
+            lastX = coords.x;
+            lastY = coords.y;
+        }
+
+        function stopDrawing(e) {
+            e.preventDefault();
+            isDrawing = false;
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hasSignature = false;
+            canvas.removeAttribute('data-has-signature');
+            var hiddenInput = document.getElementById('firma_sst');
+            if (hiddenInput) {
+                hiddenInput.value = '';
+            }
+        }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseleave', stopDrawing);
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+
+        var btnClear = document.getElementById('btnClearSignatureSST');
+        if (btnClear) {
+            btnClear.addEventListener('click', clearCanvas);
+        }
+
+        var hiddenInput = document.getElementById('firma_sst');
+        if (hiddenInput) {
+            var form = document.getElementById('formReporteSST');
+            if (form) {
+                form.addEventListener('submit', function() {
+                    if (hasSignature) {
+                        hiddenInput.value = canvas.toDataURL('image/png');
+                    } else {
+                        hiddenInput.value = '';
+                    }
+                });
+            }
+        }
+    }
+
+    // 14. init — Punto de entrada al cargar el DOM
     // --------------------------------------------------------------------
     function init() {
         try {
@@ -783,6 +905,7 @@
             initGravedad();
             initFileUploads();
             initCondicional();
+            initSignatureCanvasSST();
 
             var btnSubmit = document.getElementById('rcsst_btn_submit');
             if (btnSubmit) {

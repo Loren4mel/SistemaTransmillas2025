@@ -22,39 +22,27 @@ class ReporteConductorSSTModel
         'accidente'  => 1,
         'comparendo' => 2,
     ];
+    const VERSION_FIRMA_SST = 6; // doc_version para firma del conductor SST
     const ALLOWED_MIME_TYPES = [
         'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf',
     ];
     const MAX_FILE_SIZE = 10485760; // 10 MB
 
     // Niveles de gravedad válidos por tipo (escala simplificada — conductor)
-    const GRAVEDAD_ACCIDENTE  = [1, 2];
+    const GRAVEDAD_ACCIDENTE  = [1, 2, 3, 4];
     const GRAVEDAD_COMPARENDO = [1, 2, 3];
 
     // Niveles de gravedad para validador (escala original completa)
     const GRAVEDAD_VAL_ACCIDENTE  = [1, 2, 3, 4];
     const GRAVEDAD_VAL_COMPARENDO = [1, 2, 3];
 
-    // Etiquetas de gravedad por tipo
+    // Etiquetas de gravedad completas por tipo (conductor y validador)
     const GRAVEDAD_LABELS = [
         'accidente' => [
             1 => ['etiqueta' => 'Leve',       'desc' => 'Daños materiales, ningún tipo de afectación a persona.'],
             2 => ['etiqueta' => 'Moderado',    'desc' => 'Lesiones leves que no requieren hospitalización.'],
             3 => ['etiqueta' => 'Grave',       'desc' => 'Lesiones que requieren atención médica u hospitalización.'],
             4 => ['etiqueta' => 'Crítico',     'desc' => 'Víctimas fatales o lesiones permanentes graves.'],
-        ],
-        'comparendo' => [
-            1 => ['etiqueta' => 'Normal', 'desc' => 'Multa sin inmovilización del vehículo.'],
-            2 => ['etiqueta' => 'Media',  'desc' => 'Multa con inmovilización, sin afectación a la licencia de conducción.'],
-            3 => ['etiqueta' => 'Alta',   'desc' => 'Multa con inmovilización y/o afectación a la licencia de conducción.'],
-        ],
-    ];
-
-    // Etiquetas de gravedad simplificadas (conductor)
-    const GRAVEDAD_SIMPLE_LABELS = [
-        'accidente' => [
-            1 => ['etiqueta' => 'Baja', 'desc' => 'Daños materiales, ningún tipo de afectación a persona.'],
-            2 => ['etiqueta' => 'Alta', 'desc' => 'Hay afectación física a alguna persona derivada del accidente, sea de la índole que sea.'],
         ],
         'comparendo' => [
             1 => ['etiqueta' => 'Normal', 'desc' => 'Multa sin inmovilización del vehículo.'],
@@ -819,6 +807,94 @@ class ReporteConductorSSTModel
         return $mapa;
     }
 
+    // ==================== GESTION DE FIRMA ====================
+
+    /**
+     * Guarda la firma del conductor en la tabla documentos y actualiza el reporte
+     *
+     * @param string $firmaBase64 Data URI base64 de la firma (data:image/png;base64,...)
+     * @param int    $idReporte   ID del reporte al que asociar la firma
+     * @param int    $idUsuario   ID del usuario conductor
+     * @return int|false ID del documento insertado o false en caso de error
+     */
+    public function guardarFirma($firmaBase64, $idReporte, $idUsuario)
+    {
+        if (empty($firmaBase64)) {
+            error_log("ReporteConductorSSTModel: guardarFirma - firma vacía");
+            return false;
+        }
+
+        // Validar que comience con data:image (formato canvas.toDataURL)
+        if (strpos($firmaBase64, 'data:image') !== 0) {
+            error_log("ReporteConductorSSTModel: guardarFirma - formato inválido");
+            return false;
+        }
+
+        // Extraer datos base64
+        $commaPos = strpos($firmaBase64, ',');
+        if ($commaPos === false) {
+            return false;
+        }
+        $base64Data = substr($firmaBase64, $commaPos + 1);
+        $decodedData = base64_decode($base64Data);
+        if ($decodedData === false) {
+            return false;
+        }
+
+        // Crear archivo temporal
+        $nombreArchivo = "firma_sst_" . $idUsuario . "_" . date("Y-m-d-H-i-s") . ".png";
+        $rutaTemporal = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $nombreArchivo;
+        $bytesEscritos = file_put_contents($rutaTemporal, $decodedData);
+        if ($bytesEscritos === false) {
+            error_log("ReporteConductorSSTModel: guardarFirma - error escribiendo temporal");
+            return false;
+        }
+
+        // Asegurar directorio de subida
+        $this->ensureUploadDir();
+
+        // Generar nombre destino único
+        $nombreDestino = date("Y-m-d-H-i-s") . "_" . uniqid() . ".png";
+        $rutaDestino = self::UPLOAD_DIR . $nombreDestino;
+
+        // Mover del temporal al directorio de uploads
+        if (!rename($rutaTemporal, $rutaDestino)) {
+            error_log("ReporteConductorSSTModel: guardarFirma - error moviendo archivo");
+            @unlink($rutaTemporal);
+            return false;
+        }
+
+        // Insertar en documentos
+        $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version)
+                VALUES (NOW(), ?, ?, 'sst_reporte_conductor', ?, ?)";
+
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("ReporteConductorSSTModel: guardarFirma - error preparando SQL: " . $this->db->error);
+            return false;
+        }
+
+        $stmt->bind_param("ssii", $nombreArchivo, $rutaDestino, $idReporte, self::VERSION_FIRMA_SST);
+        if (!$stmt->execute()) {
+            error_log("ReporteConductorSSTModel: guardarFirma - error insertando: " . $stmt->error);
+            return false;
+        }
+
+        $idDocumento = $this->db->insert_id;
+        $stmt->close();
+
+        // Actualizar firma_documento_id en el reporte
+        $sqlUpdate = "UPDATE sst_reporte_conductor SET firma_documento_id = ? WHERE id = ?";
+        $stmtUpd = $this->db->prepare($sqlUpdate);
+        if ($stmtUpd) {
+            $stmtUpd->bind_param("ii", $idDocumento, $idReporte);
+            $stmtUpd->execute();
+            $stmtUpd->close();
+        }
+
+        return $idDocumento;
+    }
+
     // ==================== GESTION DE ARCHIVOS ====================
 
     /**
@@ -944,5 +1020,20 @@ class ReporteConductorSSTModel
         }
 
         return $result;
+    }
+
+    /**
+     * Obtiene la firma del conductor asociada a un reporte
+     *
+     * @param int $idReporte ID del reporte
+     * @return array|null Datos del documento de firma o null
+     */
+    public function obtenerFirmaReporte($idReporte)
+    {
+        $sql = "SELECT d.* FROM documentos d
+                INNER JOIN sst_reporte_conductor r ON r.firma_documento_id = d.iddocumentos
+                WHERE r.id = ?
+                LIMIT 1";
+        return $this->executeQuery($sql, "i", [$idReporte]);
     }
 }

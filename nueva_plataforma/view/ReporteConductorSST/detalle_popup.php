@@ -202,6 +202,19 @@
         <?php endif; ?>
     </div>
 
+    <!-- ====== FIRMA DEL CONDUCTOR ====== -->
+    <?php $firma = $reporte['firma'] ?? null; ?>
+    <?php if ($firma && !empty($firma['doc_ruta'])): ?>
+    <div class="sst-detalle-section">
+        <h4 class="sst-section-title"><i class="fas fa-signature"></i> Firma del Conductor</h4>
+        <div style="text-align: center; padding: 12px;">
+            <img src="<?= htmlspecialchars($firma['doc_ruta']) ?>"
+                 alt="Firma del conductor"
+                 style="max-width: 400px; max-height: 200px; border: 2px solid rgba(7,79,145,0.5); border-radius: 8px; background-color: #fff;">
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- ====== HISTORIAL DE VALIDACIÓN ====== -->
     <?php if (!empty($reporte['comentario_validador']) || !empty($reporte['validador_nombre'])): ?>
     <div class="sst-detalle-section">

@@ -213,34 +213,22 @@
                                                     <i class="fas fa-exclamation-circle me-1"></i> Nivel de gravedad
                                                 </label>
                                                 <div class="rcsst-gravedad-radios" id="rcsst_gravedad_radios_<?= $tipo; ?>">
-                                                    <?php if ($tipo === 'accidente'): ?>
-                                                        <label class="rcsst-gravedad-radio rcsst-gravedad-radio--accidente" data-gravedad="1">
-                                                            <input type="radio" name="rcsst_gravedad_<?= $tipo; ?>" value="1">
-                                                            <span class="rcsst-gravedad-num">1</span>
-                                                            <span class="rcsst-gravedad-tag">Baja</span>
+                                                    <?php
+                                                    $nivelesGravedad = $gravedadLabels[$tipo] ?? [];
+                                                    foreach ($nivelesGravedad as $num => $info):
+                                                        $tag = $info['etiqueta'];
+                                                        $desc = $info['desc'];
+                                                        $claseTipo = 'rcsst-gravedad-radio--' . $tipo;
+                                                    ?>
+                                                        <label class="rcsst-gravedad-radio <?= $claseTipo ?>" data-gravedad="<?= $num ?>">
+                                                            <input type="radio" name="rcsst_gravedad_<?= $tipo; ?>" value="<?= $num ?>">
+                                                            <span class="rcsst-gravedad-num"><?= $num ?></span>
+                                                            <span class="rcsst-gravedad-tag"><?= htmlspecialchars($tag) ?></span>
+                                                            <span class="rcsst-gravedad-desc" style="display: block; font-size: 11px; color: #666; font-weight: 400; margin-top: 2px;">
+                                                                <?= htmlspecialchars($desc) ?>
+                                                            </span>
                                                         </label>
-                                                        <label class="rcsst-gravedad-radio rcsst-gravedad-radio--accidente" data-gravedad="2">
-                                                            <input type="radio" name="rcsst_gravedad_<?= $tipo; ?>" value="2">
-                                                            <span class="rcsst-gravedad-num">2</span>
-                                                            <span class="rcsst-gravedad-tag">Alta</span>
-                                                        </label>
-                                                    <?php else: ?>
-                                                        <label class="rcsst-gravedad-radio rcsst-gravedad-radio--comparendo" data-gravedad="1">
-                                                            <input type="radio" name="rcsst_gravedad_<?= $tipo; ?>" value="1">
-                                                            <span class="rcsst-gravedad-num">1</span>
-                                                            <span class="rcsst-gravedad-tag">Normal</span>
-                                                        </label>
-                                                        <label class="rcsst-gravedad-radio rcsst-gravedad-radio--comparendo" data-gravedad="2">
-                                                            <input type="radio" name="rcsst_gravedad_<?= $tipo; ?>" value="2">
-                                                            <span class="rcsst-gravedad-num">2</span>
-                                                            <span class="rcsst-gravedad-tag">Media</span>
-                                                        </label>
-                                                        <label class="rcsst-gravedad-radio rcsst-gravedad-radio--comparendo" data-gravedad="3">
-                                                            <input type="radio" name="rcsst_gravedad_<?= $tipo; ?>" value="3">
-                                                            <span class="rcsst-gravedad-num">3</span>
-                                                            <span class="rcsst-gravedad-tag">Alta</span>
-                                                        </label>
-                                                    <?php endif; ?>
+                                                    <?php endforeach; ?>
                                                 </div>
                                                 <input type="hidden" id="rcsst_gravedad_<?= $tipo; ?>" value="">
                                             </div>
@@ -273,6 +261,11 @@
                                                                         <span class="text-danger">*</span>
                                                                     <?php endif; ?>
                                                                 </label>
+                                                                <?php if (!empty($campo['ayuda'])): ?>
+                                                                    <small class="form-text text-muted d-block mb-1" style="font-size: 11px; line-height: 1.3;">
+                                                                        <i class="fas fa-info-circle me-1"></i><?= htmlspecialchars($campo['ayuda']) ?>
+                                                                    </small>
+                                                                <?php endif; ?>
 
                                                                 <?php switch ($campo['tipo_respuesta']):
                                                                     case 'SI_NO': ?>
@@ -374,6 +367,32 @@
                             <?php endforeach; ?>
 
                         </div><!-- /preop-sections-wrapper -->
+
+                        <!-- ===== TARJETA: FIRMA DEL CONDUCTOR ===== -->
+                        <div class="preop-card signature-card" style="border-left: 4px solid #074F91;">
+                            <div class="preop-card-header" style="background: linear-gradient(135deg, #074F91, #053A6E);">
+                                <i class="fas fa-signature"></i>
+                                FIRMA DEL CONDUCTOR
+                                <span class="format-indicator" style="background: rgba(255,255,255,0.25); color: #fff; margin-left: auto;">
+                                    OBLIGATORIO
+                                </span>
+                            </div>
+                            <div class="preop-card-body">
+                                <div class="signature-container">
+                                    <canvas id="signatureCanvasSST" width="400" height="200" class="signature-canvas"
+                                            style="border: 2px solid #ccc; border-radius: 8px; background: #fff; width: 100%; max-width: 400px; touch-action: none;"></canvas>
+                                    <div class="signature-controls" style="margin-top: 8px;">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" id="btnClearSignatureSST">
+                                            <i class="fas fa-eraser"></i> Limpiar Firma
+                                        </button>
+                                    </div>
+                                    <input type="hidden" name="firma_sst" id="firma_sst" value="">
+                                    <small class="text-muted d-block mt-2">
+                                        <i class="fas fa-info-circle"></i> Firme con el mouse o el dedo (en dispositivos táctiles)
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- ===== BOTÓN ENVIAR ===== -->
                         <div class="text-center mt-4">
