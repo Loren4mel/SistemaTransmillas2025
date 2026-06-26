@@ -252,7 +252,7 @@ if ($esRegistroRelacional) {
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($valoresEncuesta, $esValidacion) ?>
 
                                 <!-- Kilometraje -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura, (int)($datosVehiculo['veh_kilactual'] ?? 0)) ?>
 
                                 <!-- Observaciones -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
@@ -270,7 +270,7 @@ if ($esRegistroRelacional) {
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($valoresEncuesta, $esValidacion) ?>
 
                                 <!-- Kilometraje -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura, (int)($datosVehiculo['veh_kilactual'] ?? 0)) ?>
 
                                 <!-- Observaciones -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
@@ -407,7 +407,7 @@ if ($esRegistroRelacional) {
 
                             <!-- Kilometraje (solo si hay vehículo asignado de tipo CARRO o MOTO) -->
                             <?php if ($mostrarVehiculo && ($tipovehiculo == 'CARRO' || $tipovehiculo == 'MOTO')): ?>
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura, (int)($datosVehiculo['veh_kilactual'] ?? 0)) ?>
                             <?php endif; ?>
 
                             <!-- Observaciones -->
@@ -530,6 +530,7 @@ if ($esRegistroRelacional) {
         var TIENE_VEHICULO_ASIGNADO = <?= json_encode($tieneVehiculoAsignado) ?>;
         var URL_REDIRECT = <?= json_encode($esValidacion ? '' : '../../inicio.php?bandera=1') ?>;
         var UBICACION_GUARDADA = <?= json_encode($ubicacionGuardada) ?>;
+        var ULTIMO_KM = <?= (int)($datosVehiculo['veh_kilactual'] ?? 0) ?>;
     </script>
 
     <!-- JavaScript del formulario -->

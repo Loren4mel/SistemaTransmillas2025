@@ -630,31 +630,144 @@
                 } else {
                     this.value = '';
                 }
+
+                // Resetear bandera de alerta cuando el usuario modifica el valor
+                window._kmWarningAcknowledged = false;
+                var warningsContainer = document.getElementById('km-warnings');
+                if (warningsContainer) {
+                    warningsContainer.style.display = 'none';
+                    warningsContainer.innerHTML = '';
+                }
+                this.style.borderColor = '';
+                this.style.boxShadow = '';
             });
         }
     }
 
     /**
-     * Valida que el kilometraje tenga un valor numérico válido
+     * Valida el kilometraje con alertas sugestivas (Fase 1)
+     * - Si km < último registrado → alerta
+     * - Si km > último + 300 → alerta (excepto reseteo odómetro)
+     * - Reseteo de odómetro (km ≤ 300 y último cerca de 999...9) → permitido sin alerta
+     * - Usuario puede re-intentar después de ver la alerta
      */
     function validarKilometraje() {
-        // Solo requerido cuando hay sección de vehículo (carro/moto)
         if (typeof MOSTRAR_SECCION_VEHICULO !== 'undefined' && !MOSTRAR_SECCION_VEHICULO) return true;
         var input = document.getElementById('kilometraje');
         if (!input || input.readOnly) return true;
 
         var raw = input.value.replace(/\./g, '').trim();
         if (!raw || parseInt(raw, 10) <= 0) {
-            resaltarTarjeta(input, 'Debe ingresar el kilometraje actual del vehículo.');
-            swalAlert({
-                title: 'Kilometraje requerido',
-                text: 'Debe ingresar el kilometraje actual del vehículo antes de guardar.',
-                icon: 'warning',
-                confirmButtonText: 'Aceptar'
-            });
+            mostrarAlertaKm('Debe ingresar el kilometraje actual del vehículo.');
             return false;
         }
+
+        var nuevoKm = parseInt(raw, 10);
+        var ultimoKm = typeof ULTIMO_KM !== 'undefined' ? parseInt(ULTIMO_KM, 10) : 0;
+        if (ultimoKm <= 0) return true; // Sin referencia, no validar
+
+        // Si el usuario ya vio la alerta y vuelve a guardar, permitir
+        if (window._kmWarningAcknowledged === true) {
+            return true;
+        }
+
+        // Detectar reseteo de odómetro
+        if (esReseteoOdometro(ultimoKm, nuevoKm)) {
+            return true;
+        }
+
+        // Acumular alertas
+        var alertas = [];
+        if (nuevoKm < ultimoKm) {
+            alertas.push(
+                'El kilometraje ingresado (<strong>' + nuevoKm.toLocaleString('es-CO') + '</strong> km) ' +
+                'es <strong>menor</strong> al último registrado (<strong>' + ultimoKm.toLocaleString('es-CO') + '</strong> km).'
+            );
+        }
+        if (nuevoKm > (ultimoKm + 300)) {
+            alertas.push(
+                'El kilometraje ingresado (<strong>' + nuevoKm.toLocaleString('es-CO') + '</strong> km) ' +
+                '<strong>excede el límite diario de 300 km</strong> (último registro: <strong>' + ultimoKm.toLocaleString('es-CO') + '</strong> km).'
+            );
+        }
+
+        if (alertas.length > 0) {
+            mostrarAlertasKm(alertas, input);
+            return false;
+        }
+
         return true;
+    }
+
+    /**
+     * Detecta si el valor ingresado corresponde a un reseteo de odómetro
+     * (odómetro llegó a 999...9 y volvió a 0-300)
+     */
+    function esReseteoOdometro(ultimoKm, nuevoKm) {
+        if (nuevoKm > 300) return false;
+        if (ultimoKm <= 0) return false;
+
+        var digitos = Math.floor(Math.log10(ultimoKm)) + 1;
+        var maxOdometro = Math.pow(10, digitos) - 1; // 9...9
+        var umbralCercania = 500;
+
+        return (ultimoKm >= maxOdometro - umbralCercania);
+    }
+
+    /**
+     * Muestra alertas inline en la tarjeta de kilometraje y hace scroll
+     */
+    function mostrarAlertasKm(alertas, input) {
+        var kmCard = input.closest('.preop-card');
+        if (!kmCard) return;
+
+        // Scroll suave a la tarjeta
+        kmCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Construir HTML de alertas
+        var warningsContainer = document.getElementById('km-warnings');
+        if (!warningsContainer) return;
+
+        var html = '<div class="alert alert-warning" style="padding:12px 14px; border-radius:8px; border-left:4px solid #e67e22; background:#fff8e1;">';
+        html += '<div style="display:flex; align-items:flex-start; gap:10px;">';
+        html += '<i class="fas fa-exclamation-triangle" style="color:#e67e22; font-size:18px; margin-top:2px;"></i>';
+        html += '<div style="flex:1;">';
+        html += '<strong style="font-size:14px; color:#856404;">Verifique el kilometraje ingresado</strong>';
+        html += '<ul style="margin:6px 0 0 0; padding-left:18px; font-size:13px; color:#856404;">';
+        for (var i = 0; i < alertas.length; i++) {
+            html += '<li style="margin-bottom:4px;">' + alertas[i] + '</li>';
+        }
+        html += '</ul>';
+        html += '<p style="margin:8px 0 0 0; font-size:12px; color:#856404;">';
+        html += '<i class="fas fa-info-circle"></i> Si confirma que el valor es correcto, haga clic en <strong>"Guardar"</strong> nuevamente para continuar.';
+        html += '</p>';
+        html += '</div></div></div>';
+
+        warningsContainer.innerHTML = html;
+        warningsContainer.style.display = 'block';
+
+        // Establecer bandera para permitir re-intento
+        window._kmWarningAcknowledged = true;
+
+        // Resaltar temporalmente el input
+        input.style.borderColor = '#e67e22';
+        input.style.boxShadow = '0 0 0 2px rgba(230,126,34,0.25)';
+    }
+
+    /**
+     * Muestra alerta simple de error requerido en kilometraje
+     */
+    function mostrarAlertaKm(mensaje) {
+        var input = document.getElementById('kilometraje');
+        if (input) {
+            resaltarTarjeta(input, mensaje);
+        }
+        swalAlert({
+            title: 'Kilometraje requerido',
+            text: mensaje,
+            icon: 'warning',
+            confirmButtonText: 'Aceptar'
+        });
     }
 
     /**
@@ -2078,6 +2191,8 @@
      */
     function init() {
         try {
+            // Inicializar bandera de alerta de kilometraje
+            window._kmWarningAcknowledged = false;
             initBinaryCheckboxes();
             initKilometrajeFormatting();
             initDriverWarnings();

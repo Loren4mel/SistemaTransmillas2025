@@ -131,22 +131,36 @@ class PreoperacionalService
         $firmaProcesada = $this->procesarFirmaBase64($firmaBase64, $idUsuario);
 
         // ==================== VALIDACIÓN DE KILOMETRAJE ====================
-        // Verifica que el kilometraje enviado no sea menor al actual del vehículo.
+        // Verifica que el kilometraje enviado no sea menor al actual del vehículo,
+        // y que no exceda el límite diario de 300 km (a menos que sea reseteo de odómetro).
         // FASE 1 (actual): solo warning no bloqueante — se permite guardar pero se notifica.
         // FASE 2 (futura): descomentar el return con error para bloquear kilometrajes retroactivos
         //                  una vez migrada completamente la infraestructura de vehículos.
         $warningKilometraje = null;
         if ($kilometraje > 0 && $idVehiculo > 0) {
             $kmActual = $this->model->obtenerKilometrajeVehiculo($idVehiculo);
-            if ($kmActual > 0 && $kilometraje < $kmActual) {
-                $warningKilometraje = "El kilometraje ingresado ({$kilometraje} km) es menor al kilometraje "
-                    . "actual del vehículo ({$kmActual} km). Verifique que el valor sea correcto.";
-                error_log("PreoperacionalService: KM_ADVERTENCIA — Vehículo #{$idVehiculo}: "
-                    . "enviado={$kilometraje} < actual={$kmActual} (usuario={$idUsuario})");
+            if ($kmActual > 0) {
+                // Caso 1: Kilometraje menor al actual
+                if ($kilometraje < $kmActual) {
+                    $warningKilometraje = "El kilometraje ingresado ({$kilometraje} km) es menor al kilometraje "
+                        . "actual del vehículo ({$kmActual} km). Verifique que el valor sea correcto.";
+                    error_log("PreoperacionalService: KM_ADVERTENCIA — Vehículo #{$idVehiculo}: "
+                        . "enviado={$kilometraje} < actual={$kmActual} (usuario={$idUsuario})");
 
-                // ===== BLOQUEO DURO (FASE 2 — descomentar cuando la infraestructura esté migrada) =====
-                // return ['success' => false, 'message' => $warningKilometraje];
-                // ====================================================================================
+                    // ===== BLOQUEO DURO (FASE 2) =====
+                    // return ['success' => false, 'message' => $warningKilometraje];
+                    // ================================
+                }
+                // Caso 2: Kilometraje excede límite diario de 300 km (solo si no es reseteo de odómetro)
+                elseif ($kilometraje > ($kmActual + 300)) {
+                    if (!$this->esReseteoOdometro($kmActual, $kilometraje)) {
+                        $maximoPermitido = $kmActual + 300;
+                        $warningKilometraje = "El kilometraje ingresado ({$kilometraje} km) excede el límite "
+                            . "diario de 300 km (último registro: {$kmActual} km). Verifique que el valor sea correcto.";
+                        error_log("PreoperacionalService: KM_EXCESO — Vehículo #{$idVehiculo}: "
+                            . "enviado={$kilometraje} > actual+300={$maximoPermitido} (usuario={$idUsuario})");
+                    }
+                }
             }
         }
 
@@ -688,6 +702,29 @@ class PreoperacionalService
             'observaciones' => $ultimo['observaciones'] ?? '',
             'ultimoSeguimiento' => $ultimo
         ];
+    }
+
+    /**
+     * Determina si un valor de kilometraje corresponde a un reseteo de odómetro.
+     *
+     * El odómetro se considera reiniciado cuando:
+     * - El nuevo km es ≤ 300 (valor típico post-reseteo)
+     * - El último km está cerca del formato 9...9 (máximo del odómetro)
+     *
+     * @param int $ultimoKm Último kilometraje registrado (veh_kilactual)
+     * @param int $nuevoKm  Nuevo kilometraje ingresado
+     * @return bool True si es un reseteo válido
+     */
+    private function esReseteoOdometro($ultimoKm, $nuevoKm)
+    {
+        if ($nuevoKm > 300) return false;
+        if ($ultimoKm <= 0) return false;
+
+        $digitos = strlen((string) $ultimoKm);
+        $maxOdometro = pow(10, $digitos) - 1; // 9...9
+        $umbralCercania = 500;
+
+        return ($ultimoKm >= $maxOdometro - $umbralCercania);
     }
 
     /**

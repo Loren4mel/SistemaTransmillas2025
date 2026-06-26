@@ -508,7 +508,7 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Genera tarjeta de kilometraje
      */
-    public static function renderKilometrajeCard($registroExistente, $esValidacion = false)
+    public static function renderKilometrajeCard($registroExistente, $esValidacion = false, $ultimoKilometraje = 0)
     {
         $disabled = $esValidacion ? 'disabled' : '';
         $registro = $registroExistente ?? [];
@@ -533,8 +533,20 @@ class PreoperacionalNuevaEncuestaViewHelper
             $html .= '</div>';
         } else {
             // En edición: input normal
-            $html .= '<input name="kilometraje" id="kilometraje" value="' . $kmValor . '" class="form-input" placeholder="Ingrese kilometraje actual" ' . $requiredKm . ' ' . $disabled . '>';
+            $html .= '<input name="kilometraje" id="kilometraje" value="' . $kmValor . '" class="form-input" placeholder="Ingrese kilometraje actual" ' . $requiredKm . ' ' . $disabled . ' data-ultimo-km="' . (int)$ultimoKilometraje . '">';
         }
+
+        // Mostrar último kilometraje registrado (solo en modo edición, no validación)
+        if (!$esValidacion && $ultimoKilometraje > 0) {
+            $kmFormateado = number_format($ultimoKilometraje, 0, ',', '.');
+            $html .= '<div class="last-km-info" style="margin-top:8px; padding:8px 12px; background:#e8f4fd; border-radius:6px; font-size:13px; color:#074F91; display:flex; align-items:center; gap:8px;">';
+            $html .= '<i class="fas fa-history"></i>';
+            $html .= '<span>Último km registrado: <strong>' . $kmFormateado . '</strong> km</span>';
+            $html .= '</div>';
+        }
+
+        // Contenedor para alertas inline de kilometraje (JS)
+        $html .= '<div id="km-warnings" style="display:none; margin-top:8px;"></div>';
 
         $html .= '</div>';
         $html .= '<div>';
