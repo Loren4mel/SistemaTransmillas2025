@@ -963,8 +963,15 @@ if (!isset($baseUrl)) {
                         </label>
                         <input type="date" name="rev_fecha_consulta"
                                id="rev_fecha_consulta"
-                               class="form-control"
-                               value="<?= date('Y-m-d') ?>" required>
+                               class="form-control bg-light"
+                               value="<?= date('Y-m-d') ?>"
+                               readonly
+                               title="La fecha se fija automáticamente al día de hoy"
+                               required>
+                        <small class="text-muted">
+                            <i class="fas fa-lock me-1"></i>
+                            Fecha fijada automáticamente — no editable
+                        </small>
                     </div>
 
                     <div class="mb-3">

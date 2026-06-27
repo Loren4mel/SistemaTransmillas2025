@@ -191,16 +191,22 @@ $(document).ready(function () {
                 render: function (data, type, row) {
                     const badge = generarBadgeExtintor(data);
                     return `<button type="button"
-            class="btn btn-sm btn-link btn-editar-extintor p-0"
-            style="text-decoration:none; color:#1a3a5c; font-weight:600;"
-            title="Clic para actualizar recarga de extintor"
-            data-id="${row.idvehiculos}"
-            data-fecha="${data ?? ''}"
-            data-imgext="${row.veh_img_extintor ?? ''}"
-            data-checklist="${(row.veh_checklist_extintor ?? '[]').replace(/"/g, '&quot;')}">
-            🧯 ${data ?? 'Sin fecha'} <i class="fas fa-pen" style="font-size:10px; opacity:0.6;"></i>
-        </button>
-        ${badge}`;
+        class="btn btn-sm btn-editar-extintor p-0 d-inline-flex align-items-center gap-2"
+        style="text-decoration:none; color:#1a3a5c; font-weight:600; background:transparent; border:none; font-size:13px;"
+        title="Clic para actualizar recarga de extintor"
+        data-id="${row.idvehiculos}"
+        data-fecha="${data ?? ''}"
+        data-imgext="${row.veh_img_extintor ?? ''}"
+        data-checklist="${(row.veh_checklist_extintor ?? '[]').replace(/"/g, '&quot;')}">
+        <span style="display:inline-flex; align-items:center; justify-content:center;
+                     width:30px; height:30px; border-radius:50%;
+                     background:#fdecea; flex-shrink:0;">
+            <i class="fas fa-fire-extinguisher" style="font-size:15px; color:#c0392b;"></i>
+        </span>
+        <span>${data ?? 'Sin fecha'}</span>
+        <i class="fas fa-pen" style="font-size:11px; opacity:0.5;"></i>
+    </button>
+    <div class="mt-1">${badge}</div>`;
                 }
             },
 
@@ -1154,7 +1160,7 @@ $('#ent_vehiculo_id').on('change', function () {
                 const data = typeof res === 'object' ? res : JSON.parse(res);
                 if (data.equipo && data.equipo.length > 0) {
                     data.equipo.forEach(h => {
-                        lista.appendChild(crearFilaHerramientaEntrega(h.nombre, h.existe));
+                        lista.appendChild(crearFilaHerramientaEntrega(h.nombre, h.existe, h.foto || ''));
                     });
                 }
             } catch (e) {
@@ -1163,7 +1169,6 @@ $('#ent_vehiculo_id').on('change', function () {
         }
     });
 });
-
 // Cambiar labels según tipo de entrega
 $('#ent_tipoentrega').on('change', function () {
     const tipo = $(this).val();
@@ -2041,31 +2046,45 @@ function renderizarHistorial(res) {
             try {
                 const equipo = JSON.parse(e.ent_equipo_carretera);
                 if (equipo && equipo.length > 0) {
+                    const collapseId = `equipoCollapse_${e.identregavehiculo}_${i}`;
+                    const inactivas = equipo.filter(h => h.existe !== 'si').length;
+
                     equipoHtml = `
-                        <div style="text-align:left; min-width:160px;">
-                            <div class="px-2 py-1 mb-1 rounded" style="background-color:#1a3a5c;">
-                                <small class="text-white fw-bold">
-                                    <i class="fas fa-toolbox me-1"></i> Equipo
-                                </small>
-                            </div>
-                            <ul class="list-unstyled mb-0 ps-1">
-                                ${equipo.map(h => `
-    <li class="d-flex align-items-center gap-2 py-1 border-bottom"
-        style="font-size:12px;">
-        <span>${h.existe === 'si' ? '✅' : '❌'}</span>
-        <span class="${h.existe !== 'si' ? 'text-muted text-decoration-line-through' : ''}" style="flex:1;">
-            ${h.nombre}
-        </span>
-        ${h.foto
+                <div style="text-align:left; min-width:140px;">
+                    <button class="btn btn-sm btn-outline-secondary w-100"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#${collapseId}"
+                            aria-expanded="false"
+                            style="font-size:11px;">
+                        <i class="fas fa-toolbox me-1"></i> Ver herramientas (${equipo.length})
+                        ${inactivas > 0 ? `<span class="badge bg-danger ms-1">${inactivas} inactiva${inactivas !== 1 ? 's' : ''}</span>` : ''}
+                    </button>
+                    <div class="collapse mt-1" id="${collapseId}">
+                        <div class="px-2 py-1 mb-1 rounded" style="background-color:#1a3a5c;">
+                            <small class="text-white fw-bold">
+                                <i class="fas fa-toolbox me-1"></i> Equipo
+                            </small>
+                        </div>
+                        <ul class="list-unstyled mb-0 ps-1">
+                            ${equipo.map(h => `
+                                <li class="d-flex align-items-center gap-2 py-1 border-bottom"
+                                    style="font-size:12px;">
+                                    <span>${h.existe === 'si' ? '✅' : '❌'}</span>
+                                    <span class="${h.existe !== 'si' ? 'text-muted text-decoration-line-through' : ''}" style="flex:1;">
+                                        ${h.nombre}
+                                    </span>
+                                    ${h.foto
                             ? `<a href="${baseUrl}/${h.foto}" target="_blank">
-                <img src="${baseUrl}/${h.foto}"
-                     style="width:28px;height:28px;object-fit:cover;border-radius:3px;
-                            border:1px solid #dee2e6;" title="Ver foto de ${h.nombre}">
-               </a>`
+                                            <img src="${baseUrl}/${h.foto}"
+                                                 style="width:28px;height:28px;object-fit:cover;border-radius:3px;
+                                                        border:1px solid #dee2e6;" title="Ver foto de ${h.nombre}">
+                                           </a>`
                             : ''}
-    </li>`).join('')}
-                            </ul>
-                        </div>`;
+                                </li>`).join('')}
+                        </ul>
+                    </div>
+                </div>`;
                 }
             } catch (_) { }
         }
@@ -2129,29 +2148,30 @@ function renderizarHistorial(res) {
                 : '<span class="text-muted" style="font-size:11px;">Sin video</span>'
             }</td>
                 <td style="max-width:160px;">${observaciones}</td>
-    <button class="btn btn-sm btn-outline-primary btn-editar-entrega"
-        title="Editar entrega"
-        data-id="${e.identregavehiculo}"
-        data-tipoentrega="${e.ent_tipoentrega}"
-        data-fechaentrega="${e.ent_fechaentrega}"
-        data-fecharegist="${e.ent_fecharegistra ?? ''}"
-        data-sede="${e.ent_sede ?? ''}"
-        data-observaciones="${(e.ent_observaciones ?? '').replace(/"/g, '&quot;')}"
-        data-conductor="${e.conductor_nombre ?? ''}"
-        data-userregistra="${e.ent_userregistra ?? ''}"
-        data-imgfrente="${e.ent_img_frente ?? ''}"
-        data-imgrespaldo="${e.ent_img_trasera ?? ''}"
-        data-equipo="${(e.ent_equipo_carretera ?? '').replace(/"/g, '&quot;')}">
-        <i class="fas fa-edit"></i>
-    </button>
-</td>
-<td>
-    <button class="btn btn-sm btn-danger btn-eliminar-entrega"
-        title="Eliminar entrega"
-        data-id="${e.identregavehiculo}">
-        <i class="fas fa-trash-alt"></i>
-    </button>
-</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary btn-editar-entrega"
+                        title="Editar entrega"
+                        data-id="${e.identregavehiculo}"
+                        data-tipoentrega="${e.ent_tipoentrega}"
+                        data-fechaentrega="${e.ent_fechaentrega}"
+                        data-fecharegist="${e.ent_fecharegistra ?? ''}"
+                        data-sede="${e.ent_sede ?? ''}"
+                        data-observaciones="${(e.ent_observaciones ?? '').replace(/"/g, '&quot;')}"
+                        data-conductor="${e.conductor_nombre ?? ''}"
+                        data-userregistra="${e.ent_userregistra ?? ''}"
+                        data-imgfrente="${e.ent_img_frente ?? ''}"
+                        data-imgrespaldo="${e.ent_img_trasera ?? ''}"
+                        data-equipo="${(e.ent_equipo_carretera ?? '').replace(/"/g, '&quot;')}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-danger btn-eliminar-entrega"
+                        title="Eliminar entrega"
+                        data-id="${e.identregavehiculo}">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
             </tr>
         `);
     });
@@ -3089,24 +3109,24 @@ $(document).on('click', '.btn-cargar-revision', function () {
     const marca = $(this).data('marca');
     const modelo = $(this).data('modelo');
 
-    $('#rev_vehiculo_id').val(id);
-    $('#rev_vehiculo_texto').val(`${placa} — ${marca} ${modelo}`);
-    $('#rev_fecha_consulta').val(new Date().toISOString().split('T')[0]);
+    // Limpiar el formulario primero
     document.getElementById('formCargarRevision').reset();
+    // Luego asignar valores fijos (después de reset para que no se pierdan)
     $('#rev_vehiculo_id').val(id);
     $('#rev_vehiculo_texto').val(`${placa} — ${marca} ${modelo}`);
+    // Fijar fecha actual del sistema — no editable por el usuario
+    $('#rev_fecha_consulta').val(new Date().toISOString().split('T')[0]);
 
     new bootstrap.Modal(document.getElementById('modalCargarRevision')).show();
 });
 
 // Guardar revisión
 $(document).on('click', '#btnGuardarRevision', function () {
-    const fecha = $('#rev_fecha_consulta').val();
     const evidencia = document.getElementById('rev_evidencia');
 
-    if (!fecha) {
-        Swal.fire('Error', 'Debe ingresar la fecha de consulta', 'error'); return;
-    }
+    // La fecha se fija automáticamente al día actual y no es editable
+    // Forzar la fecha actual por seguridad antes de enviar
+    $('#rev_fecha_consulta').val(new Date().toISOString().split('T')[0]);
     if (!evidencia.files || evidencia.files.length === 0) {
         Swal.fire('Error', 'Debe subir la evidencia de la consulta', 'error'); return;
     }

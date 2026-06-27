@@ -258,7 +258,7 @@ if (isset($_POST['eliminar_entrega'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_revision'])) {
     $datos = [
         'rev_vehiculo_id'    => intval($_POST['rev_vehiculo_id']),
-        'rev_fecha_consulta' => $_POST['rev_fecha_consulta'],
+        'rev_fecha_consulta' => date('Y-m-d'),  // Siempre se guarda la fecha actual del servidor
         'rev_usuario'        => $_SESSION['usuario_nombre'] ?? 'Sin sesión',
     ];
     $resultado = $modelo->guardarRevisionComparendo($datos);
