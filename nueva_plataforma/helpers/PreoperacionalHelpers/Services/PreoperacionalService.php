@@ -651,6 +651,10 @@ class PreoperacionalService
      */
     public function calcularEstadoGeneral($respuestas)
     {
+        // Filtrar solo preguntas vehiculares. Las respuestas personales del conductor
+        // (conductor_*, auxiliar_*, administrativo_*) no deben cambiar el estado del vehículo.
+        $codigosVehiculares = self::CODIGOS_VEHICULO;
+
         // Si inspec_1 es NO (valor '2'), el vehículo está FUERA_DE_SERVICIO
         if (isset($respuestas['inspec_1']) && $respuestas['inspec_1'] == '2') {
             return 'FUERA_DE_SERVICIO';
@@ -664,13 +668,9 @@ class PreoperacionalService
             }
         }
 
-        // Si cualquier otra pregunta es NO
-        foreach ($respuestas as $key => $valor) {
-            // Saltar campos no-pregunta
-            if (in_array($key, ['ubicacion', 'firma_documento_id', 'inspeccion_documento_id', 'temperatura_documento_id'])) {
-                continue;
-            }
-            if ($valor == '2') {
+        // Si cualquier otra pregunta vehicular es NO
+        foreach ($codigosVehiculares as $codigo) {
+            if (isset($respuestas[$codigo]) && $respuestas[$codigo] == '2') {
                 return 'CON_NOVEDADES';
             }
         }
@@ -711,8 +711,8 @@ class PreoperacionalService
         }
 
         // PRIORIDAD 2: No existe REVISION_SST; usar el registro más reciente (cualquier tipo).
-        // Los PREOPERACIONAL con CON_NOVEDADES (por respuestas "NO" en checkboxes)
-        // NO constituyen una novedad reportada que requiera fotos de entrega.
+        // Un PREOPERACIONAL con CON_NOVEDADES (hallazgos del checklist) NO constituye
+        // una novedad activa — solo REVISION_SST marca novedad vehicular real.
         $ultimo = $this->model->obtenerUltimoSeguimientoPorVehiculo($idVehiculo);
 
         if (!$ultimo) {
@@ -726,6 +726,12 @@ class PreoperacionalService
         }
 
         $estado = $ultimo['estado_general'] ?? 'OPTIMO';
+        $esRevisionSST = ($ultimo['tipo_evento'] ?? '') === 'REVISION_SST';
+        // Solo FUERA_DE_SERVICIO de PREOPERACIONAL se respeta; CON_NOVEDADES de preop
+        // es hallazgo del checklist, no novedad vehicular activa.
+        if (!$esRevisionSST && $estado === 'CON_NOVEDADES') {
+            $estado = 'OPTIMO';
+        }
         $tieneNovedad = in_array($estado, ['FUERA_DE_SERVICIO', 'CON_NOVEDADES']);
 
         return [
@@ -1510,7 +1516,7 @@ class PreoperacionalService
 
             // Agregar metadata del cambio vehicular a preencuesta
             $metadatosArray = !empty($metadatosJson) ? json_decode($metadatosJson, true) : [];
-            $metadatosArray['tipo_datos'] = 'cambio_voluntario';
+            $metadatosArray['tipo_dato'] = 'cambio_voluntario';
             $metadatosArray['detalles'] = [
                 'vehiculo_original' => $idVehiculoOriginal,
                 'vehiculo_seleccionado' => $idVehiculoSeleccionado,
@@ -1638,9 +1644,9 @@ class PreoperacionalService
             }
 
             // Seguimiento vehiculo — registro del libro de vida del vehículo
-            // Si el vehículo tiene una novedad activa (REVISION_SST CON_NOVEDADES o FUERA_DE_SERVICIO),
-            // se conservan la observación y el estado de la novedad en lugar de recalcularlos
-            // desde las respuestas de la encuesta. Así el historial refleja la realidad del vehículo.
+            // REGLA: El estado general se calcula desde las respuestas del preoperacional.
+            // FUERA_DE_SERVICIO desde REVISION_SST tiene prioridad absoluta (seguridad).
+            // CON_NOVEDADES de REVISION_SST NO se hereda — un preop limpio restablece OPTIMO.
             $observacionSeguimiento = $observaciones;
             $estadoGeneralSeguimiento = $this->calcularEstadoGeneral($datosEncuesta);
 
@@ -1650,40 +1656,64 @@ class PreoperacionalService
                 $estadoGeneralSeguimiento = 'FUERA_DE_SERVICIO';
             }
 
-            // NOTA: metadata_evento es exclusivo de REVISION_SST (que requiere más datos de contexto).
-            // PREOPERACIONAL usa las columnas dedicadas de la tabla seguimiento_vehiculo
-            // (id_preoperacional, estado_general, observaciones, kilometraje, ubicacion, foto_evidencia)
-            // para registrar los datos del preoperacional, sin duplicarlos en un JSON de metadata.
+            // REVISION_SST con FUERA_DE_SERVICIO es autoritativo — el preop no lo revierte.
+            // CON_NOVEDADES de REVISION_SST se limpia si el preop sale OPTIMO: el conductor
+            // reportó que todo está bien.
             $revisionSST = $this->model->obtenerUltimoSeguimientoRevisionSST($idVehiculo);
-            if ($revisionSST
-                && in_array($revisionSST['estado_general'] ?? '', ['CON_NOVEDADES', 'FUERA_DE_SERVICIO'])) {
-                // El vehículo tiene una REVISION_SST activa con estado no-OPTIMO.
-                // El PREOPERACIONAL hereda este estado — se usa la columna estado_general
-                // y observaciones para trazabilidad, sin necesidad de metadata JSON.
-                $estadoGeneralSeguimiento = $revisionSST['estado_general'];
-                if (!empty($revisionSST['observaciones'])) {
-                    $observacionSeguimiento = $revisionSST['observaciones'];
-                }
+            $tieneSSTActivo = $revisionSST && in_array($revisionSST['estado_general'] ?? '', ['CON_NOVEDADES', 'FUERA_DE_SERVICIO']);
+
+            if ($revisionSST && $revisionSST['estado_general'] === 'FUERA_DE_SERVICIO') {
+                $estadoGeneralSeguimiento = 'FUERA_DE_SERVICIO';
+                $observacionSeguimiento = !empty($revisionSST['observaciones'])
+                    ? $revisionSST['observaciones']
+                    : $observacionSeguimiento;
             }
 
             // Vincular con el check-in diario del conductor (seguimiento_user)
             $idSegUserPreop = $this->obtenerSeguimientoUserHoy($idUsuario);
 
-            // Incluir metadata del cambio vehicular en el seguimiento del PREOPERACIONAL
-            $metadataEventoPreop = null;
-            if ($huboCambioVehiculo) {
-                $metadataEventoPreop = [
-                    'tipo_datos' => 'cambio_voluntario',
+            // Construir metadata_evento como array de eventos (cada miembro = un tipo de dato)
+            $metadataEventoPreop = [];
+
+            // REVISION_SST activa en el vehículo — registrarla para trazabilidad
+            if ($tieneSSTActivo) {
+                $metadataEventoPreop[] = [
+                    'tipo_dato' => 'revision_previa',
                     'detalles' => [
-                        'vehiculo_original' => $idVehiculoOriginal,
-                        'vehiculo_seleccionado' => $idVehiculoSeleccionado,
-                        'descripcion' => 'Conductor registra preoperacional con vehiculo que no tenia asignado',
+                        'descripcion' => $revisionSST['observaciones'] ?? '',
+                        'estado' => $revisionSST['estado_general'] ?? '',
+                        'fecha' => $revisionSST['fecha_registro'] ?? '',
                     ],
                 ];
-                if (!empty($seleccionObservaciones)) {
-                    $metadataEventoPreop['detalles']['observaciones_cambio'] = $seleccionObservaciones;
+                $notaSST = sprintf(
+                    '[REVISION PREVIA: %s — %s (%s)]',
+                    $revisionSST['estado_general'] ?? '',
+                    trim($revisionSST['observaciones'] ?? ''),
+                    $revisionSST['fecha_registro'] ?? ''
+                );
+                if (strpos($observacionSeguimiento, $notaSST) === false) {
+                    $observacionSeguimiento = trim($observacionSeguimiento . "\n" . $notaSST);
                 }
             }
+
+            // Cambio voluntario de vehículo
+            if ($huboCambioVehiculo) {
+                $detallesCambio = [
+                    'vehiculo_original' => $idVehiculoOriginal,
+                    'vehiculo_seleccionado' => $idVehiculoSeleccionado,
+                    'descripcion' => 'Conductor registra preoperacional con vehiculo que no tenia asignado',
+                ];
+                if (!empty($seleccionObservaciones)) {
+                    $detallesCambio['observaciones_cambio'] = $seleccionObservaciones;
+                }
+                $metadataEventoPreop[] = [
+                    'tipo_dato' => 'cambio_voluntario',
+                    'detalles' => $detallesCambio,
+                ];
+            }
+
+            // Si no hay eventos, null para la BD
+            $metadataEventoPreop = !empty($metadataEventoPreop) ? $metadataEventoPreop : null;
 
             $datosSeg = [
                 'tipo_evento' => 'PREOPERACIONAL',

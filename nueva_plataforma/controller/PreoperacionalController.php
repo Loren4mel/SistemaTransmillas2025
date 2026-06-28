@@ -455,7 +455,7 @@ function loadView($service)
     if ($registroExistente && !empty($registroExistente['preencuesta'])) {
         $metadatosLegado = json_decode($registroExistente['preencuesta'], true) ?? [];
         $detalles = $metadatosLegado['detalles'] ?? [];
-        if (($metadatosLegado['tipo_datos'] ?? '') === 'cambio_voluntario' && !empty($detalles)) {
+        if (($metadatosLegado['tipo_dato'] ?? '') === 'cambio_voluntario' && !empty($detalles)) {
             // Resolver placas de los vehículos involucrados en el cambio
             $idOrig = $detalles['vehiculo_original'] ?? 0;
             $idSel = $detalles['vehiculo_seleccionado'] ?? 0;
