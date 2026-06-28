@@ -599,7 +599,36 @@ class PreoperacionalModel
     }
 
     /**
-     * Actualiza la imagen de kilometraje de un registro
+     * Obtiene las fotos del cambio voluntario de vehículo asociadas
+     * a un preoperacional. Las fotos se guardan en documentos contra
+     * el seguimiento_vehiculo (PREOPERACIONAL) con doc_version=10.
+     *
+     * @param int $idPreoperacional ID del preoperacional
+     * @return array Lista de documentos con iddocumentos, doc_nombre, doc_ruta
+     */
+    public function obtenerFotosCambioVehiculo($idPreoperacional)
+    {
+        $sql = "SELECT d.iddocumentos, d.doc_nombre, d.doc_ruta
+                FROM documentos d
+                INNER JOIN seguimiento_vehiculo sv ON d.doc_idviene = sv.id_seguimiento_vehiculo
+                    AND d.doc_tabla = 'seguimiento_vehiculo'
+                WHERE sv.id_preoperacional = ?
+                  AND sv.tipo_evento = 'PREOPERACIONAL'
+                  AND d.doc_version = 10
+                ORDER BY d.iddocumentos ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idPreoperacional);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $fotos = [];
+        while ($row = $result->fetch_assoc()) {
+            $fotos[] = $row;
+        }
+        return $fotos;
+    }
+
+    /**
      * 
      * @param int $idPreoperacional ID del registro
      * @param string $rutaImagen Ruta de la imagen

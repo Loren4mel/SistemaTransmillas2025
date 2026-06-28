@@ -129,6 +129,13 @@
     var ubicacionCoords = null;
     var mapaInstancia = null;
 
+    // Estado del vehículo seleccionado para cambio voluntario (cache local, sin submit hasta guardar)
+    var _vehiculoSeleccionado = {
+        id: null,
+        files: {},
+        observaciones: ''
+    };
+
     /**
      * Renderiza un mapa Leaflet ligero en el contenedor indicado
      * Optimizado para mobile: sin controles de zoom, gestos táctiles nativos
@@ -1479,8 +1486,7 @@
                 var idVehiculo = panel ? panel.getAttribute('data-idvehiculo') : '0';
                 var datos = {
                     puede_ser_operado: seleccion.value,
-                    observaciones: document.getElementById('novedadObservacion') ? document.getElementById('novedadObservacion').value : '',
-                    idvehiculo_nuevo: document.getElementById('novedadVehiculoSelect') ? document.getElementById('novedadVehiculoSelect').value : ''
+                    observaciones: document.getElementById('novedadObservacion') ? document.getElementById('novedadObservacion').value : ''
                 };
                 guardarNovedad(idVehiculo, datos);
             });
@@ -1677,7 +1683,6 @@
         formData.append('idvehiculo_actual', idVehiculo);
         formData.append('puede_ser_operado', datos.puede_ser_operado);
         formData.append('observaciones', datos.observaciones);
-        formData.append('idvehiculo_nuevo', datos.idvehiculo_nuevo);
         formData.append('id_usuario', document.getElementById('user') ? document.getElementById('user').value : '');
 
         // Append fotos múltiples de evidencia
@@ -1704,10 +1709,7 @@
             if (btnCancelar) btnCancelar.disabled = false;
 
             if (data.success) {
-                if (data.cambio_vehiculo) {
-                    // Vehículo nuevo asignado → recargar página
-                    swalAlert({ title: 'Vehículo actualizado', text: data.message + ' La página se recargará.', icon: 'success', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
-                } else if (data.idvehiculo_final && parseInt(data.idvehiculo_final) > 0) {
+                if (data.idvehiculo_final && parseInt(data.idvehiculo_final) > 0) {
                     // SÍ → el vehículo se mantiene: desbloquear secciones normalmente
                     var inlineForm = document.getElementById('novedadInlineForm');
                     if (inlineForm) inlineForm.style.display = 'none';
@@ -1722,9 +1724,7 @@
 
                     swalAlert({ title: 'Novedad registrada', text: data.message, icon: 'success', confirmButtonText: 'Aceptar', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
                 } else {
-                    // FUERA_DE_SERVICIO sin vehículo nuevo → el vehículo fue desasignado
-                    // en el servidor. Recargar la página para que el formulario refleje
-                    // el nuevo estado (sin secciones de vehículo, panel de asignación, etc.).
+                    // FUERA_DE_SERVICIO sin vehículo → recargar para reflejar nuevo estado
                     swalAlert({ title: 'Vehículo fuera de servicio', text: data.message + ' La página se recargará.', icon: 'info', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
                 }
             } else {
@@ -1859,6 +1859,19 @@
             var formData = new FormData(this);
             formData.append('accion', 'guardar');
             formData.append('ajax', '1');
+
+            // Si hay un vehículo seleccionado (cambio voluntario), incluir datos cacheados
+            if (_vehiculoSeleccionado && _vehiculoSeleccionado.id) {
+                formData.append('idvehiculo_seleccionado', _vehiculoSeleccionado.id);
+                formData.append('seleccion_observaciones', _vehiculoSeleccionado.observaciones || '');
+
+                // Adjuntar fotos cacheadas (File objects)
+                if (_vehiculoSeleccionado.files) {
+                    Object.keys(_vehiculoSeleccionado.files).forEach(function(key) {
+                        formData.append(key, _vehiculoSeleccionado.files[key]);
+                    });
+                }
+            }
 
             var btn = document.getElementById('btnGuardar');
             if (btn) {
@@ -2166,24 +2179,196 @@
 
     /**
      * Inicializa el botón de "Seleccionar otro vehículo para hoy".
-     * Permite al usuario cambiar de vehículo voluntariamente,
-     * sin reportar fallas ni modificar usu_vehiculo.
+     * Muestra el panel de selección; la selección se cachea en
+     * _vehiculoSeleccionado y se envía junto con el preoperacional.
      */
     function initBotonSeleccionDiaria() {
         var btn = document.getElementById('btnSeleccionarVehiculoDiario');
         if (!btn) return;
 
         btn.addEventListener('click', function() {
-            var panel = document.getElementById('novedadPanel');
-            var idVehiculoActual = panel ? panel.getAttribute('data-idvehiculo') : '0';
-
-            // Mostrar el panel de selección de vehículo diario
             var selectContainer = document.getElementById('vehiculoDiarioSelectContainer');
             if (selectContainer) {
                 selectContainer.style.display = '';
                 selectContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         });
+    }
+
+    /**
+     * Inicializa el panel de selección diaria de vehículo.
+     * En lugar de enviar al servidor inmediatamente, cachea la selección
+     * en _vehiculoSeleccionado para enviarla junto con el preoperacional.
+     * Al seleccionar, obtiene datos del vehículo vía AJAX y actualiza
+     * la tarjeta de info, kilometraje y alertas de documentos.
+     */
+    function initSubmitSeleccionDiaria() {
+        var btnConfirmar = document.getElementById('btnGuardarSeleccionDiaria');
+        var btnCancelar = document.getElementById('btnCancelarSeleccionDiaria');
+        var container = document.getElementById('vehiculoDiarioSelectContainer');
+
+        if (btnConfirmar) {
+            btnConfirmar.addEventListener('click', function() {
+                var select = document.getElementById('diariaVehiculoSelect');
+                if (!select) {
+                    swalAlert({ title: 'Error', text: 'No hay vehículos disponibles para seleccionar.', icon: 'error', confirmButtonText: 'Aceptar' });
+                    return;
+                }
+                var idVehiculo = select.value;
+                if (!idVehiculo) {
+                    swalAlert({ title: 'Seleccione un vehículo', text: 'Debe elegir un vehículo de la lista.', icon: 'warning', confirmButtonText: 'Aceptar' });
+                    return;
+                }
+
+                // Mostrar indicador de carga en el botón
+                btnConfirmar.disabled = true;
+                btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
+
+                // Cachear archivos de foto y observaciones
+                var fotos = ['diaria_frente', 'diaria_trasera', 'diaria_lateral_izq', 'diaria_lateral_der'];
+                _vehiculoSeleccionado.files = {};
+                fotos.forEach(function(nombre) {
+                    var input = document.querySelector('input[name="' + nombre + '"]');
+                    if (input && input.files && input.files[0]) {
+                        _vehiculoSeleccionado.files[nombre] = input.files[0];
+                    }
+                });
+                var obs = document.getElementById('diariaObservacion');
+                _vehiculoSeleccionado.observaciones = obs && obs.value.trim() ? obs.value.trim() : '';
+
+                // Obtener datos completos del vehículo seleccionado para actualizar la UI
+                var formData = new FormData();
+                formData.append('accion', 'obtener_datos_vehiculo');
+                formData.append('idvehiculo', idVehiculo);
+
+                fetch((window.APP_BASE_URL ? window.APP_BASE_URL + '/controller/PreoperacionalController.php' : window.location.pathname), {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Seleccionar vehículo para hoy';
+
+                    if (!data.success || !data.data) {
+                        swalAlert({ title: 'Error', text: 'No se pudieron obtener los datos del vehículo.', icon: 'error', confirmButtonText: 'Aceptar' });
+                        return;
+                    }
+
+                    var v = data.data;
+
+                    // Cachear el ID del vehículo seleccionado (solo si la carga fue exitosa)
+                    _vehiculoSeleccionado.id = idVehiculo;
+
+                    // Actualizar los hidden fields
+                    // NOTA: NO se actualiza input[name="idvehiculo"] — ese debe conservar
+                    // el vehículo ORIGINAL para que el servidor detecte el cambio.
+                    // Solo se actualiza idvehiculo_seleccionado.
+                    var selField = document.getElementById('idvehiculo_seleccionado');
+                    if (selField) selField.value = idVehiculo;
+
+                    // ---- Actualizar tarjeta de info del vehículo ----
+                    var vehicleCard = document.querySelector('.preop-card.vehicle-info');
+                    if (vehicleCard) {
+                        var grid = vehicleCard.querySelector('.vehicle-info-grid');
+                        if (grid) {
+                            // Reconstruir grid con datos del vehículo seleccionado
+                            var campos = {
+                                'PLACA': v.veh_placa || '',
+                                'MARCA': v.veh_marca || '',
+                                'MODELO': v.veh_modelo || '',
+                                'KM': v.veh_kilactual || '',
+                                'SEGURO VENCE': v.veh_fechaseguro || '',
+                                'TECNOMECÁNICA VENCE': v.veh_fechategnomecanica || ''
+                            };
+                            grid.innerHTML = '';
+                            Object.keys(campos).forEach(function(label) {
+                                if (campos[label]) {
+                                    var div = document.createElement('div');
+                                    div.className = 'vehicle-info-item';
+                                    div.innerHTML = '<strong>' + label + '</strong><span>' + campos[label] + '</span>';
+                                    grid.appendChild(div);
+                                }
+                            });
+                        }
+
+                        // Actualizar clase de severidad en la tarjeta
+                        var sev = v.max_severity || 0;
+                        vehicleCard.className = vehicleCard.className.replace(/severity-\S*/g, '').trim();
+                        if (sev >= 3) vehicleCard.classList.add('severity-expired');
+                        else if (sev >= 2) vehicleCard.classList.add('severity-critical');
+                        else if (sev >= 1) vehicleCard.classList.add('severity-warning');
+                    }
+
+                    // ---- Reemplazar alertas de documentos con las del nuevo vehículo ----
+                    var docsPanel = document.querySelector('.vehiculo-docs-panel');
+                    if (docsPanel && v.alertas_html) {
+                        docsPanel.outerHTML = v.alertas_html;
+                    } else if (docsPanel && !v.alertas_html) {
+                        docsPanel.style.display = 'none';
+                    }
+
+                    // ---- Actualizar ULTIMO_KM para validación de kilometraje ----
+                    if (v.veh_kilactual) {
+                        var kmInt = parseInt(v.veh_kilactual, 10);
+                        ULTIMO_KM = kmInt;
+                        var kmInput = document.getElementById('kilometraje');
+                        if (kmInput) {
+                            kmInput.placeholder = 'Último: ' + kmInt.toLocaleString('es-CO') + ' km';
+                        }
+                        // Actualizar el texto "Último km registrado" en la tarjeta de kilometraje
+                        var lastKmInfo = document.querySelector('.last-km-info strong');
+                        if (lastKmInfo) {
+                            lastKmInfo.textContent = kmInt.toLocaleString('es-CO');
+                        }
+                    }
+
+                    // ---- Actualizar badge de cambio temporal y ocultar panel ----
+                    var option = select.options[select.selectedIndex];
+                    var placa = v.veh_placa || 'N/A';
+                    if (option) {
+                        var textParts = option.text.split(' - ');
+                        placa = textParts[1] || placa;
+                    }
+                    var novedadPanel = document.getElementById('novedadPanel');
+                    if (novedadPanel) {
+                        var existingBadge = novedadPanel.querySelector('.cambio-temp-badge');
+                        if (!existingBadge) {
+                            var badge = document.createElement('div');
+                            badge.className = 'cambio-temp-badge';
+                            badge.innerHTML = '<span style="display:inline-block;background:#e3f2fd;color:#1565c0;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;margin-top:8px;"><i class="fas fa-exchange-alt"></i> Vehículo cambiado temporalmente a ' + placa + '</span>';
+                            novedadPanel.querySelector('.preop-card-body').appendChild(badge);
+                        }
+                    }
+
+                    // Ocultar el panel de selección
+                    if (container) container.style.display = 'none';
+
+                    swalAlert({
+                        title: 'Vehículo seleccionado',
+                        text: 'Complete el formulario y guarde para registrar el preoperacional.',
+                        icon: 'success',
+                        confirmButtonText: 'Continuar',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 2500
+                    });
+                })
+                .catch(function() {
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Seleccionar vehículo para hoy';
+                    swalAlert({ title: 'Error', text: 'Error de comunicación al obtener datos del vehículo.', icon: 'error', confirmButtonText: 'Aceptar' });
+                });
+            });
+        }
+
+        if (btnCancelar && container) {
+            btnCancelar.addEventListener('click', function() {
+                container.style.display = 'none';
+            });
+        }
     }
 
     /**
@@ -2202,6 +2387,7 @@
             initBotonAsignarVehiculo();
             initNovedadMultiPhoto();
             initBotonSeleccionDiaria();
+            initSubmitSeleccionDiaria();
 
             var esLegado = !document.getElementById('ubicacion_container');
 

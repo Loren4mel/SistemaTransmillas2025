@@ -181,6 +181,8 @@ if ($esRegistroRelacional) {
                                     <i class="fas fa-exchange-alt"></i> Seleccionar otro vehículo para hoy
                                 </button>
                             </div>
+                            <!-- Panel de selección diaria de vehículo (inicialmente oculto) -->
+                            <?= $novedadHelper->renderVehiculoDiarioPanel($datosVehiculo, $vehiculosDisponibles) ?>
                             <?php endif; ?>
 
                             <!-- Datos del vehículo + alertas de documentos (centralizado: visible cuando hay vehículo asignado) -->
@@ -190,6 +192,44 @@ if ($esRegistroRelacional) {
                             <?php if (!$esSoloLectura): ?>
                                 <?= $novedadHelper->renderNoVehiclePanel($vehiculosDisponibles) ?>
                             <?php endif; ?>
+                        <?php endif; ?>
+
+                        <!-- ==================== CAMBIO VOLUNTARIO DE VEHÍCULO (solo validación/vista) ==================== -->
+                        <?php if (($esValidacion || $esSoloLectura) && $datosCambioVehiculo): ?>
+                        <div class="preop-card">
+                            <div class="preop-card-header" style="background:#e3f2fd;border-bottom:2px solid #1565c0;">
+                                <i class="fas fa-exchange-alt" style="color:#1565c0;"></i>
+                                <strong style="color:#1565c0;">CAMBIO VOLUNTARIO DE VEHÍCULO</strong>
+                            </div>
+                            <div class="preop-card-body">
+                                <div style="display:flex;flex-wrap:wrap;gap:16px;">
+                                    <div style="flex:1;min-width:200px;">
+                                        <p style="margin:4px 0;"><strong>Vehículo original:</strong> <?= htmlspecialchars($datosCambioVehiculo['vehiculo_original']) ?></p>
+                                        <p style="margin:4px 0;"><strong>Vehículo seleccionado:</strong> <?= htmlspecialchars($datosCambioVehiculo['vehiculo_seleccionado']) ?></p>
+                                        <?php if (!empty($datosCambioVehiculo['descripcion'])): ?>
+                                        <p style="margin:4px 0;"><strong>Motivo:</strong> <?= htmlspecialchars($datosCambioVehiculo['descripcion']) ?></p>
+                                        <?php endif; ?>
+                                        <?php if (!empty($datosCambioVehiculo['observaciones'])): ?>
+                                        <p style="margin:4px 0;"><strong>Observaciones:</strong> <?= htmlspecialchars($datosCambioVehiculo['observaciones']) ?></p>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php if (!empty($fotosCambioVehiculo)): ?>
+                                <div style="margin-top:16px;">
+                                    <h6 style="margin:0 0 8px 0;font-weight:600;"><i class="fas fa-camera"></i> Fotos del vehículo seleccionado</h6>
+                                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                        <?php foreach ($fotosCambioVehiculo as $foto): ?>
+                                        <div style="width:120px;height:120px;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
+                                            <a href="<?= htmlspecialchars($foto['doc_url'] ?? $foto['doc_ruta']) ?>" target="_blank">
+                                                <img src="<?= htmlspecialchars($foto['doc_url'] ?? $foto['doc_ruta']) ?>" alt="Foto vehículo" style="width:100%;height:100%;object-fit:cover;">
+                                            </a>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                         <?php endif; ?>
 
                         <!-- ==================== CONTENEDOR DE TARJETAS ==================== -->

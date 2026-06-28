@@ -89,6 +89,12 @@ function handleAjaxRequest($service)
                 $response = handleSeleccionarVehiculoDiario($service);
                 break;
 
+            case 'obtener_datos_vehiculo':
+                $idV = (int) ($_POST['idvehiculo'] ?? 0);
+                $dataV = $idV > 0 ? $service->obtenerDatosVehiculoCompleto($idV) : null;
+                $response = ['success' => $dataV !== null, 'data' => $dataV];
+                break;
+
             default:
                 $response['message'] = "Acción '$accion' no reconocida";
                 break;
@@ -243,8 +249,11 @@ function loadView($service)
     // 1. Si hay ASIGNACION_VEHICULO para hoy → usar ese
     // 2. Si usu_vehiculo está disponible → usar ese
     // 3. Si no → null (sin vehículo)
+    // NOTA: usar date('Y-m-d') para la asignación diaria, NO $fecha (que puede venir
+    // de la URL con una fecha diferente). La ASIGNACION_VEHICULO siempre se crea
+    // con CURRENT_TIMESTAMP, por lo que debe buscarse con la fecha real de hoy.
     if (!isset($_GET['idvehiculo']) && !$esValidacion && !$esSoloLectura) {
-        $idvehiculo = $service->obtenerVehiculoParaUsuarioHoy($iduser, $fecha);
+        $idvehiculo = $service->obtenerVehiculoParaUsuarioHoy($iduser, date('Y-m-d'));
     }
 
     // Obtener datos del vehículo y usuario
@@ -436,6 +445,49 @@ function loadView($service)
                 if (isset($metadatosLegado[$clave]) && empty($valoresEncuestaRelacional[$clave])) {
                     $valoresEncuestaRelacional[$clave] = $metadatosLegado[$clave];
                 }
+            }
+        }
+    }
+
+    // Detectar si el preoperacional tuvo cambio voluntario de vehículo (todos los formatos)
+    $datosCambioVehiculo = null;
+    $fotosCambioVehiculo = [];
+    if ($registroExistente && !empty($registroExistente['preencuesta'])) {
+        $metadatosLegado = json_decode($registroExistente['preencuesta'], true) ?? [];
+        $detalles = $metadatosLegado['detalles'] ?? [];
+        if (($metadatosLegado['tipo_datos'] ?? '') === 'cambio_voluntario' && !empty($detalles)) {
+            // Resolver placas de los vehículos involucrados en el cambio
+            $idOrig = $detalles['vehiculo_original'] ?? 0;
+            $idSel = $detalles['vehiculo_seleccionado'] ?? 0;
+            $placaOrig = '';
+            $placaSel = '';
+            if ($idOrig > 0) {
+                $vModel = new VehiculosModel();
+                $vData = $vModel->obtenerVehiculoPorId($idOrig);
+                $placaOrig = $vData['veh_placa'] ?? '';
+            }
+            if ($idSel > 0) {
+                $vModel = new VehiculosModel();
+                $vData = $vModel->obtenerVehiculoPorId($idSel);
+                $placaSel = $vData['veh_placa'] ?? '';
+            }
+            $datosCambioVehiculo = [
+                'vehiculo_original' => ($placaOrig ? $placaOrig . ' ' : '') . '(id:' . $idOrig . ')',
+                'vehiculo_seleccionado' => ($placaSel ? $placaSel . ' ' : '') . '(id:' . $idSel . ')',
+                'descripcion' => $detalles['descripcion'] ?? '',
+                'observaciones' => $detalles['observaciones_cambio'] ?? '',
+            ];
+            // Obtener fotos del cambio y convertir rutas absolutas a URLs
+            if (!empty($registroExistente['idpreoperacinal'])) {
+                $fotosCambioVehiculo = $service->obtenerFotosCambioVehiculo($registroExistente['idpreoperacinal']);
+                // Convertir rutas absolutas del servidor a URLs accesibles desde el navegador
+                $diskProjectRoot = realpath(dirname(__DIR__, 2)); // ej: C:\xampp\htdocs\...\SistemaTransmillas2025
+                $urlProjectRoot = dirname(dirname(dirname($_SERVER['SCRIPT_NAME']))); // ej: /SistemaTransmillas2025
+                foreach ($fotosCambioVehiculo as &$foto) {
+                    $rutaRelativa = str_replace($diskProjectRoot, '', $foto['doc_ruta']);
+                    $foto['doc_url'] = $urlProjectRoot . str_replace('\\', '/', $rutaRelativa);
+                }
+                unset($foto);
             }
         }
     }

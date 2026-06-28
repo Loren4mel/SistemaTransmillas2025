@@ -211,21 +211,7 @@ class PreoperacionalNovedadHelper
         $html .= '<textarea id="novedadObservacion" class="novedad-textarea" rows="3" placeholder="Describa el problema encontrado..."></textarea>';
         $html .= '</div>';
 
-        // Vehículo alternativo (visible con NO, o siempre en FUERA_DE_SERVICIO)
-        $html .= '<div class="novedad-form-group novedad-condicional" id="novedadVehiculoGroup"' . ($expandirFormulario ? '' : ' style="display:none;"') . '>';
-        if ($estado === 'FUERA_DE_SERVICIO') {
-            $html .= '<label class="novedad-form-label" for="novedadVehiculoSelect"><strong>Seleccione un vehículo alternativo:</strong> <span style="color:#dc3545;">(requerido — el vehículo actual está fuera de servicio)</span></label>';
-        } else {
-            $html .= '<label class="novedad-form-label" for="novedadVehiculoSelect"><strong>Vehículo alternativo (opcional):</strong></label>';
-        }
-        $html .= '<select id="novedadVehiculoSelect" class="novedad-select">';
-        $html .= '<option value="">-- No seleccionar vehículo --</option>';
-        foreach ($vehiculosDisponibles as $v) {
-            $html .= $this->renderVehiculoOptionHTML($v);
-        }
-        $html .= '</select>';
-        $html .= '<small class="novedad-form-hint">Si no selecciona un vehículo, quedará sin vehículo asignado.</small>';
-        $html .= '</div>';
+        // [ELIMINADO] Vehículo alternativo — ahora se gestiona desde el menú standalone de selección diaria
 
         // Botones de acción
         $html .= '<div class="novedad-form-buttons">';
@@ -322,5 +308,113 @@ class PreoperacionalNovedadHelper
         $id     = (int) ($v['idvehiculos'] ?? 0);
         $label  = $tipo . ' - ' . $placa . ' - ' . $marca . ' ' . $modelo;
         return '<option value="' . $id . '">' . htmlspecialchars($label) . '</option>';
+    }
+
+    /**
+     * Renderiza el panel de selección voluntaria de vehículo para hoy.
+     * Se muestra oculto (display:none) y se despliega al hacer clic
+     * en el botón "Seleccionar otro vehículo para hoy" (#btnSeleccionarVehiculoDiario).
+     *
+     * Incluye: dropdown de vehículos disponibles, fotos de estado (frente,
+     * trasera, laterales), observaciones opcionales y botón de confirmación.
+     *
+     * @param array $datosVehiculo        Datos del vehículo actual
+     * @param array $vehiculosDisponibles Lista de vehículos disponibles
+     * @return string HTML del panel (oculto inicialmente)
+     */
+    public function renderVehiculoDiarioPanel($datosVehiculo, $vehiculosDisponibles)
+    {
+        $placa  = htmlspecialchars($datosVehiculo['veh_placa'] ?? 'N/A');
+        $marca  = htmlspecialchars($datosVehiculo['veh_marca'] ?? '');
+        $modelo = htmlspecialchars($datosVehiculo['veh_modelo'] ?? '');
+        $idVehiculoActual = (int)($datosVehiculo['idvehiculos'] ?? 0);
+        $vehiculoPermanente = htmlspecialchars($datosVehiculo['usu_vehiculo_placa'] ?? $placa);
+
+        $html = '<div class="preop-card novedad-panel" id="vehiculoDiarioSelectContainer" style="display:none;">';
+        $html .= '<div class="preop-card-header">';
+        $html .= '<i class="fas fa-exchange-alt"></i> ';
+        $html .= '<strong>SELECCIONAR OTRO VEHÍCULO PARA HOY</strong>';
+        $html .= '</div>';
+        $html .= '<div class="preop-card-body">';
+
+        // Vehículo actual como referencia
+        $html .= '<div class="novedad-vehicle-info">';
+        $html .= '<p><strong>Vehículo asignado:</strong> ' . $placa . ' - ' . $marca . ' ' . $modelo;
+        $html .= ' <small class="text-muted">(permanente)</small></p>';
+        $html .= '<p><strong>Nota:</strong> El cambio es solo para hoy. Su vehículo permanente no se modifica.</p>';
+        $html .= '</div>';
+
+        // Dropdown de vehículos disponibles
+        if (empty($vehiculosDisponibles)) {
+            $html .= '<div class="novedad-fuera-servicio-alert" style="background:#fffbf0; border:2px solid #ffc107; border-radius:10px; padding:16px; margin-top:14px;">';
+            $html .= '<p style="margin:0; color:#856404; font-size:1em; font-weight:bold;">';
+            $html .= '<i class="fas fa-exclamation-circle"></i> No hay vehículos disponibles</p>';
+            $html .= '<p style="margin:4px 0 0 0; font-size:0.9em; color:#856404;">';
+            $html .= 'Por favor contacte al administrador para que le asigne un vehículo.';
+            $html .= '</p></div>';
+        } else {
+            $html .= '<div class="novedad-form-group">';
+            $html .= '<label class="novedad-form-label" for="diariaVehiculoSelect">';
+            $html .= '<strong>Seleccione el vehículo para hoy:</strong>';
+            $html .= '</label>';
+            $html .= '<select id="diariaVehiculoSelect" class="novedad-select">';
+            $html .= '<option value="">-- Seleccione un vehículo --</option>';
+            foreach ($vehiculosDisponibles as $v) {
+                // Omitir el vehículo actual (ya lo tiene asignado)
+                if ((int)($v['idvehiculos'] ?? 0) === $idVehiculoActual) continue;
+                $html .= $this->renderVehiculoOptionHTML($v);
+            }
+            $html .= '</select>';
+            $html .= '</div>';
+        }
+
+        // Fotos de estado del nuevo vehículo
+        $html .= '<div class="novedad-photo-section" style="margin-top:16px;">';
+        $html .= '<h5 class="entrega-section-label">';
+        $html .= '<i class="fas fa-camera"></i> FOTOS DE ESTADO DEL VEHÍCULO SELECCIONADO';
+        $html .= '</h5>';
+        $html .= '<p class="entrega-section-desc">Capture fotos del estado actual del vehículo que va a usar hoy.</p>';
+
+        // Cuadrícula de 4 fotos
+        $fotos = [
+            'diaria_frente'      => 'Frente',
+            'diaria_trasera'     => 'Trasera',
+            'diaria_lateral_izq' => 'Lateral Izquierdo',
+            'diaria_lateral_der' => 'Lateral Derecho',
+        ];
+        $html .= '<div class="row">';
+        foreach ($fotos as $campo => $etiqueta) {
+            $html .= '<div class="col-md-6" style="margin-bottom:10px;">';
+            $html .= '<div class="photo-upload-container">';
+            $html .= '<label class="photo-label"><i class="fas fa-image"></i> ' . $etiqueta . '</label>';
+            $html .= '<input type="file" name="' . $campo . '" class="photo-input diaria-photo-input" accept="image/*">';
+            $html .= '<div class="photo-preview" style="margin-top:6px;"></div>';
+            $html .= '</div>';
+            $html .= '</div>';
+        }
+        $html .= '</div>'; // /row
+        $html .= '<small class="photo-hint d-block" style="margin-top:4px;">Todas las fotos son opcionales pero recomendadas.</small>';
+        $html .= '</div>'; // /novedad-photo-section
+
+        // Observaciones
+        $html .= '<div class="novedad-form-group" style="margin-top:12px;">';
+        $html .= '<label class="novedad-form-label" for="diariaObservacion"><strong>Observaciones (opcional):</strong></label>';
+        $html .= '<textarea id="diariaObservacion" class="novedad-textarea" rows="2" placeholder="Motivo del cambio de vehículo..."></textarea>';
+        $html .= '</div>';
+
+        // Botones
+        $html .= '<div class="novedad-form-buttons">';
+        $html .= '<button type="button" class="btn btn-novedad-guardar" id="btnGuardarSeleccionDiaria">';
+        $html .= '<i class="fas fa-check"></i> Seleccionar vehículo para hoy';
+        $html .= '</button>';
+        $html .= '<button type="button" class="btn btn-novedad-cancelar" id="btnCancelarSeleccionDiaria">';
+        $html .= '<i class="fas fa-times"></i> Cancelar';
+        $html .= '</button>';
+        $html .= '</div>';
+
+        $html .= '</div>'; // /preop-card-body
+        $html .= '</div>'; // /vehiculoDiarioSelectContainer
+
+        return $html;
     }
 }

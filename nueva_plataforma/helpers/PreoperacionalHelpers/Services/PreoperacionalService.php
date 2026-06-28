@@ -77,6 +77,11 @@ class PreoperacionalService
         }
         $idPre = (int) ($postData['id_preoperacional'] ?? 0);
 
+        // Detectar si el usuario seleccionó un vehículo diferente (cambio voluntario)
+        $idVehiculoSeleccionado = (int) ($postData['idvehiculo_seleccionado'] ?? 0);
+        $seleccionObservaciones = $postData['seleccion_observaciones'] ?? '';
+        $huboCambioVehiculo = ($idVehiculoSeleccionado > 0 && $idVehiculoSeleccionado !== (int)$idVehiculo);
+
         // Detectar si el vehículo está FUERA_DE_SERVICIO (edge case)
         $vehiculoFueraDeServicio = false;
         if ($idVehiculo > 0) {
@@ -86,6 +91,18 @@ class PreoperacionalService
                 // Agregar nota informativa a las observaciones
                 $observaciones = trim($observaciones . "\n[ATENCIÓN: El vehículo se encontraba FUERA DE SERVICIO al momento del registro.]");
             }
+        }
+
+        // Si el usuario seleccionó otro vehículo, verificar disponibilidad
+        $idVehiculoOriginal = (int)$idVehiculo;
+        if ($huboCambioVehiculo) {
+            try {
+                $this->verificarDisponibilidadDiaria($idVehiculoSeleccionado, $idUsuario);
+            } catch (\RuntimeException $e) {
+                return ['success' => false, 'message' => $e->getMessage()];
+            }
+            // Usar el vehículo seleccionado para el preoperacional
+            $idVehiculo = $idVehiculoSeleccionado;
         }
 
         // Al actualizar (validación), preservar la ubicación GPS original
@@ -184,7 +201,11 @@ class PreoperacionalService
                 $limpiomaleta, $imagenKilo, $files, $imagenInspeccion,
                 $firmaProcesada,
                 $vehiculoFueraDeServicio,
-                $warningKilometraje
+                $warningKilometraje,
+                $huboCambioVehiculo,
+                $idVehiculoSeleccionado,
+                $seleccionObservaciones,
+                $idVehiculoOriginal
             );
         }
     }
@@ -300,6 +321,18 @@ class PreoperacionalService
     public function obtenerDocumentosNovedadPorSeguimiento($idSeguimiento)
     {
         return $this->model->obtenerDocumentosNovedadPorSeguimiento($idSeguimiento);
+    }
+
+    /**
+     * Obtiene las fotos asociadas a un cambio de vehículo (ASIGNACION_VEHICULO)
+     * para un preoperacional específico.
+     *
+     * @param int $idPreoperacional
+     * @return array
+     */
+    public function obtenerFotosCambioVehiculo($idPreoperacional)
+    {
+        return $this->model->obtenerFotosCambioVehiculo($idPreoperacional);
     }
 
     // ==================== DETECCIÓN DE FORMATO ====================
@@ -751,6 +784,27 @@ class PreoperacionalService
     }
 
     /**
+     * Obtiene datos completos de un vehículo + estado de documentos.
+     * Usado por el frontend para actualizar la UI cuando el usuario
+     * selecciona otro vehículo (cambio voluntario).
+     *
+     * @param int $idVehiculo
+     * @return array|null Datos del vehículo con estado_documentos, alertas_html, max_severity
+     */
+    public function obtenerDatosVehiculoCompleto($idVehiculo)
+    {
+        $vehiculoModel = new VehiculosModel();
+        $data = $vehiculoModel->obtenerVehiculoPorId($idVehiculo);
+        if (!$data) return null;
+
+        $estadoDocs = $this->getEstadoDocumentosVehiculo($data);
+        $data['estado_documentos'] = $estadoDocs;
+        $data['alertas_html'] = $this->generarHtmlAlertasVehiculo($estadoDocs);
+        $data['max_severity'] = $estadoDocs['max_severity'] ?? 0;
+        return $data;
+    }
+
+    /**
      * Asigna un vehículo a un usuario en el flujo inicial
      * (cuando el usuario no tiene vehículo asignado).
      *
@@ -901,6 +955,7 @@ class PreoperacionalService
 
         // Obtener vehículo permanente para metadata
         $vehiculoPermanente = $this->model->obtenerVehiculoPermanenteUsuario($idUsuario) ?: 0;
+        $idSegUserHoy = $this->obtenerSeguimientoUserHoy($idUsuario);
 
         // Crear seguimiento_vehiculo tipo ASIGNACION_VEHICULO
         $idSeg = $this->guardarSeguimientoVehiculo([
@@ -910,7 +965,7 @@ class PreoperacionalService
                 'vehiculo_permanente' => $vehiculoPermanente
             ],
             'id_preoperacional' => null,
-            'id_seguimiento_user' => null,
+            'id_seguimiento_user' => $idSegUserHoy,
             'id_vehiculo' => $idVehiculo,
             'id_conductor' => $idUsuario,
             'id_responsable' => $idUsuario,
@@ -1043,6 +1098,29 @@ class PreoperacionalService
     }
 
     /**
+     * Obtiene el ID del registro de seguimiento_user del conductor para hoy.
+     * Cada conductor tiene un check-in diario en seguimiento_user que se vincula
+     * a los eventos de seguimiento_vehiculo vía id_seguimiento_user.
+     *
+     * @param int $idUsuario ID del usuario
+     * @return int|null ID de seguimiento_user o null si no existe check-in hoy
+     */
+    private function obtenerSeguimientoUserHoy($idUsuario)
+    {
+        $sql = "SELECT idseguimiento_user FROM seguimiento_user
+                WHERE seg_idusuario = ? AND DATE(seg_fechaingreso) = CURDATE()
+                LIMIT 1";
+        $db = (new Database())->connect();
+        $stmt = $db->prepare($sql);
+        if (!$stmt) return null;
+        $stmt->bind_param("i", $idUsuario);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        return $row ? (int) $row['idseguimiento_user'] : null;
+    }
+
+    /**
      * Procesa el reporte de novedad del vehículo.
      * Si el vehículo puede ser operado, crea un registro OPTIMO.
      * Si no, crea un registro FUERA_DE_SERVICIO y opcionalmente cambia el vehículo.
@@ -1056,7 +1134,6 @@ class PreoperacionalService
         $idUsuario = (int) ($datos['id_usuario'] ?? 0);
         $puedeSerOperado = ($datos['puede_ser_operado'] ?? '') === 'si';
         $observaciones = $datos['observaciones'] ?? '';
-        $idVehiculoNuevo = (int) ($datos['idvehiculo_nuevo'] ?? 0);
 
         // SEGURIDAD: verificar que el rol del usuario esté autorizado para reportar novedades vehiculares
         $rol = $_SESSION['usuario_rol'] ?? 0;
@@ -1067,6 +1144,9 @@ class PreoperacionalService
         // Procesar fotos enviadas desde el formulario
         $fotos = $this->procesarFotosNovedad($files);
         $fotoEvidencia = $fotos['foto_evidencia'] ?? null;
+
+        // Vincular con el check-in diario del conductor (seguimiento_user)
+        $idSegUserHoy = $this->obtenerSeguimientoUserHoy($idUsuario);
 
         // Vincular con el último preoperacional del vehículo para trazabilidad.
         // El conductor típicamente completa el preoperacional antes de reportar una novedad.
@@ -1086,7 +1166,7 @@ class PreoperacionalService
                     'flujo' => 'preoperacional'
                 ],
                 'id_preoperacional' => $idPreopVinculado,
-                'id_seguimiento_user' => null,
+                'id_seguimiento_user' => $idSegUserHoy,
                 'id_vehiculo' => $idVehiculoActual,
                 'id_conductor' => $idUsuario,
                 'id_responsable' => $_SESSION['usuario_id'] ?? $idUsuario,
@@ -1118,51 +1198,7 @@ class PreoperacionalService
             ];
         } else {
             // El vehículo NO puede ser operado — registrar FUERA_DE_SERVICIO
-
-            // [ELIMINADO] Bloque entregavehiculo (trazabilidad final/inicial)
-            // La selección diaria reemplaza la asignación permanente.
-
-            $idVehiculoFinal = $idVehiculoActual;
-            $cambioVehiculo = false;
-
-            if ($idVehiculoNuevo > 0) {
-                // Selección diaria — no se toca usu_vehiculo
-                $disponibles = $this->model->obtenerVehiculosDisponibles($idUsuario);
-                $encontrado = false;
-                foreach ($disponibles as $v) {
-                    if ((int) $v['idvehiculos'] === $idVehiculoNuevo) {
-                        $encontrado = true;
-                        break;
-                    }
-                }
-                if ($encontrado) {
-                    $this->guardarSeguimientoVehiculo([
-                        'tipo_evento' => 'ASIGNACION_VEHICULO',
-                        'metadata_evento' => [
-                            'origen' => 'reporte_novedad',
-                            'vehiculo_permanente' => $this->model->obtenerVehiculoPermanenteUsuario($idUsuario) ?: 0
-                        ],
-                        'id_preoperacional' => $idPreopVinculado,
-                        'id_seguimiento_user' => null,
-                        'id_vehiculo' => $idVehiculoNuevo,
-                        'id_conductor' => $idUsuario,
-                        'id_responsable' => $_SESSION['usuario_id'] ?? $idUsuario,
-                        'kilometraje' => 0,
-                        'ubicacion' => null,
-                        'estado_general' => 'OPTIMO',
-                        'foto_evidencia' => null,
-                        'observaciones' => 'Vehículo asignado tras reporte de novedad: ' . $observaciones,
-                        'entrega_final_usuario' => null,
-                        'entrega_inicial_usuario' => null
-                    ]);
-                    $idVehiculoFinal = $idVehiculoNuevo;
-                    $cambioVehiculo = true;
-                } else {
-                    $idVehiculoFinal = 0;
-                }
-            } else {
-                $idVehiculoFinal = 0;
-            }
+            // El cambio de vehículo se gestiona desde el menú standalone de selección diaria (no desde novedad).
 
             $this->guardarSeguimientoVehiculo([
                 'tipo_evento' => 'REVISION_SST',
@@ -1172,7 +1208,7 @@ class PreoperacionalService
                     'flujo' => 'preoperacional'
                 ],
                 'id_preoperacional' => $idPreopVinculado,
-                'id_seguimiento_user' => null,
+                'id_seguimiento_user' => $idSegUserHoy,
                 'id_vehiculo' => $idVehiculoActual,
                 'id_conductor' => $idUsuario,
                 'id_responsable' => $_SESSION['usuario_id'] ?? $idUsuario,
@@ -1199,11 +1235,8 @@ class PreoperacionalService
 
             return [
                 'success' => true,
-                'message' => $cambioVehiculo
-                    ? 'Novedad registrada. Se ha asignado el nuevo vehículo.'
-                    : 'Novedad registrada. No se ha asignado un vehículo alternativo.',
-                'idvehiculo_final' => $idVehiculoFinal,
-                'cambio_vehiculo' => $cambioVehiculo
+                'message' => 'Novedad registrada. El vehículo ha sido marcado como fuera de servicio.',
+                'idvehiculo_final' => 0
             ];
         }
     }
@@ -1449,7 +1482,11 @@ class PreoperacionalService
         $limpiomaleta, $imagenKilo, $files, $imagenInspeccion,
         $firmaProcesada = false,
         $vehiculoFueraDeServicio = false,
-        $warningKilometraje = null
+        $warningKilometraje = null,
+        $huboCambioVehiculo = false,
+        $idVehiculoSeleccionado = 0,
+        $seleccionObservaciones = '',
+        $idVehiculoOriginal = 0
     ) {
 
         // Parsear el JSON del formulario para separar metadata de respuestas
@@ -1461,6 +1498,29 @@ class PreoperacionalService
         $metadatosJson = !empty($datosEncuesta)
             ? json_encode($this->filtrarMetadatosDelJson($datosEncuesta), JSON_UNESCAPED_UNICODE)
             : '';
+
+        // Si el usuario seleccionó otro vehículo, prefijar observaciones con descripción del cambio
+        // y agregar metadata del cambio a preencuesta.
+        if ($huboCambioVehiculo) {
+            $descripcionCambio = 'Conductor registra preoperacional con vehiculo que no tenia asignado. ';
+            if (!empty($seleccionObservaciones)) {
+                $descripcionCambio .= 'Motivo: ' . $seleccionObservaciones . '. ';
+            }
+            $observaciones = $descripcionCambio . $observaciones;
+
+            // Agregar metadata del cambio vehicular a preencuesta
+            $metadatosArray = !empty($metadatosJson) ? json_decode($metadatosJson, true) : [];
+            $metadatosArray['tipo_datos'] = 'cambio_voluntario';
+            $metadatosArray['detalles'] = [
+                'vehiculo_original' => $idVehiculoOriginal,
+                'vehiculo_seleccionado' => $idVehiculoSeleccionado,
+                'descripcion' => 'Conductor registra preoperacional con vehiculo que no tenia asignado',
+            ];
+            if (!empty($seleccionObservaciones)) {
+                $metadatosArray['detalles']['observaciones_cambio'] = $seleccionObservaciones;
+            }
+            $metadatosJson = json_encode($metadatosArray, JSON_UNESCAPED_UNICODE);
+        }
 
         $datosInsert = [
             'prevehiculo' => $idVehiculo,
@@ -1606,11 +1666,30 @@ class PreoperacionalService
                 }
             }
 
+            // Vincular con el check-in diario del conductor (seguimiento_user)
+            $idSegUserPreop = $this->obtenerSeguimientoUserHoy($idUsuario);
+
+            // Incluir metadata del cambio vehicular en el seguimiento del PREOPERACIONAL
+            $metadataEventoPreop = null;
+            if ($huboCambioVehiculo) {
+                $metadataEventoPreop = [
+                    'tipo_datos' => 'cambio_voluntario',
+                    'detalles' => [
+                        'vehiculo_original' => $idVehiculoOriginal,
+                        'vehiculo_seleccionado' => $idVehiculoSeleccionado,
+                        'descripcion' => 'Conductor registra preoperacional con vehiculo que no tenia asignado',
+                    ],
+                ];
+                if (!empty($seleccionObservaciones)) {
+                    $metadataEventoPreop['detalles']['observaciones_cambio'] = $seleccionObservaciones;
+                }
+            }
+
             $datosSeg = [
                 'tipo_evento' => 'PREOPERACIONAL',
-                'metadata_evento' => null,
+                'metadata_evento' => $metadataEventoPreop,
                 'id_preoperacional' => $idInsertado,
-                'id_seguimiento_user' => null,
+                'id_seguimiento_user' => $idSegUserPreop,
                 'id_vehiculo' => $idVehiculo,
                 'id_conductor' => (in_array(strtoupper($tipoVehiculo), ['CARRO', 'MOTO'])) ? $idUsuario : null,
                 'id_responsable' => $idUsuario,
@@ -1621,7 +1700,27 @@ class PreoperacionalService
                 'img_kilometraje' => $imagenKilo,
                 'observaciones' => $observacionSeguimiento
             ];
-            $this->guardarSeguimientoVehiculo($datosSeg);
+            $idSegPreop = $this->guardarSeguimientoVehiculo($datosSeg);
+
+            // Si hubo cambio de vehículo, guardar fotos contra el seguimiento PREOPERACIONAL
+            if ($huboCambioVehiculo && $idSegPreop) {
+                $camposFoto = [
+                    'diaria_frente'       => 'foto_frente',
+                    'diaria_trasera'      => 'foto_trasera',
+                    'diaria_lateral_izq'  => 'foto_lateral_izq',
+                    'diaria_lateral_der'  => 'foto_lateral_der',
+                ];
+                foreach ($camposFoto as $fileKey => $tipo) {
+                    if (isset($files[$fileKey]) && $files[$fileKey]['error'] === UPLOAD_ERR_OK) {
+                        $this->model->guardarDocumentoGenerico(
+                            $files[$fileKey],
+                            $idSegPreop,
+                            10,
+                            'seguimiento_vehiculo'
+                        );
+                    }
+                }
+            }
         }
 
         $resultado = ['success' => true, 'message' => 'Preoperacional guardado correctamente'];
