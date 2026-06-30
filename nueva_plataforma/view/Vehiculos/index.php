@@ -1,3 +1,9 @@
+<?php
+// Fallback: si la vista se accede directamente sin pasar por el controlador
+if (!isset($baseUrl)) {
+    $baseUrl = dirname(dirname(dirname($_SERVER['SCRIPT_NAME'])));
+}
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -92,6 +98,7 @@
                 <th>Dueño</th>
                 <th>Fecha Vencimiento del Seguro</th>
                 <th>Fecha Vencimiento Tecnomecánica</th>
+                <th>Extintor</th>
                 <th>Fecha Ultimo Cambio Aceite</th>
                 <th>Kilometraje Actual</th>
                 <th>Km Último Cambio Aceite</th>
@@ -956,8 +963,15 @@
                         </label>
                         <input type="date" name="rev_fecha_consulta"
                                id="rev_fecha_consulta"
-                               class="form-control"
-                               value="<?= date('Y-m-d') ?>" required>
+                               class="form-control bg-light"
+                               value="<?= date('Y-m-d') ?>"
+                               readonly
+                               title="La fecha se fija automáticamente al día de hoy"
+                               required>
+                        <small class="text-muted">
+                            <i class="fas fa-lock me-1"></i>
+                            Fecha fijada automáticamente — no editable
+                        </small>
                     </div>
 
                     <div class="mb-3">
@@ -1605,6 +1619,89 @@
     </div>
 </div>
 
+<!-- MODAL EDITAR EXTINTOR -->
+<div class="modal fade" id="modalEditarExtintor" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+
+            <div class="modal-header mi-header text-white">
+                <h5 class="modal-title">
+                    🧯 Actualizar Recarga de Extintor
+                </h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formEditarExtintor">
+                    <input type="hidden" id="extintor_veh_id">
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📅 Fecha de Recarga</label>
+                            <input type="date" name="veh_fechaextintor" id="extintor_veh_fechaextintor" class="form-control">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary">📷 Soporte (foto/comprobante)</label>
+                            <div id="preview_extintor_modal" class="mb-1"></div>
+                            <input type="file" name="veh_img_extintor" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary">✅ Checklist de Recarga</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input checklist-item" type="checkbox" value="sello" id="chk_sello">
+                                    <label class="form-check-label" for="chk_sello">Sello de seguridad intacto</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input checklist-item" type="checkbox" value="manometro" id="chk_manometro">
+                                    <label class="form-check-label" for="chk_manometro">Manómetro/indicador en rango verde</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input checklist-item" type="checkbox" value="boquilla" id="chk_boquilla">
+                                    <label class="form-check-label" for="chk_boquilla">Boquilla y manguera en buen estado</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input checklist-item" type="checkbox" value="abolladuras" id="chk_abolladuras">
+                                    <label class="form-check-label" for="chk_abolladuras">Sin abolladuras ni daños visibles</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input checklist-item" type="checkbox" value="fabricacion" id="chk_fabricacion">
+                                    <label class="form-check-label" for="chk_fabricacion">Fecha de fabricación legible</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input checklist-item" type="checkbox" value="soporte" id="chk_soporte">
+                                    <label class="form-check-label" for="chk_soporte">Soporte/montaje seguro</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary">📝 Observaciones</label>
+                        <textarea id="extintor_observaciones" class="form-control" rows="2" placeholder="Notas adicionales..."></textarea>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary"
+                        id="btnGuardarExtintor">
+                         Guardar Recarga
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
 
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
