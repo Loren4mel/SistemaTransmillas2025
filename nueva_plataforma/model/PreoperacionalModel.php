@@ -670,8 +670,8 @@ class PreoperacionalModel
     public function obtenerVersionActivaVehiculo($tipoVehiculo)
     {
         $sql = "SELECT v.id_version, v.id_plantilla, p.nombre_base, v.numero_version
-                FROM preop_versiones v
-                INNER JOIN preop_plantillas p ON v.id_plantilla = p.id_plantilla
+                FROM cuestionarios_versiones v
+                INNER JOIN cuestionarios_plantillas p ON v.id_plantilla = p.id_plantilla
                 WHERE p.tipo_destinatario = 'VEHICULO'
                   AND p.aplica_a_tipo_vehiculo = ?
                   AND v.estado = 'ACTIVA'
@@ -696,8 +696,8 @@ class PreoperacionalModel
     {
         $rolStr = (string) $rolUsuario;
         $sql = "SELECT v.id_version, v.id_plantilla, p.nombre_base, v.numero_version
-                FROM preop_versiones v
-                INNER JOIN preop_plantillas p ON v.id_plantilla = p.id_plantilla
+                FROM cuestionarios_versiones v
+                INNER JOIN cuestionarios_plantillas p ON v.id_plantilla = p.id_plantilla
                 WHERE p.tipo_destinatario = 'USUARIO'
                   AND v.estado = 'ACTIVA'
                   AND v.fecha_vigencia_fin IS NULL
@@ -725,8 +725,8 @@ class PreoperacionalModel
         $sql = "SELECT s.id_seccion, s.nombre, s.css_clase, s.orden AS sec_orden,
                        p.id_pregunta, p.codigo_interno, p.texto_pregunta, p.tipo_respuesta,
                        p.respuesta_esperada, p.requiere_foto_si_negativa, p.genera_bloqueo, p.orden AS preg_orden
-                FROM preop_secciones s
-                INNER JOIN preop_preguntas p ON s.id_seccion = p.id_seccion
+                FROM cuestionarios_secciones s
+                INNER JOIN cuestionarios_preguntas p ON s.id_seccion = p.id_seccion
                 WHERE s.id_version = ?
                 ORDER BY s.orden, p.orden";
 
@@ -772,8 +772,8 @@ class PreoperacionalModel
     public function obtenerMappingCodigosAPreguntas($idVersion)
     {
         $sql = "SELECT p.codigo_interno, p.id_pregunta
-                FROM preop_preguntas p
-                INNER JOIN preop_secciones s ON p.id_seccion = s.id_seccion
+                FROM cuestionarios_preguntas p
+                INNER JOIN cuestionarios_secciones s ON p.id_seccion = s.id_seccion
                 WHERE s.id_version = ?";
 
         $stmt = $this->db->prepare($sql);
@@ -800,7 +800,7 @@ class PreoperacionalModel
         if (empty($codigos)) return [];
         $placeholders = implode(',', array_fill(0, count($codigos), '?'));
         $sql = "SELECT codigo_interno, texto_pregunta
-                FROM preop_preguntas
+                FROM cuestionarios_preguntas
                 WHERE codigo_interno IN ($placeholders)
                 GROUP BY codigo_interno";
         $stmt = $this->db->prepare($sql);
@@ -829,10 +829,10 @@ class PreoperacionalModel
     public function obtenerCodigosVehiculo(): array
     {
         $sql = "SELECT DISTINCT p.codigo_interno
-                FROM preop_preguntas p
-                INNER JOIN preop_secciones s ON p.id_seccion = s.id_seccion
-                INNER JOIN preop_versiones v ON s.id_version = v.id_version
-                INNER JOIN preop_plantillas pl ON v.id_plantilla = pl.id_plantilla
+                FROM cuestionarios_preguntas p
+                INNER JOIN cuestionarios_secciones s ON p.id_seccion = s.id_seccion
+                INNER JOIN cuestionarios_versiones v ON s.id_version = v.id_version
+                INNER JOIN cuestionarios_plantillas pl ON v.id_plantilla = pl.id_plantilla
                 WHERE pl.tipo_destinatario = 'VEHICULO'";
         $result = $this->db->query($sql);
         $codigos = [];
@@ -900,7 +900,7 @@ class PreoperacionalModel
     {
         $sql = "SELECT p.codigo_interno, r.respuesta_dada, r.ruta_foto, r.observacion_especifica
                 FROM preop_respuestas r
-                INNER JOIN preop_preguntas p ON r.id_pregunta = p.id_pregunta
+                INNER JOIN cuestionarios_preguntas p ON r.id_pregunta = p.id_pregunta
                 WHERE r.id_preoperacional = ?";
 
         $stmt = $this->db->prepare($sql);

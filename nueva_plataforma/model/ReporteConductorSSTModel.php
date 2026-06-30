@@ -641,15 +641,18 @@ class ReporteConductorSSTModel
      */
     public function obtenerCategoriasYCampos($tipo)
     {
-        $sql = "SELECT c.id_categoria, c.nombre AS categoria_nombre,
-                       c.descripcion AS categoria_descripcion,
-                       cm.id_campo, cm.codigo, cm.etiqueta, cm.tipo_respuesta,
-                       cm.requerido, cm.orden, cm.placeholder, cm.ayuda,
-                       cm.id_campo_padre, cm.valor_padre
-                FROM sst_categorias c
-                INNER JOIN sst_campos cm ON cm.id_categoria = c.id_categoria
-                WHERE c.tipo = ? AND c.estado = 1 AND cm.estado = 1
-                ORDER BY c.orden, cm.orden";
+        $sql = "SELECT cs.id_seccion AS id_categoria, cs.nombre AS categoria_nombre,
+                       cs.descripcion AS categoria_descripcion,
+                       cp.id_pregunta AS id_campo, cp.codigo_interno AS codigo,
+                       cp.texto_pregunta AS etiqueta, cp.tipo_respuesta,
+                       cp.requerido, cp.orden, cp.placeholder, cp.ayuda,
+                       cp.id_pregunta_padre AS id_campo_padre, cp.valor_padre
+                FROM cuestionarios_plantillas cp2
+                INNER JOIN cuestionarios_versiones cv ON cv.id_plantilla = cp2.id_plantilla AND cv.estado = 'ACTIVA'
+                INNER JOIN cuestionarios_secciones cs ON cs.id_version = cv.id_version
+                INNER JOIN cuestionarios_preguntas cp ON cp.id_seccion = cs.id_seccion AND cp.estado = 1
+                WHERE cp2.sst_tipo = ? AND cp2.estado = 1
+                ORDER BY cs.orden, cp.orden";
         $rows = $this->executeAll($sql, "s", [$tipo]);
 
         $categorias = [];
@@ -743,13 +746,13 @@ class ReporteConductorSSTModel
     public function obtenerRespuestas($idReporte)
     {
         $sql = "SELECT r.id_respuesta, r.id_campo, r.valor,
-                       cm.codigo, cm.etiqueta, cm.tipo_respuesta,
-                       c.id_categoria, c.nombre AS categoria_nombre
+                       cp.codigo_interno AS codigo, cp.texto_pregunta AS etiqueta, cp.tipo_respuesta,
+                       cs.id_seccion AS id_categoria, cs.nombre AS categoria_nombre
                 FROM sst_respuestas r
-                INNER JOIN sst_campos cm ON cm.id_campo = r.id_campo
-                INNER JOIN sst_categorias c ON c.id_categoria = cm.id_categoria
+                INNER JOIN cuestionarios_preguntas cp ON cp.id_pregunta = r.id_campo
+                INNER JOIN cuestionarios_secciones cs ON cs.id_seccion = cp.id_seccion
                 WHERE r.id_reporte = ?
-                ORDER BY c.orden, cm.orden";
+                ORDER BY cs.orden, cp.orden";
         $rows = $this->executeAll($sql, "i", [$idReporte]);
 
         $categorias = [];
@@ -786,15 +789,17 @@ class ReporteConductorSSTModel
      */
     public function mapearCodigosACampos($tipo = null)
     {
-        $sql = "SELECT cm.codigo, cm.id_campo
-                FROM sst_campos cm
-                INNER JOIN sst_categorias c ON c.id_categoria = cm.id_categoria
-                WHERE cm.estado = 1";
+        $sql = "SELECT cp.codigo_interno AS codigo, cp.id_pregunta AS id_campo
+                FROM cuestionarios_preguntas cp
+                INNER JOIN cuestionarios_secciones cs ON cs.id_seccion = cp.id_seccion
+                INNER JOIN cuestionarios_versiones cv ON cv.id_version = cs.id_version
+                INNER JOIN cuestionarios_plantillas cp2 ON cp2.id_plantilla = cv.id_plantilla
+                WHERE cp.estado = 1";
         $types = '';
         $params = [];
 
         if ($tipo !== null) {
-            $sql .= " AND c.tipo = ?";
+            $sql .= " AND cp2.sst_tipo = ?";
             $types = 's';
             $params[] = $tipo;
         }
