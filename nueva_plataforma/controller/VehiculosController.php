@@ -217,6 +217,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_tecnomecan
     exit;
 }
 
+// ACTUALIZAR EXTINTOR
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_extintor'])) {
+    $resultado = $modelo->actualizarExtintor($_POST);
+    echo json_encode([
+        'success' => $resultado,
+        'mensaje' => $resultado ? 'Recarga de extintor actualizada correctamente' : 'Error al actualizar'
+    ]);
+    exit;
+}
+
 // OBTENER VEHÍCULOS PARA SELECTS (recargar dropdowns sin reload)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['obtener_vehiculos_select'])) {
     $vehiculos = $modelo->obtenerVehiculosParaSelect('1');
@@ -248,7 +258,7 @@ if (isset($_POST['eliminar_entrega'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_revision'])) {
     $datos = [
         'rev_vehiculo_id'    => intval($_POST['rev_vehiculo_id']),
-        'rev_fecha_consulta' => $_POST['rev_fecha_consulta'],
+        'rev_fecha_consulta' => date('Y-m-d'),  // Siempre se guarda la fecha actual del servidor
         'rev_usuario'        => $_SESSION['usuario_nombre'] ?? 'Sin sesión',
     ];
     $resultado = $modelo->guardarRevisionComparendo($datos);
