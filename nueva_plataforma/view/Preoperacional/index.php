@@ -174,6 +174,17 @@ if ($esRegistroRelacional) {
                         <?php if ($esRolVehicular && $tieneVehiculoAsignado): ?>
                             <?= $novedadHelper->renderNovedadPanel($novedadVehiculo, $datosVehiculo, $vehiculosDisponibles, $esValidacion) ?>
 
+                            <!-- Botón de selección voluntaria de vehículo (solo fuera de validación/vista) -->
+                            <?php if (!$esValidacion && !$esSoloLectura): ?>
+                            <div style="text-align:center; margin: 12px 0;">
+                                <button type="button" class="btn btn-outline-primary" id="btnSeleccionarVehiculoDiario">
+                                    <i class="fas fa-exchange-alt"></i> Seleccionar otro vehículo para hoy
+                                </button>
+                            </div>
+                            <!-- Panel de selección diaria de vehículo (inicialmente oculto) -->
+                            <?= $novedadHelper->renderVehiculoDiarioPanel($datosVehiculo, $vehiculosDisponibles) ?>
+                            <?php endif; ?>
+
                             <!-- Datos del vehículo + alertas de documentos (centralizado: visible cuando hay vehículo asignado) -->
                             <?= PreoperacionalNuevaEncuestaViewHelper::renderVehicleInfoCard($datosVehiculo, $alertaSeveridadVehiculo) ?>
                             <?= $alertasVehiculoHtml ?>
@@ -181,6 +192,44 @@ if ($esRegistroRelacional) {
                             <?php if (!$esSoloLectura): ?>
                                 <?= $novedadHelper->renderNoVehiclePanel($vehiculosDisponibles) ?>
                             <?php endif; ?>
+                        <?php endif; ?>
+
+                        <!-- ==================== CAMBIO VOLUNTARIO DE VEHÍCULO (solo validación/vista) ==================== -->
+                        <?php if (($esValidacion || $esSoloLectura) && $datosCambioVehiculo): ?>
+                        <div class="preop-card">
+                            <div class="preop-card-header" style="background:#e3f2fd;border-bottom:2px solid #1565c0;">
+                                <i class="fas fa-exchange-alt" style="color:#1565c0;"></i>
+                                <strong style="color:#1565c0;">CAMBIO VOLUNTARIO DE VEHÍCULO</strong>
+                            </div>
+                            <div class="preop-card-body">
+                                <div style="display:flex;flex-wrap:wrap;gap:16px;">
+                                    <div style="flex:1;min-width:200px;">
+                                        <p style="margin:4px 0;"><strong>Vehículo original:</strong> <?= htmlspecialchars($datosCambioVehiculo['vehiculo_original']) ?></p>
+                                        <p style="margin:4px 0;"><strong>Vehículo seleccionado:</strong> <?= htmlspecialchars($datosCambioVehiculo['vehiculo_seleccionado']) ?></p>
+                                        <?php if (!empty($datosCambioVehiculo['descripcion'])): ?>
+                                        <p style="margin:4px 0;"><strong>Motivo:</strong> <?= htmlspecialchars($datosCambioVehiculo['descripcion']) ?></p>
+                                        <?php endif; ?>
+                                        <?php if (!empty($datosCambioVehiculo['observaciones'])): ?>
+                                        <p style="margin:4px 0;"><strong>Observaciones:</strong> <?= htmlspecialchars($datosCambioVehiculo['observaciones']) ?></p>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php if (!empty($fotosCambioVehiculo)): ?>
+                                <div style="margin-top:16px;">
+                                    <h6 style="margin:0 0 8px 0;font-weight:600;"><i class="fas fa-camera"></i> Fotos del vehículo seleccionado</h6>
+                                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                        <?php foreach ($fotosCambioVehiculo as $foto): ?>
+                                        <div style="width:120px;height:120px;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
+                                            <a href="<?= htmlspecialchars($foto['doc_url'] ?? $foto['doc_ruta']) ?>" target="_blank">
+                                                <img src="<?= htmlspecialchars($foto['doc_url'] ?? $foto['doc_ruta']) ?>" alt="Foto vehículo" style="width:100%;height:100%;object-fit:cover;">
+                                            </a>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                         <?php endif; ?>
 
                         <!-- ==================== CONTENEDOR DE TARJETAS ==================== -->
@@ -243,14 +292,14 @@ if ($esRegistroRelacional) {
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoCarroSections($valoresEncuesta, $esValidacion) ?>
 
                                 <!-- Kilometraje -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura, (int)($datosVehiculo['veh_kilactual'] ?? 0)) ?>
 
                                 <!-- Observaciones -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
 
                                 <?php if ($esValidacion): ?>
-                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente) ?>
-                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente) ?>
+                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente, $esSoloLectura) ?>
+                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente, $esSoloLectura) ?>
                                 <?php endif; ?>
                             <?php endif; ?>
 
@@ -261,14 +310,14 @@ if ($esRegistroRelacional) {
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderVehiculoMotoSections($valoresEncuesta, $esValidacion) ?>
 
                                 <!-- Kilometraje -->
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura, (int)($datosVehiculo['veh_kilactual'] ?? 0)) ?>
 
                                 <!-- Observaciones -->
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderObservacionesCard($registroExistente, $esValidacion) ?>
 
                                 <?php if ($esValidacion): ?>
-                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente) ?>
-                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente) ?>
+                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderAccionCorrectivaCard($registroExistente, $esSoloLectura) ?>
+                                    <?= PreoperacionalNuevaEncuestaViewHelper::renderResponsableCard($registroExistente, $esSoloLectura) ?>
                                 <?php endif; ?>
                             <?php endif; ?>
 
@@ -318,13 +367,20 @@ if ($esRegistroRelacional) {
                             <!-- FIRMA -->
                             <?php if ($esValidacion && !empty($firmaDataUri)): ?>
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderFirmaRegistradaCard($firmaDataUri) ?>
+                            <?php elseif ($esSoloLectura): ?>
+                                <div class="preop-card signature-card">
+                                    <div class="preop-card-header"><i class="fas fa-pen"></i> FIRMA DEL RESPONSABLE</div>
+                                    <div class="preop-card-body">
+                                        <p style="margin:0;color:#999;"><i class="fas fa-minus-circle"></i> Sin firma registrada</p>
+                                    </div>
+                                </div>
                             <?php else: ?>
                                 <?= PreoperacionalNuevaEncuestaViewHelper::renderSeccionFirma() ?>
                             <?php endif; ?>
 
                             <!-- VALIDACIÓN -->
                             <?php if ($esValidacion): ?>
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderValidacionCard($registroExistente, true) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderValidacionCard($registroExistente, true, $esSoloLectura) ?>
                             <?php endif; ?>
 
                         <?php else: ?>
@@ -391,7 +447,7 @@ if ($esRegistroRelacional) {
 
                             <!-- Kilometraje (solo si hay vehículo asignado de tipo CARRO o MOTO) -->
                             <?php if ($mostrarVehiculo && ($tipovehiculo == 'CARRO' || $tipovehiculo == 'MOTO')): ?>
-                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion) ?>
+                                <?= PreoperacionalNuevaEncuestaViewHelper::renderKilometrajeCard($registroExistente, $esValidacion || $esSoloLectura, (int)($datosVehiculo['veh_kilactual'] ?? 0)) ?>
                             <?php endif; ?>
 
                             <!-- Observaciones -->
@@ -410,7 +466,7 @@ if ($esRegistroRelacional) {
                             <?php endif; ?>
 
                             <!-- Implementos de trabajo -->
-                            <?php if ($mostrarImplementos && ($nivel_acceso == 3 || $param5 == 'valida')): ?>
+                            <?php if ($mostrarImplementos && ($nivel_acceso == 3 || $esValidacion)): ?>
                                 <?= PreoperacionalEncuestaLegadoViewHelper::renderImplementosCards($valoresEncuesta, $registroExistente['pre_limpiomaleta'] ?? null) ?>
                             <?php endif; ?>
 
@@ -458,7 +514,7 @@ if ($esRegistroRelacional) {
 
                             <!-- Validación (legado) -->
                             <?php if ($esValidacion): ?>
-                                <?= PreoperacionalEncuestaLegadoViewHelper::renderValidacionLegadoCard($registroExistente) ?>
+                                <?= PreoperacionalEncuestaLegadoViewHelper::renderValidacionLegadoCard($registroExistente, $esSoloLectura) ?>
                             <?php endif; ?>
 
                         <?php endif; ?>
@@ -475,6 +531,10 @@ if ($esRegistroRelacional) {
                                     <i class="fas fa-map-marker-alt"></i>
                                     <strong>Coordenadas registradas:</strong> <?= htmlspecialchars($ubicacionGuardada) ?>
                                 </div>
+                            <?php elseif ($esSoloLectura): ?>
+                                <div class="ubicacion-status ubicacion-sin-datos">
+                                    <i class="fas fa-map-marker-alt"></i> Sin ubicación registrada
+                                </div>
                             <?php else: ?>
                                 <div class="ubicacion-status ubicacion-cargando">
                                     <i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...
@@ -484,12 +544,7 @@ if ($esRegistroRelacional) {
                         <?php endif; ?>
 
                         <!-- ==================== SECCIÓN DE ENTREGA DE VEHÍCULO ==================== -->
-                        <!-- Solo se muestra en validación cuando existen entregas pendientes
-                             (FINAL del vehículo antiguo + INICIAL del nuevo) vinculadas a una
-                             REVISION_SST reportada por el conductor. -->
-                        <?php if ($esValidacion && !empty($entregasPendientes['seguimiento'])): ?>
-                            <?= $novedadHelper->renderSeccionEntregaValidacion($entregasPendientes) ?>
-                        <?php endif; ?>
+                        <!-- [ELIMINADO] Sección de entrega vehicular en validación. Selección diaria vía ASIGNACION_VEHICULO. -->
 
                         <?php if (!$esSoloLectura): ?>
                         <!-- Botón guardar -->
@@ -515,6 +570,7 @@ if ($esRegistroRelacional) {
         var TIENE_VEHICULO_ASIGNADO = <?= json_encode($tieneVehiculoAsignado) ?>;
         var URL_REDIRECT = <?= json_encode($esValidacion ? '' : '../../inicio.php?bandera=1') ?>;
         var UBICACION_GUARDADA = <?= json_encode($ubicacionGuardada) ?>;
+        var ULTIMO_KM = <?= (int)($datosVehiculo['veh_kilactual'] ?? 0) ?>;
     </script>
 
     <!-- JavaScript del formulario -->

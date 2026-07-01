@@ -129,6 +129,13 @@
     var ubicacionCoords = null;
     var mapaInstancia = null;
 
+    // Estado del vehículo seleccionado para cambio voluntario (cache local, sin submit hasta guardar)
+    var _vehiculoSeleccionado = {
+        id: null,
+        files: {},
+        observaciones: ''
+    };
+
     /**
      * Renderiza un mapa Leaflet ligero en el contenedor indicado
      * Optimizado para mobile: sin controles de zoom, gestos táctiles nativos
@@ -630,31 +637,144 @@
                 } else {
                     this.value = '';
                 }
+
+                // Resetear bandera de alerta cuando el usuario modifica el valor
+                window._kmWarningAcknowledged = false;
+                var warningsContainer = document.getElementById('km-warnings');
+                if (warningsContainer) {
+                    warningsContainer.style.display = 'none';
+                    warningsContainer.innerHTML = '';
+                }
+                this.style.borderColor = '';
+                this.style.boxShadow = '';
             });
         }
     }
 
     /**
-     * Valida que el kilometraje tenga un valor numérico válido
+     * Valida el kilometraje con alertas sugestivas (Fase 1)
+     * - Si km < último registrado → alerta
+     * - Si km > último + 300 → alerta (excepto reseteo odómetro)
+     * - Reseteo de odómetro (km ≤ 300 y último cerca de 999...9) → permitido sin alerta
+     * - Usuario puede re-intentar después de ver la alerta
      */
     function validarKilometraje() {
-        // Solo requerido cuando hay sección de vehículo (carro/moto)
         if (typeof MOSTRAR_SECCION_VEHICULO !== 'undefined' && !MOSTRAR_SECCION_VEHICULO) return true;
         var input = document.getElementById('kilometraje');
         if (!input || input.readOnly) return true;
 
         var raw = input.value.replace(/\./g, '').trim();
         if (!raw || parseInt(raw, 10) <= 0) {
-            resaltarTarjeta(input, 'Debe ingresar el kilometraje actual del vehículo.');
-            swalAlert({
-                title: 'Kilometraje requerido',
-                text: 'Debe ingresar el kilometraje actual del vehículo antes de guardar.',
-                icon: 'warning',
-                confirmButtonText: 'Aceptar'
-            });
+            mostrarAlertaKm('Debe ingresar el kilometraje actual del vehículo.');
             return false;
         }
+
+        var nuevoKm = parseInt(raw, 10);
+        var ultimoKm = typeof ULTIMO_KM !== 'undefined' ? parseInt(ULTIMO_KM, 10) : 0;
+        if (ultimoKm <= 0) return true; // Sin referencia, no validar
+
+        // Si el usuario ya vio la alerta y vuelve a guardar, permitir
+        if (window._kmWarningAcknowledged === true) {
+            return true;
+        }
+
+        // Detectar reseteo de odómetro
+        if (esReseteoOdometro(ultimoKm, nuevoKm)) {
+            return true;
+        }
+
+        // Acumular alertas
+        var alertas = [];
+        if (nuevoKm < ultimoKm) {
+            alertas.push(
+                'El kilometraje ingresado (<strong>' + nuevoKm.toLocaleString('es-CO') + '</strong> km) ' +
+                'es <strong>menor</strong> al último registrado (<strong>' + ultimoKm.toLocaleString('es-CO') + '</strong> km).'
+            );
+        }
+        if (nuevoKm > (ultimoKm + 300)) {
+            alertas.push(
+                'El kilometraje ingresado (<strong>' + nuevoKm.toLocaleString('es-CO') + '</strong> km) ' +
+                '<strong>excede el límite diario de 300 km</strong> (último registro: <strong>' + ultimoKm.toLocaleString('es-CO') + '</strong> km).'
+            );
+        }
+
+        if (alertas.length > 0) {
+            mostrarAlertasKm(alertas, input);
+            return false;
+        }
+
         return true;
+    }
+
+    /**
+     * Detecta si el valor ingresado corresponde a un reseteo de odómetro
+     * (odómetro llegó a 999...9 y volvió a 0-300)
+     */
+    function esReseteoOdometro(ultimoKm, nuevoKm) {
+        if (nuevoKm > 300) return false;
+        if (ultimoKm <= 0) return false;
+
+        var digitos = Math.floor(Math.log10(ultimoKm)) + 1;
+        var maxOdometro = Math.pow(10, digitos) - 1; // 9...9
+        var umbralCercania = 500;
+
+        return (ultimoKm >= maxOdometro - umbralCercania);
+    }
+
+    /**
+     * Muestra alertas inline en la tarjeta de kilometraje y hace scroll
+     */
+    function mostrarAlertasKm(alertas, input) {
+        var kmCard = input.closest('.preop-card');
+        if (!kmCard) return;
+
+        // Scroll suave a la tarjeta
+        kmCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Construir HTML de alertas
+        var warningsContainer = document.getElementById('km-warnings');
+        if (!warningsContainer) return;
+
+        var html = '<div class="alert alert-warning" style="padding:12px 14px; border-radius:8px; border-left:4px solid #e67e22; background:#fff8e1;">';
+        html += '<div style="display:flex; align-items:flex-start; gap:10px;">';
+        html += '<i class="fas fa-exclamation-triangle" style="color:#e67e22; font-size:18px; margin-top:2px;"></i>';
+        html += '<div style="flex:1;">';
+        html += '<strong style="font-size:14px; color:#856404;">Verifique el kilometraje ingresado</strong>';
+        html += '<ul style="margin:6px 0 0 0; padding-left:18px; font-size:13px; color:#856404;">';
+        for (var i = 0; i < alertas.length; i++) {
+            html += '<li style="margin-bottom:4px;">' + alertas[i] + '</li>';
+        }
+        html += '</ul>';
+        html += '<p style="margin:8px 0 0 0; font-size:12px; color:#856404;">';
+        html += '<i class="fas fa-info-circle"></i> Si confirma que el valor es correcto, haga clic en <strong>"Guardar"</strong> nuevamente para continuar.';
+        html += '</p>';
+        html += '</div></div></div>';
+
+        warningsContainer.innerHTML = html;
+        warningsContainer.style.display = 'block';
+
+        // Establecer bandera para permitir re-intento
+        window._kmWarningAcknowledged = true;
+
+        // Resaltar temporalmente el input
+        input.style.borderColor = '#e67e22';
+        input.style.boxShadow = '0 0 0 2px rgba(230,126,34,0.25)';
+    }
+
+    /**
+     * Muestra alerta simple de error requerido en kilometraje
+     */
+    function mostrarAlertaKm(mensaje) {
+        var input = document.getElementById('kilometraje');
+        if (input) {
+            resaltarTarjeta(input, mensaje);
+        }
+        swalAlert({
+            title: 'Kilometraje requerido',
+            text: mensaje,
+            icon: 'warning',
+            confirmButtonText: 'Aceptar'
+        });
     }
 
     /**
@@ -1062,7 +1182,6 @@
         // Deshabilitar inputs de archivo (excepto los de entrega de vehículo en validación)
         var fileInputs = document.querySelectorAll('input[type="file"]');
         for (var k = 0; k < fileInputs.length; k++) {
-            if (fileInputs[k].id.indexOf('entrega_') === 0) continue;
             fileInputs[k].disabled = true;
         }
     }
@@ -1367,8 +1486,7 @@
                 var idVehiculo = panel ? panel.getAttribute('data-idvehiculo') : '0';
                 var datos = {
                     puede_ser_operado: seleccion.value,
-                    observaciones: document.getElementById('novedadObservacion') ? document.getElementById('novedadObservacion').value : '',
-                    idvehiculo_nuevo: document.getElementById('novedadVehiculoSelect') ? document.getElementById('novedadVehiculoSelect').value : ''
+                    observaciones: document.getElementById('novedadObservacion') ? document.getElementById('novedadObservacion').value : ''
                 };
                 guardarNovedad(idVehiculo, datos);
             });
@@ -1559,48 +1677,12 @@
             return;
         }
 
-        // 2. Si NO: fotos de salida requeridas
-        if (seleccion.value === 'no') {
-            var faltaSalida = [];
-            var sf = document.getElementById('novedad_salida_frente');
-            var st = document.getElementById('novedad_salida_trasera');
-            if (!sf || !sf.files || sf.files.length === 0) faltaSalida.push('Foto FRENTE - Salida');
-            if (!st || !st.files || st.files.length === 0) faltaSalida.push('Foto TRASERA - Salida');
-            if (faltaSalida.length > 0) {
-                var html = '<strong>Debe subir las siguientes fotos de salida:</strong><br><br>';
-                for (var k = 0; k < faltaSalida.length; k++) { html += '• ' + faltaSalida[k] + '<br>'; }
-                swalAlert({ title: 'Fotos de salida requeridas', html: html, icon: 'warning', confirmButtonText: 'Aceptar' });
-                var salidaGrp = document.getElementById('novedadSalidaPhotosGroup');
-                if (salidaGrp) salidaGrp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                return;
-            }
-
-            // 3. Si vehículo nuevo seleccionado: fotos de entrada requeridas
-            var idVehiculoNuevo = datos.idvehiculo_nuevo || '';
-            if (idVehiculoNuevo) {
-                var faltaEntrada = [];
-                var ef = document.getElementById('novedad_entrada_frente');
-                var et = document.getElementById('novedad_entrada_trasera');
-                if (!ef || !ef.files || ef.files.length === 0) faltaEntrada.push('Foto FRENTE - Entrada');
-                if (!et || !et.files || et.files.length === 0) faltaEntrada.push('Foto TRASERA - Entrada');
-                if (faltaEntrada.length > 0) {
-                    var htmlE = '<strong>Debe subir las siguientes fotos de entrada:</strong><br><br>';
-                    for (var j = 0; j < faltaEntrada.length; j++) { htmlE += '• ' + faltaEntrada[j] + '<br>'; }
-                    swalAlert({ title: 'Fotos de entrada requeridas', html: htmlE, icon: 'warning', confirmButtonText: 'Aceptar' });
-                    var entradaGrp = document.getElementById('novedadEntradaPhotosGroup');
-                    if (entradaGrp) entradaGrp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                }
-            }
-        }
-
         // --- BUILD FORMDATA ---
         var formData = new FormData();
         formData.append('accion', 'reportar_novedad');
         formData.append('idvehiculo_actual', idVehiculo);
         formData.append('puede_ser_operado', datos.puede_ser_operado);
         formData.append('observaciones', datos.observaciones);
-        formData.append('idvehiculo_nuevo', datos.idvehiculo_nuevo);
         formData.append('id_usuario', document.getElementById('user') ? document.getElementById('user').value : '');
 
         // Append fotos múltiples de evidencia
@@ -1608,24 +1690,6 @@
         for (var fi = 0; fi < todosLosInputsFoto.length; fi++) {
             if (todosLosInputsFoto[fi].files && todosLosInputsFoto[fi].files.length > 0) {
                 formData.append('novedad_fotos[]', todosLosInputsFoto[fi].files[0]);
-            }
-        }
-
-        // Append fotos de salida (si existen)
-        var salidaFiles = ['novedad_salida_frente', 'novedad_salida_trasera'];
-        for (var i = 0; i < salidaFiles.length; i++) {
-            var input = document.getElementById(salidaFiles[i]);
-            if (input && input.files.length > 0) {
-                formData.append(salidaFiles[i], input.files[0]);
-            }
-        }
-
-        // Append fotos de entrada (si existen)
-        var entradaFiles = ['novedad_entrada_frente', 'novedad_entrada_trasera'];
-        for (var m = 0; m < entradaFiles.length; m++) {
-            var inputE = document.getElementById(entradaFiles[m]);
-            if (inputE && inputE.files.length > 0) {
-                formData.append(entradaFiles[m], inputE.files[0]);
             }
         }
 
@@ -1645,10 +1709,7 @@
             if (btnCancelar) btnCancelar.disabled = false;
 
             if (data.success) {
-                if (data.cambio_vehiculo) {
-                    // Vehículo nuevo asignado → recargar página
-                    swalAlert({ title: 'Vehículo actualizado', text: data.message + ' La página se recargará.', icon: 'success', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
-                } else if (data.idvehiculo_final && parseInt(data.idvehiculo_final) > 0) {
+                if (data.idvehiculo_final && parseInt(data.idvehiculo_final) > 0) {
                     // SÍ → el vehículo se mantiene: desbloquear secciones normalmente
                     var inlineForm = document.getElementById('novedadInlineForm');
                     if (inlineForm) inlineForm.style.display = 'none';
@@ -1663,9 +1724,7 @@
 
                     swalAlert({ title: 'Novedad registrada', text: data.message, icon: 'success', confirmButtonText: 'Aceptar', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
                 } else {
-                    // FUERA_DE_SERVICIO sin vehículo nuevo → el vehículo fue desasignado
-                    // en el servidor. Recargar la página para que el formulario refleje
-                    // el nuevo estado (sin secciones de vehículo, panel de asignación, etc.).
+                    // FUERA_DE_SERVICIO sin vehículo → recargar para reflejar nuevo estado
                     swalAlert({ title: 'Vehículo fuera de servicio', text: data.message + ' La página se recargará.', icon: 'info', confirmButtonText: 'Aceptar' }).then(function() { location.reload(); });
                 }
             } else {
@@ -1682,44 +1741,6 @@
     /**
      * Valida que se hayan subido las 4 fotos de entrega en modo validación
      */
-    function validarFotosEntrega() {
-        if (typeof ES_VALIDACION === 'undefined' || !ES_VALIDACION) return true;
-
-        // Buscar cualquier sección de entrega (no solo .entrega-validacion-card)
-        var entregaSection = document.querySelector('.entrega-photo-section');
-        if (!entregaSection) return true;
-
-        var fotosRequeridas = [
-            { id: 'entrega_final_frente', name: 'Foto FRENTE - Entrega Final' },
-            { id: 'entrega_final_trasera', name: 'Foto TRASERA - Entrega Final' },
-            { id: 'entrega_inicial_frente', name: 'Foto FRENTE - Entrega Inicial' },
-            { id: 'entrega_inicial_trasera', name: 'Foto TRASERA - Entrega Inicial' }
-        ];
-
-        var faltantes = [];
-        for (var i = 0; i < fotosRequeridas.length; i++) {
-            // Si existe un hidden indicando que la foto ya fue subida, no requerirla
-            var existente = document.querySelector('input[name="' + fotosRequeridas[i].id + '_existente"]');
-            if (existente && existente.value === '1') continue;
-
-            var input = document.getElementById(fotosRequeridas[i].id);
-            if (!input || !input.files || input.files.length === 0) {
-                faltantes.push(fotosRequeridas[i].name);
-            }
-        }
-
-        if (faltantes.length > 0) {
-            var errorHtml = '<strong>Debe subir las siguientes fotos:</strong><br><br>';
-            for (var k = 0; k < faltantes.length; k++) {
-                errorHtml += '• ' + faltantes[k] + '<br>';
-            }
-            swalAlert({ title: 'Fotos de entrega requeridas', html: errorHtml, icon: 'warning', confirmButtonText: 'Aceptar' });
-            entregaSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return false;
-        }
-        return true;
-    }
-
     /**
      * Maneja el envío del formulario
      */
@@ -1811,11 +1832,6 @@
                 if (!validarUbicacion()) {
                     return;
                 }
-            } else {
-                // Modo validación: validar las fotos de entrega
-                if (!validarFotosEntrega()) {
-                    return;
-                }
             }
 
             if (!asignar()) {
@@ -1843,6 +1859,19 @@
             var formData = new FormData(this);
             formData.append('accion', 'guardar');
             formData.append('ajax', '1');
+
+            // Si hay un vehículo seleccionado (cambio voluntario), incluir datos cacheados
+            if (_vehiculoSeleccionado && _vehiculoSeleccionado.id) {
+                formData.append('idvehiculo_seleccionado', _vehiculoSeleccionado.id);
+                formData.append('seleccion_observaciones', _vehiculoSeleccionado.observaciones || '');
+
+                // Adjuntar fotos cacheadas (File objects)
+                if (_vehiculoSeleccionado.files) {
+                    Object.keys(_vehiculoSeleccionado.files).forEach(function(key) {
+                        formData.append(key, _vehiculoSeleccionado.files[key]);
+                    });
+                }
+            }
 
             var btn = document.getElementById('btnGuardar');
             if (btn) {
@@ -2149,10 +2178,206 @@
 
 
     /**
+     * Inicializa el botón de "Seleccionar otro vehículo para hoy".
+     * Muestra el panel de selección; la selección se cachea en
+     * _vehiculoSeleccionado y se envía junto con el preoperacional.
+     */
+    function initBotonSeleccionDiaria() {
+        var btn = document.getElementById('btnSeleccionarVehiculoDiario');
+        if (!btn) return;
+
+        btn.addEventListener('click', function() {
+            var selectContainer = document.getElementById('vehiculoDiarioSelectContainer');
+            if (selectContainer) {
+                selectContainer.style.display = '';
+                selectContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    }
+
+    /**
+     * Inicializa el panel de selección diaria de vehículo.
+     * En lugar de enviar al servidor inmediatamente, cachea la selección
+     * en _vehiculoSeleccionado para enviarla junto con el preoperacional.
+     * Al seleccionar, obtiene datos del vehículo vía AJAX y actualiza
+     * la tarjeta de info, kilometraje y alertas de documentos.
+     */
+    function initSubmitSeleccionDiaria() {
+        var btnConfirmar = document.getElementById('btnGuardarSeleccionDiaria');
+        var btnCancelar = document.getElementById('btnCancelarSeleccionDiaria');
+        var container = document.getElementById('vehiculoDiarioSelectContainer');
+
+        if (btnConfirmar) {
+            btnConfirmar.addEventListener('click', function() {
+                var select = document.getElementById('diariaVehiculoSelect');
+                if (!select) {
+                    swalAlert({ title: 'Error', text: 'No hay vehículos disponibles para seleccionar.', icon: 'error', confirmButtonText: 'Aceptar' });
+                    return;
+                }
+                var idVehiculo = select.value;
+                if (!idVehiculo) {
+                    swalAlert({ title: 'Seleccione un vehículo', text: 'Debe elegir un vehículo de la lista.', icon: 'warning', confirmButtonText: 'Aceptar' });
+                    return;
+                }
+
+                // Mostrar indicador de carga en el botón
+                btnConfirmar.disabled = true;
+                btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
+
+                // Cachear archivos de foto y observaciones
+                var fotos = ['diaria_frente', 'diaria_trasera', 'diaria_lateral_izq', 'diaria_lateral_der'];
+                _vehiculoSeleccionado.files = {};
+                fotos.forEach(function(nombre) {
+                    var input = document.querySelector('input[name="' + nombre + '"]');
+                    if (input && input.files && input.files[0]) {
+                        _vehiculoSeleccionado.files[nombre] = input.files[0];
+                    }
+                });
+                var obs = document.getElementById('diariaObservacion');
+                _vehiculoSeleccionado.observaciones = obs && obs.value.trim() ? obs.value.trim() : '';
+
+                // Obtener datos completos del vehículo seleccionado para actualizar la UI
+                var formData = new FormData();
+                formData.append('accion', 'obtener_datos_vehiculo');
+                formData.append('idvehiculo', idVehiculo);
+
+                fetch((window.APP_BASE_URL ? window.APP_BASE_URL + '/controller/PreoperacionalController.php' : window.location.pathname), {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Seleccionar vehículo para hoy';
+
+                    if (!data.success || !data.data) {
+                        swalAlert({ title: 'Error', text: 'No se pudieron obtener los datos del vehículo.', icon: 'error', confirmButtonText: 'Aceptar' });
+                        return;
+                    }
+
+                    var v = data.data;
+
+                    // Cachear el ID del vehículo seleccionado (solo si la carga fue exitosa)
+                    _vehiculoSeleccionado.id = idVehiculo;
+
+                    // Actualizar los hidden fields
+                    // NOTA: NO se actualiza input[name="idvehiculo"] — ese debe conservar
+                    // el vehículo ORIGINAL para que el servidor detecte el cambio.
+                    // Solo se actualiza idvehiculo_seleccionado.
+                    var selField = document.getElementById('idvehiculo_seleccionado');
+                    if (selField) selField.value = idVehiculo;
+
+                    // ---- Actualizar tarjeta de info del vehículo ----
+                    var vehicleCard = document.querySelector('.preop-card.vehicle-info');
+                    if (vehicleCard) {
+                        var grid = vehicleCard.querySelector('.vehicle-info-grid');
+                        if (grid) {
+                            // Reconstruir grid con datos del vehículo seleccionado
+                            var campos = {
+                                'PLACA': v.veh_placa || '',
+                                'MARCA': v.veh_marca || '',
+                                'MODELO': v.veh_modelo || '',
+                                'KM': v.veh_kilactual || '',
+                                'SEGURO VENCE': v.veh_fechaseguro || '',
+                                'TECNOMECÁNICA VENCE': v.veh_fechategnomecanica || ''
+                            };
+                            grid.innerHTML = '';
+                            Object.keys(campos).forEach(function(label) {
+                                if (campos[label]) {
+                                    var div = document.createElement('div');
+                                    div.className = 'vehicle-info-item';
+                                    div.innerHTML = '<strong>' + label + '</strong><span>' + campos[label] + '</span>';
+                                    grid.appendChild(div);
+                                }
+                            });
+                        }
+
+                        // Actualizar clase de severidad en la tarjeta
+                        var sev = v.max_severity || 0;
+                        vehicleCard.className = vehicleCard.className.replace(/severity-\S*/g, '').trim();
+                        if (sev >= 3) vehicleCard.classList.add('severity-expired');
+                        else if (sev >= 2) vehicleCard.classList.add('severity-critical');
+                        else if (sev >= 1) vehicleCard.classList.add('severity-warning');
+                    }
+
+                    // ---- Reemplazar alertas de documentos con las del nuevo vehículo ----
+                    var docsPanel = document.querySelector('.vehiculo-docs-panel');
+                    if (docsPanel && v.alertas_html) {
+                        docsPanel.outerHTML = v.alertas_html;
+                    } else if (docsPanel && !v.alertas_html) {
+                        docsPanel.style.display = 'none';
+                    }
+
+                    // ---- Actualizar ULTIMO_KM para validación de kilometraje ----
+                    if (v.veh_kilactual) {
+                        var kmInt = parseInt(v.veh_kilactual, 10);
+                        ULTIMO_KM = kmInt;
+                        var kmInput = document.getElementById('kilometraje');
+                        if (kmInput) {
+                            kmInput.placeholder = 'Último: ' + kmInt.toLocaleString('es-CO') + ' km';
+                        }
+                        // Actualizar el texto "Último km registrado" en la tarjeta de kilometraje
+                        var lastKmInfo = document.querySelector('.last-km-info strong');
+                        if (lastKmInfo) {
+                            lastKmInfo.textContent = kmInt.toLocaleString('es-CO');
+                        }
+                    }
+
+                    // ---- Actualizar badge de cambio temporal y ocultar panel ----
+                    var option = select.options[select.selectedIndex];
+                    var placa = v.veh_placa || 'N/A';
+                    if (option) {
+                        var textParts = option.text.split(' - ');
+                        placa = textParts[1] || placa;
+                    }
+                    var novedadPanel = document.getElementById('novedadPanel');
+                    if (novedadPanel) {
+                        var existingBadge = novedadPanel.querySelector('.cambio-temp-badge');
+                        if (!existingBadge) {
+                            var badge = document.createElement('div');
+                            badge.className = 'cambio-temp-badge';
+                            badge.innerHTML = '<span style="display:inline-block;background:#e3f2fd;color:#1565c0;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;margin-top:8px;"><i class="fas fa-exchange-alt"></i> Vehículo cambiado temporalmente a ' + placa + '</span>';
+                            novedadPanel.querySelector('.preop-card-body').appendChild(badge);
+                        }
+                    }
+
+                    // Ocultar el panel de selección
+                    if (container) container.style.display = 'none';
+
+                    swalAlert({
+                        title: 'Vehículo seleccionado',
+                        text: 'Complete el formulario y guarde para registrar el preoperacional.',
+                        icon: 'success',
+                        confirmButtonText: 'Continuar',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 2500
+                    });
+                })
+                .catch(function() {
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Seleccionar vehículo para hoy';
+                    swalAlert({ title: 'Error', text: 'Error de comunicación al obtener datos del vehículo.', icon: 'error', confirmButtonText: 'Aceptar' });
+                });
+            });
+        }
+
+        if (btnCancelar && container) {
+            btnCancelar.addEventListener('click', function() {
+                container.style.display = 'none';
+            });
+        }
+    }
+
+    /**
      * Inicialización cuando el DOM está listo
      */
     function init() {
         try {
+            // Inicializar bandera de alerta de kilometraje
+            window._kmWarningAcknowledged = false;
             initBinaryCheckboxes();
             initKilometrajeFormatting();
             initDriverWarnings();
@@ -2161,6 +2386,8 @@
             verificarEstadoVehiculo();
             initBotonAsignarVehiculo();
             initNovedadMultiPhoto();
+            initBotonSeleccionDiaria();
+            initSubmitSeleccionDiaria();
 
             var esLegado = !document.getElementById('ubicacion_container');
 

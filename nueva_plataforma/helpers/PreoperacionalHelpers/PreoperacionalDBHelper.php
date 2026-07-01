@@ -2,8 +2,8 @@
 /**
  * PreoperacionalDBHelper - Carga preguntas desde la DB relacional
  *
- * Esta clase consulta las tablas preop_plantillas, preop_versiones,
- * preop_secciones y preop_preguntas, y devuelve los datos en el MISMO
+ * Esta clase consulta las tablas cuestionarios_plantillas, cuestionarios_versiones,
+ * cuestionarios_secciones y cuestionarios_preguntas, y devuelve los datos en el MISMO
  * formato de array que esperan los métodos render* de los ViewHelpers.
  *
  * USO: Invocado por los ViewHelpers para cargar preguntas desde la BD relacional.

@@ -493,7 +493,142 @@ class PreoperacionalModel
     }
 
     /**
-     * Actualiza la imagen de kilometraje de un registro
+     * Guarda un documento en cualquier tabla destino.
+     * Versión genérica de guardarImagen para usar con doc_tabla variable.
+     *
+     * @param array  $file       Archivo de $_FILES (tmp_name, name)
+     * @param int    $idViene    ID del registro asociado
+     * @param int    $version    Versión/tipo de documento (ej: 10 = selección diaria)
+     * @param string $tabla      Nombre de la tabla destino (ej: 'seguimiento_vehiculo')
+     * @return int|false ID del documento insertado o false
+     */
+    public function guardarDocumentoGenerico($file, $idViene, $version, $tabla = 'pre-operacional')
+    {
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            error_log("PreoperacionalModel: guardarDocumentoGenerico - tmp_name inválido");
+            return false;
+        }
+
+        $nombreArchivo = date("Y-m-d-H-i-s") . "_" . $file['name'];
+        $rutaBase = $this->getUploadPath();
+        $ruta = $rutaBase . $nombreArchivo;
+
+        if (!is_dir($rutaBase)) {
+            mkdir($rutaBase, 0777, true);
+        }
+
+        if (!move_uploaded_file($file['tmp_name'], $ruta)) {
+            error_log("PreoperacionalModel: guardarDocumentoGenerico - Error al mover archivo");
+            return false;
+        }
+
+        $sql = "INSERT INTO documentos (doc_fecha, doc_nombre, doc_ruta, doc_tabla, doc_idviene, doc_version)
+                VALUES (NOW(), ?, ?, ?, ?, ?)";
+
+        $stmt = $this->db->prepare($sql);
+        if (!$stmt) {
+            error_log("PreoperacionalModel: guardarDocumentoGenerico - Error SQL: " . $this->db->error);
+            return false;
+        }
+
+        $stmt->bind_param("sssii", $file['name'], $ruta, $tabla, $idViene, $version);
+        return $stmt->execute() ? $this->db->insert_id : false;
+    }
+
+    /**
+     * Busca una asignación diaria de vehículo para un usuario en una fecha específica.
+     * Retorna el registro de seguimiento_vehiculo con tipo_evento = 'ASIGNACION_VEHICULO'.
+     *
+     * @param int    $idUsuario ID del usuario (conductor)
+     * @param string $fecha     Fecha en formato Y-m-d
+     * @return array|null Registro de seguimiento_vehiculo o null
+     */
+    public function obtenerAsignacionDiaria($idUsuario, $fecha)
+    {
+        $sql = "SELECT * FROM seguimiento_vehiculo
+                WHERE tipo_evento = 'ASIGNACION_VEHICULO'
+                  AND id_conductor = ?
+                  AND DATE(fecha_registro) = ?
+                ORDER BY fecha_registro DESC
+                LIMIT 1";
+        return $this->executeQuery($sql, "is", [$idUsuario, $fecha]);
+    }
+
+    /**
+     * Obtiene el ID del vehículo permanentemente asignado al usuario (usu_vehiculo).
+     *
+     * @param int $idUsuario ID del usuario
+     * @return int|null ID del vehículo o null si no tiene asignado
+     */
+    public function obtenerVehiculoPermanenteUsuario($idUsuario)
+    {
+        $sql = "SELECT usu_vehiculo FROM usuarios WHERE idusuarios = ? LIMIT 1";
+        $row = $this->executeQuery($sql, "i", [$idUsuario]);
+        if ($row && !empty($row['usu_vehiculo']) && (int) $row['usu_vehiculo'] > 0) {
+            return (int) $row['usu_vehiculo'];
+        }
+        return null;
+    }
+
+    /**
+     * Obtiene las fotos asociadas a una selección diaria de vehículo.
+     * Busca en documentos con doc_tabla='seguimiento_vehiculo' y doc_version=10.
+     *
+     * @param int $idSeguimiento ID del registro en seguimiento_vehiculo
+     * @return array Lista de documentos [['iddocumentos', 'doc_nombre', 'doc_ruta'], ...]
+     */
+    public function obtenerFotosSeleccionVehiculo($idSeguimiento)
+    {
+        $sql = "SELECT iddocumentos, doc_nombre, doc_ruta
+                FROM documentos
+                WHERE doc_tabla = 'seguimiento_vehiculo'
+                  AND doc_idviene = ?
+                  AND doc_version = 10
+                ORDER BY iddocumentos ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idSeguimiento);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $fotos = [];
+        while ($row = $result->fetch_assoc()) {
+            $fotos[] = $row;
+        }
+        return $fotos;
+    }
+
+    /**
+     * Obtiene las fotos del cambio voluntario de vehículo asociadas
+     * a un preoperacional. Las fotos se guardan en documentos contra
+     * el seguimiento_vehiculo (PREOPERACIONAL) con doc_version=10.
+     *
+     * @param int $idPreoperacional ID del preoperacional
+     * @return array Lista de documentos con iddocumentos, doc_nombre, doc_ruta
+     */
+    public function obtenerFotosCambioVehiculo($idPreoperacional)
+    {
+        $sql = "SELECT d.iddocumentos, d.doc_nombre, d.doc_ruta
+                FROM documentos d
+                INNER JOIN seguimiento_vehiculo sv ON d.doc_idviene = sv.id_seguimiento_vehiculo
+                    AND d.doc_tabla = 'seguimiento_vehiculo'
+                WHERE sv.id_preoperacional = ?
+                  AND sv.tipo_evento = 'PREOPERACIONAL'
+                  AND d.doc_version = 10
+                ORDER BY d.iddocumentos ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param("i", $idPreoperacional);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $fotos = [];
+        while ($row = $result->fetch_assoc()) {
+            $fotos[] = $row;
+        }
+        return $fotos;
+    }
+
+    /**
      * 
      * @param int $idPreoperacional ID del registro
      * @param string $rutaImagen Ruta de la imagen
@@ -535,8 +670,8 @@ class PreoperacionalModel
     public function obtenerVersionActivaVehiculo($tipoVehiculo)
     {
         $sql = "SELECT v.id_version, v.id_plantilla, p.nombre_base, v.numero_version
-                FROM preop_versiones v
-                INNER JOIN preop_plantillas p ON v.id_plantilla = p.id_plantilla
+                FROM cuestionarios_versiones v
+                INNER JOIN cuestionarios_plantillas p ON v.id_plantilla = p.id_plantilla
                 WHERE p.tipo_destinatario = 'VEHICULO'
                   AND p.aplica_a_tipo_vehiculo = ?
                   AND v.estado = 'ACTIVA'
@@ -561,8 +696,8 @@ class PreoperacionalModel
     {
         $rolStr = (string) $rolUsuario;
         $sql = "SELECT v.id_version, v.id_plantilla, p.nombre_base, v.numero_version
-                FROM preop_versiones v
-                INNER JOIN preop_plantillas p ON v.id_plantilla = p.id_plantilla
+                FROM cuestionarios_versiones v
+                INNER JOIN cuestionarios_plantillas p ON v.id_plantilla = p.id_plantilla
                 WHERE p.tipo_destinatario = 'USUARIO'
                   AND v.estado = 'ACTIVA'
                   AND v.fecha_vigencia_fin IS NULL
@@ -590,8 +725,8 @@ class PreoperacionalModel
         $sql = "SELECT s.id_seccion, s.nombre, s.css_clase, s.orden AS sec_orden,
                        p.id_pregunta, p.codigo_interno, p.texto_pregunta, p.tipo_respuesta,
                        p.respuesta_esperada, p.requiere_foto_si_negativa, p.genera_bloqueo, p.orden AS preg_orden
-                FROM preop_secciones s
-                INNER JOIN preop_preguntas p ON s.id_seccion = p.id_seccion
+                FROM cuestionarios_secciones s
+                INNER JOIN cuestionarios_preguntas p ON s.id_seccion = p.id_seccion
                 WHERE s.id_version = ?
                 ORDER BY s.orden, p.orden";
 
@@ -637,8 +772,8 @@ class PreoperacionalModel
     public function obtenerMappingCodigosAPreguntas($idVersion)
     {
         $sql = "SELECT p.codigo_interno, p.id_pregunta
-                FROM preop_preguntas p
-                INNER JOIN preop_secciones s ON p.id_seccion = s.id_seccion
+                FROM cuestionarios_preguntas p
+                INNER JOIN cuestionarios_secciones s ON p.id_seccion = s.id_seccion
                 WHERE s.id_version = ?";
 
         $stmt = $this->db->prepare($sql);
@@ -665,7 +800,7 @@ class PreoperacionalModel
         if (empty($codigos)) return [];
         $placeholders = implode(',', array_fill(0, count($codigos), '?'));
         $sql = "SELECT codigo_interno, texto_pregunta
-                FROM preop_preguntas
+                FROM cuestionarios_preguntas
                 WHERE codigo_interno IN ($placeholders)
                 GROUP BY codigo_interno";
         $stmt = $this->db->prepare($sql);
@@ -694,10 +829,10 @@ class PreoperacionalModel
     public function obtenerCodigosVehiculo(): array
     {
         $sql = "SELECT DISTINCT p.codigo_interno
-                FROM preop_preguntas p
-                INNER JOIN preop_secciones s ON p.id_seccion = s.id_seccion
-                INNER JOIN preop_versiones v ON s.id_version = v.id_version
-                INNER JOIN preop_plantillas pl ON v.id_plantilla = pl.id_plantilla
+                FROM cuestionarios_preguntas p
+                INNER JOIN cuestionarios_secciones s ON p.id_seccion = s.id_seccion
+                INNER JOIN cuestionarios_versiones v ON s.id_version = v.id_version
+                INNER JOIN cuestionarios_plantillas pl ON v.id_plantilla = pl.id_plantilla
                 WHERE pl.tipo_destinatario = 'VEHICULO'";
         $result = $this->db->query($sql);
         $codigos = [];
@@ -765,7 +900,7 @@ class PreoperacionalModel
     {
         $sql = "SELECT p.codigo_interno, r.respuesta_dada, r.ruta_foto, r.observacion_especifica
                 FROM preop_respuestas r
-                INNER JOIN preop_preguntas p ON r.id_pregunta = p.id_pregunta
+                INNER JOIN cuestionarios_preguntas p ON r.id_pregunta = p.id_pregunta
                 WHERE r.id_preoperacional = ?";
 
         $stmt = $this->db->prepare($sql);
@@ -1075,185 +1210,8 @@ class PreoperacionalModel
         return $stmt->execute();
     }
 
-    /**
-     * Busca las entregas de vehículo pendientes de validación para un usuario
-     * (conductor). Busca el último REVISION_SST que tenga entregas vinculadas
-     * para cualquier vehículo que haya usado este conductor.
-     *
-     * @param int $idUsuario ID del conductor
-     * @return array ['final' => entrega|null, 'inicial' => entrega|null, 'seguimiento' => array|null]
-     */
-    public function obtenerEntregasPendientesPorUsuario($idUsuario)
-    {
-        // Buscar el último REVISION_SST que tenga entregas vinculadas y
-        // cuyo conductor sea este usuario.
-        $sql = "SELECT sv.*
-                FROM seguimiento_vehiculo sv
-                WHERE sv.id_conductor = ?
-                  AND sv.tipo_evento = 'REVISION_SST'
-                  AND (sv.entrega_final_usuario IS NOT NULL OR sv.entrega_inicial_usuario IS NOT NULL)
-                ORDER BY sv.fecha_registro DESC
-                LIMIT 1";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("i", $idUsuario);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $seguimiento = $result->fetch_assoc();
-
-        if (!$seguimiento) {
-            return ['final' => null, 'inicial' => null, 'seguimiento' => null];
-        }
-
-        $entregaFinal = null;
-        $entregaInicial = null;
-
-        if (!empty($seguimiento['entrega_final_usuario'])) {
-            $entregaFinal = $this->obtenerEntregaVehiculoPorId((int) $seguimiento['entrega_final_usuario']);
-        }
-        if (!empty($seguimiento['entrega_inicial_usuario'])) {
-            $entregaInicial = $this->obtenerEntregaVehiculoPorId((int) $seguimiento['entrega_inicial_usuario']);
-        }
-
-        return [
-            'final' => $entregaFinal,
-            'inicial' => $entregaInicial,
-            'seguimiento' => $seguimiento
-        ];
-    }
-
-    /**
-     * Desasigna el vehículo de un usuario (pone usu_vehiculo a NULL)
-     *
-     * @param int $idUsuario ID del usuario
-     * @return bool True si se actualizó correctamente
-     */
-    public function desasignarVehiculoDeUsuario($idUsuario)
-    {
-        $sql = "UPDATE usuarios SET usu_vehiculo = NULL WHERE idusuarios = ?";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("i", $idUsuario);
-        return $stmt->execute();
-    }
-
-    // ==================== ENTREGA DE VEHÍCULO ====================
-
-    /**
-     * Inserta un registro en entregavehiculo con imágenes ya procesadas.
-     * Versión simplificada de VehiculosModel::guardarEntregaVehiculo() que no
-     * depende de $_FILES (las rutas de imágenes ya vienen procesadas).
-     *
-     * @param array $datos Datos de la entrega (con rutas de imagen ya guardadas)
-     * @return int|array ID del registro insertado o array con error
-     */
-    public function insertarEntregaVehiculo($datos)
-    {
-        $sql = "INSERT INTO entregavehiculo (
-                    ent_fechaentrega, ent_vehiculo, ent_idvehiculo, ent_userregistra, ent_idusuario,
-                    ent_idusuarioencargado, ent_tipoentrega, ent_fecharegistra, ent_idhojadevida, ent_sede,
-                    ent_img_frente, ent_img_trasera, ent_equipo_carretera,
-                    ent_observaciones, ent_firma
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        $stmt = $this->db->prepare($sql);
-        if (!$stmt) {
-            return ['error' => 'Prepare falló: ' . $this->db->error];
-        }
-
-        $stmt->bind_param(
-            "ssisiisssisssss",
-            $datos['ent_fechaentrega'],
-            $datos['ent_vehiculo'],
-            $datos['ent_idvehiculo'],
-            $datos['ent_userregistra'],
-            $datos['ent_idusuario'],
-            $datos['ent_idusuarioencargado'],
-            $datos['ent_tipoentrega'],
-            $datos['ent_fecharegistra'],
-            $datos['ent_idhojadevida'],
-            $datos['ent_sede'],
-            $datos['ent_img_frente'],
-            $datos['ent_img_trasera'],
-            $datos['ent_equipo_carretera'],
-            $datos['ent_observaciones'],
-            $datos['ent_firma']
-        );
-
-        $resultado = $stmt->execute();
-        if (!$resultado) {
-            return ['error' => 'Execute falló: ' . $stmt->error];
-        }
-
-        $idInsertado = $this->db->insert_id;
-        $stmt->close();
-        return $idInsertado;
-    }
-
-    /**
-     * Obtiene un registro de entrega de vehículo por su ID
-     *
-     * @param int $id ID del registro en entregavehiculo
-     * @return array|null Registro como array asociativo o null
-     */
-    public function obtenerEntregaVehiculoPorId($id)
-    {
-        $sql = "SELECT * FROM entregavehiculo WHERE identregavehiculo = ? LIMIT 1";
-        return $this->executeQuery($sql, "i", [$id]);
-    }
-
-    /**
-     * Actualiza un registro existente en entregavehiculo.
-     * Solo actualiza los campos que se proveen en $datos.
-     *
-     * @param int $id ID del registro en entregavehiculo
-     * @param array $datos Campos a actualizar (ent_firma, ent_observaciones,
-     *                     ent_img_frente, ent_img_trasera, ent_equipo_carretera,
-     *                     ent_idvehiculo, ent_idusuarioencargado)
-     * @return bool True si se actualizó correctamente
-     */
-    public function actualizarEntregaVehiculo($id, $datos)
-    {
-        $permitidos = [
-            'ent_firma'               => 's',
-            'ent_observaciones'       => 's',
-            'ent_img_frente'          => 's',
-            'ent_img_trasera'         => 's',
-            'ent_equipo_carretera'    => 's',
-            'ent_idvehiculo'          => 'i',
-            'ent_idusuarioencargado'  => 'i',
-        ];
-
-        $sets = [];
-        $params = [];
-        $types = '';
-
-        foreach ($permitidos as $columna => $tipo) {
-            if (array_key_exists($columna, $datos)) {
-                $sets[] = "$columna = ?";
-                $params[] = $datos[$columna];
-                $types .= $tipo;
-            }
-        }
-
-        if (empty($sets)) {
-            return false;
-        }
-
-        $types .= 'i';
-        $params[] = $id;
-
-        $sql = "UPDATE entregavehiculo SET " . implode(', ', $sets) . " WHERE identregavehiculo = ?";
-        $stmt = $this->db->prepare($sql);
-        if (!$stmt) {
-            return false;
-        }
-
-        $stmt->bind_param($types, ...$params);
-        $resultado = $stmt->execute();
-        $stmt->close();
-        return $resultado;
-    }
-
-    // ==================== MÉTODOS PRIVADOS ====================
+    // [ELIMINADO] obtenerEntregasPendientesPorUsuario(), insertarEntregaVehiculo(),
+    // obtenerEntregaVehiculoPorId(), actualizarEntregaVehiculo() — reemplazado por selección diaria
 
     /**
      * Ejecuta una consulta con parámetros y devuelve un resultado

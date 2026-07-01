@@ -76,11 +76,20 @@ function loadView($model)
         $tiposAMostrar = ReporteConductorSSTModel::TIPOS_VALIDOS;
     }
 
+    // Cargar preguntas personalizables (categorias y campos) para cada tipo
+    $preguntasPorTipo = [];
+    foreach ($tiposAMostrar as $tipo) {
+        $preguntasPorTipo[$tipo] = $model->obtenerCategoriasYCampos($tipo);
+    }
+
     // Verificar si debe mostrarse el formulario semanal
     $mostrarFormularioSemanal = ($modo === 'semanal') ? $model->debeMostrarFormularioSemanal($idUsuario) : false;
 
     // Calcular ruta base de la aplicación (mismo patrón que PreoperacionalController)
     $appBasePath = dirname(dirname($_SERVER['SCRIPT_NAME']));
+
+    // Pasar labels de gravedad completa para mostrar descripciones al conductor
+    $gravedadLabels = ReporteConductorSSTModel::GRAVEDAD_LABELS;
 
     ob_clean();
     require_once __DIR__ . '/../view/ReporteConductorSST/index.php';
@@ -305,6 +314,21 @@ function guardar($model)
         }
     }
 
+    // --- 5b. Validar firma del conductor ---
+    $firmaBase64 = $_POST['firma_sst'] ?? '';
+    if (empty($firmaBase64)) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'La firma del conductor es requerida.'
+        ], 400);
+    }
+    if (strpos($firmaBase64, 'data:image') !== 0) {
+        ErrorHandler::sendJsonResponse([
+            'success' => false,
+            'message' => 'Formato de firma inválido.'
+        ], 400);
+    }
+
     // --- 6. Construir datos de reportes e insertar en lote ---
     $datosReportes = [];
     foreach ($reportes as $reporte) {
@@ -388,12 +412,36 @@ function guardar($model)
         }
     }
 
-    // --- 8. Respuesta exitosa ---
+    // --- 8. Procesar respuestas personalizables ---
+    $respuestasRaw = $_POST['respuestas'] ?? '[]';
+    $respuestasData = json_decode($respuestasRaw, true);
+    if (is_array($respuestasData) && !empty($respuestasData)) {
+        foreach ($idsInsertados as $index => $idReporte) {
+            $tipo = $reportes[$index]['tipo'] ?? '';
+            $respuestasTipo = $respuestasData[$tipo] ?? [];
+            if (!empty($respuestasTipo)) {
+                $model->guardarRespuestas($idReporte, $respuestasTipo);
+            }
+        }
+    }
+
+    // --- 8b. Guardar firma del conductor ---
+    $firmaGuardada = false;
+    $primerIdReporte = $idsInsertados[0] ?? null;
+    if ($primerIdReporte !== null) {
+        $idFirma = $model->guardarFirma($firmaBase64, $primerIdReporte, $idUsuario);
+        if ($idFirma !== false) {
+            $firmaGuardada = true;
+        }
+    }
+
+    // --- 9. Respuesta exitosa ---
     ErrorHandler::sendJsonResponse([
         'success'           => true,
         'message'           => 'Reportes guardados exitosamente',
         'ids'               => $idsInsertados,
         'archivos_guardados' => $archivosGuardados,
+        'firma_guardada'    => $firmaGuardada,
     ]);
 }
 
@@ -548,8 +596,9 @@ function detalle($model)
         ], 404);
     }
 
-    // Enriquecer con archivos asociados
+    // Enriquecer con archivos asociados y firma
     $reporte['archivos'] = $model->obtenerArchivos($reporte['id']);
+    $reporte['firma'] = $model->obtenerFirmaReporte($reporte['id']);
 
     ErrorHandler::sendJsonResponse([
         'success' => true,
@@ -589,6 +638,22 @@ function detalleVista($model)
         ], 404);
     }
 
+    // Incluir historial de seguimiento, respuestas personalizables, archivos y firma
+    $reporte['seguimiento'] = $model->obtenerSeguimiento($id);
+    $reporte['respuestas'] = $model->obtenerRespuestas($id);
+    $reporte['archivos'] = $model->obtenerArchivos($id);
+    $reporte['firma'] = $model->obtenerFirmaReporte($id);
+
+    // Derivar campos del validador desde el ultimo registro de seguimiento
+    if (!empty($reporte['seguimiento'])) {
+        $ultimoSeguimiento = $reporte['seguimiento'][count($reporte['seguimiento']) - 1];
+        $reporte['estado'] = $ultimoSeguimiento['estado_nuevo'];
+        $reporte['validador_nombre'] = $ultimoSeguimiento['validador_nombre'];
+        $reporte['comentario_validador'] = $ultimoSeguimiento['comentario'];
+        $reporte['gravedad_validacion'] = $ultimoSeguimiento['gravedad_validacion'];
+        $reporte['fecha_validacion'] = $ultimoSeguimiento['creado_en'];
+    }
+
     // Determinar si el usuario actual puede validar
     $rolActual = (int) ($_SESSION['usuario_rol'] ?? 0);
     $puedeValidar = in_array($rolActual, ReporteConductorSSTModel::ROLES_VALIDADOR, true);
@@ -613,7 +678,7 @@ function detalleVista($model)
  *
  * Parámetros POST:
  *   - id                   (int):    ID del reporte
- *   - estado               (string): Nuevo estado ('pendiente', 'revisado', 'resuelto')
+ *   - estado               (string): Nuevo estado ('pendiente', 'en_proceso', 'finalizado')
  *   - comentario           (string): Comentario del validador (se prefija automáticamente)
  *   - gravedad_validacion  (int):    Nivel de gravedad según validador (escala original)
  *

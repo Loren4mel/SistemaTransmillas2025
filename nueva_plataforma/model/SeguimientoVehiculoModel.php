@@ -1100,7 +1100,7 @@ class SeguimientoVehiculoModel
                 (tipo_evento, id_vehiculo, id_responsable, estado_general, kilometraje, observaciones, fecha_registro)
                 VALUES ('REVISION_SST', ?, ?, ?, ?, ?, NOW())";
         $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("iiiss", $idVehiculo, $idResponsable, $nuevoEstado, $kilometraje, $observaciones);
+        $stmt->bind_param("iisis", $idVehiculo, $idResponsable, $nuevoEstado, $kilometraje, $observaciones);
         return $stmt->execute();
     }
 

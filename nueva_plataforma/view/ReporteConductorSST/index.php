@@ -161,163 +161,182 @@
                                 </div>
                             </div>
 
-                            <!-- ===== TARJETAS DE PREGUNTAS (una por tipo) ===== -->
+                            <!-- ===== TARJETAS DE PREGUNTAS (una por tipo) - dinámicas ===== -->
                             <?php
-                            $preguntasConfig = [
-                                'accidente' => [
-                                    'emoji'       => '🚨',
-                                    'icono'       => 'fa-car-crash',
-                                    'titulo'      => '¿Sufrió algún accidente durante la semana?',
-                                    'desc'        => 'Reporte cualquier incidente de tránsito, así no haya tenido lesiones.',
-                                    'header_color'=> 'linear-gradient(135deg, #E05050, #C03030)',
-                                    'border_color'=> '#E05050',
-                                ],
-                                'comparendo' => [
-                                    'emoji'       => '🚔',
-                                    'icono'       => 'fa-ticket-alt',
-                                    'titulo'      => '¿Tuvo algún comparendo o llamado por parte de la Policía de Tránsito durante la semana?',
-                                    'desc'        => 'Comparendos, multas, retenes o cualquier interacción con autoridades de tránsito.',
-                                    'header_color'=> 'linear-gradient(135deg, #E8A020, #C88010)',
-                                    'border_color'=> '#E8A020',
-                                ],
+                            $coloresPorTipo = [
+                                'accidente' => ['borde' => '#E05050', 'header' => 'linear-gradient(135deg, #E05050, #C03030)'],
+                                'comparendo' => ['borde' => '#E8A020', 'header' => 'linear-gradient(135deg, #E8A020, #C88010)'],
                             ];
-
-                            // Guías de observación por tipo
-                            $guiasObservacion = [
-                                'accidente' => [
-                                    'Descripción detallada del siniestro',
-                                    'Tipos de afectaciones que hubo (materiales y/o personales)',
-                                    'En caso de acuerdo: informe del acuerdo al que se llegó, y una EVIDENCIA FÍSICA del mismo en los adjuntos',
-                                    'En caso de que se haya involucrado ente policial: informe y añada todo lo relativo a esto',
-                                ],
-                                'comparendo' => [
-                                    'Descripción detallada del comparendo',
-                                    'Entidad que impuso el comparendo o la inmovilización',
-                                    'Número o consecutivo del comparendo (si aplica)',
-                                    '¿Hubo inmovilización del vehículo? Detallar',
-                                    '¿Hubo afectación a la licencia de conducción?',
-                                ],
-                            ];
-
-                            // Información de niveles de gravedad
-                            $gravedadInfo = [
-                                'accidente' => [
-                                    ['nivel' => 1, 'etiqueta' => 'Baja', 'desc' => 'Daños materiales, ningún tipo de afectación a persona.'],
-                                    ['nivel' => 2, 'etiqueta' => 'Alta', 'desc' => 'Hay afectación física a alguna persona derivada del accidente, sea de la índole que sea.'],
-                                ],
-                                'comparendo' => [
-                                    ['nivel' => 1, 'etiqueta' => 'Normal', 'desc' => 'Multa sin inmovilización del vehículo.'],
-                                    ['nivel' => 2, 'etiqueta' => 'Media',  'desc' => 'Multa con inmovilización, sin afectación a la licencia de conducción.'],
-                                    ['nivel' => 3, 'etiqueta' => 'Alta',   'desc' => 'Multa con inmovilización y/o afectación a la licencia de conducción.'],
-                                ],
+                            $iconosPorTipo = [
+                                'accidente' => 'fa-car-crash',
+                                'comparendo' => 'fa-ticket-alt',
                             ];
                             ?>
-
                             <?php foreach ($tiposAMostrar as $tipo): ?>
-                                <?php $cfg = $preguntasConfig[$tipo]; ?>
-                                <div class="preop-card rcsst-question-card" style="border-left: 4px solid <?= $cfg['border_color'] ?>;">
-                                    <div class="preop-card-header" style="background: <?= $cfg['header_color'] ?>;">
-                                        <i class="fas <?= $cfg['icono'] ?>"></i>
-                                        <?= $cfg['titulo'] ?>
+                                <?php $color = $coloresPorTipo[$tipo] ?? $coloresPorTipo['accidente']; ?>
+                                <?php $icono = $iconosPorTipo[$tipo] ?? 'fa-clipboard-list'; ?>
+                                <div class="preop-card rcsst-question-card" style="border-left: 4px solid <?= $color['borde'] ?>;">
+                                    <div class="preop-card-header" style="background: <?= $color['header'] ?>;">
+                                        <i class="fas <?= $icono ?>"></i>
+                                        <?= htmlspecialchars(ucfirst($tipo)) ?>
                                     </div>
                                     <div class="preop-card-body">
 
-                                        <!-- Descripción -->
-                                        <p style="font-size: 13px; color: #888; margin: 0 0 14px 0;">
-                                            <?= $cfg['desc'] ?>
-                                        </p>
+                                        <input type="hidden" id="rcsst_respuesta_<?= $tipo; ?>" value="0">
 
-                                        <!-- Radio buttons Sí / No -->
-                                        <div class="question-item">
+                                        <!-- Toggle Si/No -->
+                                        <div class="question-item mb-2">
                                             <span class="question-text">Respuesta:</span>
                                             <div class="question-options">
                                                 <label class="radio-label rcsst-radio-<?= $tipo; ?>" data-valor="si" style="border-color: rgba(40,167,69,0.4); color: #1a7a30;">
-                                                    <input type="radio" name="<?= $tipo; ?>" value="si">
+                                                    <input type="radio" name="rcsst_rta_<?= $tipo; ?>" value="si">
                                                     <i class="fas fa-check-circle"></i> Sí
                                                 </label>
                                                 <label class="radio-label rcsst-radio-<?= $tipo; ?> rcsst-active" data-valor="no" style="border-color: rgba(220,53,69,0.4); color: #a01a24;">
-                                                    <input type="radio" name="<?= $tipo; ?>" value="no" checked>
+                                                    <input type="radio" name="rcsst_rta_<?= $tipo; ?>" value="no" checked>
                                                     <i class="fas fa-times-circle"></i> No
                                                 </label>
                                             </div>
                                         </div>
 
-                                        <input type="hidden" id="rcsst_respuesta_<?= $tipo; ?>" value="0">
+                                        <!-- Sin novedad -->
+                                        <div id="rcsst_sin_novedad_<?= $tipo; ?>" class="rcsst-sin-novedad rcsst-visible"
+                                             style="text-align: center; color: #999; font-size: 12px; font-style: italic; margin-top: 10px;">
+                                            Sin novedad registrada
+                                        </div>
 
-                                        <!-- Panel condicional: responde SÍ -->
                                         <div id="rcsst_panel_<?= $tipo; ?>" class="rcsst-panel-si" style="display: none;">
 
-                                            <!-- ===== SELECTOR DE GRAVEDAD ===== -->
-                                            <div class="rcsst-gravedad-section">
+                                            <!-- Gravedad -->
+                                            <div class="rcsst-gravedad-section mb-3">
                                                 <label class="rcsst-gravedad-label">
                                                     <i class="fas fa-exclamation-circle me-1"></i> Nivel de gravedad
                                                 </label>
-
-                                                <!-- Radio buttons de gravedad -->
                                                 <div class="rcsst-gravedad-radios" id="rcsst_gravedad_radios_<?= $tipo; ?>">
-                                                    <?php foreach ($gravedadInfo[$tipo] as $g): ?>
-                                                        <label class="rcsst-gravedad-radio rcsst-gravedad-radio--<?= $tipo; ?>" data-gravedad="<?= $g['nivel'] ?>">
-                                                            <input type="radio" name="rcsst_gravedad_<?= $tipo; ?>" value="<?= $g['nivel'] ?>">
-                                                            <span class="rcsst-gravedad-num"><?= $g['nivel'] ?></span>
-                                                            <span class="rcsst-gravedad-tag"><?= $g['etiqueta'] ?></span>
+                                                    <?php
+                                                    $nivelesGravedad = $gravedadLabels[$tipo] ?? [];
+                                                    foreach ($nivelesGravedad as $num => $info):
+                                                        $tag = $info['etiqueta'];
+                                                        $desc = $info['desc'];
+                                                        $claseTipo = 'rcsst-gravedad-radio--' . $tipo;
+                                                    ?>
+                                                        <label class="rcsst-gravedad-radio <?= $claseTipo ?>" data-gravedad="<?= $num ?>">
+                                                            <input type="radio" name="rcsst_gravedad_<?= $tipo; ?>" value="<?= $num ?>">
+                                                            <span class="rcsst-gravedad-num"><?= $num ?></span>
+                                                            <span class="rcsst-gravedad-tag"><?= htmlspecialchars($tag) ?></span>
+                                                            <span class="rcsst-gravedad-desc" style="display: block; font-size: 11px; color: #666; font-weight: 400; margin-top: 2px;">
+                                                                <?= htmlspecialchars($desc) ?>
+                                                            </span>
                                                         </label>
                                                     <?php endforeach; ?>
                                                 </div>
                                                 <input type="hidden" id="rcsst_gravedad_<?= $tipo; ?>" value="">
-
-                                                <!-- Tabla informativa de gravedad (siempre visible) -->
-                                                <div class="rcsst-info-label">
-                                                    <i class="fas fa-info-circle me-1"></i> Significado de cada nivel
-                                                </div>
-                                                <div class="rcsst-info-table-wrapper">
-                                                    <table class="rcsst-info-table">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Nivel</th>
-                                                                <th>Gravedad</th>
-                                                                <th>Descripción</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            <?php foreach ($gravedadInfo[$tipo] as $g): ?>
-                                                                <tr class="rcsst-info-row--<?= $g['etiqueta'] ?>">
-                                                                    <td class="rcsst-info-num"><?= $g['nivel'] ?></td>
-                                                                    <td class="rcsst-info-tag"><?= $g['etiqueta'] ?></td>
-                                                                    <td class="rcsst-info-desc"><?= $g['desc'] ?></td>
-                                                                </tr>
-                                                            <?php endforeach; ?>
-                                                        </tbody>
-                                                    </table>
-                                                </div>
                                             </div>
 
-                                            <!-- ===== GUÍA DE OBSERVACIÓN ===== -->
+                                            <?php if (isset($preguntasPorTipo[$tipo]) && !empty($preguntasPorTipo[$tipo])): ?>
+                                                <?php foreach ($preguntasPorTipo[$tipo] as $categoria): ?>
+                                                    <div class="rcsst-categoria mb-3">
+                                                        <h5 class="rcsst-categoria-titulo"><?= htmlspecialchars($categoria['nombre']) ?></h5>
+                                                        <?php if (!empty($categoria['descripcion'])): ?>
+                                                            <p class="rcsst-categoria-desc text-muted small"><?= htmlspecialchars($categoria['descripcion']) ?></p>
+                                                        <?php endif; ?>
+
+                                                        <?php foreach ($categoria['campos'] as $campo): ?>
+                                                            <?php
+                                                            // Si tiene padre, ocultar solo si necesita "si" (default es "no")
+                                                            $hiddenStyle = '';
+                                                            if ($campo['id_campo_padre']) {
+                                                                $hiddenStyle = ($campo['valor_padre'] === 'si') ? 'style="display:none;"' : '';
+                                                            }
+                                                            ?>
+                                                            <div class="rcsst-campo mb-2"
+                                                                 data-codigo="<?= htmlspecialchars($campo['codigo']) ?>"
+                                                                 data-id-campo="<?= (int) $campo['id_campo'] ?>"
+                                                                 data-padre="<?= (int) ($campo['id_campo_padre'] ?? 0) ?>"
+                                                                 data-valor-padre="<?= htmlspecialchars($campo['valor_padre'] ?? '') ?>"
+                                                                 data-requerido="<?= (int) $campo['requerido'] ?>"
+                                                                 <?= $hiddenStyle ?>>
+                                                                <label class="form-label"><?= htmlspecialchars($campo['etiqueta']) ?>
+                                                                    <?php if ($campo['requerido']): ?>
+                                                                        <span class="text-danger">*</span>
+                                                                    <?php endif; ?>
+                                                                </label>
+                                                                <?php if (!empty($campo['ayuda'])): ?>
+                                                                    <small class="form-text text-muted d-block mb-1" style="font-size: 11px; line-height: 1.3;">
+                                                                        <i class="fas fa-info-circle me-1"></i><?= htmlspecialchars($campo['ayuda']) ?>
+                                                                    </small>
+                                                                <?php endif; ?>
+
+                                                                <?php switch ($campo['tipo_respuesta']):
+                                                                    case 'SI_NO': ?>
+                                                                        <div class="d-flex gap-3">
+                                                                            <label class="radio-label">
+                                                                                <input type="radio" name="campo_<?= $campo['codigo'] ?>" value="si">
+                                                                                <i class="fas fa-check-circle"></i> Si
+                                                                            </label>
+                                                                            <label class="radio-label">
+                                                                                <input type="radio" name="campo_<?= $campo['codigo'] ?>" value="no" checked>
+                                                                                <i class="fas fa-times-circle"></i> No
+                                                                            </label>
+                                                                        </div>
+                                                                        <?php break; ?>
+                                                                    <?php case 'TEXTO': ?>
+                                                                        <input type="text" id="campo_<?= $campo['codigo'] ?>" class="form-control"
+                                                                               placeholder="<?= htmlspecialchars($campo['placeholder'] ?? '') ?>"
+                                                                               <?= $campo['requerido'] ? 'required' : '' ?>>
+                                                                        <?php break; ?>
+                                                                    <?php case 'TEXTO_LARGO': ?>
+                                                                        <textarea id="campo_<?= $campo['codigo'] ?>" class="form-control" rows="3"
+                                                                                  placeholder="<?= htmlspecialchars($campo['placeholder'] ?? '') ?>"
+                                                                                  <?= $campo['requerido'] ? 'required' : '' ?>></textarea>
+                                                                        <?php break; ?>
+                                                                    <?php case 'FECHA': ?>
+                                                                        <input type="date" id="campo_<?= $campo['codigo'] ?>" class="form-control"
+                                                                               <?= $campo['requerido'] ? 'required' : '' ?>>
+                                                                        <?php break; ?>
+                                                                    <?php case 'HORA': ?>
+                                                                        <input type="time" id="campo_<?= $campo['codigo'] ?>" class="form-control"
+                                                                               <?= $campo['requerido'] ? 'required' : '' ?>>
+                                                                        <?php break; ?>
+                                                                    <?php case 'NUMERO': ?>
+                                                                        <input type="number" id="campo_<?= $campo['codigo'] ?>" class="form-control"
+                                                                               placeholder="<?= htmlspecialchars($campo['placeholder'] ?? '') ?>"
+                                                                               <?= $campo['requerido'] ? 'required' : '' ?>>
+                                                                        <?php break; ?>
+                                                                    <?php case 'TELEFONO': ?>
+                                                                        <input type="tel" id="campo_<?= $campo['codigo'] ?>" class="form-control"
+                                                                               placeholder="<?= htmlspecialchars($campo['placeholder'] ?? '') ?>"
+                                                                               <?= $campo['requerido'] ? 'required' : '' ?>>
+                                                                        <?php break; ?>
+                                                                <?php endswitch; ?>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
+
+                                            <!-- Guía de observación -->
                                             <div class="rcsst-guia-obs" style="margin-top: 12px;">
                                                 <div class="rcsst-info-label rcsst-guia-label">
                                                     <i class="fas fa-lightbulb me-1"></i> ¿Qué debo incluir en la descripción?
                                                 </div>
                                                 <ul class="rcsst-guia-list">
-                                                    <?php foreach ($guiasObservacion[$tipo] as $item): ?>
-                                                        <li>
-                                                            <i class="fas fa-check-circle me-1"></i> <?= $item ?>
-                                                        </li>
-                                                    <?php endforeach; ?>
+                                                    <li><i class="fas fa-check-circle me-1"></i> Descripción detallada de lo sucedido</li>
+                                                    <li><i class="fas fa-check-circle me-1"></i> Daños materiales y/o personales (si aplica)</li>
+                                                    <li><i class="fas fa-check-circle me-1"></i> Entidad que intervino (Policía, aseguradora, etc.)</li>
+                                                    <li><i class="fas fa-check-circle me-1"></i> Acuerdos a los que se llegó (si aplica)</li>
                                                 </ul>
                                             </div>
 
-                                            <!-- Observación -->
+                                            <!-- Observaciones generales -->
                                             <div style="margin-top: 14px;">
                                                 <label class="fw-bold mb-2" style="font-size: 13px; color: #E07000;" for="rcsst_obs_<?= $tipo; ?>">
-                                                    <i class="fas fa-pen me-1"></i> Relato de lo sucedido
+                                                    <i class="fas fa-pen me-1"></i> Observaciones generales
                                                 </label>
-                                                <textarea
-                                                    id="rcsst_obs_<?= $tipo; ?>"
-                                                    class="form-textarea"
-                                                    rows="4"
-                                                ></textarea>
+                                                <textarea id="rcsst_obs_<?= $tipo; ?>" class="form-textarea" rows="4"></textarea>
                                             </div>
 
-                                            <!-- Recordatorio de subir evidencia -->
+                                            <!-- Recordatorio de evidencia -->
                                             <div class="rcsst-evidence-reminder" style="margin-top: 12px;">
                                                 <i class="fas fa-exclamation-triangle me-1"></i>
                                                 <strong>Importante:</strong> Debe adjuntar mínimo 4 evidencias del incidente (fotos, documentos). Todos los archivos son obligatorios.
@@ -328,36 +347,52 @@
                                                 <label class="photo-label">
                                                     <i class="fas fa-camera me-1"></i> Adjuntar evidencia (fotos o documentos)
                                                 </label>
-
-                                                <!-- Dropzone de archivos -->
                                                 <div id="rcsst_dropzone_<?= $tipo; ?>" class="rcsst-upload-dropzone"
                                                      style="border: 2px dashed rgba(7,79,145,0.4); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; background: rgba(7,79,145,0.03); transition: all 0.2s ease; margin-bottom: 10px;">
                                                     <div style="font-size: 28px;">📸</div>
                                                     <div style="font-size: 13px; color: #074F91; font-weight: 600;">Haga clic para tomar foto o seleccionar archivo</div>
-                                                    <div style="font-size: 11px; color: #888; margin-top: 2px;">JPG, PNG, PDF — máx. 10 MB por archivo — mínimo 4 archivos requeridos</div>
+                                                    <div style="font-size: 11px; color: #888; margin-top: 2px;">JPG, PNG, PDF — max. 10 MB por archivo</div>
                                                 </div>
                                                 <input type="file" id="rcsst_input_<?= $tipo; ?>"
                                                        class="rcsst-upload-input"
                                                        accept="image/*,.pdf" capture="environment" multiple
                                                        style="display: none;">
-
-                                                <!-- Vista previa de archivos -->
                                                 <div id="rcsst_preview_<?= $tipo; ?>" class="rcsst-preview-list"
                                                      style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
                                             </div>
-                                        </div>
 
-                                        <!-- Sin novedad (visible cuando responde No — preseleccionado) -->
-                                        <div id="rcsst_sin_novedad_<?= $tipo; ?>" class="rcsst-sin-novedad rcsst-visible"
-                                             style="text-align: center; color: #999; font-size: 12px; font-style: italic; margin-top: 10px;">
-                                            Sin novedad registrada
                                         </div>
-
-                                    </div><!-- /preop-card-body -->
-                                </div><!-- /preop-card -->
+                                    </div>
+                                </div>
                             <?php endforeach; ?>
 
                         </div><!-- /preop-sections-wrapper -->
+
+                        <!-- ===== TARJETA: FIRMA DEL CONDUCTOR ===== -->
+                        <div class="preop-card signature-card" style="border-left: 4px solid #074F91;">
+                            <div class="preop-card-header" style="background: linear-gradient(135deg, #074F91, #053A6E);">
+                                <i class="fas fa-signature"></i>
+                                FIRMA DEL CONDUCTOR
+                                <span class="format-indicator" style="background: rgba(255,255,255,0.25); color: #fff; margin-left: auto;">
+                                    OBLIGATORIO
+                                </span>
+                            </div>
+                            <div class="preop-card-body">
+                                <div class="signature-container">
+                                    <canvas id="signatureCanvasSST" width="400" height="200" class="signature-canvas"
+                                            style="border: 2px solid #ccc; border-radius: 8px; background: #fff; width: 100%; max-width: 400px; touch-action: none;"></canvas>
+                                    <div class="signature-controls" style="margin-top: 8px;">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" id="btnClearSignatureSST">
+                                            <i class="fas fa-eraser"></i> Limpiar Firma
+                                        </button>
+                                    </div>
+                                    <input type="hidden" name="firma_sst" id="firma_sst" value="">
+                                    <small class="text-muted d-block mt-2">
+                                        <i class="fas fa-info-circle"></i> Firme con el mouse o el dedo (en dispositivos táctiles)
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- ===== BOTÓN ENVIAR ===== -->
                         <div class="text-center mt-4">

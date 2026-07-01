@@ -85,6 +85,16 @@ function handleAjaxRequest($service)
                 $response = handleAsignarVehiculoInicial($service);
                 break;
 
+            case 'seleccionar_vehiculo_diario':
+                $response = handleSeleccionarVehiculoDiario($service);
+                break;
+
+            case 'obtener_datos_vehiculo':
+                $idV = (int) ($_POST['idvehiculo'] ?? 0);
+                $dataV = $idV > 0 ? $service->obtenerDatosVehiculoCompleto($idV) : null;
+                $response = ['success' => $dataV !== null, 'data' => $dataV];
+                break;
+
             default:
                 $response['message'] = "Acción '$accion' no reconocida";
                 break;
@@ -189,6 +199,24 @@ function handleAsignarVehiculoInicial($service)
 }
 
 /**
+ * Procesa la selección diaria de un vehículo distinto al permanente.
+ * El usuario sube fotos del estado del vehículo y se registra en
+ * seguimiento_vehiculo como ASIGNACION_VEHICULO.
+ * usu_vehiculo NO se modifica.
+ */
+function handleSeleccionarVehiculoDiario($service)
+{
+    $idVehiculo = (int) ($_POST['idvehiculo'] ?? 0);
+    $idUsuario = (int) ($_POST['id_usuario'] ?? $_SESSION['usuario_id'] ?? 0);
+
+    if ($idVehiculo <= 0) {
+        return ['success' => false, 'message' => 'Debe seleccionar un vehículo.'];
+    }
+
+    return $service->procesarSeleccionVehiculoDiario($idUsuario, $idVehiculo, $_FILES);
+}
+
+/**
  * Carga la vista principal del preoperacional
  */
 function loadView($service)
@@ -200,7 +228,6 @@ function loadView($service)
     $fecha = $_GET['fecha'] ?? date('Y-m-d');
     $preoperacional = $_GET['preoperacional'] ?? '';
     $idvehiculo = isset($_GET['idvehiculo']) ? (int) $_GET['idvehiculo'] : null;
-
     // Determinar el modo de operación
     $esCovid = ($param4 == 'covid19');
     $esValidacion = ($preoperacional == 'validarpreoperacional' || $param5 == 'valida' || $param5 == 'vista');
@@ -216,6 +243,17 @@ function loadView($service)
             echo "<h2>Acceso denegado</h2><p>Solo administradores pueden validar registros preoperacionales.</p>";
             exit;
         }
+    }
+
+    // Resolver vehículo para hoy (solo fuera de validación/vista):
+    // 1. Si hay ASIGNACION_VEHICULO para hoy → usar ese
+    // 2. Si usu_vehiculo está disponible → usar ese
+    // 3. Si no → null (sin vehículo)
+    // NOTA: usar date('Y-m-d') para la asignación diaria, NO $fecha (que puede venir
+    // de la URL con una fecha diferente). La ASIGNACION_VEHICULO siempre se crea
+    // con CURRENT_TIMESTAMP, por lo que debe buscarse con la fecha real de hoy.
+    if (!isset($_GET['idvehiculo']) && !$esValidacion && !$esSoloLectura) {
+        $idvehiculo = $service->obtenerVehiculoParaUsuarioHoy($iduser, date('Y-m-d'));
     }
 
     // Obtener datos del vehículo y usuario
@@ -309,6 +347,28 @@ function loadView($service)
         }
     }
 
+    // Cross-reference: si pre_kilrecorridos está vacío o es 0, rescatar el valor real
+    // desde seguimiento_vehiculo (que preserva el kilometraje original del conductor).
+    // Durante la validación, el input disabled no envía datos y pre_kilrecorridos se
+    // sobrescribe a 0; el valor real permanece en seguimiento_vehiculo.kilometraje.
+    if ($registroExistente && empty($registroExistente['pre_kilrecorridos'])) {
+        $db = (new Database())->connect();
+        $sqlKm = "SELECT kilometraje, img_kilometraje FROM seguimiento_vehiculo
+                  WHERE id_preoperacional = ? AND tipo_evento = 'PREOPERACIONAL' LIMIT 1";
+        $stmt = $db->prepare($sqlKm);
+        $stmt->bind_param("i", $registroExistente['idpreoperacinal']);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($row = $result->fetch_assoc()) {
+            if (!empty($row['kilometraje'])) {
+                $registroExistente['pre_kilrecorridos'] = $row['kilometraje'];
+            }
+            if (!empty($row['img_kilometraje']) && empty($registroExistente['pre_img_kilo'])) {
+                $registroExistente['pre_img_kilo'] = $row['img_kilometraje'];
+            }
+        }
+    }
+
     // Re-evaluar esCovid: param4 pudo ser auto-detectado del registro
     $esCovid = ($param4 == 'covid19');
 
@@ -385,6 +445,49 @@ function loadView($service)
                 if (isset($metadatosLegado[$clave]) && empty($valoresEncuestaRelacional[$clave])) {
                     $valoresEncuestaRelacional[$clave] = $metadatosLegado[$clave];
                 }
+            }
+        }
+    }
+
+    // Detectar si el preoperacional tuvo cambio voluntario de vehículo (todos los formatos)
+    $datosCambioVehiculo = null;
+    $fotosCambioVehiculo = [];
+    if ($registroExistente && !empty($registroExistente['preencuesta'])) {
+        $metadatosLegado = json_decode($registroExistente['preencuesta'], true) ?? [];
+        $detalles = $metadatosLegado['detalles'] ?? [];
+        if (($metadatosLegado['tipo_dato'] ?? '') === 'cambio_voluntario' && !empty($detalles)) {
+            // Resolver placas de los vehículos involucrados en el cambio
+            $idOrig = $detalles['vehiculo_original'] ?? 0;
+            $idSel = $detalles['vehiculo_seleccionado'] ?? 0;
+            $placaOrig = '';
+            $placaSel = '';
+            if ($idOrig > 0) {
+                $vModel = new VehiculosModel();
+                $vData = $vModel->obtenerVehiculoPorId($idOrig);
+                $placaOrig = $vData['veh_placa'] ?? '';
+            }
+            if ($idSel > 0) {
+                $vModel = new VehiculosModel();
+                $vData = $vModel->obtenerVehiculoPorId($idSel);
+                $placaSel = $vData['veh_placa'] ?? '';
+            }
+            $datosCambioVehiculo = [
+                'vehiculo_original' => ($placaOrig ? $placaOrig . ' ' : '') . '(id:' . $idOrig . ')',
+                'vehiculo_seleccionado' => ($placaSel ? $placaSel . ' ' : '') . '(id:' . $idSel . ')',
+                'descripcion' => $detalles['descripcion'] ?? '',
+                'observaciones' => $detalles['observaciones_cambio'] ?? '',
+            ];
+            // Obtener fotos del cambio y convertir rutas absolutas a URLs
+            if (!empty($registroExistente['idpreoperacinal'])) {
+                $fotosCambioVehiculo = $service->obtenerFotosCambioVehiculo($registroExistente['idpreoperacinal']);
+                // Convertir rutas absolutas del servidor a URLs accesibles desde el navegador
+                $diskProjectRoot = realpath(dirname(__DIR__, 2)); // ej: C:\xampp\htdocs\...\SistemaTransmillas2025
+                $urlProjectRoot = dirname(dirname(dirname($_SERVER['SCRIPT_NAME']))); // ej: /SistemaTransmillas2025
+                foreach ($fotosCambioVehiculo as &$foto) {
+                    $rutaRelativa = str_replace($diskProjectRoot, '', $foto['doc_ruta']);
+                    $foto['doc_url'] = $urlProjectRoot . str_replace('\\', '/', $rutaRelativa);
+                }
+                unset($foto);
             }
         }
     }
@@ -468,15 +571,10 @@ function loadView($service)
 
     // ==================== FIN DE SECCIONES POR ROL ====================
 
-    // ==================== ENTREGAS PENDIENTES (VALIDACIÓN) ====================
-    // Cuando el conductor reportó una novedad y cambió de vehículo, las entregas
-    // (FINAL del vehículo antiguo + INICIAL del nuevo) están vinculadas al
-    // REVISION_SST, no al vehículo actual. Las buscamos por el usuario conductor.
+    // ==================== SELECCIÓN DIARIA DE VEHÍCULO ====================
+    // [ELIMINADO] entregavehiculo: la selección del vehículo del día se resuelve
+    // al inicio de loadView() vía obtenerVehiculoParaUsuarioHoy().
     $entregasPendientes = ['final' => null, 'inicial' => null, 'seguimiento' => null];
-    if ($esValidacion) {
-        $idConductorParaEntregas = $registroExistente['preidusuario'] ?? $iduser;
-        $entregasPendientes = $service->obtenerEntregasPendientesPorUsuario($idConductorParaEntregas);
-    }
 
     // Limpiar buffer y cargar la vista
     // Calcular ruta base de la aplicación desde el servidor

@@ -473,12 +473,17 @@ class PreoperacionalEncuestaLegadoViewHelper
     /**
      * Tarjeta de validación para formato legado
      */
-    public static function renderValidacionLegadoCard($registroExistente)
+    public static function renderValidacionLegadoCard($registroExistente, $readonly = false)
     {
         $html = '<div class="preop-card validation-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-clipboard-check"></i> VALIDA PREOPERACIONAL Y COVID 19</div>';
         $html .= '<div class="preop-card-body">';
-        $html .= '<textarea name="param10" id="param10" class="form-textarea" placeholder="Descripción de la validación...">' . htmlspecialchars($registroExistente['pre_descvalidada'] ?? '') . '</textarea>';
+        $valor = htmlspecialchars($registroExistente['pre_descvalidada'] ?? '');
+        if ($readonly) {
+            $html .= '<p style="margin:0; white-space:pre-wrap;">' . ($valor ?: '<span style="color:#999;">—</span>') . '</p>';
+        } else {
+            $html .= '<textarea name="param10" id="param10" class="form-textarea" placeholder="Descripción de la validación...">' . $valor . '</textarea>';
+        }
         $html .= '</div></div>';
         return $html;
     }

@@ -508,10 +508,11 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Genera tarjeta de kilometraje
      */
-    public static function renderKilometrajeCard($registroExistente, $esValidacion = false)
+    public static function renderKilometrajeCard($registroExistente, $esValidacion = false, $ultimoKilometraje = 0)
     {
         $disabled = $esValidacion ? 'disabled' : '';
         $registro = $registroExistente ?? [];
+        $kmValor = htmlspecialchars($registro['pre_kilrecorridos'] ?? '');
         $tieneImagen = !empty($registro['pre_img_kilo']);
         // Texto: requerido siempre en modo nuevo (no validación)
         $requiredKm = !$esValidacion ? 'required' : '';
@@ -522,15 +523,59 @@ class PreoperacionalNuevaEncuestaViewHelper
         $html .= '<div class="preop-card-header"><i class="fas fa-tachometer-alt"></i> KILOMETRAJE ACTUAL</div>';
         $html .= '<div class="preop-card-body">';
         $html .= '<div style="margin-bottom:12px;">';
-        $html .= '<input name="kilometraje" id="kilometraje" value="' . htmlspecialchars($registro['pre_kilrecorridos'] ?? '') . '" class="form-input" placeholder="Ingrese kilometraje actual" ' . $requiredKm . ' ' . $disabled . '>';
+
+        if ($esValidacion && $kmValor !== '') {
+            // En validación/vista: mostrar el valor como texto legible
+            $html .= '<div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#f8f9fa; border-radius:8px; border:1px solid #e0e0e0;">';
+            $html .= '<span style="font-size:22px; font-weight:700; color:#074F91;">' . $kmValor . '</span>';
+            $html .= '<span style="font-size:14px; color:#666;">km</span>';
+            $html .= '<input type="hidden" name="kilometraje" value="' . $kmValor . '">';
+            $html .= '</div>';
+        } else {
+            // En edición: input normal
+            $html .= '<input name="kilometraje" id="kilometraje" value="' . $kmValor . '" class="form-input" placeholder="Ingrese kilometraje actual" ' . $requiredKm . ' ' . $disabled . ' data-ultimo-km="' . (int)$ultimoKilometraje . '">';
+        }
+
+        // Mostrar último kilometraje registrado (solo en modo edición, no validación)
+        if (!$esValidacion && $ultimoKilometraje > 0) {
+            $kmFormateado = number_format($ultimoKilometraje, 0, ',', '.');
+            $html .= '<div class="last-km-info" style="margin-top:8px; padding:8px 12px; background:#e8f4fd; border-radius:6px; font-size:13px; color:#074F91; display:flex; align-items:center; gap:8px;">';
+            $html .= '<i class="fas fa-history"></i>';
+            $html .= '<span>Último km registrado: <strong>' . $kmFormateado . '</strong> km</span>';
+            $html .= '</div>';
+        }
+
+        // Contenedor para alertas inline de kilometraje (JS)
+        $html .= '<div id="km-warnings" style="display:none; margin-top:8px;"></div>';
+
         $html .= '</div>';
         $html .= '<div>';
-        $html .= '<label style="font-weight:600;font-size:14px;color:#555;">Imagen Kilometraje:</label>';
-        $html .= '<input type="file" name="imagen_kilometraje" class="photo-input" ' . $requiredFoto . ' ' . $disabled . '>';
+        $html .= '<label style="font-weight:600;font-size:14px;color:#555;display:block;margin-bottom:8px;">Imagen Kilometraje:</label>';
+
+        if (!$esValidacion) {
+            $html .= '<input type="file" name="imagen_kilometraje" class="photo-input" ' . $requiredFoto . ' ' . $disabled . '>';
+        }
+
         if ($tieneImagen) {
             $url = self::rutaAbsolutaAUrl($registro['pre_img_kilo']);
-            $html .= '<br><a href="' . htmlspecialchars($url) . '" target="_blank" style="font-size:13px;">Ver imagen actual</a>';
+
+            if ($esValidacion) {
+                // En validación: foto visible inline como thumbnail clickable
+                $html .= '<div class="kilo-photo-container" style="margin-top:8px;">';
+                $html .= '<a href="' . htmlspecialchars($url) . '" target="_blank" title="Click para ver ampliada">';
+                $html .= '<img src="' . htmlspecialchars($url) . '" alt="Foto del kilometraje" style="max-width:100%; max-height:220px; border-radius:8px; border:2px solid rgba(0,0,0,0.1); cursor:pointer; transition:opacity 0.2s;" onerror="this.style.display=\'none\'" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">';
+                $html .= '</a>';
+                $html .= '<div style="margin-top:6px;">';
+                $html .= '<a href="' . htmlspecialchars($url) . '" target="_blank" style="font-size:13px; color:#074F91;">';
+                $html .= '<i class="fas fa-external-link-alt"></i> Ver ampliada</a>';
+                $html .= '</div>';
+                $html .= '</div>';
+            } else {
+                // En edición: solo enlace a la imagen existente
+                $html .= '<br><a href="' . htmlspecialchars($url) . '" target="_blank" style="font-size:13px;">Ver imagen actual</a>';
+            }
         }
+
         // Hidden para indicar al JS si ya existe imagen previa (no exigir re-subida)
         $html .= '<input type="hidden" id="pre_img_kilo_existente" value="' . ($tieneImagen ? '1' : '0') . '">';
         $html .= '</div></div></div>';
@@ -554,25 +599,35 @@ class PreoperacionalNuevaEncuestaViewHelper
     /**
      * Genera tarjeta de acción correctiva (solo validación)
      */
-    public static function renderAccionCorrectivaCard($registroExistente)
+    public static function renderAccionCorrectivaCard($registroExistente, $readonly = false)
     {
         $html = '<div class="preop-card observations-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-tools"></i> ACCIÓN CORRECTIVA</div>';
         $html .= '<div class="preop-card-body">';
-        $html .= '<textarea name="accion_correctiva" id="accion_correctiva" class="form-textarea" placeholder="Describa la acción correctiva...">' . htmlspecialchars($registroExistente['pre_correctiva'] ?? '') . '</textarea>';
+        $valor = htmlspecialchars($registroExistente['pre_correctiva'] ?? '');
+        if ($readonly) {
+            $html .= '<p style="margin:0; white-space:pre-wrap;">' . ($valor ?: '<span style="color:#999;">—</span>') . '</p>';
+        } else {
+            $html .= '<textarea name="accion_correctiva" id="accion_correctiva" class="form-textarea" placeholder="Describa la acción correctiva...">' . $valor . '</textarea>';
+        }
         $html .= '</div></div>';
         return $html;
     }
 
     /**
-     * Genera tarjeta de responsable (solo validación)
+     * Genera tarjeta de responsable (solo validación/vista)
      */
-    public static function renderResponsableCard($registroExistente)
+    public static function renderResponsableCard($registroExistente, $readonly = false)
     {
         $html = '<div class="preop-card observations-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-user-check"></i> RESPONSABLE</div>';
         $html .= '<div class="preop-card-body">';
-        $html .= '<input name="responsable" id="responsable" value="' . htmlspecialchars($registroExistente['pre_responsable'] ?? '') . '" class="form-input" placeholder="Nombre del responsable">';
+        $valor = htmlspecialchars($registroExistente['pre_responsable'] ?? '');
+        if ($readonly) {
+            $html .= '<p style="margin:0;">' . ($valor ?: '<span style="color:#999;">—</span>') . '</p>';
+        } else {
+            $html .= '<input name="responsable" id="responsable" value="' . $valor . '" class="form-input" placeholder="Nombre del responsable">';
+        }
         $html .= '</div></div>';
         return $html;
     }
@@ -641,9 +696,9 @@ class PreoperacionalNuevaEncuestaViewHelper
     }
 
     /**
-     * Tarjeta de validación (solo modo validación)
+     * Tarjeta de validación (solo modo validación/vista)
      */
-    public static function renderValidacionCard($registroExistente, $esNuevoFormato = true)
+    public static function renderValidacionCard($registroExistente, $esNuevoFormato = true, $readonly = false)
     {
         $html = '<div class="preop-card validation-card">';
         $html .= '<div class="preop-card-header"><i class="fas fa-clipboard-check"></i> VALIDA PREOPERACIONAL</div>';
@@ -651,13 +706,23 @@ class PreoperacionalNuevaEncuestaViewHelper
 
         $html .= '<div style="margin-bottom:12px;">';
         $html .= '<label style="font-weight:600;font-size:14px;color:#555;display:block;margin-bottom:4px;">Descripción de la validación:</label>';
-        $html .= '<textarea name="desc_validacion" id="desc_validacion" class="form-textarea" placeholder="Describa la validación...">' . htmlspecialchars($registroExistente['pre_descvalidada'] ?? '') . '</textarea>';
+        $descValor = htmlspecialchars($registroExistente['pre_descvalidada'] ?? '');
+        if ($readonly) {
+            $html .= '<p style="margin:0; white-space:pre-wrap;">' . ($descValor ?: '<span style="color:#999;">—</span>') . '</p>';
+        } else {
+            $html .= '<textarea name="desc_validacion" id="desc_validacion" class="form-textarea" placeholder="Describa la validación...">' . $descValor . '</textarea>';
+        }
         $html .= '</div>';
 
         if ($esNuevoFormato) {
             $html .= '<div>';
             $html .= '<label style="font-weight:600;font-size:14px;color:#555;display:block;margin-bottom:4px;">Observaciones adicionales:</label>';
-            $html .= '<textarea name="observaciones_validacion" id="observaciones_validacion" class="form-textarea" placeholder="Observaciones para la validación del preoperacional"></textarea>';
+            $obsValor = htmlspecialchars($registroExistente['pre_observacionvalida'] ?? '');
+            if ($readonly) {
+                $html .= '<p style="margin:0; white-space:pre-wrap;">' . ($obsValor ?: '<span style="color:#999;">—</span>') . '</p>';
+            } else {
+                $html .= '<textarea name="observaciones_validacion" id="observaciones_validacion" class="form-textarea" placeholder="Observaciones para la validación del preoperacional">' . $obsValor . '</textarea>';
+            }
             $html .= '</div>';
         }
 

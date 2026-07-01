@@ -1,0 +1,46 @@
+/* AdminCuestionarios - Estilos */
+.admin-cuestionarios-container {
+    padding: 15px;
+}
+
+.plantillas-list .list-group-item {
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.plantillas-list .list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.version-item {
+    border-left: 3px solid #0d6efd;
+}
+
+.section-item {
+    border-left: 3px solid #6c757d;
+}
+
+.pequenas-acciones .btn-link {
+    text-decoration: none;
+    padding: 0.1rem 0.3rem;
+}
+
+.pequenas-acciones .btn-link:hover {
+    text-decoration: underline;
+}
+
+.versiones-container,
+.secciones-container,
+.preguntas-container {
+    font-size: 0.9rem;
+}
+
+.preguntas-container code {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.preop-fields,
+.sst-fields {
+    border: 1px solid #dee2e6;
+}
